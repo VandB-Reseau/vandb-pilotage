@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-test
+captures
+test-results
+playwright-report
+.env
+.env.local
+*.local
+.env.production
