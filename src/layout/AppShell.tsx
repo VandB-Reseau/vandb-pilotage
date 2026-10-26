@@ -22,6 +22,7 @@ import AccountCircleOutlined from '@mui/icons-material/AccountCircleOutlined'
 import LogoutOutlined from '@mui/icons-material/LogoutOutlined'
 import StorefrontOutlined from '@mui/icons-material/StorefrontOutlined'
 import TuneOutlined from '@mui/icons-material/TuneOutlined'
+import TrendingUpOutlined from '@mui/icons-material/TrendingUpOutlined'
 import { Logo } from '../components/Logo'
 import { useAuth } from '../auth/AuthContext'
 import { estDirecteur, roleLibelle } from '../auth/roles'
@@ -38,10 +39,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { pathname } = useLocation()
   const [menuCompte, setMenuCompte] = useState<HTMLElement | null>(null)
 
-  // Paramètres réseau : Directeur seul, comme dans l'app réseau
+  // Hypothèses et paramètres réseau : Directeur seul, comme les référentiels de l'app réseau
   const destinations: Destination[] = [
     { chemin: '/', nom: 'Magasins', icone: <StorefrontOutlined /> },
-    ...(estDirecteur(profil) ? [{ chemin: '/parametres', nom: 'Paramètres réseau', icone: <TuneOutlined /> }] : []),
+    ...(estDirecteur(profil) ? [
+      { chemin: '/hypotheses', nom: 'Hypothèses', icone: <TrendingUpOutlined /> },
+      { chemin: '/parametres', nom: 'Paramètres réseau', icone: <TuneOutlined /> },
+    ] : []),
   ]
   const active = destinations.find((d) => d.chemin !== '/' && pathname.startsWith(d.chemin))?.chemin ?? '/'
 

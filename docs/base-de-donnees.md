@@ -3,7 +3,7 @@
 Même base Supabase que l'app réseau. Le pilotage n'écrit que dans le schéma `pilotage` ; il lit l'app réseau par ses
 fonctions (`mon_role()`, `est_directeur()`, `magasins_visibles()`, `mes_magasins()`) et sa table `perimetre_equipe`.
 
-Mis à jour le 26/10/2026 (migration `0001`).
+Mis à jour le 26/10/2026 (migration `0002`).
 
 ## Principes
 
@@ -18,8 +18,12 @@ Mis à jour le 26/10/2026 (migration `0001`).
 | Table | Contenu | Clé | Lecture | Écriture |
 | --- | --- | --- | --- | --- |
 | `parametres_reseau` | Paramètres de l'année : `valeur` jsonb (`tauxRedevance`, `tauxPublicite`, `impot`, `tvaPanier`) | `annee` | Comptes ouverts | Directeur |
-| `budgets` | Budget d'un magasin pour une année : `statut` (`propose`, `en_discussion`, `valide`), `proposition` (hypothèses du siège), `hypotheses` (retenues), `valide_le` | `store_name`, `annee` | Magasins du compte | Création et suppression : Directeur. Modification : Directeur, franchisé sur ses magasins |
+| `budgets` | Budget d'un magasin pour une année : `statut` (`propose`, `en_discussion`, `valide`), `base` (réalisé importé du prévisionnel), `ajustements` (écarts du magasin aux cibles, format `Cibles`), `proposition` (base proposée par le siège), `hypotheses` (hypothèses calculées au dernier enregistrement, figées à la validation), `valide_le` | `store_name`, `annee` | Magasins du compte | Création et suppression : Directeur. Modification : Directeur, franchisé sur ses magasins |
 | `reel_mensuel` | Réel par mois, univers (`cave`, `bar`, `exterieur`) et famille : `ca_ht`, `marge_ht`, `tickets` | `store_name`, `mois`, `univers`, `famille` | Magasins du compte | Directeur (import) |
+| `groupes` | Groupes libres de magasins (centre-ville, zone commerciale…) : `nom` | `id` | Équipe | Directeur |
+| `groupe_magasins` | Groupe d'un magasin (un au plus) | `store_name` | Équipe | Directeur |
+| `cibles_reseau` | Cibles du réseau pour l'année : `valeur` (format `Cibles`) | `annee` | Équipe | Directeur |
+| `cibles_groupe` | Cibles d'un groupe pour l'année : `valeur` (format `Cibles`) | `groupe_id`, `annee` | Équipe | Directeur |
 | `journal_migrations` | Migrations du pilotage passées | `numero` | Directeur | Migrations |
 
 ## Circuit du budget (déclencheur `garde_budget`)
@@ -27,14 +31,18 @@ Mis à jour le 26/10/2026 (migration `0001`).
 - Le Directeur crée le budget (proposition du siège) et peut tout modifier ; passer en `valide` date `valide_le`.
 - Un franchisé modifie les `hypotheses` de ses magasins : le budget passe `en_discussion`. Il ne touche ni à la
   `proposition`, ni au statut `valide`, ni à un budget déjà validé.
-- Coachs et RR lisent sans écrire.
+- Un franchisé modifie les `ajustements` de ses magasins (même effet) ; la `base` n'est modifiable que par le Directeur
+  (déclencheur `garde_base`, distinct pour que rejouer `0001` seule ne le retire pas).
+- Coachs et RR lisent sans écrire. Le franchisé ne lit pas les tables de groupes et de cibles : il les reçoit par
+  `budgets_du_compte()`, limitées au réseau et au groupe de ses magasins.
 
 ## Fonctions
 
 | Fonction | Rôle |
 | --- | --- |
 | `pilotage.mes_magasins()` | Magasins du compte connecté |
-| `pilotage.magasins_du_compte(annee)` | Magasins du compte avec statut, hypothèses et date du budget de l'année |
+| `pilotage.magasins_du_compte(annee)` | Magasins du compte avec statut, hypothèses et date du budget de l'année (lot 0, remplacée dans l'app par la suivante) |
+| `pilotage.budgets_du_compte(annee)` | `{ magasins, reseau, groupes }` : budgets du compte (base, ajustements, hypothèses, groupe), cibles du réseau, groupes utiles au compte avec leurs cibles |
 
 ## Format des hypothèses (`budgets.hypotheses`)
 
@@ -42,3 +50,10 @@ Objet `Hypotheses` de `src/moteur/types.ts` : année, mois réalisés, CA mensue
 par univers (facultative), familles (univers, famille, CA réalisé, marge réalisée, évolution, marge visée), flux Cave et
 Bar, personnel (salaires mensuels, gérance, heures), lignes de frais (grille de `src/moteur/parametres.ts`),
 amortissements, intérêts, capital remboursé, déficit reportable.
+
+## Format des cibles (`cibles_reseau.valeur`, `cibles_groupe.valeur`, `budgets.ajustements`)
+
+Objet `Cibles` de `src/moteur/cibles.ts`, chaque clé facultative : `evolutionUnivers` (par univers), `evolutionFamille`
+et `margeFamille` (par famille, clé `univers/famille`, par exemple `cave/Bière`), `hausseSalaires`, `inflationFrais`,
+`evolutionFlux` (`cave`, `bar`). Une clé absente reprend le niveau au-dessus : magasin, puis groupe, puis réseau, puis le
+réalisé du magasin (évolution nulle, marge réalisée).

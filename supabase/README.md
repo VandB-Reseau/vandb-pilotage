@@ -6,6 +6,7 @@ une migration par changement, numérotée dans l'ordre où elle s'applique. Cart
 | Migration | Contenu | Date |
 | --- | --- | --- |
 | `0001_socle_pilotage` | Schéma `pilotage`, `mes_magasins()`, paramètres réseau, budgets et leur circuit, réel mensuel, `magasins_du_compte()`, journal | 26/10/2026 |
+| `0002_hypotheses_par_niveaux` | Groupes de magasins, cibles du réseau et des groupes, base et ajustements du budget (`garde_base`), `budgets_du_compte()` | 26/10/2026 |
 
 ## Passer une migration
 
