@@ -22,6 +22,7 @@ import { useTheme } from '@mui/material/styles'
 import SearchOutlined from '@mui/icons-material/SearchOutlined'
 import { useAuth } from '../auth/AuthContext'
 import { EtatVide } from '../components/EtatVide'
+import { Indicateur } from '../components/Indicateur'
 import { Panne } from '../components/Panne'
 import { PastilleStatut } from '../components/PastilleStatut'
 import { anneeBudget, chargerBudgets, chargerParametres, hypothesesDe } from '../data/pilotage'
@@ -29,6 +30,7 @@ import { useChargement } from '../data/useChargement'
 import { correspond, filtrerMagasins, FILTRES, type Filtre } from '../lib/aFaire'
 import { dateHeure, lienMagasin, milliers, taux } from '../lib/format'
 import { calculerBudget } from '../moteur/budget'
+import { syntheseBudgets } from '../moteur/sante'
 
 export function Magasins() {
   const { profil } = useAuth()
@@ -61,6 +63,7 @@ export function Magasins() {
 
   const tous = donnees?.magasins ?? []
   const visibles = useMemo(() => filtrerMagasins(tous, filtre, recherche, groupe), [tous, filtre, recherche, groupe])
+  const synthese = tous.length > 1 ? syntheseBudgets(tous) : null
   const etat = { liste: visibles.map((m) => m.magasin), retour: params.toString() }
 
   const entete = (
@@ -88,6 +91,14 @@ export function Magasins() {
 
       {donnees && tous.length > 0 && (
         <>
+          {synthese && (
+            <Box component="section" aria-label={`Budgets ${annee} en chiffres`} sx={{ display: 'grid', gap: 2, mb: 4, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' } }}>
+              <Indicateur libelle={`Budgets ${annee} validés`} valeur={`${synthese.valides} sur ${synthese.magasins}`} detail={`${synthese.avecBudget} magasin${synthese.avecBudget > 1 ? 's' : ''} avec un budget`} />
+              <Indicateur libelle="CA HT budgété" valeur={milliers(synthese.ca)} detail={`Somme des ${synthese.avecBudget} budgets`} />
+              <Indicateur libelle="EBE budgété" valeur={milliers(synthese.ebe)} detail={`${taux(synthese.ebeSurCA)} du CA`} />
+              <Indicateur libelle="Fiches à compléter" valeur={String(synthese.aCompleter)} detail="Équipe ou frais à renseigner" />
+            </Box>
+          )}
           {(tous.length > 5 || donnees.groupes.length > 0) && (
             <Stack direction="row" spacing={2} useFlexGap sx={{ mb: 2, flexWrap: 'wrap' }}>
               {tous.length > 5 && (
