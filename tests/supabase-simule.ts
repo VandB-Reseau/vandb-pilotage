@@ -56,7 +56,7 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
   let parametres = options.parametres === null ? null : options.parametres ?? { tauxRedevance: 0.02, tauxPublicite: 0.01 }
   // Filtres PostgREST utilisés par l'app : eq, gte, lte, in
   const filtrer = <T extends Record<string, unknown>>(lignes: T[], params: URLSearchParams) => lignes.filter((l) => [...params.entries()].every(([k, v]) => {
-    if (k === 'select' || k === 'order') return true
+    if (k === 'select' || k === 'order' || k === 'offset' || k === 'limit') return true
     const [op, ...reste] = v.split('.')
     const x = reste.join('.'), y = String(l[k])
     if (op === 'in') return x.replace(/^\(|\)$/g, '').split(',').map((v) => v.replace(/^"|"$/g, '')).includes(y)
@@ -145,8 +145,10 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
       return route.fulfill({ status: 204, body: '' })
     }
     if (table === 'reel_mensuel' || table === 'reel_tickets') return route.fulfill({ json: filtrer(reel[table], url.searchParams) })
-    if (table === 'equipe') return route.fulfill({ json: equipe })
-    if (table === 'frais') return route.fulfill({ json: frais })
+    // Pages de 1 000 lignes au plus, comme l'API
+    const page = <T,>(l: T[]) => { const de = Number(url.searchParams.get('offset') ?? 0); return l.slice(de, de + Math.min(1000, Number(url.searchParams.get('limit') ?? 1000))) }
+    if (table === 'equipe') return route.fulfill({ json: page(equipe) })
+    if (table === 'frais') return route.fulfill({ json: page(frais) })
     if (table === 'codes_caisse') return route.fulfill({ json: [...codes].sort((a, b) => a.code.localeCompare(b.code)) })
     if (url.pathname === '/rest/v1/parametres_reseau') {
       const lignes = parametres === null ? [] : [{ valeur: parametres }]

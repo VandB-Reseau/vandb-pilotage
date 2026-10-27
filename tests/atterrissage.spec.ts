@@ -67,7 +67,9 @@ test('le Coach renseigne les frais : lignes courantes, part du CA, emprunts, lig
 })
 
 test('une ligne de frais s’ajoute depuis la grille ; un montant illisible est signalé', async ({ page }) => {
-  await seConnecter(page, { role: 'franchise', frais: [loyer(MAGASINS[0])] })
+  // 1 200 lignes d'autres magasins avant la sienne : la lecture se fait par pages de 1 000
+  const autres = Array.from({ length: 1200 }, (_, i) => ({ ...loyer(`Magasin ${i}`), code: 'telecom' }))
+  await seConnecter(page, { role: 'franchise', frais: [...autres, loyer(MAGASINS[0])] })
   await page.getByText(MAGASINS[0], { exact: true }).click()
   await page.getByRole('tab', { name: 'Frais' }).click()
   await expect(page.getByLabel('Locations immobilières', { exact: true })).toHaveValue('60000')

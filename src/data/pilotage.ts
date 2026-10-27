@@ -238,12 +238,24 @@ const versPersonne = (l: LigneEquipe): Personne => ({
   entree: l.entree?.slice(0, 7) ?? null, sortie: l.sortie?.slice(0, 7) ?? null,
 })
 
+// Toutes les lignes d'une table, par pages : l'API renvoie au plus 1 000 lignes par appel
+const PAGE = 1000
+async function toutesLesLignes<T>(page: (de: number, a: number) => PromiseLike<{ data: unknown[] | null; error: unknown }>): Promise<T[]> {
+  const lignes: T[] = []
+  for (let de = 0; ; de += PAGE) {
+    const { data, error } = await page(de, de + PAGE - 1)
+    if (error) throw new ErreurChargement()
+    lignes.push(...((data ?? []) as T[]))
+    if (!data || data.length < PAGE) return lignes
+  }
+}
+
 // Équipes de tous les magasins du compte (la base ne renvoie que ceux de son périmètre)
 export async function chargerEquipes(): Promise<Record<string, Personne[]>> {
-  const { data, error } = await pilotage().from('equipe').select('id, store_name, poste, categorie, heures_hebdo, brut_mensuel, primes, entree, sortie').order('id')
-  if (error) throw new ErreurChargement()
+  const lignes = await toutesLesLignes<LigneEquipe>((de, a) =>
+    pilotage().from('equipe').select('id, store_name, poste, categorie, heures_hebdo, brut_mensuel, primes, entree, sortie').order('id').range(de, a))
   const r: Record<string, Personne[]> = {}
-  for (const l of (data ?? []) as LigneEquipe[]) (r[l.store_name] ??= []).push(versPersonne(l))
+  for (const l of lignes) (r[l.store_name] ??= []).push(versPersonne(l))
   return r
 }
 
@@ -261,11 +273,11 @@ export async function supprimerPersonne(id: number) {
 
 // ── Frais (lot 4)
 export async function chargerFrais(): Promise<Record<string, LigneFraisMagasin[]>> {
-  const { data, error } = await pilotage().from('frais').select('store_name, code, libelle, rubrique, annuel, taux_ca').order('code')
-  if (error) throw new ErreurChargement()
+  const lignes = await toutesLesLignes<{ store_name: string; code: string; libelle: string; rubrique: string; annuel: unknown; taux_ca: unknown }>((de, a) =>
+    pilotage().from('frais').select('store_name, code, libelle, rubrique, annuel, taux_ca').order('store_name').order('code').range(de, a))
   const r: Record<string, LigneFraisMagasin[]> = {}
   const num = (x: unknown) => (x === null || x === undefined ? null : Number(x))
-  for (const l of (data ?? []) as { store_name: string; code: string; libelle: string; rubrique: string; annuel: unknown; taux_ca: unknown }[]) {
+  for (const l of lignes) {
     (r[l.store_name] ??= []).push({ code: l.code, libelle: l.libelle, rubrique: l.rubrique, annuel: num(l.annuel), tauxCA: num(l.taux_ca) })
   }
   return r
