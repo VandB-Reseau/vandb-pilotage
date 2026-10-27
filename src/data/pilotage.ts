@@ -3,6 +3,7 @@ import { calculerBudget } from '../moteur/budget'
 import { appliquerCibles, type Cibles, type NiveauCibles, type Provenance } from '../moteur/cibles'
 import { parametresParDefaut } from '../moteur/parametres'
 import type { TicketsMois, VenteMois } from '../import/caisse'
+import { fraisDepuisLignes, type LigneFraisMagasin } from '../moteur/atterrissage'
 import type { Categorie, ParametresCharges, Personne } from '../moteur/equipe'
 import type { LigneReel, TicketsReel } from '../moteur/reel'
 import type { Hypotheses, ParametresReseau, Univers } from '../moteur/types'
@@ -20,7 +21,7 @@ export interface LigneMagasin {
   majLe: string | null
 }
 export interface Groupe { id: number; nom: string; cibles: Cibles | null }
-export interface DonneesBudgets { magasins: LigneMagasin[]; reseau: Cibles | null; groupes: Groupe[]; equipes: Record<string, Personne[]> }
+export interface DonneesBudgets { magasins: LigneMagasin[]; reseau: Cibles | null; groupes: Groupe[]; equipes: Record<string, Personne[]>; frais: Record<string, LigneFraisMagasin[]> }
 
 // Les budgets se préparent à partir de septembre pour l'année suivante
 export function anneeBudget(aujourdhui = new Date()): number {
@@ -39,7 +40,7 @@ export class ErreurChargement extends Error {}
 const objet = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x)
 
 export async function chargerBudgets(annee: number): Promise<DonneesBudgets> {
-  const [{ data, error }, equipes] = await Promise.all([pilotage().rpc('budgets_du_compte', { p_annee: annee }), chargerEquipes()])
+  const [{ data, error }, equipes, frais] = await Promise.all([pilotage().rpc('budgets_du_compte', { p_annee: annee }), chargerEquipes(), chargerFrais()])
   if (error || !objet(data) || !Array.isArray(data.magasins)) throw new ErreurChargement()
   const lignes = data.magasins as { magasin: string; statut: Statut | null; base: unknown; ajustements: unknown; hypotheses: unknown; maj_le: string | null; groupe_id: number | null }[]
   return {
@@ -53,6 +54,7 @@ export async function chargerBudgets(annee: number): Promise<DonneesBudgets> {
     reseau: objet(data.reseau) ? (data.reseau as Cibles) : null,
     groupes: Array.isArray(data.groupes) ? (data.groupes as { id: number; nom: string; cibles: unknown }[]).map((g) => ({ id: g.id, nom: g.nom, cibles: objet(g.cibles) ? (g.cibles as Cibles) : null })) : [],
     equipes,
+    frais,
   }
 }
 
@@ -63,10 +65,14 @@ export function niveauxDe(ligne: LigneMagasin, d: DonneesBudgets, ajustements: C
 }
 
 // Hypothèses qui font foi : figées une fois le budget validé, sinon recalculées avec les cibles du moment
-// L'équipe enregistrée du magasin remplace le personnel de sa base ; un budget validé garde l'équipe du jour de la validation.
+// L'équipe et les frais enregistrés du magasin remplacent ceux de sa base ; un budget validé garde ceux du jour de la validation.
+export function avecEquipeEtFrais(base: Hypotheses, equipe: Personne[] | undefined, frais: LigneFraisMagasin[] | undefined): Hypotheses {
+  let h = equipe?.length ? { ...base, equipe } : base
+  if (frais?.length) { const f = fraisDepuisLignes(frais); h = { ...h, frais: f.frais, ...f.finances } }
+  return h
+}
 export function hypothesesDe(ligne: LigneMagasin, d: DonneesBudgets, ajustements?: Cibles): { hypotheses: Hypotheses; provenance: Provenance[] } | null {
-  const equipe = d.equipes[ligne.magasin]
-  const base = ligne.base && equipe?.length ? { ...ligne.base, equipe } : ligne.base
+  const base = ligne.base ? avecEquipeEtFrais(ligne.base, d.equipes[ligne.magasin], d.frais[ligne.magasin]) : null
   if (base && !(ligne.statut === 'valide' && ligne.figees)) return appliquerCibles(base, niveauxDe(ligne, d, ajustements))
   if (ligne.figees) return { hypotheses: ligne.figees, provenance: ligne.base ? appliquerCibles(ligne.base, niveauxDe(ligne, d, ajustements)).provenance : [] }
   return null
@@ -232,12 +238,24 @@ const versPersonne = (l: LigneEquipe): Personne => ({
   entree: l.entree?.slice(0, 7) ?? null, sortie: l.sortie?.slice(0, 7) ?? null,
 })
 
+// Toutes les lignes d'une table, par pages : l'API renvoie au plus 1 000 lignes par appel
+const PAGE = 1000
+async function toutesLesLignes<T>(page: (de: number, a: number) => PromiseLike<{ data: unknown[] | null; error: unknown }>): Promise<T[]> {
+  const lignes: T[] = []
+  for (let de = 0; ; de += PAGE) {
+    const { data, error } = await page(de, de + PAGE - 1)
+    if (error) throw new ErreurChargement()
+    lignes.push(...((data ?? []) as T[]))
+    if (!data || data.length < PAGE) return lignes
+  }
+}
+
 // Équipes de tous les magasins du compte (la base ne renvoie que ceux de son périmètre)
 export async function chargerEquipes(): Promise<Record<string, Personne[]>> {
-  const { data, error } = await pilotage().from('equipe').select('id, store_name, poste, categorie, heures_hebdo, brut_mensuel, primes, entree, sortie').order('id')
-  if (error) throw new ErreurChargement()
+  const lignes = await toutesLesLignes<LigneEquipe>((de, a) =>
+    pilotage().from('equipe').select('id, store_name, poste, categorie, heures_hebdo, brut_mensuel, primes, entree, sortie').order('id').range(de, a))
   const r: Record<string, Personne[]> = {}
-  for (const l of (data ?? []) as LigneEquipe[]) (r[l.store_name] ??= []).push(versPersonne(l))
+  for (const l of lignes) (r[l.store_name] ??= []).push(versPersonne(l))
   return r
 }
 
@@ -251,4 +269,26 @@ export async function enregistrerPersonne(magasin: string, p: Personne) {
 }
 export async function supprimerPersonne(id: number) {
   verifier(await pilotage().from('equipe').delete().eq('id', id))
+}
+
+// ── Frais (lot 4)
+export async function chargerFrais(): Promise<Record<string, LigneFraisMagasin[]>> {
+  const lignes = await toutesLesLignes<{ store_name: string; code: string; libelle: string; rubrique: string; annuel: unknown; taux_ca: unknown }>((de, a) =>
+    pilotage().from('frais').select('store_name, code, libelle, rubrique, annuel, taux_ca').order('store_name').order('code').range(de, a))
+  const r: Record<string, LigneFraisMagasin[]> = {}
+  const num = (x: unknown) => (x === null || x === undefined ? null : Number(x))
+  for (const l of lignes) {
+    (r[l.store_name] ??= []).push({ code: l.code, libelle: l.libelle, rubrique: l.rubrique, annuel: num(l.annuel), tauxCA: num(l.taux_ca) })
+  }
+  return r
+}
+
+// Enregistre les lignes du magasin et retire celles qui n'y sont plus
+export async function enregistrerFrais(magasin: string, lignes: LigneFraisMagasin[], retirees: string[]) {
+  if (lignes.length) {
+    verifier(await pilotage().from('frais').upsert(lignes.map((l) => ({
+      store_name: magasin, code: l.code, libelle: l.libelle, rubrique: l.rubrique, annuel: l.tauxCA === null ? l.annuel ?? 0 : null, taux_ca: l.tauxCA,
+    }))))
+  }
+  if (retirees.length) verifier(await pilotage().from('frais').delete().eq('store_name', magasin).in('code', retirees))
 }

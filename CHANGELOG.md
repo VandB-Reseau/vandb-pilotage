@@ -5,6 +5,20 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+## Lot 4 — Frais et atterrissage (27/10/2026)
+
+- Onglet Frais de la fiche magasin : les frais de l'année ligne par ligne sur la grille du réseau, regroupés par rubrique,
+  chaque ligne en euros par an ou en part du CA ; emprunts et amortissements à part. Départ possible des lignes
+  courantes (loyer, énergie, honoraires…). Saisie par le Directeur, le RR, le Coach ou le franchisé sur leurs magasins.
+- Onglet Atterrissage de l'année en cours : réel des mois passés, mois restants projetés sur la saisonnalité de l'an
+  dernier (ou la moyenne des mois réalisés), avec l'équipe et les frais du magasin. Compte de résultat et mois par mois,
+  mois projetés distingués du réel.
+- Le Directeur propose le budget de l'an prochain directement à partir de l'atterrissage ; les cibles du réseau, du
+  groupe et du magasin s'y appliquent comme avant.
+- Fiche plus légère : un seul onglet Réel avec le choix de l'année ; une seule barre d'enregistrement, en bas d'écran.
+- Équipes et frais lus par pages de 1 000 lignes : au-delà, l'API tronquait silencieusement (réseau complet).
+- Base : `0005_frais.sql` (table `frais`). À passer avant d'utiliser cette version.
+
 ## Lot 3 — Équipe et masse salariale (27/10/2026)
 
 - Onglet Équipe de la fiche magasin : une ligne par poste, sans nom (« Vendeur 1 », « Gérant »), avec catégorie, heures,

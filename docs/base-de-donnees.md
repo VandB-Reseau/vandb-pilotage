@@ -3,7 +3,7 @@
 Même base Supabase que l'app réseau. Le pilotage n'écrit que dans le schéma `pilotage` ; il lit l'app réseau par ses
 fonctions (`mon_role()`, `est_directeur()`, `magasins_visibles()`, `mes_magasins()`) et sa table `perimetre_equipe`.
 
-Mis à jour le 27/10/2026 (migration `0004`).
+Mis à jour le 27/10/2026 (migration `0005`).
 
 ## Principes
 
@@ -23,6 +23,7 @@ Mis à jour le 27/10/2026 (migration `0004`).
 | `reel_tickets` | Tickets par mois et univers (un ticket ne se compte pas par famille) : `tickets`, `maj_par` | `store_name`, `mois`, `univers` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
 | `codes_caisse` | Code magasin de la caisse (fichiers de la DSI) → nom du magasin, un code par magasin | `code` | Équipe | Directeur |
 | `equipe` | Équipe d'un magasin, une ligne par poste sans nom : `poste`, `categorie` (`employe`, `agent_maitrise`, `cadre`, `apprenti`, `gerant_tns`), `heures_hebdo`, `brut_mensuel` (rémunération pour un gérant TNS), `primes` (`[{mois, montant}]`), `entree` et `sortie` (1er du mois, facultatives), `maj_le`, `maj_par` | `id` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
+| `frais` | Frais annuels d'un magasin, une ligne par code de la grille (`src/moteur/parametres.ts`) : `code`, `libelle`, `rubrique` (rubriques de la grille, plus `hors_exploitation` pour `amortissements`, `interets`, `remboursement_capital`), `annuel` (€ par an) ou `taux_ca` (part du CA HT), l'un ou l'autre, `maj_le`, `maj_par` | `store_name`, `code` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
 | `groupes` | Groupes libres de magasins (centre-ville, zone commerciale…) : `nom` | `id` | Équipe | Directeur |
 | `groupe_magasins` | Groupe d'un magasin (un au plus) | `store_name` | Équipe | Directeur |
 | `cibles_reseau` | Cibles du réseau pour l'année : `valeur` (format `Cibles`) | `annee` | Équipe | Directeur |
@@ -65,7 +66,8 @@ amortissements, intérêts, capital remboursé, déficit reportable.
 Objet `ParametresCharges` de `src/moteur/equipe.ts` : `taux` par catégorie (part du brut, avant réduction) et `reduction`
 (`smicAnnuel`, `tmin`, `tdelta`, `puissance`, `horsReduction`). Une valeur absente reprend celle par défaut
 (`src/moteur/parametres.ts`, valeurs 2026). Le budget d'un magasin qui a une équipe porte aussi `equipe` et
-`hausseSalaires` dans ses hypothèses : un budget validé garde l'équipe du jour de la validation.
+`hausseSalaires` dans ses hypothèses : un budget validé garde l'équipe du jour de la validation. De même, les frais
+enregistrés dans `frais` remplacent ceux de la base du budget tant qu'il n'est pas validé.
 
 ## Format des cibles (`cibles_reseau.valeur`, `cibles_groupe.valeur`, `budgets.ajustements`)
 

@@ -9,11 +9,11 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
 
 | Dossier | Contenu |
 | --- | --- |
-| `src/moteur/` | Moteur de calcul pur : `types.ts` (hypothèses, résultats), `budget.ts` (calcul), `cibles.ts` (hypothèses par niveaux réseau, groupe, magasin), `parametres.ts` (paramètres par défaut, grille des frais), `reel.ts` (synthèse du réel d'une année, familles de la caisse), `saisieReel.ts` (saisie d'un mois à la main), `equipe.ts` (masse salariale chargée personne par personne, réduction générale), `saisieEquipe.ts` (fiche d'un poste) |
+| `src/moteur/` | Moteur de calcul pur : `types.ts` (hypothèses, résultats), `budget.ts` (calcul), `cibles.ts` (hypothèses par niveaux réseau, groupe, magasin), `parametres.ts` (paramètres par défaut, grille des frais), `reel.ts` (synthèse du réel d'une année, familles de la caisse), `saisieReel.ts` (saisie d'un mois à la main), `equipe.ts` (masse salariale chargée personne par personne, réduction générale), `saisieEquipe.ts` (fiche d'un poste), `atterrissage.ts` (atterrissage de l'année depuis le réel, base du budget suivant, frais du magasin), `saisieFrais.ts` (saisie des frais) |
 | `src/import/` | Lecture des fichiers mensuels de la DSI (`caisse.ts` : ventes, tickets, aperçu avant import ; format dans [import-caisse.md](import-caisse.md)) |
 | `src/data/` | Lecture de la base (`pilotage.ts`), chargement avec nouvelle tentative (`useChargement.ts`) |
 | `src/auth/` | Connexion et rôle lu dans la base |
-| `src/pages/` | Connexion, Magasins, fiche Magasin (onglets Budget, Équipe, Réel de l'année et de la précédente avec saisie d'un mois), Hypothèses (cibles du réseau et des groupes), Imports de caisse (fichiers de la DSI, codes caisse), Paramètres réseau (dont charges sociales) |
+| `src/pages/` | Connexion, Magasins, fiche Magasin (onglets Budget, Atterrissage de l'année en cours, Réel avec choix de l'année et saisie d'un mois, Équipe, Frais), Hypothèses (cibles du réseau et des groupes), Imports de caisse (fichiers de la DSI, codes caisse), Paramètres réseau (dont charges sociales) |
 | `src/layout/` | Cadre : barre du haut, menu latéral sur PC, barre basse sur téléphone |
 | `supabase/` | Migrations du schéma `pilotage` et leurs tests |
 | `tests/` | `moteur/` (calculs, sans navigateur), écrans sur PC et téléphone avec Supabase simulé |
@@ -31,13 +31,18 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
 5. Équipe : `chargerBudgets` lit aussi l'équipe des magasins du compte. Quand un magasin en a une, `hypothesesDe` la place
    dans ses hypothèses et `calculerBudget` calcule le personnel par `masseSalariale` (taux de la catégorie moins la
    réduction générale, hausse des salaires des cibles) au lieu des salaires saisis en bloc.
+6. Frais : lus avec les budgets (`chargerFrais`) ; comme l'équipe, ils remplacent frais, amortissements et emprunts de la
+   base tant que le budget n'est pas validé (`avecEquipeEtFrais`).
+7. Atterrissage : `baseDepuisReel` part du réel de l'année (mois passés) et projette les mois restants sur la
+   saisonnalité de chaque univers l'année précédente (à défaut, la moyenne réalisée) ; `calculerBudget` en tire le compte
+   de résultat. Le Directeur en fait la base du budget de l'an prochain (« Proposer le budget »), que les cibles ajustent.
 
 ## Rôles
 
 | Rôle | Voit | Écrit |
 | --- | --- | --- |
 | Directeur de réseau | Tous les magasins, hypothèses, paramètres, imports | Paramètres, cibles, groupes, budgets (valide, rouvre), réel (import et saisie), codes caisse, équipes, charges sociales |
-| Responsable Régional, Coach | Magasins de leur périmètre | Réel et équipe de leurs magasins |
+| Responsable Régional, Coach | Magasins de leur périmètre | Réel, équipe et frais de leurs magasins |
 | Franchisé | Ses magasins, avec les cibles qui s'y appliquent | Ajustements de son budget tant qu'il n'est pas validé, réel et équipe de ses magasins |
 
 ## Plan par lots

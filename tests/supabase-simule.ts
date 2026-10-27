@@ -16,6 +16,7 @@ export interface MagasinSimule {
 export interface VenteSimulee { store_name: string; mois: string; univers: string; famille: string; ca_ht: number; ca_ttc: number | null; marge_ht: number | null }
 export interface TicketsSimules { store_name: string; mois: string; univers: string; tickets: number }
 export interface PersonneSimulee { id: number; store_name: string; poste: string; categorie: string; heures_hebdo: number; brut_mensuel: number; primes: { mois: number; montant: number }[]; entree: string | null; sortie: string | null }
+export interface FraisSimule { store_name: string; code: string; libelle: string; rubrique: string; annuel: number | null; taux_ca: number | null }
 export interface GroupeSimule { id: number; nom: string; cibles: Record<string, unknown> | null }
 export interface OptionsSimulation {
   role?: 'directeur' | 'rr' | 'coach' | 'franchise' | 'aucun'
@@ -27,6 +28,7 @@ export interface OptionsSimulation {
   tickets?: TicketsSimules[]
   codes?: { code: string; store_name: string }[]
   equipe?: PersonneSimulee[]
+  frais?: FraisSimule[]
   panne?: boolean
   panneEcriture?: boolean
 }
@@ -50,12 +52,14 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
   const reel = { reel_mensuel: structuredClone(options.reel ?? []) as (VenteSimulee | TicketsSimules)[], reel_tickets: structuredClone(options.tickets ?? []) as (VenteSimulee | TicketsSimules)[] }
   let codes = structuredClone(options.codes ?? [])
   let equipe = structuredClone(options.equipe ?? [])
+  let frais = structuredClone(options.frais ?? [])
   let parametres = options.parametres === null ? null : options.parametres ?? { tauxRedevance: 0.02, tauxPublicite: 0.01 }
-  // Filtres PostgREST utilisés par l'app : eq, gte, lte
+  // Filtres PostgREST utilisés par l'app : eq, gte, lte, in
   const filtrer = <T extends Record<string, unknown>>(lignes: T[], params: URLSearchParams) => lignes.filter((l) => [...params.entries()].every(([k, v]) => {
-    if (k === 'select' || k === 'order') return true
+    if (k === 'select' || k === 'order' || k === 'offset' || k === 'limit') return true
     const [op, ...reste] = v.split('.')
     const x = reste.join('.'), y = String(l[k])
+    if (op === 'in') return x.replace(/^\(|\)$/g, '').split(',').map((v) => v.replace(/^"|"$/g, '')).includes(y)
     return op === 'eq' ? y === x : op === 'gte' ? y >= x : op === 'lte' ? y <= x : true
   }))
   await page.route('https://supabase.test/**', async (route) => {
@@ -132,12 +136,19 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
         else if (req.method() === 'PATCH') equipe = equipe.map((p) => (p.id === id ? { ...p, ...(corps as object) } : p))
         else equipe.push({ ...(corps as PersonneSimulee), id: Math.max(0, ...equipe.map((p) => p.id)) + 1 })
       }
+      if (table === 'frais') {
+        if (req.method() === 'DELETE') { const retirer = new Set(filtrer(frais, url.searchParams)); frais = frais.filter((l) => !retirer.has(l)) }
+        else for (const l of ([] as FraisSimule[]).concat(corps as FraisSimule)) frais = [...frais.filter((x) => !(x.store_name === l.store_name && x.code === l.code)), l]
+      }
       if (table === 'parametres_reseau') parametres = (corps as { valeur: Record<string, unknown> }).valeur
       if (table === 'groupe_magasins' && m) m.groupe_id = req.method() === 'DELETE' ? null : (corps as { groupe_id: number }).groupe_id
       return route.fulfill({ status: 204, body: '' })
     }
     if (table === 'reel_mensuel' || table === 'reel_tickets') return route.fulfill({ json: filtrer(reel[table], url.searchParams) })
-    if (table === 'equipe') return route.fulfill({ json: equipe })
+    // Pages de 1 000 lignes au plus, comme l'API
+    const page = <T,>(l: T[]) => { const de = Number(url.searchParams.get('offset') ?? 0); return l.slice(de, de + Math.min(1000, Number(url.searchParams.get('limit') ?? 1000))) }
+    if (table === 'equipe') return route.fulfill({ json: page(equipe) })
+    if (table === 'frais') return route.fulfill({ json: page(frais) })
     if (table === 'codes_caisse') return route.fulfill({ json: [...codes].sort((a, b) => a.code.localeCompare(b.code)) })
     if (url.pathname === '/rest/v1/parametres_reseau') {
       const lignes = parametres === null ? [] : [{ valeur: parametres }]
