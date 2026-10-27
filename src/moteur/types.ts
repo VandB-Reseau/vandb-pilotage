@@ -1,3 +1,5 @@
+import type { ParametresCharges, Personne } from './equipe'
+
 // Hypothèses et résultats du budget d'un magasin. Tous les montants sont HT, en euros ; les taux sont des fractions (0,38 = 38 %).
 
 export type Univers = 'cave' | 'bar' | 'exterieur'
@@ -42,6 +44,8 @@ export interface Hypotheses {
   interets: number                    // intérêts d'emprunts de l'année
   remboursementCapital: number        // capital d'emprunts remboursé dans l'année
   deficitReportable: number
+  equipe?: Personne[]                 // équipe du magasin : remplace salaires, gérance et heures du personnel
+  hausseSalaires?: number             // indexation appliquée aux salaires de l'équipe
 }
 
 // Fixés par le siège chaque année, communs au réseau
@@ -50,6 +54,7 @@ export interface ParametresReseau {
   tauxPublicite: number   // 1 % du CA HT, charge externe au-dessus de l'EBE
   impot: { tauxReduit: number; plafondTauxReduit: number; tauxNormal: number }
   tvaPanier: Record<'cave' | 'bar', number> // TVA moyenne pour passer d'un panier TTC à un CA HT
+  charges: ParametresCharges
 }
 
 export interface Mois {

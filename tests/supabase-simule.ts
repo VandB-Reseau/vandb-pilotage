@@ -15,6 +15,7 @@ export interface MagasinSimule {
 }
 export interface VenteSimulee { store_name: string; mois: string; univers: string; famille: string; ca_ht: number; ca_ttc: number | null; marge_ht: number | null }
 export interface TicketsSimules { store_name: string; mois: string; univers: string; tickets: number }
+export interface PersonneSimulee { id: number; store_name: string; poste: string; categorie: string; heures_hebdo: number; brut_mensuel: number; primes: { mois: number; montant: number }[]; entree: string | null; sortie: string | null }
 export interface GroupeSimule { id: number; nom: string; cibles: Record<string, unknown> | null }
 export interface OptionsSimulation {
   role?: 'directeur' | 'rr' | 'coach' | 'franchise' | 'aucun'
@@ -25,6 +26,7 @@ export interface OptionsSimulation {
   reel?: VenteSimulee[]
   tickets?: TicketsSimules[]
   codes?: { code: string; store_name: string }[]
+  equipe?: PersonneSimulee[]
   panne?: boolean
   panneEcriture?: boolean
 }
@@ -47,6 +49,8 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
   let reseau = options.reseau ?? null
   const reel = { reel_mensuel: structuredClone(options.reel ?? []) as (VenteSimulee | TicketsSimules)[], reel_tickets: structuredClone(options.tickets ?? []) as (VenteSimulee | TicketsSimules)[] }
   let codes = structuredClone(options.codes ?? [])
+  let equipe = structuredClone(options.equipe ?? [])
+  let parametres = options.parametres === null ? null : options.parametres ?? { tauxRedevance: 0.02, tauxPublicite: 0.01 }
   // Filtres PostgREST utilisés par l'app : eq, gte, lte
   const filtrer = <T extends Record<string, unknown>>(lignes: T[], params: URLSearchParams) => lignes.filter((l) => [...params.entries()].every(([k, v]) => {
     if (k === 'select' || k === 'order') return true
@@ -122,13 +126,21 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
         if (req.method() === 'DELETE') codes = codes.filter((c) => c.code !== url.searchParams.get('code')?.replace(/^eq\./, ''))
         else { const c = corps as { code: string; store_name: string }; codes = [...codes.filter((x) => x.code !== c.code), c] }
       }
+      if (table === 'equipe') {
+        const id = Number(url.searchParams.get('id')?.replace(/^eq\./, ''))
+        if (req.method() === 'DELETE') equipe = equipe.filter((p) => p.id !== id)
+        else if (req.method() === 'PATCH') equipe = equipe.map((p) => (p.id === id ? { ...p, ...(corps as object) } : p))
+        else equipe.push({ ...(corps as PersonneSimulee), id: Math.max(0, ...equipe.map((p) => p.id)) + 1 })
+      }
+      if (table === 'parametres_reseau') parametres = (corps as { valeur: Record<string, unknown> }).valeur
       if (table === 'groupe_magasins' && m) m.groupe_id = req.method() === 'DELETE' ? null : (corps as { groupe_id: number }).groupe_id
       return route.fulfill({ status: 204, body: '' })
     }
     if (table === 'reel_mensuel' || table === 'reel_tickets') return route.fulfill({ json: filtrer(reel[table], url.searchParams) })
+    if (table === 'equipe') return route.fulfill({ json: equipe })
     if (table === 'codes_caisse') return route.fulfill({ json: [...codes].sort((a, b) => a.code.localeCompare(b.code)) })
     if (url.pathname === '/rest/v1/parametres_reseau') {
-      const lignes = options.parametres === null ? [] : [{ valeur: options.parametres ?? { tauxRedevance: 0.02, tauxPublicite: 0.01 } }]
+      const lignes = parametres === null ? [] : [{ valeur: parametres }]
       const objet = (req.headers()['accept'] ?? '').includes('vnd.pgrst.object')
       if (objet) return lignes.length ? route.fulfill({ json: lignes[0] }) : route.fulfill({ status: 406, json: { code: 'PGRST116', message: 'no rows' } })
       return route.fulfill({ json: lignes })

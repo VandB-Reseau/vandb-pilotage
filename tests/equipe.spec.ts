@@ -1,0 +1,122 @@
+import { expect, test } from '@playwright/test'
+import { magasinFictif, MAGASINS } from './donnees-fictives'
+import { seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule, type PersonneSimulee } from './supabase-simule'
+
+// Équipe et masse salariale : postes sans nom, coût chargé avec la réduction générale, effet sur le budget.
+// Données fictives uniquement : dépôt public. Paramètres par défaut : employé 35 %, gérant TNS 33 %, SMIC 21 876,40 €.
+
+const N = new Date().getFullYear()
+const avecBase: MagasinSimule[] = [{ magasin: MAGASINS[0], statut: 'propose', hypotheses: magasinFictif, base: magasinFictif, ajustements: {}, maj_le: '2026-10-20T09:30:00Z' }]
+const reseau = { hausseSalaires: 0.02 }
+const equipe: PersonneSimulee[] = [
+  { id: 1, store_name: MAGASINS[0], poste: 'Vendeur 1', categorie: 'employe', heures_hebdo: 35, brut_mensuel: 1823.03, primes: [], entree: null, sortie: null },
+  { id: 2, store_name: MAGASINS[0], poste: 'Gérant', categorie: 'gerant_tns', heures_hebdo: 45, brut_mensuel: 3000, primes: [], entree: null, sortie: null },
+]
+
+test.beforeEach(async ({ page }) => {
+  const erreurs: string[] = []
+  page.on('pageerror', (e) => erreurs.push(e.message))
+  ;(page as unknown as { erreurs: string[] }).erreurs = erreurs
+})
+test.afterEach(async ({ page }) => {
+  expect((page as unknown as { erreurs: string[] }).erreurs, 'aucune erreur JavaScript').toEqual([])
+})
+
+test('le franchisé ajoute un vendeur au SMIC : coût chargé, réduction générale et budget recalculé', async ({ page, isMobile }, info) => {
+  const ecritures = await seConnecter(page, { role: 'franchise', magasins: avecBase, reseau })
+  await page.getByText(MAGASINS[0], { exact: true }).click()
+  await page.getByRole('tab', { name: 'Équipe' }).click()
+  await expect(page.getByText('Pas encore d’équipe')).toBeVisible()
+  await page.getByRole('button', { name: 'Ajouter un poste' }).click()
+  const fiche = page.getByRole('dialog', { name: 'Nouveau poste' })
+  await expect(fiche.getByLabel('Poste')).toHaveValue('Vendeur 1')
+  await fiche.getByRole('button', { name: 'Enregistrer' }).click()
+  await expect(fiche.getByText('Le salaire brut mensuel est à renseigner.')).toBeVisible()
+  await fiche.getByLabel('Brut mensuel').fill('1823,03')
+  await fiche.getByRole('button', { name: 'Prime' }).click()
+  await fiche.getByLabel('Montant de la prime 1').fill('')
+  expect(await textesTropPetits(page)).toEqual([])
+  if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
+  await page.screenshot({ path: `captures/${info.project.name}-fiche-poste.png` })
+  await fiche.getByRole('button', { name: 'Enregistrer' }).click()
+  await expect(page.getByText('Vendeur 1 enregistré dans l’équipe.')).toBeVisible()
+  expect(ecritures.find((e) => e.table === 'equipe')?.corps).toEqual({
+    store_name: MAGASINS[0], poste: 'Vendeur 1', categorie: 'employe', heures_hebdo: 35, brut_mensuel: 1823.03, primes: [], entree: null, sortie: null,
+  })
+  // Au SMIC, la réduction couvre 33,77 points sur 35 : 21 876,36 × 1,0123 ; l'an prochain, + 2 % de salaires
+  const ligne = page.getByRole('table', { name: 'Postes et coût chargé' }).getByRole('row', { name: /Vendeur 1/ })
+  await expect(ligne).toContainText(/1,2\s%/)
+  await expect(ligne).toContainText(/22\s145\s€/)
+  await expect(ligne).toContainText(/22\s588\s€/)
+  await expect(page.getByRole('region', { name: 'Masse salariale en chiffres' })).toContainText('Hausse des salaires : 2,0')
+  await page.getByRole('tab', { name: /^Budget/ }).click()
+  await expect(page.getByRole('table', { name: 'Compte de résultat annuel' }).getByRole('row', { name: /Frais de personnel/ })).toContainText(/22\s588\s€/)
+})
+
+test('le Directeur prévoit une prime et un départ, retire un poste ; le tableau suit', async ({ page, isMobile }, info) => {
+  const ecritures = await seConnecter(page, { magasins: avecBase, reseau, equipe })
+  await page.getByText(MAGASINS[0], { exact: true }).click()
+  await page.getByRole('tab', { name: 'Équipe' }).click()
+  const tableau = page.getByRole('table', { name: 'Postes et coût chargé' })
+  // Gérant TNS : 3 000 × 12 × 1,33, sans réduction
+  await expect(tableau.getByRole('row', { name: /Gérant/ })).toContainText(/47\s880\s€/)
+  await expect(page.getByRole('region', { name: 'Masse salariale en chiffres' })).toContainText('2 postes')
+  expect(await textesTropPetits(page)).toEqual([])
+  if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
+  await page.screenshot({ path: `captures/${info.project.name}-equipe.png`, fullPage: true })
+
+  await page.getByRole('button', { name: 'Modifier Vendeur 1' }).click()
+  const fiche = page.getByRole('dialog', { name: 'Modifier Vendeur 1' })
+  await fiche.getByRole('button', { name: 'Prime' }).click()
+  await fiche.getByLabel('Montant de la prime 1').fill('500')
+  await fiche.getByLabel('Départ').click()
+  await page.getByRole('option', { name: `juin ${N + 1}` }).click()
+  await fiche.getByRole('button', { name: 'Enregistrer' }).click()
+  await expect(page.getByText('Vendeur 1 enregistré dans l’équipe.')).toBeVisible()
+  const envoi = ecritures.find((e) => e.table === 'equipe' && e.methode === 'PATCH')
+  expect(envoi?.filtre).toContain('id=eq.1')
+  expect(envoi?.corps).toMatchObject({ primes: [{ mois: 12, montant: 500 }], sortie: `${N + 1}-06-01` })
+  await expect(tableau.getByRole('row', { name: /Vendeur 1/ })).toContainText(`Jusqu’à juin ${N + 1}`)
+
+  await page.getByRole('button', { name: 'Retirer Gérant' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Retirer' }).click()
+  await expect(page.getByText('Gérant retiré de l’équipe.')).toBeVisible()
+  expect(ecritures.find((e) => e.table === 'equipe' && e.methode === 'DELETE')?.filtre).toContain('id=eq.2')
+  await expect(tableau.getByRole('row', { name: /Gérant/ })).toHaveCount(0)
+})
+
+test('le Directeur ajuste les taux de charges du réseau', async ({ page, isMobile }) => {
+  const ecritures = await seConnecter(page)
+  await page.getByRole('link', { name: /Paramètres/ }).click()
+  const charges = page.getByRole('region', { name: 'Charges sociales' })
+  await expect(charges.getByLabel('Charges patronales : Employé')).toHaveValue('35')
+  await expect(charges.getByLabel('Réduction générale : taux dégressif')).toHaveValue('37,81')
+  await expect(charges.getByLabel('SMIC annuel brut')).toHaveValue('21876,4')
+  await charges.getByLabel('Charges patronales : Employé').fill('36,5')
+  await charges.getByRole('button', { name: 'Enregistrer' }).click()
+  await expect(page.getByText(/Charges sociales \d{4} enregistrées\./)).toBeVisible()
+  const valeur = (ecritures.find((e) => e.table === 'parametres_reseau')?.corps as { valeur: { charges: { taux: Record<string, number>; reduction: Record<string, number> }; tauxRedevance: number } }).valeur
+  expect(valeur.charges.taux.employe).toBe(0.365)
+  expect(valeur.charges.reduction.smicAnnuel).toBe(21_876.4)
+  expect(valeur.tauxRedevance).toBe(0.02)
+  expect(await textesTropPetits(page)).toEqual([])
+  if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
+})
+
+test('un Coach complète l’équipe d’un magasin de son périmètre', async ({ page }) => {
+  const ecritures = await seConnecter(page, { role: 'coach', magasins: avecBase, reseau, equipe })
+  await page.getByText(MAGASINS[0], { exact: true }).click()
+  await page.getByRole('tab', { name: 'Équipe' }).click()
+  await page.getByRole('button', { name: 'Ajouter un poste' }).click()
+  const fiche = page.getByRole('dialog', { name: 'Nouveau poste' })
+  await expect(fiche.getByLabel('Poste')).toHaveValue('Vendeur 2')
+  await fiche.getByLabel('Heures par semaine').fill('24')
+  await fiche.getByLabel('Brut mensuel').fill('1 250')
+  await fiche.getByLabel('Arrivée').click()
+  await page.getByRole('option', { name: `mars ${N + 1}` }).click()
+  await fiche.getByRole('button', { name: 'Enregistrer' }).click()
+  await expect(page.getByText('Vendeur 2 enregistré dans l’équipe.')).toBeVisible()
+  expect(ecritures.find((e) => e.table === 'equipe' && e.methode === 'POST')?.corps).toMatchObject({ heures_hebdo: 24, brut_mensuel: 1250, entree: `${N + 1}-03-01` })
+  // Arrivée l'an prochain : rien cette année
+  await expect(page.getByRole('table', { name: 'Postes et coût chargé' }).getByRole('row', { name: /Vendeur 2/ })).toContainText(/0\s€/)
+})

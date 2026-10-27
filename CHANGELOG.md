@@ -5,6 +5,18 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+## Lot 3 — Équipe et masse salariale (27/10/2026)
+
+- Onglet Équipe de la fiche magasin : une ligne par poste, sans nom (« Vendeur 1 », « Gérant »), avec catégorie, heures,
+  brut mensuel, primes annuelles au mois de versement, arrivée et départ au mois. Saisie par le Directeur, le RR, le Coach
+  ou le franchisé, chacun sur ses magasins. Coût chargé de l'année en cours et de l'année budgétée, équivalents temps plein.
+- Charges patronales par catégorie (employé, agent de maîtrise, cadre, apprenti, gérant TNS) moins la réduction générale
+  dégressive (ex-réduction Fillon), calculée salarié par salarié sur son brut annuel ; pas de réduction pour un gérant
+  TNS. Valeurs 2026 par défaut, modifiables par le Directeur dans les Paramètres réseau (décision de Joseph, 27/10/2026).
+- Budget : quand le magasin a une équipe, les frais de personnel et le CA par heure viennent d'elle ; la hausse des
+  salaires des cibles s'applique au brut de chacun.
+- Base : `0004_equipe.sql` (table `equipe`). À passer avant d'utiliser cette version.
+
 ## Lot 2 — Réel de l'année (27/10/2026)
 
 - Recadrage de Joseph : l'Excel n'est plus un fichier d'import mais le modèle que l'app reproduit. L'import du

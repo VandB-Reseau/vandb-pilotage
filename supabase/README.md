@@ -8,6 +8,7 @@ une migration par changement, numérotée dans l'ordre où elle s'applique. Cart
 | `0001_socle_pilotage` | Schéma `pilotage`, `mes_magasins()`, paramètres réseau, budgets et leur circuit, réel mensuel, `magasins_du_compte()`, journal | 26/10/2026 |
 | `0002_hypotheses_par_niveaux` | Groupes de magasins, cibles du réseau et des groupes, base et ajustements du budget (`garde_base`), `budgets_du_compte()` | 26/10/2026 |
 | `0003_reel_annee` | Réel de l'année : CA TTC, tickets par univers (`reel_tickets`), codes caisse, saisie ouverte au RR, au Coach et au franchisé sur leurs magasins, `remplacer_reel()` | 27/10/2026 |
+| `0004_equipe` | Équipe des magasins par poste (heures, brut, primes, entrée et sortie), saisie par le Directeur, le RR, le Coach et le franchisé sur leurs magasins | 27/10/2026 |
 
 ## Passer une migration
 

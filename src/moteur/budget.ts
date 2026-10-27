@@ -1,3 +1,4 @@
+import { masseSalariale } from './equipe'
 import { UNIVERS, type Budget, type Hypotheses, type Mois, type ParametresReseau, type ResultatFamille, type Univers } from './types'
 
 // Moteur du budget annuel d'un magasin. Fonction pure : le même calcul sert à l'écran, au simulateur et aux tests.
@@ -43,6 +44,8 @@ export function calculerBudget(h: Hypotheses, p: ParametresReseau): Budget {
   const tauxMarge = ratio(marge, ca)
   const poids = poidsMensuels(h.caMensuelReference)
   const g = h.personnel
+  // Avec l'équipe du magasin, le personnel se calcule personne par personne
+  const equipe = h.equipe?.length ? masseSalariale(h.equipe, p.charges, h.annee, h.hausseSalaires ?? 0) : null
 
   const mois: Mois[] = poids.map((w, i) => {
     const caMois = ca * w
@@ -54,10 +57,10 @@ export function calculerBudget(h: Hypotheses, p: ParametresReseau): Budget {
       if (l.rubrique === 'impots_taxes') impots += montant
       else externes += montant
     }
-    const personnel = (g.salairesMensuels[i] ?? 0) + g.remunerationGerance * (1 + g.tauxCotisationsGerance)
+    const personnel = equipe ? equipe.parMois[i].cout : (g.salairesMensuels[i] ?? 0) + g.remunerationGerance * (1 + g.tauxCotisationsGerance)
     const ebe = margeMois - externes - impots - personnel
     const resultatExploitation = ebe - h.amortissements / 12
-    const heures = g.heuresMensuelles[i] ?? 0
+    const heures = equipe ? equipe.parMois[i].heures : g.heuresMensuelles[i] ?? 0
     return {
       ca: caMois, achats: caMois - margeMois, marge: margeMois, chargesExternes: externes, impotsTaxes: impots, personnel, ebe,
       resultatExploitation, resultatAvantImpot: resultatExploitation - h.interets / 12, productivite: heures > 0 ? caMois / heures : null,

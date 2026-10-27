@@ -3,6 +3,7 @@ import { calculerBudget } from '../moteur/budget'
 import { appliquerCibles, type Cibles, type NiveauCibles, type Provenance } from '../moteur/cibles'
 import { parametresParDefaut } from '../moteur/parametres'
 import type { TicketsMois, VenteMois } from '../import/caisse'
+import type { Categorie, ParametresCharges, Personne } from '../moteur/equipe'
 import type { LigneReel, TicketsReel } from '../moteur/reel'
 import type { Hypotheses, ParametresReseau, Univers } from '../moteur/types'
 
@@ -19,7 +20,7 @@ export interface LigneMagasin {
   majLe: string | null
 }
 export interface Groupe { id: number; nom: string; cibles: Cibles | null }
-export interface DonneesBudgets { magasins: LigneMagasin[]; reseau: Cibles | null; groupes: Groupe[] }
+export interface DonneesBudgets { magasins: LigneMagasin[]; reseau: Cibles | null; groupes: Groupe[]; equipes: Record<string, Personne[]> }
 
 // Les budgets se préparent à partir de septembre pour l'année suivante
 export function anneeBudget(aujourdhui = new Date()): number {
@@ -38,7 +39,7 @@ export class ErreurChargement extends Error {}
 const objet = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x)
 
 export async function chargerBudgets(annee: number): Promise<DonneesBudgets> {
-  const { data, error } = await pilotage().rpc('budgets_du_compte', { p_annee: annee })
+  const [{ data, error }, equipes] = await Promise.all([pilotage().rpc('budgets_du_compte', { p_annee: annee }), chargerEquipes()])
   if (error || !objet(data) || !Array.isArray(data.magasins)) throw new ErreurChargement()
   const lignes = data.magasins as { magasin: string; statut: Statut | null; base: unknown; ajustements: unknown; hypotheses: unknown; maj_le: string | null; groupe_id: number | null }[]
   return {
@@ -51,6 +52,7 @@ export async function chargerBudgets(annee: number): Promise<DonneesBudgets> {
     })),
     reseau: objet(data.reseau) ? (data.reseau as Cibles) : null,
     groupes: Array.isArray(data.groupes) ? (data.groupes as { id: number; nom: string; cibles: unknown }[]).map((g) => ({ id: g.id, nom: g.nom, cibles: objet(g.cibles) ? (g.cibles as Cibles) : null })) : [],
+    equipes,
   }
 }
 
@@ -61,8 +63,11 @@ export function niveauxDe(ligne: LigneMagasin, d: DonneesBudgets, ajustements: C
 }
 
 // Hypothèses qui font foi : figées une fois le budget validé, sinon recalculées avec les cibles du moment
+// L'équipe enregistrée du magasin remplace le personnel de sa base ; un budget validé garde l'équipe du jour de la validation.
 export function hypothesesDe(ligne: LigneMagasin, d: DonneesBudgets, ajustements?: Cibles): { hypotheses: Hypotheses; provenance: Provenance[] } | null {
-  if (ligne.base && !(ligne.statut === 'valide' && ligne.figees)) return appliquerCibles(ligne.base, niveauxDe(ligne, d, ajustements))
+  const equipe = d.equipes[ligne.magasin]
+  const base = ligne.base && equipe?.length ? { ...ligne.base, equipe } : ligne.base
+  if (base && !(ligne.statut === 'valide' && ligne.figees)) return appliquerCibles(base, niveauxDe(ligne, d, ajustements))
   if (ligne.figees) return { hypotheses: ligne.figees, provenance: ligne.base ? appliquerCibles(ligne.base, niveauxDe(ligne, d, ajustements)).provenance : [] }
   return null
 }
@@ -114,6 +119,10 @@ export async function chargerParametres(annee: number): Promise<{ parametres: Pa
       ...parametresParDefaut, ...v,
       impot: { ...parametresParDefaut.impot, ...v.impot },
       tvaPanier: { ...parametresParDefaut.tvaPanier, ...v.tvaPanier },
+      charges: {
+        taux: { ...parametresParDefaut.charges.taux, ...v.charges?.taux },
+        reduction: { ...parametresParDefaut.charges.reduction, ...v.charges?.reduction },
+      },
     },
     enregistres: !!data,
   }
@@ -208,4 +217,38 @@ export async function importerReel(ventes: VenteMois[], tickets: TicketsMois[], 
     verifier(await pilotage().rpc('remplacer_reel', { p_ventes: b.v, p_tickets: b.t }))
   }
   return { mois, magasins: magasins.size }
+}
+
+export async function enregistrerParametres(annee: number, parametres: ParametresReseau) {
+  verifier(await pilotage().from('parametres_reseau').upsert({ annee, valeur: parametres }))
+}
+export type { ParametresCharges }
+
+// ── Équipe (lot 3)
+interface LigneEquipe { id: number; store_name: string; poste: string; categorie: Categorie; heures_hebdo: number; brut_mensuel: number; primes: unknown; entree: string | null; sortie: string | null }
+const versPersonne = (l: LigneEquipe): Personne => ({
+  id: l.id, poste: l.poste, categorie: l.categorie, heuresHebdo: Number(l.heures_hebdo), brutMensuel: Number(l.brut_mensuel),
+  primes: Array.isArray(l.primes) ? (l.primes as { mois: number; montant: number }[]).map((x) => ({ mois: Number(x.mois), montant: Number(x.montant) })) : [],
+  entree: l.entree?.slice(0, 7) ?? null, sortie: l.sortie?.slice(0, 7) ?? null,
+})
+
+// Équipes de tous les magasins du compte (la base ne renvoie que ceux de son périmètre)
+export async function chargerEquipes(): Promise<Record<string, Personne[]>> {
+  const { data, error } = await pilotage().from('equipe').select('id, store_name, poste, categorie, heures_hebdo, brut_mensuel, primes, entree, sortie').order('id')
+  if (error) throw new ErreurChargement()
+  const r: Record<string, Personne[]> = {}
+  for (const l of (data ?? []) as LigneEquipe[]) (r[l.store_name] ??= []).push(versPersonne(l))
+  return r
+}
+
+export async function enregistrerPersonne(magasin: string, p: Personne) {
+  const ligne = {
+    store_name: magasin, poste: p.poste.trim(), categorie: p.categorie, heures_hebdo: p.heuresHebdo, brut_mensuel: p.brutMensuel, primes: p.primes,
+    entree: p.entree ? `${p.entree}-01` : null, sortie: p.sortie ? `${p.sortie}-01` : null,
+  }
+  if (p.id) verifier(await pilotage().from('equipe').update(ligne).eq('id', p.id))
+  else verifier(await pilotage().from('equipe').insert(ligne))
+}
+export async function supprimerPersonne(id: number) {
+  verifier(await pilotage().from('equipe').delete().eq('id', id))
 }
