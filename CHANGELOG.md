@@ -5,6 +5,19 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+## Lot 7 — Pilotage du réel face au budget (27/10/2026)
+
+**Base : passer `supabase/migrations/0006_suivi_reseau.sql`** (une fonction de lecture, aucune table).
+
+- Fiche magasin : onglet Suivi du budget de l'année en cours. Réel face au budget mois par mois (CA, marge, écarts en
+  euros), cartes du cumul (écart en %, mois sous le budget, taux de marge en points, écart de marge), graphique réel et
+  budget avec infobulle. La marge ne compte que sur les mois où la caisse la donne pour toutes les familles.
+- Vue Réseau (Directeur, RR, Coach) : chaque magasin à la fin de son dernier mois réalisé, avec CA, évolution sur l'an
+  dernier, écart au budget, taux de marge, panier moyen, masse salariale sur marge et EBE estimé à date ; total du réseau
+  pondéré par le CA ; tri par colonne, recherche, filtres par groupe et par Coach ; écarts négatifs en rouge.
+- Budget : hypothèses en grille famille par famille (CA attendu, évolution, CA visé, marge visée, marge), saisies dans
+  la cellule, totaux par univers recalculés à chaque frappe.
+
 ## Lot 6 — Refonte visuelle (27/10/2026)
 
 Esprit Pennylane, couleurs de la charte V and B (Joseph, 27/10/2026).

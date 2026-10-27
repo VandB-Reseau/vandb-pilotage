@@ -2,7 +2,7 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import CircularProgress from '@mui/material/CircularProgress'
 import { useAuth } from './auth/AuthContext'
-import { estDirecteur } from './auth/roles'
+import { estDirecteur, estEquipe } from './auth/roles'
 import { AppShell } from './layout/AppShell'
 import { Connexion } from './pages/Connexion'
 import { Hypotheses } from './pages/Hypotheses'
@@ -10,6 +10,7 @@ import { Imports } from './pages/Imports'
 import { Magasin } from './pages/Magasin'
 import { Magasins } from './pages/Magasins'
 import { Parametres } from './pages/Parametres'
+import { Reseau } from './pages/Reseau'
 
 export default function App() {
   const { session, profil, chargement } = useAuth()
@@ -23,6 +24,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Magasins />} />
           <Route path="/magasins/:nom" element={<Magasin />} />
+          {estEquipe(profil) && <Route path="/reseau" element={<Reseau />} />}
           {estDirecteur(profil) && <Route path="/hypotheses" element={<Hypotheses />} />}
           {estDirecteur(profil) && <Route path="/imports" element={<Imports />} />}
           {estDirecteur(profil) && <Route path="/parametres" element={<Parametres />} />}

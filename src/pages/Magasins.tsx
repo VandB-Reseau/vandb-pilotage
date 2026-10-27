@@ -112,7 +112,7 @@ export function Magasins() {
                 <TextField
                   select size="small" label="Groupe" value={groupe ?? ''} onChange={(e) => changer('groupe', e.target.value || null)}
                   slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
-                  sx={{ width: { xs: '100%', sm: 240 }, '& .MuiSelect-select': { minHeight: 48, boxSizing: 'border-box', display: 'flex', alignItems: 'center', py: 0 }, '& .MuiSelect-nativeInput': { height: 48 } }}
+                  sx={{ width: { xs: '100%', sm: 240 }, '& .MuiInputBase-root': { minHeight: 48 }, '& .MuiSelect-nativeInput': { height: 48 } }}
                 >
                   <MenuItem value="" sx={{ minHeight: 48 }}>Tous les groupes</MenuItem>
                   {donnees.groupes.map((g) => <MenuItem key={g.id} value={g.id} sx={{ minHeight: 48 }}>{g.nom}</MenuItem>)}

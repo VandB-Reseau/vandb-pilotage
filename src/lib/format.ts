@@ -27,3 +27,13 @@ export function miseEnForme(texte: string, lire: (s: string) => number | null): 
   const v = lire(texte)
   return v === null || Number.isNaN(v) ? texte : enChiffres(v)
 }
+
+// Écarts signés : « +2 000 € », « −1,5 % », « +0,8 pt »
+const ecartEuros = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0, signDisplay: 'exceptZero' })
+const ecartPourcent = new Intl.NumberFormat('fr-FR', { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1, signDisplay: 'exceptZero' })
+const ecartNombre = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0, signDisplay: 'exceptZero' })
+const ecartPoints = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1, signDisplay: 'exceptZero' })
+export const ecartMontant = (v: number) => ecartEuros.format(Math.round(v))
+export const ecartTaux = (v: number) => ecartPourcent.format(v)
+export const ecartChiffres = (v: number) => ecartNombre.format(Math.round(v)).replace(/[  ]/g, ' ')
+export const ecartPts = (v: number) => `${ecartPoints.format(v * 100)} pt`

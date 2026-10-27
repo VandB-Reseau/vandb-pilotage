@@ -30,7 +30,9 @@ import { FraisMagasin } from '../components/FraisMagasin'
 import { useGarde, useSaisieEnCours } from '../components/GardeSaisie'
 import { PastilleStatut } from '../components/PastilleStatut'
 import { ReelAnnee } from '../components/ReelAnnee'
+import { SuiviBudget } from '../components/SuiviBudget'
 import { SyntheseMagasin } from '../components/SyntheseMagasin'
+import { GrilleHypotheses } from '../components/GrilleHypotheses'
 import { lignesCibles, TableauCibles } from '../components/TableauCibles'
 import {
   anneeBudget, changerStatut, chargerBudgets, chargerParametres, chargerReel, enregistrerAjustements, hypothesesDe, niveauxDe, valeursSansCible,
@@ -79,7 +81,7 @@ export function Magasin() {
   // Réel de l'année : pastille de l'onglet si le dernier mois terminé manque (gardé en mémoire pour les onglets Réel et Atterrissage)
   const reel = useChargement(() => chargerReel(nom, anneeEnCours), [nom, anneeEnCours])
   // Magasins de la liste d'où l'on vient (filtres compris), pour passer au précédent ou au suivant
-  const { state } = useLocation() as { state: { liste?: string[]; retour?: string } | null }
+  const { state } = useLocation() as { state: { liste?: string[]; retour?: string; depuis?: { chemin: string; nom: string } } | null }
 
   const directeur = profil?.role === 'directeur'
   const peutSaisir = !!profil && profil.role !== 'aucun'
@@ -90,7 +92,7 @@ export function Magasin() {
   const precedent = voisin(-1), suivant = voisin(1)
   const retour = seul ? null : (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-      <Button component={RouterLink} to={state?.retour ? `/?${state.retour}` : '/'} startIcon={<ArrowBack />} sx={{ minHeight: 48 }}>Magasins</Button>
+      <Button component={RouterLink} to={`${state?.depuis?.chemin ?? '/'}${state?.retour ? `?${state.retour}` : ''}`} startIcon={<ArrowBack />} sx={{ minHeight: 48 }}>{state?.depuis?.nom ?? 'Magasins'}</Button>
       <Box sx={{ flex: 1 }} />
       {precedent && (
         <Button component={RouterLink} to={lienMagasin(precedent)} state={state} startIcon={<ChevronLeftOutlined />} aria-label={`Magasin précédent : ${precedent}`} sx={{ minHeight: 48, maxWidth: 260 }}>
@@ -146,6 +148,7 @@ export function Magasin() {
 
       <Tabs value={onglet} onChange={(_, v: string) => garde(() => { setOnglet(v); setBrouillon(ligne.ajustements) })} variant="scrollable" scrollButtons="auto" aria-label="Vues du magasin" sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tab value="synthese" label="Synthèse" sx={{ minHeight: 48 }} />
+        <Tab value="suivi" label={`Suivi du budget ${anneeEnCours}`} sx={{ minHeight: 48 }} />
         <Tab value="budget" label={<LibelleOnglet texte={`Budget ${annee}`} manque={directeur && !ligne.statut} detail="à proposer" />} sx={{ minHeight: 48 }} />
         <Tab value="atterrissage" label={`Atterrissage ${anneeEnCours}`} sx={{ minHeight: 48 }} />
         <Tab value="reel" label={<LibelleOnglet texte="Réel" manque={!!reel.donnees && reelEnRetard(syntheseReel(reel.donnees.lignes, reel.donnees.tickets).moisRenseignes)} detail="en retard" />} sx={{ minHeight: 48 }} />
@@ -155,6 +158,8 @@ export function Magasin() {
 
       {onglet === 'synthese' ? (
         <SyntheseMagasin key={ligne.magasin} magasin={ligne.magasin} d={d} annee={anneeEnCours} parametres={donnees.parametresN} allerA={setOnglet} />
+      ) : onglet === 'suivi' ? (
+        <SuiviBudget key={ligne.magasin} magasin={ligne.magasin} annee={anneeEnCours} allerA={setOnglet} />
       ) : onglet === 'atterrissage' ? (
         <AtterrissageMagasin
           key={ligne.magasin} ligne={ligne} d={d} annee={anneeEnCours} anneeBudget={annee} parametres={donnees.parametresN}
@@ -230,13 +235,21 @@ export function Magasin() {
             </Stack>
           )}
 
-          {ligne.base && resolu && (
+          {ligne.base && resolu && b && (
             <Card component="section" aria-label="Hypothèses du magasin">
-              <Typography variant="h2" sx={{ p: 2, pb: 1 }}>Hypothèses</Typography>
+              <Typography variant="h2" sx={{ px: 2.5, pt: 2, pb: 1 }}>Hypothèses</Typography>
+              <TableContainer>
+                <GrilleHypotheses
+                  titre="Hypothèses du magasin" familles={b.familles} annee={annee}
+                  cibles={brouillon} auDessus={niveauxDe(ligne, d).slice(0, 2)} valeursBase={valeursSansCible(ligne.base)}
+                  onChange={setBrouillon} lectureSeule={!peutAjuster}
+                />
+              </TableContainer>
+              <Typography variant="h3" sx={{ px: 2.5, pt: 3, pb: 1 }}>Salaires, frais et tickets</Typography>
               <TableContainer>
                 <TableauCibles
-                  titre="Hypothèses du magasin"
-                  lignes={lignesCibles(ligne.base.familles, false, (['cave', 'bar'] as const).filter((u) => ligne.base?.flux?.[u]))}
+                  titre="Autres hypothèses du magasin"
+                  lignes={lignesCibles(ligne.base.familles, false, (['cave', 'bar'] as const).filter((u) => ligne.base?.flux?.[u])).filter((l) => !/par famille$/.test(l.section))}
                   niveau="magasin"
                   cibles={brouillon}
                   auDessus={niveauxDe(ligne, d).slice(0, 2)}

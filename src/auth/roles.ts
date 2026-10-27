@@ -18,3 +18,5 @@ export const roleLibelle: Record<Role, string> = {
 }
 
 export const estDirecteur = (p: Profil | null) => p?.role === 'directeur'
+// Directeur, RR et Coach : la vue réseau, jamais montrée au franchisé
+export const estEquipe = (p: Profil | null) => p?.role === 'directeur' || p?.role === 'rr' || p?.role === 'coach'

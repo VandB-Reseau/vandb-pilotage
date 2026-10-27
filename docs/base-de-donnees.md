@@ -3,7 +3,7 @@
 Même base Supabase que l'app réseau. Le pilotage n'écrit que dans le schéma `pilotage` ; il lit l'app réseau par ses
 fonctions (`mon_role()`, `est_directeur()`, `magasins_visibles()`, `mes_magasins()`) et sa table `perimetre_equipe`.
 
-Mis à jour le 27/10/2026 (migration `0005`).
+Mis à jour le 27/10/2026 (migration `0006`).
 
 ## Principes
 
@@ -47,6 +47,7 @@ Mis à jour le 27/10/2026 (migration `0005`).
 | `pilotage.mes_magasins()` | Magasins du compte connecté |
 | `pilotage.magasins_du_compte(annee)` | Magasins du compte avec statut, hypothèses et date du budget de l'année (lot 0, remplacée dans l'app par la suivante) |
 | `pilotage.remplacer_reel(ventes, tickets)` | Import ou saisie du réel : vide puis réécrit chaque couple magasin et mois reçu (ventes et tickets à part). Droits de l'appelant (`SECURITY INVOKER`) : une ligne hors périmètre fait échouer tout l'appel. Renvoie le nombre de lignes de ventes |
+| `pilotage.reel_du_compte(annee)` | `{ mois, coachs }` : réel des magasins du compte (mêmes magasins que la lecture du réel), totalisé par magasin et par mois pour l'année et la précédente (`ca`, `marge`, `ca_marge` = CA des lignes dont la marge est connue, `ttc`, `tickets`) ; `coachs` : Coach de chaque magasin, pour le Directeur et le RR seulement. Sert à la vue réseau |
 | `pilotage.budgets_du_compte(annee)` | `{ magasins, reseau, groupes }` : budgets du compte (base, ajustements, hypothèses, groupe), cibles du réseau, groupes utiles au compte avec leurs cibles |
 
 ## Rejouer les migrations
