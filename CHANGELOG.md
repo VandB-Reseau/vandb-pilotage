@@ -5,6 +5,22 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+## Lot 5 — Ergonomie (27/10/2026)
+
+Tous les rôles travaillent sur PC (Joseph, 27/10/2026) : confort PC d'abord, téléphone tenu propre.
+
+- Saisie jamais perdue : changer d'onglet, revenir à la liste, passer à un autre magasin ou fermer la page avec des
+  modifications non enregistrées (frais, ajustements du budget, hypothèses, charges sociales, import en cours) demande
+  confirmation.
+- Accueil : filtres avec leur nombre (sans budget, proposés, en discussion, validés, équipe à renseigner, frais à
+  renseigner), recherche sans accents au-delà de cinq magasins, choix du groupe ; les filtres restent au retour d'une
+  fiche ; toute la ligne du tableau ouvre la fiche. Un franchisé qui n'a qu'un magasin arrive directement sur sa fiche.
+- Fiche magasin : pastille sur les onglets où il manque quelque chose (budget à proposer pour le Directeur, réel en
+  retard, équipe ou frais à renseigner) ; magasin précédent et suivant dans la liste filtrée, en restant sur le même onglet.
+- Saisie rapide : Entrée passe au montant suivant ; les montants s'affichent avec les milliers (« 60 000 »).
+- Vitesse : budgets, paramètres et réel gardés une minute en mémoire ; toute écriture et la déconnexion vident la mémoire.
+- Pas de migration.
+
 ## Lot 4 — Frais et atterrissage (27/10/2026)
 
 - Onglet Frais de la fiche magasin : les frais de l'année ligne par ligne sur la grille du réseau, regroupés par rubrique,

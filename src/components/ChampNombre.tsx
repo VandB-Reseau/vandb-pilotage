@@ -1,6 +1,7 @@
 import InputAdornment from '@mui/material/InputAdornment'
 import TextField from '@mui/material/TextField'
 import { nombre } from '../import/caisse'
+import { miseEnForme } from '../lib/format'
 
 // Saisie d'un montant ou d'un nombre, gardé en texte (« 12 500,40 ») ; rouge s'il est illisible
 export function ChampNombre({ libelle, valeur, onChange, unite = '€', largeur = 140, desactive }: {
@@ -18,6 +19,7 @@ export function ChampNombre({ libelle, valeur, onChange, unite = '€', largeur 
       disabled={desactive}
       error={Number.isNaN(nombre(valeur))}
       onChange={(e) => onChange(e.target.value)}
+      onBlur={() => { const f = miseEnForme(valeur, nombre); if (f !== valeur) onChange(f) }}
       slotProps={{
         htmlInput: { inputMode: 'decimal', 'aria-label': libelle, style: { textAlign: 'right' } },
         input: unite ? { endAdornment: <InputAdornment position="end">{unite}</InputAdornment> } : undefined,

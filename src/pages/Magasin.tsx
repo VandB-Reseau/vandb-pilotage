@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Link as RouterLink, useParams } from 'react-router-dom'
+import { Link as RouterLink, useLocation, useParams } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
+import Badge from '@mui/material/Badge'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
 import Skeleton from '@mui/material/Skeleton'
@@ -18,6 +19,8 @@ import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import ArrowBack from '@mui/icons-material/ArrowBack'
+import ChevronLeftOutlined from '@mui/icons-material/ChevronLeftOutlined'
+import ChevronRightOutlined from '@mui/icons-material/ChevronRightOutlined'
 import CheckCircleOutlined from '@mui/icons-material/CheckCircleOutlined'
 import LockOpenOutlined from '@mui/icons-material/LockOpenOutlined'
 import SaveOutlined from '@mui/icons-material/SaveOutlined'
@@ -29,17 +32,30 @@ import { Indicateur } from '../components/Indicateur'
 import { Panne } from '../components/Panne'
 import { EquipeMagasin } from '../components/EquipeMagasin'
 import { FraisMagasin } from '../components/FraisMagasin'
+import { useGarde, useSaisieEnCours } from '../components/GardeSaisie'
 import { PastilleStatut } from '../components/PastilleStatut'
 import { ReelAnnee } from '../components/ReelAnnee'
 import { lignesCibles, TableauCibles } from '../components/TableauCibles'
 import {
-  anneeBudget, changerStatut, chargerBudgets, chargerParametres, enregistrerAjustements, hypothesesDe, niveauxDe, valeursSansCible,
+  anneeBudget, changerStatut, chargerBudgets, chargerParametres, chargerReel, enregistrerAjustements, hypothesesDe, niveauxDe, valeursSansCible,
 } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
-import { montant, milliers, MOIS, taux } from '../lib/format'
+import { reelEnRetard } from '../lib/aFaire'
+import { lienMagasin, montant, milliers, MOIS, taux } from '../lib/format'
+import { syntheseReel } from '../moteur/reel'
 import { calculerBudget } from '../moteur/budget'
 import { ecarts, valeurHeritee, type Cibles } from '../moteur/cibles'
 
+
+// Onglet avec une pastille quand il manque quelque chose ; le détail est lu par les lecteurs d'écran
+function LibelleOnglet({ texte, manque, detail }: { texte: string; manque: boolean; detail: string }) {
+  return (
+    <Badge variant="dot" color="warning" invisible={!manque} sx={{ '& .MuiBadge-dot': { right: -6, top: 2 } }}>
+      {texte}{manque && <Box component="span" sx={visuellementCache}> ({detail})</Box>}
+    </Badge>
+  )
+}
+const visuellementCache = { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' } as const
 
 type Message = { gravite: 'success' | 'error' | 'warning'; texte: string; details?: string[] }
 
@@ -60,10 +76,36 @@ export function Magasin() {
 
   const ligne = donnees?.d.magasins.find((l) => l.magasin === nom) ?? null
   useEffect(() => { setBrouillon(ligne?.ajustements ?? {}) }, [ligne])
+  useSaisieEnCours(!!ligne && JSON.stringify(brouillon) !== JSON.stringify(ligne.ajustements))
+  const garde = useGarde()
+  // Réel de l'année : pastille de l'onglet si le dernier mois terminé manque (gardé en mémoire pour les onglets Réel et Atterrissage)
+  const reel = useChargement(() => chargerReel(nom, anneeEnCours), [nom, anneeEnCours])
+  // Magasins de la liste d'où l'on vient (filtres compris), pour passer au précédent ou au suivant
+  const { state } = useLocation() as { state: { liste?: string[]; retour?: string } | null }
 
   const directeur = profil?.role === 'directeur'
   const peutSaisir = !!profil && profil.role !== 'aucun'
-  const retour = <Button component={RouterLink} to="/" startIcon={<ArrowBack />} sx={{ mb: 2, minHeight: 48 }}>Magasins</Button>
+  const seul = profil?.role === 'franchise' && donnees?.d.magasins.length === 1
+  const liste = (state?.liste ?? donnees?.d.magasins.map((l) => l.magasin) ?? []).filter((m) => donnees?.d.magasins.some((l) => l.magasin === m))
+  const rang = liste.indexOf(nom)
+  const voisin = (pas: number) => (rang < 0 || liste.length < 2 ? null : liste[(rang + pas + liste.length) % liste.length])
+  const precedent = voisin(-1), suivant = voisin(1)
+  const retour = seul ? null : (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+      <Button component={RouterLink} to={state?.retour ? `/?${state.retour}` : '/'} startIcon={<ArrowBack />} sx={{ minHeight: 48 }}>Magasins</Button>
+      <Box sx={{ flex: 1 }} />
+      {precedent && (
+        <Button component={RouterLink} to={lienMagasin(precedent)} state={state} startIcon={<ChevronLeftOutlined />} aria-label={`Magasin précédent : ${precedent}`} sx={{ minHeight: 48, maxWidth: 260 }}>
+          <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: { xs: 'none', sm: 'inline' } }}>{precedent}</Box>
+        </Button>
+      )}
+      {suivant && (
+        <Button component={RouterLink} to={lienMagasin(suivant)} state={state} endIcon={<ChevronRightOutlined />} aria-label={`Magasin suivant : ${suivant}`} sx={{ minHeight: 48, maxWidth: 260 }}>
+          <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: { xs: 'none', sm: 'inline' } }}>{suivant}</Box>
+        </Button>
+      )}
+    </Box>
+  )
 
   if (chargement && !donnees) return <Box>{retour}<Skeleton variant="rounded" height={160} /></Box>
   if (erreur) return <Box>{retour}<Panne quoi="Les chiffres du magasin" recharger={recharger} /></Box>
@@ -104,17 +146,17 @@ export function Magasin() {
         Budget {annee}{ligne.base ? ` · ${nbEcarts === 0 ? 'aucun écart' : nbEcarts === 1 ? '1 écart' : `${nbEcarts} écarts`} aux cibles du siège` : ''}
       </Typography>
 
-      <Tabs value={onglet} onChange={(_, v: string) => setOnglet(v)} variant="scrollable" scrollButtons="auto" aria-label="Vues du magasin" sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tab value="budget" label={`Budget ${annee}`} sx={{ minHeight: 48 }} />
+      <Tabs value={onglet} onChange={(_, v: string) => garde(() => { setOnglet(v); setBrouillon(ligne.ajustements) })} variant="scrollable" scrollButtons="auto" aria-label="Vues du magasin" sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tab value="budget" label={<LibelleOnglet texte={`Budget ${annee}`} manque={directeur && !ligne.base} detail="à proposer" />} sx={{ minHeight: 48 }} />
         <Tab value="atterrissage" label={`Atterrissage ${anneeEnCours}`} sx={{ minHeight: 48 }} />
-        <Tab value="reel" label="Réel" sx={{ minHeight: 48 }} />
-        <Tab value="equipe" label="Équipe" sx={{ minHeight: 48 }} />
-        <Tab value="frais" label="Frais" sx={{ minHeight: 48 }} />
+        <Tab value="reel" label={<LibelleOnglet texte="Réel" manque={!!reel.donnees && reelEnRetard(syntheseReel(reel.donnees.lignes, reel.donnees.tickets).moisRenseignes)} detail="en retard" />} sx={{ minHeight: 48 }} />
+        <Tab value="equipe" label={<LibelleOnglet texte="Équipe" manque={!d.equipes[ligne.magasin]?.length} detail="à renseigner" />} sx={{ minHeight: 48 }} />
+        <Tab value="frais" label={<LibelleOnglet texte="Frais" manque={!d.frais[ligne.magasin]?.length} detail="à renseigner" />} sx={{ minHeight: 48 }} />
       </Tabs>
 
       {onglet === 'atterrissage' ? (
         <AtterrissageMagasin
-          ligne={ligne} d={d} annee={anneeEnCours} anneeBudget={annee} parametres={donnees.parametresN}
+          key={ligne.magasin} ligne={ligne} d={d} annee={anneeEnCours} anneeBudget={annee} parametres={donnees.parametresN}
           directeur={directeur} allerA={setOnglet} apresProposition={recharger}
         />
       ) : onglet === 'reel' ? (
@@ -122,13 +164,13 @@ export function Magasin() {
           <ToggleButtonGroup exclusive size="small" value={anneeReel} onChange={(_, v: number | null) => v && setAnneeReel(v)} aria-label="Année du réel">
             {[anneeEnCours, anneeEnCours - 1].map((a) => <ToggleButton key={a} value={a} sx={{ minHeight: 48, minWidth: 72 }}>{a}</ToggleButton>)}
           </ToggleButtonGroup>
-          <ReelAnnee key={anneeReel} magasin={ligne.magasin} annee={anneeReel} peutSaisir={peutSaisir} />
+          <ReelAnnee key={`${ligne.magasin}-${anneeReel}`} magasin={ligne.magasin} annee={anneeReel} peutSaisir={peutSaisir} apresEnregistrement={reel.recharger} />
         </Stack>
       ) : onglet === 'frais' ? (
-        <FraisMagasin magasin={ligne.magasin} lignes={d.frais[ligne.magasin] ?? []} annee={anneeEnCours} peutSaisir={peutSaisir} apresEnregistrement={recharger} />
+        <FraisMagasin key={ligne.magasin} magasin={ligne.magasin} lignes={d.frais[ligne.magasin] ?? []} annee={anneeEnCours} peutSaisir={peutSaisir} apresEnregistrement={recharger} />
       ) : onglet === 'equipe' ? (
         <EquipeMagasin
-          magasin={ligne.magasin} equipe={d.equipes[ligne.magasin] ?? []} annee={anneeEnCours} anneeBudget={annee}
+          key={ligne.magasin} magasin={ligne.magasin} equipe={d.equipes[ligne.magasin] ?? []} annee={anneeEnCours} anneeBudget={annee}
           hausse={resolu?.hypotheses.hausseSalaires ?? valeurHeritee(niveauxDe(ligne, d, brouillon), 'hausseSalaires')?.valeur ?? 0}
           charges={donnees.parametresN.charges} chargesBudget={parametres.charges}
           peutSaisir={peutSaisir} apresEnregistrement={recharger}

@@ -37,9 +37,24 @@ export function hypothesesValides(x: unknown): x is Hypotheses {
 
 export class ErreurChargement extends Error {}
 
+// Lectures gardées une minute : passer d'un onglet ou d'un magasin à l'autre ne recharge rien ;
+// toute écriture vide la mémoire, la lecture suivante repart de la base
+const memoire = new Map<string, { quand: number; promesse: Promise<unknown> }>()
+const DUREE = 60_000
+function memo<T>(cle: string, lire: () => Promise<T>): Promise<T> {
+  const m = memoire.get(cle)
+  if (m && Date.now() - m.quand < DUREE) return m.promesse as Promise<T>
+  const promesse = lire()
+  memoire.set(cle, { quand: Date.now(), promesse })
+  promesse.catch(() => memoire.delete(cle))
+  return promesse
+}
+export function oublier() { memoire.clear() }
+
 const objet = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x)
 
-export async function chargerBudgets(annee: number): Promise<DonneesBudgets> {
+export const chargerBudgets = (annee: number): Promise<DonneesBudgets> => memo(`budgets|${annee}`, () => lireBudgets(annee))
+async function lireBudgets(annee: number): Promise<DonneesBudgets> {
   const [{ data, error }, equipes, frais] = await Promise.all([pilotage().rpc('budgets_du_compte', { p_annee: annee }), chargerEquipes(), chargerFrais()])
   if (error || !objet(data) || !Array.isArray(data.magasins)) throw new ErreurChargement()
   const lignes = data.magasins as { magasin: string; statut: Statut | null; base: unknown; ajustements: unknown; hypotheses: unknown; maj_le: string | null; groupe_id: number | null }[]
@@ -79,7 +94,7 @@ export function hypothesesDe(ligne: LigneMagasin, d: DonneesBudgets, ajustements
 }
 
 export class ErreurEnregistrement extends Error {}
-const verifier = ({ error }: { error: unknown }) => { if (error) throw new ErreurEnregistrement() }
+const verifier = ({ error }: { error: unknown }) => { oublier(); if (error) throw new ErreurEnregistrement() }
 
 // Le siège propose : la base importée remet le budget au statut « proposé » (les ajustements du magasin restent)
 export async function proposerBudget(magasin: string, annee: number, base: Hypotheses, hypotheses: Hypotheses) {
@@ -103,6 +118,7 @@ export async function enregistrerCiblesGroupe(groupeId: number, annee: number, v
 }
 export async function creerGroupe(nom: string): Promise<number> {
   const { data, error } = await pilotage().from('groupes').insert({ nom: nom.trim() }).select('id').single()
+  oublier()
   if (error || !data) throw new ErreurEnregistrement()
   return (data as { id: number }).id
 }
@@ -116,7 +132,8 @@ export async function rangerMagasin(magasin: string, groupeId: number | null) {
 }
 
 // Paramètres de l'année ; une valeur absente reprend celle par défaut
-export async function chargerParametres(annee: number): Promise<{ parametres: ParametresReseau; enregistres: boolean }> {
+export const chargerParametres = (annee: number): Promise<{ parametres: ParametresReseau; enregistres: boolean }> => memo(`parametres|${annee}`, () => lireParametres(annee))
+async function lireParametres(annee: number): Promise<{ parametres: ParametresReseau; enregistres: boolean }> {
   const { data, error } = await pilotage().from('parametres_reseau').select('valeur').eq('annee', annee).maybeSingle()
   if (error) throw new ErreurChargement()
   const v = (data?.valeur ?? {}) as Partial<ParametresReseau>
@@ -160,7 +177,8 @@ const premierDuMois = (annee: number, mois: number) => `${annee}-${deux(mois)}-0
 
 export interface ReelMagasin { lignes: LigneReel[]; tickets: TicketsReel[] }
 
-export async function chargerReel(magasin: string, annee: number): Promise<ReelMagasin> {
+export const chargerReel = (magasin: string, annee: number): Promise<ReelMagasin> => memo(`reel|${magasin}|${annee}`, () => lireReel(magasin, annee))
+async function lireReel(magasin: string, annee: number): Promise<ReelMagasin> {
   const [v, t] = await Promise.all([
     pilotage().from('reel_mensuel').select('mois, univers, famille, ca_ht, ca_ttc, marge_ht')
       .eq('store_name', magasin).gte('mois', premierDuMois(annee, 1)).lte('mois', premierDuMois(annee, 12)),

@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import { oublier } from '../data/pilotage'
 import { supabase } from '../lib/supabase'
 import type { Profil, Role } from './roles'
 
@@ -75,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return messageErreur(String(e))
       }
     },
-    deconnexion: async () => { await supabase.auth.signOut() },
+    deconnexion: async () => { oublier(); await supabase.auth.signOut() },
   }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

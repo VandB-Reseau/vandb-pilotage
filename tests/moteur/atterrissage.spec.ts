@@ -69,8 +69,8 @@ test('saisie des frais : lignes de la grille, part du CA en %, lignes vidées re
   ]
   let s = saisieDepuisLignes(avant)
   // Ordre de la grille du réseau : énergie, puis loyer, puis télécom
-  expect(s.lignes.map((l) => [l.code, l.mode, l.valeur])).toEqual([['energie', 'taux', '1,3'], ['loyer', 'annuel', '60000'], ['telecom', 'annuel', '1200']])
-  expect(s.finances).toEqual({ amortissements: '', interets: '1200', remboursementCapital: '' })
+  expect(s.lignes.map((l) => [l.code, l.mode, l.valeur])).toEqual([['energie', 'taux', '1,3'], ['loyer', 'annuel', '60 000'], ['telecom', 'annuel', '1 200']])
+  expect(s.finances).toEqual({ amortissements: '', interets: '1 200', remboursementCapital: '' })
   s = ajouterLigne(s, 'charges_locatives')
   expect(lignesDisponibles(s).some((l) => l.code === 'charges_locatives')).toBe(false)
   s = { ...s, lignes: s.lignes.map((l) => (l.code === 'charges_locatives' ? { ...l, valeur: '6 000' } : l.code === 'telecom' ? { ...l, valeur: '' } : l)) }
