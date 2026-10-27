@@ -76,7 +76,9 @@ export function appliquerCibles(base: Hypotheses, niveaux: NiveauCibles[]): { hy
       ...base,
       familles,
       flux,
-      personnel: { ...base.personnel, salairesMensuels: base.personnel.salairesMensuels.map((s) => s * (1 + tauxHausse)) },
+      // Avec l'équipe, la hausse s'applique au brut de chacun (la réduction générale en dépend) ; sinon aux salaires chargés
+      ...(base.equipe?.length ? { hausseSalaires: tauxHausse } : {}),
+      personnel: base.equipe?.length ? base.personnel : { ...base.personnel, salairesMensuels: base.personnel.salairesMensuels.map((s) => s * (1 + tauxHausse)) },
       frais: base.frais.map((l) => (defini(l.annuel) ? { ...l, annuel: l.annuel * (1 + tauxInflation) } : l)),
     },
     provenance,

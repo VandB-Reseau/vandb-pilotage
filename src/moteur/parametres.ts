@@ -1,13 +1,22 @@
+import type { ParametresCharges } from './equipe'
 import type { LigneFrais, ParametresReseau, Rubrique } from './types'
 
 // Paramètres réseau par défaut (Joseph, 26/10/2026) : redevance 2 % et publicité 1 % du CA HT, au-dessus de l'EBE.
 // Impôt sur les sociétés : taux PME 2026 (15 % jusqu'à 42 500 € de bénéfice, 25 % au-delà), à reconfirmer chaque année.
 // TVA du panier : alcool à 20 % ; le Bar mêle boissons à 20 % et restauration à 10 %, d'où un taux moyen modifiable.
+// Charges patronales 2026 avant réduction (accident du travail à 2 %, hors mutuelle et prévoyance de la convention) ;
+// réduction générale 2026, entreprise de moins de 50 salariés (service-public.fr, fiche F24542). À revoir chaque année.
+export const chargesParDefaut: ParametresCharges = {
+  taux: { employe: 0.35, agent_maitrise: 0.35, cadre: 0.365, apprenti: 0.35, gerant_tns: 0.33 },
+  reduction: { smicAnnuel: 21_876.4, tmin: 0.02, tdelta: 0.3781, puissance: 1.75, horsReduction: 0.0123 },
+}
+
 export const parametresParDefaut: ParametresReseau = {
   tauxRedevance: 0.02,
   tauxPublicite: 0.01,
   impot: { tauxReduit: 0.15, plafondTauxReduit: 42500, tauxNormal: 0.25 },
   tvaPanier: { cave: 0.2, bar: 0.18 },
+  charges: chargesParDefaut,
 }
 
 export const rubriqueLibelle: Record<Rubrique, string> = {

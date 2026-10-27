@@ -23,6 +23,7 @@ import { useAuth } from '../auth/AuthContext'
 import { EtatVide } from '../components/EtatVide'
 import { Indicateur } from '../components/Indicateur'
 import { Panne } from '../components/Panne'
+import { EquipeMagasin } from '../components/EquipeMagasin'
 import { PastilleStatut } from '../components/PastilleStatut'
 import { ReelAnnee } from '../components/ReelAnnee'
 import { lignesCibles, TableauCibles } from '../components/TableauCibles'
@@ -32,7 +33,7 @@ import {
 import { useChargement } from '../data/useChargement'
 import { montant, milliers, MOIS, taux } from '../lib/format'
 import { calculerBudget } from '../moteur/budget'
-import { ecarts, type Cibles } from '../moteur/cibles'
+import { ecarts, valeurHeritee, type Cibles } from '../moteur/cibles'
 
 
 type Message = { gravite: 'success' | 'error' | 'warning'; texte: string; details?: string[] }
@@ -42,7 +43,8 @@ export function Magasin() {
   const { profil } = useAuth()
   const annee = anneeBudget()
   const { donnees, erreur, chargement, recharger } = useChargement(
-    () => Promise.all([chargerBudgets(annee), chargerParametres(annee)]).then(([d, p]) => ({ d, parametres: p.parametres })), [nom, annee])
+    () => Promise.all([chargerBudgets(annee), chargerParametres(annee), chargerParametres(new Date().getFullYear())])
+      .then(([d, p, pN]) => ({ d, parametres: p.parametres, parametresN: pN.parametres })), [nom, annee])
   const [brouillon, setBrouillon] = useState<Cibles>({})
   const [message, setMessage] = useState<Message | null>(null)
   const [occupe, setOccupe] = useState(false)
@@ -111,10 +113,18 @@ export function Magasin() {
 
       <Tabs value={onglet} onChange={(_, v: string) => setOnglet(v)} variant="scrollable" scrollButtons="auto" aria-label="Vues du magasin" sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tab value="budget" label={`Budget ${annee}`} sx={{ minHeight: 48 }} />
+        <Tab value="equipe" label="Équipe" sx={{ minHeight: 48 }} />
         {[anneeEnCours, anneeEnCours - 1].map((a) => <Tab key={a} value={`reel-${a}`} label={`Réel ${a}`} sx={{ minHeight: 48 }} />)}
       </Tabs>
 
-      {onglet.startsWith('reel-') ? (
+      {onglet === 'equipe' ? (
+        <EquipeMagasin
+          magasin={ligne.magasin} equipe={d.equipes[ligne.magasin] ?? []} annee={anneeEnCours} anneeBudget={annee}
+          hausse={resolu?.hypotheses.hausseSalaires ?? valeurHeritee(niveauxDe(ligne, d, brouillon), 'hausseSalaires')?.valeur ?? 0}
+          charges={donnees.parametresN.charges} chargesBudget={parametres.charges}
+          peutSaisir={!!profil && profil.role !== 'aucun'} apresEnregistrement={recharger}
+        />
+      ) : onglet.startsWith('reel-') ? (
         <ReelAnnee key={onglet} magasin={ligne.magasin} annee={Number(onglet.slice(5))} peutSaisir={!!profil && profil.role !== 'aucun'} />
       ) : (<>
 
