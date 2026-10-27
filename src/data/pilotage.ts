@@ -6,6 +6,7 @@ import type { TicketsMois, VenteMois } from '../import/caisse'
 import { baseDepuisReel, fraisDepuisLignes, type LigneFraisMagasin, type ReelAnnees } from '../moteur/atterrissage'
 import type { Categorie, ParametresCharges, Personne } from '../moteur/equipe'
 import type { LigneReel, TicketsReel } from '../moteur/reel'
+import type { MoisReel } from '../moteur/suivi'
 import type { Hypotheses, ParametresReseau, Univers } from '../moteur/types'
 
 export type Statut = 'propose' | 'en_discussion' | 'valide'
@@ -207,6 +208,23 @@ export async function enregistrerMoisReel(magasin: string, annee: number, mois: 
   if (!ventes.length) verifier(await pilotage().from('reel_mensuel').delete().eq('store_name', magasin).eq('mois', date))
   if (!t.length) verifier(await pilotage().from('reel_tickets').delete().eq('store_name', magasin).eq('mois', date))
   if (ventes.length || t.length) verifier(await pilotage().rpc('remplacer_reel', { p_ventes: ventes, p_tickets: t }))
+}
+
+// Réel de tous les magasins du compte, totalisé par mois dans la base (vue réseau) : année demandée et précédente
+export interface ReelDuCompte { magasins: Record<string, { n: MoisReel[]; n1: MoisReel[] }>; coachs: Record<string, string> }
+export const chargerReelDuCompte = (annee: number): Promise<ReelDuCompte> => memo(`reel-compte|${annee}`, () => lireReelDuCompte(annee))
+async function lireReelDuCompte(annee: number): Promise<ReelDuCompte> {
+  const { data, error } = await pilotage().rpc('reel_du_compte', { p_annee: annee })
+  if (error || !objet(data) || !Array.isArray(data.mois)) throw new ErreurChargement()
+  const douze = () => Array.from({ length: 12 }, () => ({ caHT: 0, margeHT: 0, caAvecMarge: 0, caTTC: 0, tickets: 0 }))
+  const magasins: ReelDuCompte['magasins'] = {}
+  for (const l of data.mois as { magasin: string; mois: string; ca: unknown; marge: unknown; ca_marge: unknown; ttc: unknown; tickets: unknown }[]) {
+    const a = Number(l.mois.slice(0, 4)), m = Number(l.mois.slice(5, 7))
+    if ((a !== annee && a !== annee - 1) || m < 1 || m > 12) continue
+    const r = (magasins[l.magasin] ??= { n: douze(), n1: douze() })
+    r[a === annee ? 'n' : 'n1'][m - 1] = { caHT: Number(l.ca), margeHT: Number(l.marge), caAvecMarge: Number(l.ca_marge), caTTC: Number(l.ttc), tickets: Number(l.tickets) }
+  }
+  return { magasins, coachs: objet(data.coachs) ? (data.coachs as Record<string, string>) : {} }
 }
 
 export interface CodeCaisse { code: string; magasin: string }

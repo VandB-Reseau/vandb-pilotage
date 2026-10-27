@@ -29,6 +29,7 @@ export interface OptionsSimulation {
   codes?: { code: string; store_name: string }[]
   equipe?: PersonneSimulee[]
   frais?: FraisSimule[]
+  coachs?: Record<string, string>
   panne?: boolean
   panneEcriture?: boolean
 }
@@ -84,6 +85,25 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
     const schema = req.headers()['accept-profile'] ?? req.headers()['content-profile']
     if (schema !== 'pilotage') return route.fulfill({ status: 404, json: { message: 'schéma inattendu' } })
     if (url.pathname === '/rest/v1/rpc/budgets_du_compte') return route.fulfill({ json: { magasins, reseau, groupes } })
+    // Réel totalisé par magasin et par mois, comme pilotage.reel_du_compte
+    if (url.pathname === '/rest/v1/rpc/reel_du_compte') {
+      const annee = (req.postDataJSON() as { p_annee: number }).p_annee
+      const lignes = new Map<string, { magasin: string; mois: string; ca: number; marge: number; ca_marge: number; ttc: number; tickets: number }>()
+      const ligne = (magasin: string, mois: string) => {
+        const cle = `${magasin}|${mois.slice(0, 7)}`
+        if (!lignes.has(cle)) lignes.set(cle, { magasin, mois: mois.slice(0, 7), ca: 0, marge: 0, ca_marge: 0, ttc: 0, tickets: 0 })
+        return lignes.get(cle)!
+      }
+      const dansAnnees = (mois: string) => [annee, annee - 1].includes(Number(mois.slice(0, 4)))
+      for (const v of reel.reel_mensuel as VenteSimulee[]) {
+        if (!dansAnnees(v.mois)) continue
+        const l = ligne(v.store_name, v.mois)
+        l.ca += v.ca_ht; l.ttc += v.ca_ttc ?? 0
+        if (v.marge_ht !== null) { l.marge += v.marge_ht; l.ca_marge += v.ca_ht }
+      }
+      for (const t of reel.reel_tickets as TicketsSimules[]) if (dansAnnees(t.mois)) ligne(t.store_name, t.mois).tickets += t.tickets
+      return route.fulfill({ json: { mois: [...lignes.values()], coachs: options.coachs ?? {} } })
+    }
     const table = url.pathname.replace('/rest/v1/', '')
     if (req.method() !== 'GET') {
       const corps = req.postDataJSON()

@@ -82,7 +82,7 @@ test('le franchisé s’écarte d’une cible : le budget passe en discussion, i
   expect(envoi.ajustements).toEqual({ evolutionFamille: { 'cave/Bière': 0.05 } })
   await expect(page.getByText('En discussion', { exact: true })).toBeVisible()
   // Revenir à la cible du réseau
-  await page.getByRole('button', { name: 'Reprendre la valeur du niveau au-dessus : Bière (Cave)' }).click()
+  await page.getByRole('button', { name: 'Reprendre la valeur du niveau au-dessus : évolution de Bière (Cave)' }).click()
   await expect(resultat.getByRole('row', { name: /^Chiffre d’affaires HT/ })).toContainText(/615\s000\s€/)
 })
 

@@ -39,7 +39,7 @@ INSERT INTO pilotage.reel_mensuel (store_name, mois, univers, famille, ca_ht) VA
 SELECT pg_temp.attendre('Directeur : tous les magasins', (SELECT cardinality(pilotage.mes_magasins())), 3);
 SELECT pg_temp.attendre('Directeur : tous les budgets', (SELECT count(*) FROM pilotage.budgets), 3);
 SELECT pg_temp.attendre('Directeur : tableau des magasins', (SELECT jsonb_array_length(pilotage.magasins_du_compte(2027))), 3);
-SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 5);
+SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 6);
 -- Frais : le Directeur saisit partout
 INSERT INTO pilotage.frais (store_name, code, libelle, rubrique, annuel) VALUES ('Lille', 'loyer', 'Locations immobilières', 'immobilier', 60000), ('Nice', 'loyer', 'Locations immobilières', 'immobilier', 40000);
 SELECT pg_temp.attendre('Directeur : tous les frais', (SELECT count(*) FROM pilotage.frais), 2);
@@ -59,6 +59,16 @@ SELECT pg_temp.attendre('Directeur : importe le réel de tous les magasins', pil
 SELECT pg_temp.attendre('Directeur : réimporter un mois le remplace', pilotage.remplacer_reel(
   '[{"store_name":"Lille","mois":"2026-08-01","univers":"cave","famille":"Vin","ca_ht":80,"ca_ttc":96,"marge_ht":24}]', '[]')::bigint, 1);
 SELECT pg_temp.attendre('Directeur : le mois remplacé ne garde que la nouvelle ligne', (SELECT count(*) FROM pilotage.reel_mensuel WHERE store_name = 'Lille' AND mois = '2026-08-01'), 1);
+-- Réel du compte pour la vue réseau : totaux par magasin et par mois, Coach de chaque magasin
+CREATE OR REPLACE FUNCTION pg_temp.reel_magasins(a integer) RETURNS text LANGUAGE sql AS $f$
+  SELECT coalesce(string_agg(DISTINCT x->>'magasin', ',' ORDER BY x->>'magasin'), '') FROM jsonb_array_elements(pilotage.reel_du_compte(a)->'mois') x
+$f$;
+GRANT EXECUTE ON FUNCTION pg_temp.reel_magasins(integer) TO authenticated, anon;
+SELECT pg_temp.attendre('Directeur : réel de tous les magasins', (SELECT count(*) FROM regexp_split_to_table(pg_temp.reel_magasins(2026), ',')), 2);
+SELECT pg_temp.attendre('Directeur : réel du compte totalisé par mois', (SELECT count(*) FROM jsonb_array_elements(pilotage.reel_du_compte(2026)->'mois') x
+  WHERE x->>'magasin' = 'Lille' AND x->>'mois' = '2026-08' AND (x->>'ca')::numeric = 80 AND (x->>'marge')::numeric = 24 AND (x->>'ca_marge')::numeric = 80), 1);
+SELECT pg_temp.attendre('Directeur : réel de l''année et de la précédente seulement', jsonb_array_length(pilotage.reel_du_compte(2030)->'mois'), 0);
+SELECT pg_temp.attendre('Directeur : Coach de chaque magasin', (SELECT count(*) FROM jsonb_object_keys(pilotage.reel_du_compte(2026)->'coachs')), 3);
 -- Hypothèses par niveaux : groupes, cibles du réseau et du groupe, base du magasin
 INSERT INTO pilotage.groupes (nom) VALUES ('Centre-ville'), ('Zone commerciale') ON CONFLICT DO NOTHING;
 INSERT INTO pilotage.groupe_magasins (store_name, groupe_id) SELECT 'Lille', id FROM pilotage.groupes WHERE nom = 'Centre-ville' ON CONFLICT DO NOTHING;
@@ -108,6 +118,8 @@ WITH m AS (UPDATE pilotage.cibles_reseau SET valeur = '{}' RETURNING 1)
 SELECT pg_temp.attendre('Coach : ne modifie pas les cibles du réseau', (SELECT count(*) FROM m), 0);
 WITH m AS (DELETE FROM pilotage.groupe_magasins RETURNING 1)
 SELECT pg_temp.attendre('Coach : ne range pas les magasins', (SELECT count(*) FROM m), 0);
+SELECT pg_temp.attendre('Coach : réel du compte limité à ses magasins', (SELECT (pg_temp.reel_magasins(2026) = 'Lille')::int), 1);
+SELECT pg_temp.attendre('Coach : pas la liste des Coachs', (SELECT count(*) FROM jsonb_object_keys(pilotage.reel_du_compte(2026)->'coachs')), 0);
 SELECT pg_temp.attendre('Coach : budgets du compte limités à ses magasins', (SELECT jsonb_array_length(pilotage.budgets_du_compte(2027)->'magasins')), 1);
 
 -- ── RR : les magasins qu'il suit
@@ -115,11 +127,15 @@ SET request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
 SELECT pg_temp.attendre('RR : budgets des magasins suivis', (SELECT count(*) FROM pilotage.budgets), 2);
 WITH m AS (UPDATE pilotage.budgets SET hypotheses = '{"v":2}' RETURNING 1)
 SELECT pg_temp.attendre('RR : ne modifie pas un budget', (SELECT count(*) FROM m), 0);
+SELECT pg_temp.attendre('RR : réel du compte limité aux magasins suivis', (SELECT (pg_temp.reel_magasins(2026) = 'Lille')::int), 1);
+SELECT pg_temp.attendre('RR : Coach des magasins suivis', (SELECT count(*) FROM jsonb_object_keys(pilotage.reel_du_compte(2026)->'coachs')), 2);
 
 -- ── Franchisé : son magasin ; modifie ses hypothèses, jamais la proposition ni la validation
 SET request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000f';
 SELECT pg_temp.attendre('Franchisé : son budget seulement', (SELECT count(*) FROM pilotage.budgets), 1);
 SELECT pg_temp.attendre('Franchisé : son réel seulement', (SELECT count(*) FROM pilotage.reel_mensuel WHERE store_name <> 'Lille'), 0);
+SELECT pg_temp.attendre('Franchisé : réel du compte limité à son magasin', (SELECT (pg_temp.reel_magasins(2026) = 'Lille')::int), 1);
+SELECT pg_temp.attendre('Franchisé : pas la liste des Coachs', (SELECT count(*) FROM jsonb_object_keys(pilotage.reel_du_compte(2026)->'coachs')), 0);
 SELECT pg_temp.attendre('Franchisé : saisit le réel de son magasin', pilotage.remplacer_reel('[{"store_name":"Lille","mois":"2026-05-01","univers":"bar","famille":"Fût","ca_ht":10,"ca_ttc":12,"marge_ht":7}]', '[]')::bigint, 1);
 SELECT pg_temp.attendre('Franchisé : pas le réel d''un autre magasin', pg_temp.refuse('SELECT pilotage.remplacer_reel(''[{"store_name":"Nice","mois":"2026-05-01","univers":"bar","famille":"Fût","ca_ht":1}]'', ''[]'')'), 1);
 SELECT pg_temp.attendre('Franchisé : son équipe seulement', (SELECT count(*) FROM pilotage.equipe WHERE store_name <> 'Lille'), 0);
@@ -171,6 +187,7 @@ SELECT pg_temp.attendre('Sans rôle : aucun frais', (SELECT count(*) FROM pilota
 SELECT pg_temp.attendre('Sans rôle : aucune équipe', (SELECT count(*) FROM pilotage.equipe), 0);
 SELECT pg_temp.attendre('Sans rôle : n''écrit pas d''équipe', pg_temp.refuse('INSERT INTO pilotage.equipe (store_name, poste, categorie, heures_hebdo, brut_mensuel) VALUES (''Lille'', ''X'', ''employe'', 35, 1)'), 1);
 SELECT pg_temp.attendre('Sans rôle : n''écrit pas de réel', pg_temp.refuse('SELECT pilotage.remplacer_reel(''[{"store_name":"Lille","mois":"2026-04-01","univers":"bar","famille":"Fût","ca_ht":1}]'', ''[]'')'), 1);
+SELECT pg_temp.attendre('Sans rôle : rien dans le réel du compte', jsonb_array_length(pilotage.reel_du_compte(2026)->'mois'), 0);
 SELECT pg_temp.attendre('Sans rôle : rien dans les budgets du compte', (SELECT jsonb_array_length(pilotage.budgets_du_compte(2027)->'magasins') + jsonb_array_length(pilotage.budgets_du_compte(2027)->'groupes')), 0);
 SELECT pg_temp.attendre('Sans rôle : pas de cibles du réseau', (SELECT count(*) FROM (SELECT pilotage.budgets_du_compte(2027)->'reseau' AS r) x WHERE r IS NOT NULL AND r <> 'null'::jsonb), 0);
 RESET ROLE;
@@ -181,6 +198,7 @@ SELECT pg_temp.attendre('Visiteur : pas de budgets du compte', pg_temp.refuse('S
 SELECT pg_temp.attendre('Visiteur : aucun accès aux groupes', pg_temp.refuse('SELECT count(*) FROM pilotage.groupes'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès aux frais', pg_temp.refuse('SELECT count(*) FROM pilotage.frais'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès à l''équipe', pg_temp.refuse('SELECT count(*) FROM pilotage.equipe'), 1);
+SELECT pg_temp.attendre('Visiteur : pas de réel du compte', pg_temp.refuse('SELECT pilotage.reel_du_compte(2026)'), 1);
 SELECT pg_temp.attendre('Visiteur : pas d''import de réel', pg_temp.refuse('SELECT pilotage.remplacer_reel(''[]'', ''[]'')'), 1);
 RESET ROLE;
 

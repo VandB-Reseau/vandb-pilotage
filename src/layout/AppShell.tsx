@@ -25,10 +25,11 @@ import StorefrontOutlined from '@mui/icons-material/StorefrontOutlined'
 import TuneOutlined from '@mui/icons-material/TuneOutlined'
 import UploadFileOutlined from '@mui/icons-material/UploadFileOutlined'
 import TrendingUpOutlined from '@mui/icons-material/TrendingUpOutlined'
+import LeaderboardOutlined from '@mui/icons-material/LeaderboardOutlined'
 import { GardeSaisie } from '../components/GardeSaisie'
 import { Logo } from '../components/Logo'
 import { useAuth } from '../auth/AuthContext'
-import { estDirecteur, roleLibelle } from '../auth/roles'
+import { estDirecteur, estEquipe, roleLibelle } from '../auth/roles'
 import { installerChampSuivant } from '../lib/champSuivant'
 import { brandStripe } from '../theme/theme'
 
@@ -47,6 +48,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   // Hypothèses, imports de caisse et paramètres réseau : Directeur seul, comme les référentiels de l'app réseau
   const destinations: Destination[] = [
     { chemin: '/', nom: 'Magasins', icone: <StorefrontOutlined /> },
+    ...(estEquipe(profil) ? [{ chemin: '/reseau', nom: 'Réseau', icone: <LeaderboardOutlined /> }] : []),
     ...(estDirecteur(profil) ? [
       { chemin: '/hypotheses', nom: 'Hypothèses', icone: <TrendingUpOutlined /> },
       { chemin: '/imports', nom: 'Imports de caisse', court: 'Imports', icone: <UploadFileOutlined /> },

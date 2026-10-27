@@ -10,6 +10,7 @@ une migration par changement, numérotée dans l'ordre où elle s'applique. Cart
 | `0003_reel_annee` | Réel de l'année : CA TTC, tickets par univers (`reel_tickets`), codes caisse, saisie ouverte au RR, au Coach et au franchisé sur leurs magasins, `remplacer_reel()` | 27/10/2026 |
 | `0004_equipe` | Équipe des magasins par poste (heures, brut, primes, entrée et sortie), saisie par le Directeur, le RR, le Coach et le franchisé sur leurs magasins | 27/10/2026 |
 | `0005_frais` | Frais des magasins ligne par ligne (€ par an ou part du CA), emprunts et amortissements, saisis par le Directeur, le RR, le Coach et le franchisé sur leurs magasins | 27/10/2026 |
+| `0006_suivi_reseau` | Fonction `reel_du_compte` : réel de tous les magasins du compte totalisé par mois, pour la vue réseau ; aucune table ni règle d'accès nouvelle | 27/10/2026 |
 
 ## Passer une migration
 
