@@ -8,12 +8,7 @@ import Card from '@mui/material/Card'
 import Skeleton from '@mui/material/Skeleton'
 import Stack from '@mui/material/Stack'
 import Tab from '@mui/material/Tab'
-import Table from '@mui/material/Table'
-import TableBody from '@mui/material/TableBody'
-import TableCell from '@mui/material/TableCell'
 import TableContainer from '@mui/material/TableContainer'
-import TableHead from '@mui/material/TableHead'
-import TableRow from '@mui/material/TableRow'
 import Tabs from '@mui/material/Tabs'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
@@ -26,7 +21,7 @@ import LockOpenOutlined from '@mui/icons-material/LockOpenOutlined'
 import SaveOutlined from '@mui/icons-material/SaveOutlined'
 import { useAuth } from '../auth/AuthContext'
 import { AtterrissageMagasin } from '../components/AtterrissageMagasin'
-import { CompteResultat } from '../components/CompteResultat'
+import { CompteResultatMois } from '../components/CompteResultatMois'
 import { EtatVide } from '../components/EtatVide'
 import { Indicateur } from '../components/Indicateur'
 import { Panne } from '../components/Panne'
@@ -35,15 +30,17 @@ import { FraisMagasin } from '../components/FraisMagasin'
 import { useGarde, useSaisieEnCours } from '../components/GardeSaisie'
 import { PastilleStatut } from '../components/PastilleStatut'
 import { ReelAnnee } from '../components/ReelAnnee'
+import { SyntheseMagasin } from '../components/SyntheseMagasin'
 import { lignesCibles, TableauCibles } from '../components/TableauCibles'
 import {
   anneeBudget, changerStatut, chargerBudgets, chargerParametres, chargerReel, enregistrerAjustements, hypothesesDe, niveauxDe, valeursSansCible,
 } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { reelEnRetard } from '../lib/aFaire'
-import { lienMagasin, montant, milliers, MOIS, taux } from '../lib/format'
+import { lienMagasin, milliers, taux } from '../lib/format'
 import { syntheseReel } from '../moteur/reel'
 import { calculerBudget } from '../moteur/budget'
+import { compteResultat } from '../moteur/compteResultat'
 import { ecarts, valeurHeritee, type Cibles } from '../moteur/cibles'
 
 
@@ -71,7 +68,8 @@ export function Magasin() {
   const [occupe, setOccupe] = useState(false)
   // Budget de l'an prochain, réel de l'année en cours et de la précédente
   const anneeEnCours = new Date().getFullYear()
-  const [onglet, setOnglet] = useState('budget')
+  // Synthèse d'abord : la santé du magasin en un coup d'œil
+  const [onglet, setOnglet] = useState('synthese')
   const [anneeReel, setAnneeReel] = useState(anneeEnCours)
 
   const ligne = donnees?.d.magasins.find((l) => l.magasin === nom) ?? null
@@ -142,19 +140,22 @@ export function Magasin() {
         <Typography variant="h1">{ligne.magasin}</Typography>
         <PastilleStatut statut={ligne.statut} />
       </Box>
-      <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
-        Budget {annee}{ligne.base ? ` · ${nbEcarts === 0 ? 'aucun écart' : nbEcarts === 1 ? '1 écart' : `${nbEcarts} écarts`} aux cibles du siège` : ''}
+      <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5, mb: 2, minHeight: '1.5em' }}>
+        {onglet === 'budget' && ligne.base ? `${nbEcarts === 0 ? 'Aucun écart' : nbEcarts === 1 ? '1 écart' : `${nbEcarts} écarts`} aux cibles du siège` : ''}
       </Typography>
 
       <Tabs value={onglet} onChange={(_, v: string) => garde(() => { setOnglet(v); setBrouillon(ligne.ajustements) })} variant="scrollable" scrollButtons="auto" aria-label="Vues du magasin" sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tab value="budget" label={<LibelleOnglet texte={`Budget ${annee}`} manque={directeur && !ligne.base} detail="à proposer" />} sx={{ minHeight: 48 }} />
+        <Tab value="synthese" label="Synthèse" sx={{ minHeight: 48 }} />
+        <Tab value="budget" label={<LibelleOnglet texte={`Budget ${annee}`} manque={directeur && !ligne.statut} detail="à proposer" />} sx={{ minHeight: 48 }} />
         <Tab value="atterrissage" label={`Atterrissage ${anneeEnCours}`} sx={{ minHeight: 48 }} />
         <Tab value="reel" label={<LibelleOnglet texte="Réel" manque={!!reel.donnees && reelEnRetard(syntheseReel(reel.donnees.lignes, reel.donnees.tickets).moisRenseignes)} detail="en retard" />} sx={{ minHeight: 48 }} />
         <Tab value="equipe" label={<LibelleOnglet texte="Équipe" manque={!d.equipes[ligne.magasin]?.length} detail="à renseigner" />} sx={{ minHeight: 48 }} />
         <Tab value="frais" label={<LibelleOnglet texte="Frais" manque={!d.frais[ligne.magasin]?.length} detail="à renseigner" />} sx={{ minHeight: 48 }} />
       </Tabs>
 
-      {onglet === 'atterrissage' ? (
+      {onglet === 'synthese' ? (
+        <SyntheseMagasin key={ligne.magasin} magasin={ligne.magasin} d={d} annee={anneeEnCours} parametres={donnees.parametresN} allerA={setOnglet} />
+      ) : onglet === 'atterrissage' ? (
         <AtterrissageMagasin
           key={ligne.magasin} ligne={ligne} d={d} annee={anneeEnCours} anneeBudget={annee} parametres={donnees.parametresN}
           directeur={directeur} allerA={setOnglet} apresProposition={recharger}
@@ -247,37 +248,7 @@ export function Magasin() {
             </Card>
           )}
 
-          <CompteResultat b={b} titre="Compte de résultat" libelleTableau="Compte de résultat annuel" />
-
-          <Card component="section" aria-label="Mois par mois">
-            <Typography variant="h2" sx={{ p: 2, pb: 0 }}>Mois par mois</Typography>
-            <TableContainer>
-              <Table className="colonne-fixe" aria-label="Budget mois par mois">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Mois</TableCell>
-                    <TableCell align="right">CA HT</TableCell>
-                    <TableCell align="right">Marge</TableCell>
-                    <TableCell align="right">Personnel</TableCell>
-                    <TableCell align="right">EBE</TableCell>
-                    <TableCell align="right">CA par heure</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {b.mois.map((m, i) => (
-                    <TableRow key={MOIS[i]}>
-                      <TableCell>{MOIS[i]}</TableCell>
-                      <TableCell align="right">{montant(m.ca)}</TableCell>
-                      <TableCell align="right">{montant(m.marge)}</TableCell>
-                      <TableCell align="right">{montant(m.personnel)}</TableCell>
-                      <TableCell align="right" sx={{ color: m.ebe < 0 ? 'error.main' : undefined, fontWeight: m.ebe < 0 ? 700 : 400 }}>{montant(m.ebe)}</TableCell>
-                      <TableCell align="right">{m.productivite === null ? '' : montant(m.productivite)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Card>
+          {resolu && <CompteResultatMois lignes={compteResultat(b, resolu.hypotheses, parametres)} titre={`Compte de résultat ${annee}`} libelleTableau={`Budget ${annee} mois par mois`} />}
         </Stack>
       )}
       </>)}

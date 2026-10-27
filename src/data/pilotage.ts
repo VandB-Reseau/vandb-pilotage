@@ -3,7 +3,7 @@ import { calculerBudget } from '../moteur/budget'
 import { appliquerCibles, type Cibles, type NiveauCibles, type Provenance } from '../moteur/cibles'
 import { parametresParDefaut } from '../moteur/parametres'
 import type { TicketsMois, VenteMois } from '../import/caisse'
-import { fraisDepuisLignes, type LigneFraisMagasin } from '../moteur/atterrissage'
+import { baseDepuisReel, fraisDepuisLignes, type LigneFraisMagasin, type ReelAnnees } from '../moteur/atterrissage'
 import type { Categorie, ParametresCharges, Personne } from '../moteur/equipe'
 import type { LigneReel, TicketsReel } from '../moteur/reel'
 import type { Hypotheses, ParametresReseau, Univers } from '../moteur/types'
@@ -85,6 +85,11 @@ export function avecEquipeEtFrais(base: Hypotheses, equipe: Personne[] | undefin
   let h = equipe?.length ? { ...base, equipe } : base
   if (frais?.length) { const f = fraisDepuisLignes(frais); h = { ...h, frais: f.frais, ...f.finances } }
   return h
+}
+// Atterrissage de l'année d'un magasin : réel des mois passés, projection, équipe et frais enregistrés
+export function atterrissageDe(reel: ReelAnnees, annee: number, equipe: Personne[] | undefined, frais: LigneFraisMagasin[] | undefined, parametres: ParametresReseau) {
+  const r = baseDepuisReel(reel, annee)
+  return r ? { ...r, budget: calculerBudget(avecEquipeEtFrais(r.base, equipe, frais), parametres) } : null
 }
 export function hypothesesDe(ligne: LigneMagasin, d: DonneesBudgets, ajustements?: Cibles): { hypotheses: Hypotheses; provenance: Provenance[] } | null {
   const base = ligne.base ? avecEquipeEtFrais(ligne.base, d.equipes[ligne.magasin], d.frais[ligne.magasin]) : null

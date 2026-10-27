@@ -1,12 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
-import Dialog from '@mui/material/Dialog'
-import DialogActions from '@mui/material/DialogActions'
-import DialogContent from '@mui/material/DialogContent'
-import DialogTitle from '@mui/material/DialogTitle'
 import MenuItem from '@mui/material/MenuItem'
 import Skeleton from '@mui/material/Skeleton'
 import Stack from '@mui/material/Stack'
@@ -18,11 +14,10 @@ import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import useMediaQuery from '@mui/material/useMediaQuery'
-import { useTheme } from '@mui/material/styles'
 import EditCalendarOutlined from '@mui/icons-material/EditCalendarOutlined'
 import { ChampNombre } from './ChampNombre'
 import { EtatVide } from './EtatVide'
+import { useSaisieEnCours } from './GardeSaisie'
 import { Indicateur } from './Indicateur'
 import { Panne } from './Panne'
 import { chargerReel, enregistrerMoisReel } from '../data/pilotage'
@@ -38,14 +33,17 @@ const panier = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EU
 
 // Réel d'une année d'un magasin : indicateurs, CA par famille et par mois, saisie d'un mois
 export function ReelAnnee({ magasin, annee, peutSaisir, apresEnregistrement }: { magasin: string; annee: number; peutSaisir: boolean; apresEnregistrement?: () => void }) {
-  const theme = useTheme()
-  const telephone = useMediaQuery(theme.breakpoints.down('md'))
   const { donnees, erreur, chargement, recharger } = useChargement(() => chargerReel(magasin, annee), [magasin, annee])
   const [mois, setMois] = useState<number | null>(null)
   const [saisie, setSaisie] = useState<SaisieMois>({ ventes: {}, tickets: {} })
   const [erreursSaisie, setErreursSaisie] = useState<string[]>([])
   const [message, setMessage] = useState<{ gravite: 'success' | 'error'; texte: string } | null>(null)
   const [occupe, setOccupe] = useState(false)
+  // Saisie dans la page, sans fenêtre : le panneau s'ouvre en tête et la page y remonte
+  const [initiale, setInitiale] = useState('')
+  const panneau = useRef<HTMLElement>(null)
+  useEffect(() => { if (mois !== null) panneau.current?.scrollIntoView?.({ block: 'start' }) }, [mois])
+  useSaisieEnCours(mois !== null && JSON.stringify(saisie) !== initiale)
 
   if (chargement && !donnees) return <Skeleton variant="rounded" height={240} />
   if (erreur || !donnees) return <Panne quoi={`Les chiffres réels ${annee}`} recharger={recharger} />
@@ -53,7 +51,9 @@ export function ReelAnnee({ magasin, annee, peutSaisir, apresEnregistrement }: {
   const s = syntheseReel(donnees.lignes, donnees.tickets)
   const ouvrir = (m: number) => {
     setMois(m)
-    setSaisie(saisieDepuisReel(donnees.lignes, donnees.tickets, m))
+    const depart = saisieDepuisReel(donnees.lignes, donnees.tickets, m)
+    setSaisie(depart)
+    setInitiale(JSON.stringify(depart))
     setErreursSaisie([])
   }
   const changerVente = (cle: string, champ: keyof ChampsVente, v: string) =>
@@ -162,9 +162,10 @@ export function ReelAnnee({ magasin, annee, peutSaisir, apresEnregistrement }: {
         </>
       )}
 
-      <Dialog open={mois !== null} onClose={() => !occupe && setMois(null)} fullScreen={telephone} fullWidth maxWidth="md" aria-labelledby="titre-saisie">
-        <DialogTitle id="titre-saisie">Réel du mois · {magasin}</DialogTitle>
-        <DialogContent dividers>
+      {mois !== null && (
+      <Card component="section" ref={panneau} aria-labelledby="titre-saisie" sx={{ p: { xs: 2, md: 3 }, order: -1, scrollMarginTop: 96 }}>
+        <Typography variant="h2" id="titre-saisie" sx={{ mb: 2 }}>Réel du mois · {magasin}</Typography>
+        <Box>
           <TextField select label="Mois" value={mois ?? 1} onChange={(e) => ouvrir(Number(e.target.value))} sx={{ minWidth: 200, mb: 2, '& .MuiSelect-select': { minHeight: 48, boxSizing: 'border-box', display: 'flex', alignItems: 'center' }, '& .MuiSelect-nativeInput': { height: 48 } }}>
             {MOIS_LONGS.map((m, i) => <MenuItem key={m} value={i + 1} sx={{ minHeight: 48 }}>{m} {annee}</MenuItem>)}
           </TextField>
@@ -215,12 +216,13 @@ export function ReelAnnee({ magasin, annee, peutSaisir, apresEnregistrement }: {
               </TableContainer>
             </Box>
           ))}
-        </DialogContent>
-        <DialogActions>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <Button onClick={() => setMois(null)} disabled={occupe} sx={{ minHeight: 48 }}>Annuler</Button>
           <Button variant="contained" onClick={() => void enregistrer()} disabled={occupe} sx={{ minHeight: 48 }}>Enregistrer le mois</Button>
-        </DialogActions>
-      </Dialog>
+        </Box>
+      </Card>
+      )}
     </Stack>
   )
 }

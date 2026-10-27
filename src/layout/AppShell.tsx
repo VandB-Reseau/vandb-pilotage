@@ -6,6 +6,7 @@ import BottomNavigationAction from '@mui/material/BottomNavigationAction'
 import Box from '@mui/material/Box'
 import Divider from '@mui/material/Divider'
 import Drawer from '@mui/material/Drawer'
+import GlobalStyles from '@mui/material/GlobalStyles'
 import IconButton from '@mui/material/IconButton'
 import List from '@mui/material/List'
 import ListItemButton from '@mui/material/ListItemButton'
@@ -57,6 +58,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <GardeSaisie>
     <Box sx={{ minHeight: '100dvh', bgcolor: 'background.default' }}>
+      {/* Ce qu'on fait défiler jusqu'à l'écran ne se cache ni sous la barre du haut, ni sous la barre basse du téléphone */}
+      <GlobalStyles styles={{ html: { scrollPaddingTop: 80, scrollPaddingBottom: telephone && destinations.length > 1 ? 88 : 0 } }} />
       <AppBar position="sticky" sx={{ bgcolor: '#1d1d1b', color: '#ffffff', zIndex: (t) => t.zIndex.drawer + 1 }}>
         <Toolbar sx={{ gap: 1.5 }}>
           <Box component={RouterLink} to="/" aria-label="Accueil du pilotage" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'inherit', textDecoration: 'none', minHeight: 48 }}>
@@ -94,7 +97,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </Drawer>
       )}
 
-      <Box component="main" sx={{ ml: telephone ? 0 : `${LARGEUR_MENU}px`, px: { xs: 2, md: 4 }, py: { xs: 2, md: 4 }, pb: telephone && destinations.length > 1 ? 12 : 4, maxWidth: 1400 }}>
+      <Box component="main" sx={{ ml: telephone ? 0 : `${LARGEUR_MENU}px`, px: { xs: 2, md: 5 }, pt: { xs: 2, md: 4 }, pb: telephone && destinations.length > 1 ? 12 : 6, maxWidth: 1440 }}>
         {children}
       </Box>
 

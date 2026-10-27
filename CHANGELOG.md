@@ -5,6 +5,20 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+## Lot 6 — Refonte visuelle (27/10/2026)
+
+Esprit Pennylane, couleurs de la charte V and B (Joseph, 27/10/2026).
+
+- Fond clair et chaud, cartes sans bordure appuyée, marges plus larges ; tableaux aux chiffres alignés.
+- Fiche magasin : nouvel onglet Synthèse, ouvert par défaut. Quatre cartes (CA HT cumulé et écart sur l'an dernier,
+  marge commerciale, masse salariale sur marge, EBE attendu) avec leur courbe, alertes si l'équipe ou les frais manquent,
+  graphique du CA mois par mois (réel, projection, an dernier) avec infobulle au survol.
+- Compte de résultat sur 12 mois (budget et atterrissage) : rubriques repliées, dépliables d'un clic ou toutes ensemble,
+  en-têtes et libellés figés au défilement, mois projetés en italique, total et part du CA.
+- Accueil du Directeur, du RR et du Coach : budgets de l'année en quatre cartes (validés, CA et EBE budgétés, fiches à compléter).
+- Saisie d'un mois de réel et d'un poste de l'équipe directement dans la page, sans fenêtre.
+- Pas de migration.
+
 ## Lot 5 — Ergonomie (27/10/2026)
 
 Tous les rôles travaillent sur PC (Joseph, 27/10/2026) : confort PC d'abord, téléphone tenu propre.

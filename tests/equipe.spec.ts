@@ -28,7 +28,7 @@ test('le franchisé ajoute un vendeur au SMIC : coût chargé, réduction géné
   await page.getByRole('tab', { name: 'Équipe' }).click()
   await expect(page.getByText('Pas encore d’équipe')).toBeVisible()
   await page.getByRole('button', { name: 'Ajouter un poste' }).click()
-  const fiche = page.getByRole('dialog', { name: 'Nouveau poste' })
+  const fiche = page.getByRole('region', { name: 'Nouveau poste' })
   await expect(fiche.getByLabel('Poste')).toHaveValue('Vendeur 1')
   await fiche.getByRole('button', { name: 'Enregistrer' }).click()
   await expect(fiche.getByText('Le salaire brut mensuel est à renseigner.')).toBeVisible()
@@ -50,7 +50,7 @@ test('le franchisé ajoute un vendeur au SMIC : coût chargé, réduction géné
   await expect(ligne).toContainText(/22\s588\s€/)
   await expect(page.getByRole('region', { name: 'Masse salariale en chiffres' })).toContainText('Hausse des salaires : 2,0')
   await page.getByRole('tab', { name: /^Budget/ }).click()
-  await expect(page.getByRole('table', { name: 'Compte de résultat annuel' }).getByRole('row', { name: /Frais de personnel/ })).toContainText(/22\s588\s€/)
+  await expect(page.getByRole('table', { name: 'Budget 2027 mois par mois' }).getByRole('row', { name: /^Frais de personnel/ })).toContainText(/22\s588\s€/)
 })
 
 test('le Directeur prévoit une prime et un départ, retire un poste ; le tableau suit', async ({ page, isMobile }, info) => {
@@ -66,7 +66,7 @@ test('le Directeur prévoit une prime et un départ, retire un poste ; le tablea
   await page.screenshot({ path: `captures/${info.project.name}-equipe.png`, fullPage: true })
 
   await page.getByRole('button', { name: 'Modifier Vendeur 1' }).click()
-  const fiche = page.getByRole('dialog', { name: 'Modifier Vendeur 1' })
+  const fiche = page.getByRole('region', { name: 'Modifier Vendeur 1' })
   await fiche.getByRole('button', { name: 'Prime' }).click()
   await fiche.getByLabel('Montant de la prime 1').fill('500')
   await fiche.getByLabel('Départ').click()
@@ -108,7 +108,7 @@ test('un Coach complète l’équipe d’un magasin de son périmètre', async (
   await page.getByText(MAGASINS[0], { exact: true }).click()
   await page.getByRole('tab', { name: 'Équipe' }).click()
   await page.getByRole('button', { name: 'Ajouter un poste' }).click()
-  const fiche = page.getByRole('dialog', { name: 'Nouveau poste' })
+  const fiche = page.getByRole('region', { name: 'Nouveau poste' })
   await expect(fiche.getByLabel('Poste')).toHaveValue('Vendeur 2')
   await fiche.getByLabel('Heures par semaine').fill('24')
   await fiche.getByLabel('Brut mensuel').fill('1 250')

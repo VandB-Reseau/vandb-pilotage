@@ -42,11 +42,17 @@ test('la fiche d’un magasin montre le compte de résultat et le budget mois pa
   await seConnecter(page)
   await page.getByText(MAGASINS[0], { exact: true }).click()
   await expect(page.getByRole('heading', { level: 1, name: MAGASINS[0] })).toBeVisible()
-  const resultat = page.getByRole('table', { name: 'Compte de résultat annuel' })
+  await page.getByRole('tab', { name: /^Budget/ }).click()
+  const resultat = page.getByRole('table', { name: 'Budget 2027 mois par mois' })
   await expect(resultat.getByRole('row', { name: /Excédent brut d’exploitation/ })).toContainText(/54\s780\s€/)
   await expect(resultat.getByRole('row', { name: /Impôt sur les sociétés/ })).toContainText(/4\s437\s€/)
   await expect(resultat.getByRole('row', { name: /^Résultat net/ })).toContainText(/25\s143\s€/)
-  await expect(page.getByRole('table', { name: 'Budget mois par mois' }).getByRole('row')).toHaveCount(13)
+  // 12 mois, total et part du CA ; les charges externes se détaillent ligne par ligne
+  await expect(resultat.getByRole('columnheader')).toHaveCount(15)
+  await expect(resultat.getByRole('row', { name: /^Locations immobilières/ })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Charges externes : détailler' }).click()
+  await expect(resultat.getByRole('row', { name: /^Locations immobilières/ })).toContainText(/5\s000/)
+  await expect(resultat.getByRole('row', { name: /^Redevance/ })).toBeVisible()
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-fiche.png`, fullPage: true })
@@ -57,6 +63,7 @@ test('la fiche d’un magasin montre le compte de résultat et le budget mois pa
 test('un magasin sans budget l’explique', async ({ page }) => {
   await seConnecter(page)
   await page.getByText(MAGASINS[2], { exact: true }).click()
+  await page.getByRole('tab', { name: /^Budget/ }).click()
   await expect(page.getByText('Pas encore de budget', { exact: false })).toBeVisible()
 })
 

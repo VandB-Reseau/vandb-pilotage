@@ -54,9 +54,9 @@ export const theme = createTheme({
         warning: { main: brand.orange, dark: '#b84a1e' },
         error: { main: brand.brique },
         success: { main: brand.vert, dark: brand.vertFonce },
-        background: { default: '#fbf7f0', paper: '#ffffff' },
+        background: { default: '#f8f6f2', paper: '#ffffff' },
         text: { primary: brand.noir, secondary: '#5a5550' },
-        divider: '#ebe3d6',
+        divider: '#eeeae3',
         action: { selected: 'rgba(248, 187, 9, 0.28)' },
       },
     },
@@ -79,9 +79,9 @@ export const theme = createTheme({
     fontFamily,
     // Aucune taille sous 12 px dans l'app
     // Titres de page compacts sur téléphone, pour laisser la place au contenu
-    h1: { fontFamily: titres, fontSize: '2rem', fontWeight: 800, letterSpacing: '0.01em', textTransform: 'uppercase', [telephone]: { fontSize: '1.375rem' } },
-    h2: { fontFamily: titres, fontSize: '1.5rem', fontWeight: 700 },
-    h3: { fontFamily: titres, fontSize: '1.25rem', fontWeight: 700 },
+    h1: { fontFamily: titres, fontSize: '1.625rem', fontWeight: 700, letterSpacing: '0.02em', textTransform: 'uppercase', [telephone]: { fontSize: '1.25rem' } },
+    h2: { fontFamily: titres, fontSize: '1.25rem', fontWeight: 700 },
+    h3: { fontFamily: titres, fontSize: '1.125rem', fontWeight: 700 },
     h4: { fontSize: '1.125rem', fontWeight: 700 },
     h5: { fontSize: '1rem', fontWeight: 700 },
     h6: { fontSize: '1rem', fontWeight: 700 },
@@ -161,9 +161,22 @@ export const theme = createTheme({
     },
     MuiAppBar: { defaultProps: { elevation: 0, color: 'inherit' } },
     MuiPaper: { defaultProps: { elevation: 0 } },
+    // Cartes blanches sans bordure appuyée : une ombre à peine visible les détache du fond (lot 6)
     MuiCard: {
-      defaultProps: { variant: 'outlined' },
-      styleOverrides: { root: { borderRadius: 16 } },
+      defaultProps: { variant: 'elevation', elevation: 0 },
+      styleOverrides: {
+        root: ({ theme }) => ({
+          borderRadius: 14, boxShadow: '0 1px 2px rgba(29, 29, 27, 0.06), 0 0 0 1px rgba(29, 29, 27, 0.04)',
+          ...theme.applyStyles('dark', { boxShadow: 'none', border: `1px solid ${theme.palette.divider}` }),
+        }),
+      },
+    },
+    // Tableaux aérés : titres de colonnes discrets, lignes séparées d'un filet léger
+    MuiTableCell: {
+      styleOverrides: {
+        root: ({ theme }) => ({ borderColor: theme.palette.divider, fontVariantNumeric: 'tabular-nums' }),
+        head: ({ theme }) => ({ color: theme.palette.text.secondary, fontWeight: 600, fontSize: '0.8125rem', whiteSpace: 'nowrap' }),
+      },
     },
     MuiListItemButton: { styleOverrides: { root: { borderRadius: 999 } } },
     MuiBottomNavigationAction: {

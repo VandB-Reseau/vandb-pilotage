@@ -82,35 +82,54 @@ test('une ligne de frais s’ajoute depuis la grille ; un montant illisible est 
   await expect(page.getByLabel('Honoraires comptables', { exact: true })).toHaveCount(0)
 })
 
-test('atterrissage : réel des mois passés, saisonnalité de l’an dernier, frais du magasin', async ({ page, isMobile }, info) => {
+test('synthèse et atterrissage : réel des mois passés, saisonnalité de l’an dernier, frais du magasin', async ({ page, isMobile }, info) => {
   await seConnecter(page, { role: 'rr', reel: reelPour(MAGASINS[0]), tickets: ticketsPour(MAGASINS[0]), frais: [loyer(MAGASINS[0])] })
   await page.getByText(MAGASINS[0], { exact: true }).click()
-  await page.getByRole('tab', { name: `Atterrissage ${N}` }).click()
-  const chiffres = page.getByRole('region', { name: `Atterrissage ${N} en chiffres` })
-  // Bière 30 000 / (2 000 / 15 000) + Fût 10 000 × 6 = 285 000 ; marge 81 000 + 44 400 = 125 400 (44,0 %)
-  await expect(chiffres).toContainText(/285\sk€/)
-  await expect(chiffres).toContainText('Réalisé à fin février : 40')
-  await expect(chiffres).toContainText(/44,0\s%/)
-  // EBE : 125 400 − redevance et publicité 8 550 − loyer 60 000 = 56 850
-  await expect(chiffres).toContainText(/57\sk€/)
-  await expect(page.getByText('Équipe non renseignée', { exact: false })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Synthèse' })).toHaveAttribute('aria-selected', 'true')
+  const sante = page.getByRole('region', { name: 'Santé du magasin à fin février' })
+  // Cumul 40 000 contre 2 000 aux mêmes mois de l'an dernier ; marge 18 200 / 40 000 = 45,5 %
+  await expect(sante).toContainText(/40\sk€/)
+  await expect(sante).toContainText(/1\s900,0\s%\ssur/)
+  // Bière 30 000 / (2 000 / 15 000) + Fût 10 000 × 6 = 285 000
+  await expect(sante).toContainText(/Atterrissage \d+ : 285\sk€/)
+  await expect(sante).toContainText(/45,5\s%/)
+  await expect(sante).toContainText('À renseigner')
+  // EBE : marge 81 000 + 44 400 = 125 400 − redevance et publicité 8 550 − loyer 60 000 = 56 850
+  await expect(sante).toContainText(/57\sk€/)
+  await expect(page.getByText('Équipe non renseignée :', { exact: false })).toBeVisible()
   await expect(page.getByText('Frais non renseignés', { exact: false })).toHaveCount(0)
+  // Au survol de décembre : projection 15 000 × 4 + 5 000 = 65 000, et 4 000 l'an dernier
+  const graphique = page.getByRole('region', { name: /Chiffre d’affaires \d+ mois par mois/ })
+  await graphique.locator('[data-mois="12"]').click()
+  const bulle = page.getByRole('tooltip')
+  await expect(bulle).toContainText('décembre')
+  await expect(bulle).toContainText(/Projection\s*65\s000\s€/)
+  await expect(bulle).toContainText(/4\s000\s€/)
+  expect(await textesTropPetits(page)).toEqual([])
+  if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
+  await page.screenshot({ path: `captures/${info.project.name}-synthese.png`, fullPage: true })
+
+  await page.getByRole('tab', { name: `Atterrissage ${N}` }).click()
   await expect(page.getByRole('button', { name: /Proposer le budget/ })).toHaveCount(0)
   const tableau = page.getByRole('table', { name: `Atterrissage ${N} mois par mois` })
-  await expect(tableau.getByRole('row', { name: /Févr\./ })).toContainText('Réel')
-  await expect(tableau.getByRole('row', { name: /Déc\./ })).toContainText('Projection')
-  await expect(tableau.getByRole('row', { name: /Déc\./ })).toContainText(/65\s000\s€/)
+  await expect(tableau.getByRole('columnheader', { name: 'Févr.', exact: true })).toBeVisible()
+  await expect(tableau.getByRole('columnheader', { name: 'Mars (projection)' })).toBeVisible()
+  await expect(tableau.getByRole('row', { name: /^Chiffre d’affaires HT/ })).toContainText(/65\s000/)
+  await expect(tableau.getByRole('row', { name: /^Chiffre d’affaires HT/ })).toContainText(/285\s000\s€/)
+  await expect(tableau.getByRole('row', { name: /^Excédent brut/ })).toContainText(/56\s850\s€/)
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-atterrissage.png`, fullPage: true })
 
+  await page.getByRole('tab', { name: 'Synthèse' }).click()
   await page.getByRole('button', { name: 'Renseigner l’équipe' }).click()
-  await expect(page.getByRole('tab', { name: 'Équipe' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { name: /^Équipe/ })).toHaveAttribute('aria-selected', 'true')
 })
 
 test('le Directeur propose le budget de l’an prochain à partir de l’atterrissage', async ({ page }) => {
   const ecritures = await seConnecter(page, { reel: reelPour(MAGASINS[2]), tickets: ticketsPour(MAGASINS[2]), frais: [loyer(MAGASINS[2])] })
   await page.getByText(MAGASINS[2], { exact: true }).click()
+  await page.getByRole('tab', { name: /^Budget/ }).click()
   await expect(page.getByText(`Pas encore de budget ${B}`)).toBeVisible()
   await page.getByRole('button', { name: `Voir l’atterrissage ${N}` }).click()
   await page.getByRole('button', { name: `Proposer le budget ${B}` }).click()
@@ -122,7 +141,7 @@ test('le Directeur propose le budget de l’an prochain à partir de l’atterri
   expect(envoi.base.frais.map((f) => f.code)).toEqual(['loyer'])
   expect(envoi.base.caMensuelReference[11]).toBeCloseTo(65_000, 6)
   await expect(page.getByRole('button', { name: `Mettre à jour la proposition ${B}` })).toBeVisible()
-  await page.getByRole('tab', { name: `Budget ${B}` }).click()
+  await page.getByRole('tab', { name: /^Budget/ }).click()
   await expect(page.getByRole('region', { name: 'Indicateurs clés' })).toBeVisible()
 })
 
