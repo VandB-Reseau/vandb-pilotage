@@ -1,4 +1,5 @@
 import { nombre } from '../import/caisse'
+import { enChiffres } from '../lib/format'
 import { CODES_FINANCES, type LigneFraisMagasin } from './atterrissage'
 import { lignesFrais, rubriqueLibelle } from './parametres'
 import type { Rubrique } from './types'
@@ -15,7 +16,7 @@ export const LIBELLES_FINANCES: Record<keyof typeof CODES_FINANCES, string> = {
 // Lignes que presque tous les magasins ont : point de départ d'une saisie
 export const LIGNES_COURANTES = ['loyer', 'charges_locatives', 'energie', 'honoraires_comptables', 'assurances', 'banque', 'telecom', 'cfe']
 
-const enTexte = (v: number) => String(Math.round(v * 100) / 100).replace('.', ',')
+const enTexte = (v: number) => enChiffres(Math.round(v * 100) / 100)
 const codesFinances = Object.values(CODES_FINANCES) as string[]
 const ordre = (c: string) => { const i = lignesFrais.findIndex((l) => l.code === c); return i < 0 ? 999 : i }
 

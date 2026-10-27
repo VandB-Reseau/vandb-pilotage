@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
 import AppBar from '@mui/material/AppBar'
 import BottomNavigation from '@mui/material/BottomNavigation'
@@ -24,9 +24,11 @@ import StorefrontOutlined from '@mui/icons-material/StorefrontOutlined'
 import TuneOutlined from '@mui/icons-material/TuneOutlined'
 import UploadFileOutlined from '@mui/icons-material/UploadFileOutlined'
 import TrendingUpOutlined from '@mui/icons-material/TrendingUpOutlined'
+import { GardeSaisie } from '../components/GardeSaisie'
 import { Logo } from '../components/Logo'
 import { useAuth } from '../auth/AuthContext'
 import { estDirecteur, roleLibelle } from '../auth/roles'
+import { installerChampSuivant } from '../lib/champSuivant'
 import { brandStripe } from '../theme/theme'
 
 const LARGEUR_MENU = 248
@@ -39,6 +41,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const telephone = useMediaQuery(theme.breakpoints.down('md'))
   const { pathname } = useLocation()
   const [menuCompte, setMenuCompte] = useState<HTMLElement | null>(null)
+  useEffect(installerChampSuivant, [])
 
   // Hypothèses, imports de caisse et paramètres réseau : Directeur seul, comme les référentiels de l'app réseau
   const destinations: Destination[] = [
@@ -52,6 +55,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const active = destinations.find((d) => d.chemin !== '/' && pathname.startsWith(d.chemin))?.chemin ?? '/'
 
   return (
+    <GardeSaisie>
     <Box sx={{ minHeight: '100dvh', bgcolor: 'background.default' }}>
       <AppBar position="sticky" sx={{ bgcolor: '#1d1d1b', color: '#ffffff', zIndex: (t) => t.zIndex.drawer + 1 }}>
         <Toolbar sx={{ gap: 1.5 }}>
@@ -104,5 +108,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         </Paper>
       )}
     </Box>
+    </GardeSaisie>
   )
 }

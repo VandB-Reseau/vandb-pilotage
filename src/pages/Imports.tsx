@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useSaisieEnCours } from '../components/GardeSaisie'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -69,6 +70,7 @@ export function Imports() {
   const [occupe, setOccupe] = useState(false)
   const [nouveauCode, setNouveauCode] = useState('')
   const [nouveauMagasin, setNouveauMagasin] = useState<string | null>(null)
+  useSaisieEnCours(!!lus)
 
   if (chargement && !donnees) return <Box><Typography variant="h1">Imports de caisse</Typography><Skeleton variant="rounded" height={240} sx={{ mt: 3 }} /></Box>
   if (erreur || !donnees) return <Box><Typography variant="h1" sx={{ mb: 3 }}>Imports de caisse</Typography><Panne quoi="Les codes caisse" recharger={recharger} /></Box>

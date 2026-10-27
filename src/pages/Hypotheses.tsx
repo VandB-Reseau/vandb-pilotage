@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSaisieEnCours } from '../components/GardeSaisie'
 import Alert from '@mui/material/Alert'
 import Autocomplete from '@mui/material/Autocomplete'
 import Box from '@mui/material/Box'
@@ -47,6 +48,9 @@ export function Hypotheses() {
     const { d } = donnees
     setBrouillons(Object.fromEntries([[RESEAU, d.reseau ?? {}], ...d.groupes.map((g) => [String(g.id), g.cibles ?? {}])]))
   }, [donnees])
+
+  const enregistreesDe = (k: string) => (k === RESEAU ? donnees?.d.reseau : donnees?.d.groupes.find((g) => String(g.id) === k)?.cibles) ?? {}
+  useSaisieEnCours(!!donnees && Object.entries(brouillons).some(([k, v]) => JSON.stringify(v) !== JSON.stringify(enregistreesDe(k))))
 
   // Les familles proposées sont celles trouvées dans les prévisionnels importés
   const familles = useMemo(() => donnees?.d.magasins.flatMap((l) => l.base?.familles ?? []) ?? [], [donnees])

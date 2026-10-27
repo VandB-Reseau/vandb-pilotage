@@ -21,10 +21,11 @@ import PlaylistAddOutlined from '@mui/icons-material/PlaylistAddOutlined'
 import SaveOutlined from '@mui/icons-material/SaveOutlined'
 import { ChampNombre } from './ChampNombre'
 import { EtatVide } from './EtatVide'
+import { useSaisieEnCours } from './GardeSaisie'
 import { Indicateur } from './Indicateur'
 import { enregistrerFrais } from '../data/pilotage'
 import { nombre } from '../import/caisse'
-import { milliers, montant, taux } from '../lib/format'
+import { milliers, miseEnForme, montant, taux } from '../lib/format'
 import type { LigneFraisMagasin } from '../moteur/atterrissage'
 import { rubriqueLibelle } from '../moteur/parametres'
 import {
@@ -43,6 +44,7 @@ function ChampFraisLigne({ ligne, onChange }: { ligne: ChampFrais; onChange: (l:
       value={ligne.valeur}
       error={Number.isNaN(nombre(ligne.valeur))}
       onChange={(e) => onChange({ valeur: e.target.value })}
+      onBlur={() => { const f = miseEnForme(ligne.valeur, nombre); if (f !== ligne.valeur) onChange({ valeur: f }) }}
       slotProps={{
         htmlInput: { inputMode: 'decimal', 'aria-label': ligne.libelle, style: { textAlign: 'right' } },
         input: {
@@ -82,6 +84,7 @@ export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregist
 
   const initiale = saisieDepuisLignes(lignes)
   const modifie = JSON.stringify(saisie) !== JSON.stringify(initiale)
+  useSaisieEnCours(peutSaisir && modifie)
   const t = totauxFrais(saisie)
   const disponibles = lignesDisponibles(saisie)
   const changer = (code: string, l: Partial<ChampFrais>) => setSaisie((s) => ({ ...s, lignes: s.lignes.map((x) => (x.code === code ? { ...x, ...l } : x)) }))

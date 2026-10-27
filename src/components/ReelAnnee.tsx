@@ -37,7 +37,7 @@ const nombreEntier = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }
 const panier = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 // Réel d'une année d'un magasin : indicateurs, CA par famille et par mois, saisie d'un mois
-export function ReelAnnee({ magasin, annee, peutSaisir }: { magasin: string; annee: number; peutSaisir: boolean }) {
+export function ReelAnnee({ magasin, annee, peutSaisir, apresEnregistrement }: { magasin: string; annee: number; peutSaisir: boolean; apresEnregistrement?: () => void }) {
   const theme = useTheme()
   const telephone = useMediaQuery(theme.breakpoints.down('md'))
   const { donnees, erreur, chargement, recharger } = useChargement(() => chargerReel(magasin, annee), [magasin, annee])
@@ -70,6 +70,7 @@ export function ReelAnnee({ magasin, annee, peutSaisir }: { magasin: string; ann
       setMessage({ gravite: 'success', texte: `Réel de ${MOIS_LONGS[mois - 1]} ${annee} enregistré.` })
       setMois(null)
       recharger()
+      apresEnregistrement?.()
     } catch {
       setErreursSaisie(['L’enregistrement n’a pas abouti. Vérifie ta connexion, puis réessaie.'])
     } finally {

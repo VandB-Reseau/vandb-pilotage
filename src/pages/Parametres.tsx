@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSaisieEnCours } from '../components/GardeSaisie'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -38,6 +39,7 @@ export function Parametres() {
   const taux_ = (k: keyof ParametresCharges['taux'], v: number | undefined) => setCharges((c) => (c ? { ...c, taux: { ...c.taux, [k]: v ?? 0 } } : c))
   const reduction = (k: keyof ParametresCharges['reduction'], v: number | undefined) => setCharges((c) => (c ? { ...c, reduction: { ...c.reduction, [k]: v ?? 0 } } : c))
   const smicLu = nombre(smic), puissanceLue = nombre(puissance)
+  useSaisieEnCours(!!p && !!charges && (JSON.stringify(charges) !== JSON.stringify(p.charges) || smicLu !== p.charges.reduction.smicAnnuel || puissanceLue !== p.charges.reduction.puissance))
   const valides = smicLu !== null && !Number.isNaN(smicLu) && smicLu > 0 && puissanceLue !== null && !Number.isNaN(puissanceLue) && puissanceLue > 0
   const enregistrer = async () => {
     if (!p || !charges || !valides) return

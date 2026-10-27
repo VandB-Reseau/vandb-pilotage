@@ -72,7 +72,7 @@ test('une ligne de frais s’ajoute depuis la grille ; un montant illisible est 
   await seConnecter(page, { role: 'franchise', frais: [...autres, loyer(MAGASINS[0])] })
   await page.getByText(MAGASINS[0], { exact: true }).click()
   await page.getByRole('tab', { name: 'Frais' }).click()
-  await expect(page.getByLabel('Locations immobilières', { exact: true })).toHaveValue('60000')
+  await expect(page.getByLabel('Locations immobilières', { exact: true })).toHaveValue('60 000')
   await page.getByLabel('Ajouter une ligne').fill('Honoraires compt')
   await page.getByRole('option', { name: 'Honoraires comptables' }).click()
   await page.getByLabel('Honoraires comptables', { exact: true }).fill('six mille')
