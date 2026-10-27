@@ -2,10 +2,9 @@ import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
 import { seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule } from './supabase-simule'
 
-// Construire le budget : import du prévisionnel, cibles du réseau et des groupes, ajustements du magasin, validation.
-// Données fictives uniquement (tests/fichiers/previsionnel-fictif.xlsx, magasin fictif) : dépôt public.
+// Construire le budget : cibles du réseau et des groupes, ajustements du magasin, validation.
+// Données fictives uniquement (magasin fictif) : dépôt public.
 
-const PREVISIONNEL = new URL('./fichiers/previsionnel-fictif.xlsx', import.meta.url).pathname
 const reseau = { evolutionUnivers: { cave: 0.03, bar: 0.03, exterieur: 0 }, hausseSalaires: 0.02, inflationFrais: 0.02, margeFamille: { 'bar/Fût': 0.75 } }
 const avecBase = (statut: MagasinSimule['statut'] = 'propose'): MagasinSimule[] => [
   { magasin: MAGASINS[0], statut, hypotheses: magasinFictif, base: magasinFictif, ajustements: {}, maj_le: '2026-10-20T09:30:00Z' },
@@ -18,31 +17,6 @@ test.beforeEach(async ({ page }) => {
 })
 test.afterEach(async ({ page }) => {
   expect((page as unknown as { erreurs: string[] }).erreurs, 'aucune erreur JavaScript').toEqual([])
-})
-
-test('le Directeur importe le prévisionnel Excel d’un magasin : le budget est proposé', async ({ page }) => {
-  const ecritures = await seConnecter(page)
-  await page.getByText(MAGASINS[2], { exact: true }).click()
-  await expect(page.getByText(/Pas encore de budget/)).toBeVisible()
-  await page.getByLabel('Prévisionnel Excel du magasin').setInputFiles(PREVISIONNEL)
-  await expect(page.getByText('Prévisionnel importé : budget 2027 proposé au magasin.')).toBeVisible()
-  // Alerte du fichier fictif : la famille « Autre » n'a pas de marge saisie
-  await expect(page.getByText('Marge réalisée absente pour Autre : marge réseau reprise.')).toBeVisible()
-  const envoi = ecritures.find((e) => e.table === 'budgets' && e.methode === 'POST')?.corps as { statut: string; base: { familles: unknown[] } }
-  expect(envoi.statut).toBe('propose')
-  expect(envoi.base.familles).toHaveLength(4)
-  // Sans cible, le budget reconduit l'atterrissage : 302 000 / 60 % + 60 000 / 50 %
-  await expect(page.getByRole('table', { name: 'Compte de résultat annuel' }).getByRole('row', { name: /^Chiffre d’affaires HT/ })).toContainText(/623\s333\s€/)
-  await expect(page.getByText('Proposé par le siège')).toBeVisible()
-})
-
-test('un fichier qui n’est pas le prévisionnel du réseau est refusé avec un message clair', async ({ page }) => {
-  await seConnecter(page)
-  await page.getByText(MAGASINS[2], { exact: true }).click()
-  await page.getByLabel('Prévisionnel Excel du magasin').setInputFiles(new URL('./fichiers/classeur-sans-rapport.xlsx', import.meta.url).pathname)
-  await expect(page.getByText(/Ce classeur n’est pas le prévisionnel du réseau/)).toBeVisible()
-  await page.getByLabel('Prévisionnel Excel du magasin').setInputFiles({ name: 'notes.xlsx', mimeType: 'application/octet-stream', buffer: Buffer.from('pas un classeur') })
-  await expect(page.getByText(/ne s’ouvre pas comme un classeur Excel/)).toBeVisible()
 })
 
 test('le Directeur fixe les cibles du réseau et voit leur effet sur le total', async ({ page, isMobile }, info) => {
@@ -98,7 +72,6 @@ test('le franchisé s’écarte d’une cible : le budget passe en discussion, i
   await expect(resultat.getByRole('row', { name: /^Chiffre d’affaires HT/ })).toContainText(/619\s000\s€/)
   await expect(page.getByText('1 écart aux cibles du siège', { exact: false })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Valider le budget' })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: /Importer|Réimporter/ })).toHaveCount(0)
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-fiche-hypotheses.png`, fullPage: true })

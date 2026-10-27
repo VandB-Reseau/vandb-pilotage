@@ -3,7 +3,7 @@
 Même base Supabase que l'app réseau. Le pilotage n'écrit que dans le schéma `pilotage` ; il lit l'app réseau par ses
 fonctions (`mon_role()`, `est_directeur()`, `magasins_visibles()`, `mes_magasins()`) et sa table `perimetre_equipe`.
 
-Mis à jour le 26/10/2026 (migration `0002`).
+Mis à jour le 27/10/2026 (migration `0003`).
 
 ## Principes
 
@@ -19,7 +19,9 @@ Mis à jour le 26/10/2026 (migration `0002`).
 | --- | --- | --- | --- | --- |
 | `parametres_reseau` | Paramètres de l'année : `valeur` jsonb (`tauxRedevance`, `tauxPublicite`, `impot`, `tvaPanier`) | `annee` | Comptes ouverts | Directeur |
 | `budgets` | Budget d'un magasin pour une année : `statut` (`propose`, `en_discussion`, `valide`), `base` (réalisé importé du prévisionnel), `ajustements` (écarts du magasin aux cibles, format `Cibles`), `proposition` (base proposée par le siège), `hypotheses` (hypothèses calculées au dernier enregistrement, figées à la validation), `valide_le` | `store_name`, `annee` | Magasins du compte | Création et suppression : Directeur. Modification : Directeur, franchisé sur ses magasins |
-| `reel_mensuel` | Réel par mois, univers (`cave`, `bar`, `exterieur`) et famille : `ca_ht`, `marge_ht`, `tickets` | `store_name`, `mois`, `univers`, `famille` | Magasins du compte | Directeur (import) |
+| `reel_mensuel` | Réel par mois (1er du mois), univers (`cave`, `bar`, `exterieur`) et famille : `ca_ht`, `ca_ttc`, `marge_ht` (marge théorique de la caisse), `maj_par`. La colonne `tickets` de `0001` n'est plus utilisée (voir `reel_tickets`) | `store_name`, `mois`, `univers`, `famille` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
+| `reel_tickets` | Tickets par mois et univers (un ticket ne se compte pas par famille) : `tickets`, `maj_par` | `store_name`, `mois`, `univers` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
+| `codes_caisse` | Code magasin de la caisse (fichiers de la DSI) → nom du magasin, un code par magasin | `code` | Équipe | Directeur |
 | `groupes` | Groupes libres de magasins (centre-ville, zone commerciale…) : `nom` | `id` | Équipe | Directeur |
 | `groupe_magasins` | Groupe d'un magasin (un au plus) | `store_name` | Équipe | Directeur |
 | `cibles_reseau` | Cibles du réseau pour l'année : `valeur` (format `Cibles`) | `annee` | Équipe | Directeur |
@@ -42,7 +44,13 @@ Mis à jour le 26/10/2026 (migration `0002`).
 | --- | --- |
 | `pilotage.mes_magasins()` | Magasins du compte connecté |
 | `pilotage.magasins_du_compte(annee)` | Magasins du compte avec statut, hypothèses et date du budget de l'année (lot 0, remplacée dans l'app par la suivante) |
+| `pilotage.remplacer_reel(ventes, tickets)` | Import ou saisie du réel : vide puis réécrit chaque couple magasin et mois reçu (ventes et tickets à part). Droits de l'appelant (`SECURITY INVOKER`) : une ligne hors périmètre fait échouer tout l'appel. Renvoie le nombre de lignes de ventes |
 | `pilotage.budgets_du_compte(annee)` | `{ magasins, reseau, groupes }` : budgets du compte (base, ajustements, hypothèses, groupe), cibles du réseau, groupes utiles au compte avec leurs cibles |
+
+## Rejouer les migrations
+
+Rejouer `0001` seule remet les règles du lot 0 sur `reel_mensuel` (écriture par le Directeur seul) : c'est plus strict,
+jamais plus ouvert. Repasser ensuite `0003` pour rouvrir la saisie à l'équipe et aux franchisés.
 
 ## Format des hypothèses (`budgets.hypotheses`)
 

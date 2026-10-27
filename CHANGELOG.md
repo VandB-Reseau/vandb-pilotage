@@ -5,6 +5,19 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+## Lot 2 — Réel de l'année (27/10/2026)
+
+- Recadrage de Joseph : l'Excel n'est plus un fichier d'import mais le modèle que l'app reproduit. L'import du
+  prévisionnel Excel est retiré.
+- Imports de caisse (Directeur) : dépôt des fichiers mensuels de la DSI (ventes par famille, tickets par univers, format
+  dans [docs/import-caisse.md](docs/import-caisse.md)), aperçu par magasin et par mois, lignes écartées expliquées, codes
+  caisse inconnus à rattacher sur place, chaque mois reçu remplace l'existant. Le même format sert à l'année précédente.
+- Fiche magasin : onglets Budget, Réel de l'année en cours et de la précédente (CA, marge théorique, tickets, panier
+  moyen, CA par famille et par mois). Saisie ou correction d'un mois à la main par le Directeur, le RR, le Coach ou le
+  franchisé, chacun sur ses magasins.
+- Base : `0003_reel_annee.sql` (CA TTC, `reel_tickets`, `codes_caisse`, droits de saisie, `remplacer_reel()`). À passer
+  avant d'utiliser cette version.
+
 ## Lot 1 — Construire le budget (26/10/2026)
 
 - Hypothèses par niveaux (décision de Joseph) : le Directeur fixe les cibles du réseau (évolution du CA par univers et

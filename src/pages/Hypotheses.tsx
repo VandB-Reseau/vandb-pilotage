@@ -140,7 +140,7 @@ export function Hypotheses() {
             </Button>
           </Box>
           {familles.length === 0 && !groupe && (
-            <Box sx={{ px: 2 }}><Alert severity="info">Les familles de produits apparaissent dès le premier prévisionnel importé.</Alert></Box>
+            <Box sx={{ px: 2 }}><Alert severity="info">Les familles de produits apparaissent dès le premier budget proposé.</Alert></Box>
           )}
           <TableContainer>
             <TableauCibles

@@ -36,5 +36,9 @@ done
 for f in $(ls "$MIGRATIONS"/[0-9][0-9][0-9][0-9]_*.sql | sort -r); do psql_ -f "$f" >/dev/null; done
 echo "Migrations rejouées dans l'ordre inverse : OK"
 
+# Une migration ancienne rejouée seule peut remettre ses règles d'origine, plus strictes, sur une table qu'une migration
+# plus récente a ouverte (ex. 0001 sur reel_mensuel) : la base en ligne suit l'ordre normal, on y revient avant les contrôles
+for f in "$MIGRATIONS"/[0-9][0-9][0-9][0-9]_*.sql; do psql_ -f "$f" >/dev/null; done
+
 psql_ -f "$ICI/regles_acces.sql" >/dev/null
 echo "Règles d'accès : OK"

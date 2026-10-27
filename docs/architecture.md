@@ -9,11 +9,11 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
 
 | Dossier | Contenu |
 | --- | --- |
-| `src/moteur/` | Moteur de calcul pur : `types.ts` (hypothèses, résultats), `budget.ts` (calcul), `cibles.ts` (hypothèses par niveaux réseau, groupe, magasin), `parametres.ts` (paramètres par défaut, grille des frais) |
-| `src/import/` | Lecture d'un .xlsx sans dépendance (`xlsx.ts`), base d'un magasin tirée de son prévisionnel Excel (`previsionnel.ts`, positions des cellules du modèle) |
+| `src/moteur/` | Moteur de calcul pur : `types.ts` (hypothèses, résultats), `budget.ts` (calcul), `cibles.ts` (hypothèses par niveaux réseau, groupe, magasin), `parametres.ts` (paramètres par défaut, grille des frais), `reel.ts` (synthèse du réel d'une année, familles de la caisse), `saisieReel.ts` (saisie d'un mois à la main) |
+| `src/import/` | Lecture des fichiers mensuels de la DSI (`caisse.ts` : ventes, tickets, aperçu avant import ; format dans [import-caisse.md](import-caisse.md)) |
 | `src/data/` | Lecture de la base (`pilotage.ts`), chargement avec nouvelle tentative (`useChargement.ts`) |
 | `src/auth/` | Connexion et rôle lu dans la base |
-| `src/pages/` | Connexion, Magasins, fiche Magasin (import, hypothèses, validation), Hypothèses (cibles du réseau et des groupes), Paramètres réseau |
+| `src/pages/` | Connexion, Magasins, fiche Magasin (onglets Budget, Réel de l'année et de la précédente avec saisie d'un mois), Hypothèses (cibles du réseau et des groupes), Imports de caisse (fichiers de la DSI, codes caisse), Paramètres réseau |
 | `src/layout/` | Cadre : barre du haut, menu latéral sur PC, barre basse sur téléphone |
 | `supabase/` | Migrations du schéma `pilotage` et leurs tests |
 | `tests/` | `moteur/` (calculs, sans navigateur), écrans sur PC et téléphone avec Supabase simulé |
@@ -23,18 +23,23 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
 1. Connexion avec les identifiants de l'app réseau ; rôle lu par `mon_acces()`.
 2. `pilotage.budgets_du_compte(annee)` renvoie les budgets du compte, les cibles du réseau et des groupes ; les
    paramètres viennent de `pilotage.parametres_reseau`.
-3. Budget d'un magasin : sa base (prévisionnel Excel importé) passe par `appliquerCibles` (réseau, groupe, ajustements du
+3. Budget d'un magasin : sa base (réalisé proposé par le siège) passe par `appliquerCibles` (réseau, groupe, ajustements du
    magasin), puis par `calculerBudget`. Un budget validé garde les hypothèses figées à la validation.
+4. Réel : chaque mois, le Directeur dépose les fichiers de la DSI (Imports de caisse) ; l'app les lit dans le navigateur,
+   rattache les codes caisse aux magasins et remplace chaque mois reçu par `remplacer_reel`. Un mois peut aussi être saisi
+   à la main depuis la fiche magasin. `syntheseReel` en tire cumul, marge, poids des familles et panier moyen.
 
 ## Rôles
 
 | Rôle | Voit | Écrit |
 | --- | --- | --- |
-| Directeur de réseau | Tous les magasins, hypothèses, paramètres | Paramètres, cibles, groupes, budgets (importe, valide, rouvre), réel |
-| Responsable Régional, Coach | Magasins de leur périmètre | Rien pour l'instant |
-| Franchisé | Ses magasins, avec les cibles qui s'y appliquent | Ajustements de son budget tant qu'il n'est pas validé |
+| Directeur de réseau | Tous les magasins, hypothèses, paramètres, imports | Paramètres, cibles, groupes, budgets (valide, rouvre), réel (import et saisie), codes caisse |
+| Responsable Régional, Coach | Magasins de leur périmètre | Réel de leurs magasins (saisie d'un mois) |
+| Franchisé | Ses magasins, avec les cibles qui s'y appliquent | Ajustements de son budget tant qu'il n'est pas validé, réel de ses magasins |
 
 ## Plan par lots
 
-0 Socle · 1 Budget (import, cibles par niveaux, accord) · 2 Réel et tableau de bord · 3 Quadrimestre ·
-4 Trésorerie · 5 Vue réseau · 6 Connexion caisse.
+Recadré le 27/10/2026 : le budget se construit dans l'app, magasin par magasin, sans import du prévisionnel Excel.
+0 Socle · 1 Cibles par niveaux et accord · 2 Réel de l'année (import DSI, saisie) · 3 Équipe et masse salariale ·
+4 Frais et atterrissage · 5 Hypothèses de l'an prochain (travaux, duplication d'un magasin à l'autre, démarque) ·
+6 Vue réseau · plus tard, connexion caisse.

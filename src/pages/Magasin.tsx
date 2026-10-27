@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link as RouterLink, useParams } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
@@ -6,44 +6,34 @@ import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
 import Skeleton from '@mui/material/Skeleton'
 import Stack from '@mui/material/Stack'
+import Tab from '@mui/material/Tab'
 import Table from '@mui/material/Table'
 import TableBody from '@mui/material/TableBody'
 import TableCell from '@mui/material/TableCell'
 import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
+import Tabs from '@mui/material/Tabs'
 import Typography from '@mui/material/Typography'
 import ArrowBack from '@mui/icons-material/ArrowBack'
 import CheckCircleOutlined from '@mui/icons-material/CheckCircleOutlined'
 import LockOpenOutlined from '@mui/icons-material/LockOpenOutlined'
 import SaveOutlined from '@mui/icons-material/SaveOutlined'
-import UploadFileOutlined from '@mui/icons-material/UploadFileOutlined'
 import { useAuth } from '../auth/AuthContext'
 import { EtatVide } from '../components/EtatVide'
+import { Indicateur } from '../components/Indicateur'
 import { Panne } from '../components/Panne'
 import { PastilleStatut } from '../components/PastilleStatut'
+import { ReelAnnee } from '../components/ReelAnnee'
 import { lignesCibles, TableauCibles } from '../components/TableauCibles'
 import {
-  anneeBudget, changerStatut, chargerBudgets, chargerParametres, enregistrerAjustements, hypothesesDe, niveauxDe, proposerBudget, valeursSansCible,
+  anneeBudget, changerStatut, chargerBudgets, chargerParametres, enregistrerAjustements, hypothesesDe, niveauxDe, valeursSansCible,
 } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
-import { lirePrevisionnel, ModeleInconnu } from '../import/previsionnel'
-import { lireClasseur } from '../import/xlsx'
-import { montant, milliers, taux } from '../lib/format'
+import { montant, milliers, MOIS, taux } from '../lib/format'
 import { calculerBudget } from '../moteur/budget'
-import { appliquerCibles, ecarts, type Cibles } from '../moteur/cibles'
+import { ecarts, type Cibles } from '../moteur/cibles'
 
-const MOIS = ['Janv.', 'Févr.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.']
-
-function Indicateur({ libelle, valeur, detail }: { libelle: string; valeur: string; detail?: string }) {
-  return (
-    <Card sx={{ p: 2, flex: '1 1 160px' }}>
-      <Typography variant="body2" color="text.secondary">{libelle}</Typography>
-      <Typography variant="h3" component="p" sx={{ mt: 0.5 }}>{valeur}</Typography>
-      {detail && <Typography variant="caption" color="text.secondary">{detail}</Typography>}
-    </Card>
-  )
-}
 
 type Message = { gravite: 'success' | 'error' | 'warning'; texte: string; details?: string[] }
 
@@ -56,7 +46,9 @@ export function Magasin() {
   const [brouillon, setBrouillon] = useState<Cibles>({})
   const [message, setMessage] = useState<Message | null>(null)
   const [occupe, setOccupe] = useState(false)
-  const fichier = useRef<HTMLInputElement>(null)
+  // Budget de l'an prochain, réel de l'année en cours et de la précédente
+  const anneeEnCours = new Date().getFullYear()
+  const [onglet, setOnglet] = useState('budget')
 
   const ligne = donnees?.d.magasins.find((l) => l.magasin === nom) ?? null
   useEffect(() => { setBrouillon(ligne?.ajustements ?? {}) }, [ligne])
@@ -91,42 +83,6 @@ export function Magasin() {
     }
   }
 
-  const importer = async (f: File) => {
-    setOccupe(true)
-    setMessage(null)
-    try {
-      const { base, alertes } = lirePrevisionnel(await lireClasseur(await f.arrayBuffer()), annee)
-      const hypotheses = appliquerCibles(base, niveauxDe(ligne, d)).hypotheses
-      try {
-        await proposerBudget(ligne.magasin, annee, base, hypotheses)
-      } catch {
-        setMessage({ gravite: 'error', texte: 'Le prévisionnel est lu, mais le budget n’a pas pu être enregistré. Vérifie ta connexion, puis réessaie.' })
-        return
-      }
-      setMessage({ gravite: alertes.length ? 'warning' : 'success', texte: `Prévisionnel importé : budget ${annee} proposé au magasin.`, details: alertes })
-      recharger()
-    } catch (e) {
-      setMessage({
-        gravite: 'error',
-        texte: e instanceof ModeleInconnu
-          ? `Ce classeur n’est pas le prévisionnel du réseau : il lui manque ${e.onglets.length > 1 ? 'les onglets' : 'l’onglet'} « ${e.onglets.join(' », « ')} ».`
-          : 'Ce fichier ne s’ouvre pas comme un classeur Excel (.xlsx). Enregistre-le au format .xlsx, puis réessaie.',
-      })
-    } finally {
-      setOccupe(false)
-      if (fichier.current) fichier.current.value = ''
-    }
-  }
-
-  const boutonImport = directeur && (
-    <>
-      <input ref={fichier} type="file" accept=".xlsx" hidden aria-label="Prévisionnel Excel du magasin" onChange={(e) => { const f = e.target.files?.[0]; if (f) void importer(f) }} />
-      <Button variant={ligne.base ? 'outlined' : 'contained'} startIcon={<UploadFileOutlined />} disabled={occupe} onClick={() => fichier.current?.click()} sx={{ minHeight: 48 }}>
-        {ligne.base ? 'Réimporter le prévisionnel' : 'Importer le prévisionnel'}
-      </Button>
-    </>
-  )
-
   const lignesResultat = b ? [
     { libelle: 'Chiffre d’affaires HT', valeur: b.ca, fort: true },
     { libelle: 'Achats consommés HT', valeur: -b.mois.reduce((a, m) => a + m.achats, 0) },
@@ -149,9 +105,18 @@ export function Magasin() {
         <Typography variant="h1">{ligne.magasin}</Typography>
         <PastilleStatut statut={ligne.statut} />
       </Box>
-      <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5, mb: 3 }}>
+      <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
         Budget {annee}{ligne.base ? ` · ${nbEcarts === 0 ? 'aucun écart' : nbEcarts === 1 ? '1 écart' : `${nbEcarts} écarts`} aux cibles du siège` : ''}
       </Typography>
+
+      <Tabs value={onglet} onChange={(_, v: string) => setOnglet(v)} variant="scrollable" scrollButtons="auto" aria-label="Vues du magasin" sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tab value="budget" label={`Budget ${annee}`} sx={{ minHeight: 48 }} />
+        {[anneeEnCours, anneeEnCours - 1].map((a) => <Tab key={a} value={`reel-${a}`} label={`Réel ${a}`} sx={{ minHeight: 48 }} />)}
+      </Tabs>
+
+      {onglet.startsWith('reel-') ? (
+        <ReelAnnee key={onglet} magasin={ligne.magasin} annee={Number(onglet.slice(5))} peutSaisir={!!profil && profil.role !== 'aucun'} />
+      ) : (<>
 
       {message && (
         <Alert severity={message.gravite} onClose={() => setMessage(null)} closeText="Fermer" slotProps={{ closeButton: { sx: { width: 48, height: 48 } } }} sx={{ mb: 3 }}>
@@ -163,10 +128,7 @@ export function Magasin() {
       {!b ? (
         <EtatVide
           titre={`Pas encore de budget ${annee}`}
-          texte={directeur
-            ? `Le budget part du prévisionnel Excel du magasin : son réalisé, ses salaires, ses frais et ses emprunts. Les objectifs viennent des cibles du réseau et de son groupe.`
-            : `Le siège n’a pas encore proposé de budget ${annee} pour ce magasin. Il apparaîtra ici dès sa proposition.`}
-          action={boutonImport || undefined}
+          texte={`Le siège n’a pas encore proposé de budget ${annee} pour ce magasin. Il apparaîtra ici dès sa proposition.`}
         />
       ) : (
         <Stack spacing={3}>
@@ -202,7 +164,6 @@ export function Magasin() {
                   Rouvrir la discussion
                 </Button>
               )}
-              {boutonImport}
             </Stack>
           )}
 
@@ -273,6 +234,7 @@ export function Magasin() {
           </Card>
         </Stack>
       )}
+      </>)}
     </Box>
   )
 }
