@@ -19,7 +19,7 @@ import { useAuth } from '../auth/AuthContext'
 import { EtatVide } from '../components/EtatVide'
 import { Panne } from '../components/Panne'
 import { PastilleStatut } from '../components/PastilleStatut'
-import { anneeBudget, chargerMagasins, chargerParametres } from '../data/pilotage'
+import { anneeBudget, chargerBudgets, chargerParametres, hypothesesDe } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { dateHeure, lienMagasin, milliers, taux } from '../lib/format'
 import { calculerBudget } from '../moteur/budget'
@@ -31,8 +31,12 @@ export function Magasins() {
   const annee = anneeBudget()
   const { donnees, erreur, chargement, recharger } = useChargement(
     async () => {
-      const [lignes, { parametres }] = await Promise.all([chargerMagasins(annee), chargerParametres(annee)])
-      return lignes.map((l) => ({ ...l, budget: l.hypotheses ? calculerBudget(l.hypotheses, parametres) : null }))
+      const [d, { parametres }] = await Promise.all([chargerBudgets(annee), chargerParametres(annee)])
+      const groupes = new Map(d.groupes.map((g) => [g.id, g.nom]))
+      return d.magasins.map((l) => {
+        const h = hypothesesDe(l, d)
+        return { ...l, groupe: l.groupeId ? groupes.get(l.groupeId) ?? '' : '', budget: h ? calculerBudget(h.hypotheses, parametres) : null }
+      })
     }, [annee])
 
   const compte = useMemo(() => {
@@ -95,6 +99,7 @@ export function Magasins() {
                   <TableHead>
                     <TableRow>
                       <TableCell>Magasin</TableCell>
+                      <TableCell>Groupe</TableCell>
                       <TableCell>Budget {annee}</TableCell>
                       <TableCell align="right">CA HT</TableCell>
                       <TableCell align="right">Marge</TableCell>
@@ -108,6 +113,7 @@ export function Magasins() {
                     {donnees.map((m) => (
                       <TableRow key={m.magasin} hover>
                         <TableCell><Link component={RouterLink} to={lienMagasin(m.magasin)} sx={{ fontWeight: 600, display: 'inline-flex', minHeight: 48, alignItems: 'center' }}>{m.magasin}</Link></TableCell>
+                        <TableCell>{m.groupe}</TableCell>
                         <TableCell><PastilleStatut statut={m.statut} /></TableCell>
                         <TableCell align="right">{m.budget ? milliers(m.budget.ca) : ''}</TableCell>
                         <TableCell align="right">{m.budget ? taux(m.budget.tauxMarge) : ''}</TableCell>

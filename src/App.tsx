@@ -5,6 +5,7 @@ import { useAuth } from './auth/AuthContext'
 import { estDirecteur } from './auth/roles'
 import { AppShell } from './layout/AppShell'
 import { Connexion } from './pages/Connexion'
+import { Hypotheses } from './pages/Hypotheses'
 import { Magasin } from './pages/Magasin'
 import { Magasins } from './pages/Magasins'
 import { Parametres } from './pages/Parametres'
@@ -21,6 +22,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Magasins />} />
           <Route path="/magasins/:nom" element={<Magasin />} />
+          {estDirecteur(profil) && <Route path="/hypotheses" element={<Hypotheses />} />}
           {estDirecteur(profil) && <Route path="/parametres" element={<Parametres />} />}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

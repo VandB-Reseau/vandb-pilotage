@@ -18,9 +18,9 @@ base Supabase (mêmes comptes, mêmes magasins), dans le schéma `pilotage` ; el
 
 ## Mise en service (une fois)
 
-1. Supabase, éditeur SQL : passer `supabase/migrations/0001_socle_pilotage.sql`.
-2. Supabase, Settings > API > Exposed schemas : ajouter `pilotage`.
+1. Supabase, éditeur SQL : passer les migrations de `supabase/migrations/` dans l'ordre (`0001`, `0002`…).
+2. Supabase, Integrations > Data API > Settings > Exposed schemas : ajouter `pilotage`, puis Save.
 3. GitHub, Settings > Secrets and variables > Actions : secret `VITE_SUPABASE_ANON_KEY` (la même clé que l'app réseau).
-4. GitHub, Settings > Pages : source « GitHub Actions ».
+4. GitHub, Settings > Pages : source « GitHub Actions » ; Settings > General : branche par défaut `main`.
 
 Dépôt public : aucune donnée réelle ni clé dans le dépôt, tests avec des données fictives uniquement.
