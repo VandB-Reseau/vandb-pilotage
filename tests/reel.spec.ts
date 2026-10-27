@@ -78,7 +78,7 @@ test('un fichier qui n’est pas celui de la DSI est expliqué ; un code caisse 
 test('le franchisé lit le réel de son magasin et saisit le mois suivant', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { role: 'franchise', reel, tickets })
   await page.getByText(MAGASINS[0], { exact: true }).click()
-  await page.getByRole('tab', { name: `Réel ${N}` }).click()
+  await page.getByRole('tab', { name: 'Réel', exact: true }).click()
   const chiffres = page.getByRole('region', { name: `Réel ${N} en chiffres` })
   // 40 000 de CA, 18 200 de marge (45,5 %), panier de janvier 24 000 TTC / 1 000 tickets
   await expect(chiffres).toContainText(/40\sk€/)
@@ -119,7 +119,7 @@ test('le franchisé lit le réel de son magasin et saisit le mois suivant', asyn
 test('un mois déjà saisi se corrige ; vidé, il est effacé', async ({ page }) => {
   const ecritures = await seConnecter(page, { role: 'coach', reel, tickets })
   await page.getByText(MAGASINS[0], { exact: true }).click()
-  await page.getByRole('tab', { name: `Réel ${N}` }).click()
+  await page.getByRole('tab', { name: 'Réel', exact: true }).click()
   await page.getByRole('button', { name: `Saisir février ${N}` }).click()
   const saisie = page.getByRole('dialog', { name: /Réel du mois/ })
   await expect(saisie.getByLabel('CA HT : Bière (Cave)')).toHaveValue('20000')
@@ -137,7 +137,8 @@ test('sans chiffres, l’année l’explique et propose la saisie ; le Coach n�
   await seConnecter(page, { role: 'coach', reel, tickets })
   await expect(page.getByRole('link', { name: /Imports/ })).toHaveCount(0)
   await page.getByText(MAGASINS[0], { exact: true }).click()
-  await page.getByRole('tab', { name: `Réel ${N - 1}` }).click()
+  await page.getByRole('tab', { name: 'Réel', exact: true }).click()
+  await page.getByRole('button', { name: String(N - 1), exact: true }).click()
   await expect(page.getByText(`Pas encore de chiffres réels ${N - 1}`)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Saisir un mois' })).toBeVisible()
   await page.goto('./#/imports')

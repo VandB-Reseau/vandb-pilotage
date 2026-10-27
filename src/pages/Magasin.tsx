@@ -14,16 +14,21 @@ import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import Tabs from '@mui/material/Tabs'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import ArrowBack from '@mui/icons-material/ArrowBack'
 import CheckCircleOutlined from '@mui/icons-material/CheckCircleOutlined'
 import LockOpenOutlined from '@mui/icons-material/LockOpenOutlined'
 import SaveOutlined from '@mui/icons-material/SaveOutlined'
 import { useAuth } from '../auth/AuthContext'
+import { AtterrissageMagasin } from '../components/AtterrissageMagasin'
+import { CompteResultat } from '../components/CompteResultat'
 import { EtatVide } from '../components/EtatVide'
 import { Indicateur } from '../components/Indicateur'
 import { Panne } from '../components/Panne'
 import { EquipeMagasin } from '../components/EquipeMagasin'
+import { FraisMagasin } from '../components/FraisMagasin'
 import { PastilleStatut } from '../components/PastilleStatut'
 import { ReelAnnee } from '../components/ReelAnnee'
 import { lignesCibles, TableauCibles } from '../components/TableauCibles'
@@ -51,11 +56,13 @@ export function Magasin() {
   // Budget de l'an prochain, réel de l'année en cours et de la précédente
   const anneeEnCours = new Date().getFullYear()
   const [onglet, setOnglet] = useState('budget')
+  const [anneeReel, setAnneeReel] = useState(anneeEnCours)
 
   const ligne = donnees?.d.magasins.find((l) => l.magasin === nom) ?? null
   useEffect(() => { setBrouillon(ligne?.ajustements ?? {}) }, [ligne])
 
   const directeur = profil?.role === 'directeur'
+  const peutSaisir = !!profil && profil.role !== 'aucun'
   const retour = <Button component={RouterLink} to="/" startIcon={<ArrowBack />} sx={{ mb: 2, minHeight: 48 }}>Magasins</Button>
 
   if (chargement && !donnees) return <Box>{retour}<Skeleton variant="rounded" height={160} /></Box>
@@ -85,20 +92,6 @@ export function Magasin() {
     }
   }
 
-  const lignesResultat = b ? [
-    { libelle: 'Chiffre d’affaires HT', valeur: b.ca, fort: true },
-    { libelle: 'Achats consommés HT', valeur: -b.mois.reduce((a, m) => a + m.achats, 0) },
-    { libelle: 'Marge commerciale', valeur: b.marge, fort: true },
-    { libelle: 'Charges externes (redevance et publicité comprises)', valeur: -b.chargesExternes },
-    { libelle: 'Impôts et taxes', valeur: -b.impotsTaxes },
-    { libelle: 'Frais de personnel', valeur: -b.personnel },
-    { libelle: 'Excédent brut d’exploitation', valeur: b.ebe, fort: true },
-    { libelle: 'Résultat d’exploitation', valeur: b.resultatExploitation },
-    { libelle: 'Résultat avant impôt', valeur: b.resultatAvantImpot },
-    { libelle: 'Impôt sur les sociétés', valeur: -b.impot },
-    { libelle: 'Résultat net', valeur: b.resultatNet, fort: true },
-    { libelle: 'Trésorerie dégagée après emprunts', valeur: b.tresorerieDegagee },
-  ] : []
 
   return (
     <Box>
@@ -113,19 +106,33 @@ export function Magasin() {
 
       <Tabs value={onglet} onChange={(_, v: string) => setOnglet(v)} variant="scrollable" scrollButtons="auto" aria-label="Vues du magasin" sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tab value="budget" label={`Budget ${annee}`} sx={{ minHeight: 48 }} />
+        <Tab value="atterrissage" label={`Atterrissage ${anneeEnCours}`} sx={{ minHeight: 48 }} />
+        <Tab value="reel" label="Réel" sx={{ minHeight: 48 }} />
         <Tab value="equipe" label="Équipe" sx={{ minHeight: 48 }} />
-        {[anneeEnCours, anneeEnCours - 1].map((a) => <Tab key={a} value={`reel-${a}`} label={`Réel ${a}`} sx={{ minHeight: 48 }} />)}
+        <Tab value="frais" label="Frais" sx={{ minHeight: 48 }} />
       </Tabs>
 
-      {onglet === 'equipe' ? (
+      {onglet === 'atterrissage' ? (
+        <AtterrissageMagasin
+          ligne={ligne} d={d} annee={anneeEnCours} anneeBudget={annee} parametres={donnees.parametresN}
+          directeur={directeur} allerA={setOnglet} apresProposition={recharger}
+        />
+      ) : onglet === 'reel' ? (
+        <Stack spacing={2}>
+          <ToggleButtonGroup exclusive size="small" value={anneeReel} onChange={(_, v: number | null) => v && setAnneeReel(v)} aria-label="Année du réel">
+            {[anneeEnCours, anneeEnCours - 1].map((a) => <ToggleButton key={a} value={a} sx={{ minHeight: 48, minWidth: 72 }}>{a}</ToggleButton>)}
+          </ToggleButtonGroup>
+          <ReelAnnee key={anneeReel} magasin={ligne.magasin} annee={anneeReel} peutSaisir={peutSaisir} />
+        </Stack>
+      ) : onglet === 'frais' ? (
+        <FraisMagasin magasin={ligne.magasin} lignes={d.frais[ligne.magasin] ?? []} annee={anneeEnCours} peutSaisir={peutSaisir} apresEnregistrement={recharger} />
+      ) : onglet === 'equipe' ? (
         <EquipeMagasin
           magasin={ligne.magasin} equipe={d.equipes[ligne.magasin] ?? []} annee={anneeEnCours} anneeBudget={annee}
           hausse={resolu?.hypotheses.hausseSalaires ?? valeurHeritee(niveauxDe(ligne, d, brouillon), 'hausseSalaires')?.valeur ?? 0}
           charges={donnees.parametresN.charges} chargesBudget={parametres.charges}
-          peutSaisir={!!profil && profil.role !== 'aucun'} apresEnregistrement={recharger}
+          peutSaisir={peutSaisir} apresEnregistrement={recharger}
         />
-      ) : onglet.startsWith('reel-') ? (
-        <ReelAnnee key={onglet} magasin={ligne.magasin} annee={Number(onglet.slice(5))} peutSaisir={!!profil && profil.role !== 'aucun'} />
       ) : (<>
 
       {message && (
@@ -138,7 +145,10 @@ export function Magasin() {
       {!b ? (
         <EtatVide
           titre={`Pas encore de budget ${annee}`}
-          texte={`Le siège n’a pas encore proposé de budget ${annee} pour ce magasin. Il apparaîtra ici dès sa proposition.`}
+          texte={directeur
+            ? `Le budget ${annee} se propose à partir de l’atterrissage ${anneeEnCours} du magasin.`
+            : `Le siège n’a pas encore proposé de budget ${annee} pour ce magasin. Il apparaîtra ici dès sa proposition.`}
+          action={directeur ? <Button variant="contained" onClick={() => setOnglet('atterrissage')} sx={{ minHeight: 48 }}>Voir l’atterrissage {anneeEnCours}</Button> : undefined}
         />
       ) : (
         <Stack spacing={3}>
@@ -195,23 +205,7 @@ export function Magasin() {
             </Card>
           )}
 
-          <Card component="section" aria-label="Compte de résultat">
-            <Typography variant="h2" sx={{ p: 2, pb: 0 }}>Compte de résultat</Typography>
-            {/* Le compte de résultat se lit d'un bloc, sans défilement interne */}
-            <TableContainer sx={{ maxHeight: 'none' }}>
-              <Table aria-label="Compte de résultat annuel">
-                <TableBody>
-                  {lignesResultat.map((l) => (
-                    <TableRow key={l.libelle}>
-                      <TableCell sx={{ fontWeight: l.fort ? 700 : 400 }}>{l.libelle}</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: l.fort ? 700 : 400, whiteSpace: 'nowrap' }}>{montant(l.valeur)}</TableCell>
-                      <TableCell align="right" sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>{taux(b.ca ? l.valeur / b.ca : 0)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Card>
+          <CompteResultat b={b} titre="Compte de résultat" libelleTableau="Compte de résultat annuel" />
 
           <Card component="section" aria-label="Mois par mois">
             <Typography variant="h2" sx={{ p: 2, pb: 0 }}>Mois par mois</Typography>
