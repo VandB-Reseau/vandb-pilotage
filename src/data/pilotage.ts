@@ -2,7 +2,9 @@ import { pilotage } from '../lib/supabase'
 import { calculerBudget } from '../moteur/budget'
 import { appliquerCibles, type Cibles, type NiveauCibles, type Provenance } from '../moteur/cibles'
 import { parametresParDefaut } from '../moteur/parametres'
-import type { Hypotheses, ParametresReseau } from '../moteur/types'
+import type { TicketsMois, VenteMois } from '../import/caisse'
+import type { LigneReel, TicketsReel } from '../moteur/reel'
+import type { Hypotheses, ParametresReseau, Univers } from '../moteur/types'
 
 export type Statut = 'propose' | 'en_discussion' | 'valide'
 export const statutLibelle: Record<Statut, string> = { propose: 'Proposé par le siège', en_discussion: 'En discussion', valide: 'Validé' }
@@ -135,4 +137,75 @@ export function consoliderBudgets(d: DonneesBudgets, parametres: ParametresResea
     n++
   }
   return { ca, ebe, n }
+}
+
+// ── Réel de l'année (lot 2)
+const deux = (n: number) => String(n).padStart(2, '0')
+const premierDuMois = (annee: number, mois: number) => `${annee}-${deux(mois)}-01`
+
+export interface ReelMagasin { lignes: LigneReel[]; tickets: TicketsReel[] }
+
+export async function chargerReel(magasin: string, annee: number): Promise<ReelMagasin> {
+  const [v, t] = await Promise.all([
+    pilotage().from('reel_mensuel').select('mois, univers, famille, ca_ht, ca_ttc, marge_ht')
+      .eq('store_name', magasin).gte('mois', premierDuMois(annee, 1)).lte('mois', premierDuMois(annee, 12)),
+    pilotage().from('reel_tickets').select('mois, univers, tickets')
+      .eq('store_name', magasin).gte('mois', premierDuMois(annee, 1)).lte('mois', premierDuMois(annee, 12)),
+  ])
+  if (v.error || t.error) throw new ErreurChargement()
+  const mois = (d: string) => Number(d.slice(5, 7))
+  const num = (x: unknown) => (x === null || x === undefined ? null : Number(x))
+  return {
+    lignes: (v.data ?? []).map((l) => ({ mois: mois(l.mois), univers: l.univers as Univers, famille: l.famille, caHT: Number(l.ca_ht), caTTC: num(l.ca_ttc), margeHT: num(l.marge_ht) })),
+    tickets: (t.data ?? []).map((l) => ({ mois: mois(l.mois), univers: l.univers as Univers, tickets: Number(l.tickets) })),
+  }
+}
+
+// Remplace un mois d'un magasin par ce qui a été saisi ; un mois vidé est effacé
+export async function enregistrerMoisReel(magasin: string, annee: number, mois: number, lignes: Omit<LigneReel, 'mois'>[], tickets: Omit<TicketsReel, 'mois'>[]) {
+  const date = premierDuMois(annee, mois)
+  const ventes = lignes.map((l) => ({ store_name: magasin, mois: date, univers: l.univers, famille: l.famille, ca_ht: l.caHT, ca_ttc: l.caTTC, marge_ht: l.margeHT }))
+  const t = tickets.map((l) => ({ store_name: magasin, mois: date, univers: l.univers, tickets: l.tickets }))
+  if (!ventes.length) verifier(await pilotage().from('reel_mensuel').delete().eq('store_name', magasin).eq('mois', date))
+  if (!t.length) verifier(await pilotage().from('reel_tickets').delete().eq('store_name', magasin).eq('mois', date))
+  if (ventes.length || t.length) verifier(await pilotage().rpc('remplacer_reel', { p_ventes: ventes, p_tickets: t }))
+}
+
+export interface CodeCaisse { code: string; magasin: string }
+export async function chargerCodes(): Promise<CodeCaisse[]> {
+  const { data, error } = await pilotage().from('codes_caisse').select('code, store_name').order('code')
+  if (error) throw new ErreurChargement()
+  return (data ?? []).map((c) => ({ code: c.code, magasin: c.store_name }))
+}
+export async function enregistrerCode(code: string, magasin: string) {
+  verifier(await pilotage().from('codes_caisse').upsert({ code: code.trim(), store_name: magasin }))
+}
+export async function supprimerCode(code: string) {
+  verifier(await pilotage().from('codes_caisse').delete().eq('code', code))
+}
+
+// Import des fichiers de la DSI, mois par mois (chaque mois est remplacé d'un bloc) ; les codes inconnus sont écartés
+export async function importerReel(ventes: VenteMois[], tickets: TicketsMois[], codes: CodeCaisse[]): Promise<{ mois: string[]; magasins: number }> {
+  const nom = new Map(codes.map((c) => [c.code, c.magasin]))
+  const parMois = new Map<string, { v: object[]; t: object[] }>()
+  const magasins = new Set<string>()
+  const bloc = (m: string) => { const b = parMois.get(m) ?? { v: [], t: [] }; parMois.set(m, b); return b }
+  for (const l of ventes) {
+    const m = nom.get(l.code)
+    if (!m) continue
+    magasins.add(m)
+    bloc(l.mois).v.push({ store_name: m, mois: `${l.mois}-01`, univers: l.univers, famille: l.famille, ca_ht: l.caHT, ca_ttc: l.caTTC, marge_ht: l.margeHT })
+  }
+  for (const l of tickets) {
+    const m = nom.get(l.code)
+    if (!m) continue
+    magasins.add(m)
+    bloc(l.mois).t.push({ store_name: m, mois: `${l.mois}-01`, univers: l.univers, tickets: l.tickets })
+  }
+  const mois = [...parMois.keys()].sort()
+  for (const m of mois) {
+    const b = parMois.get(m)!
+    verifier(await pilotage().rpc('remplacer_reel', { p_ventes: b.v, p_tickets: b.t }))
+  }
+  return { mois, magasins: magasins.size }
 }

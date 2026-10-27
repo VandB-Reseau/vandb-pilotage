@@ -13,6 +13,8 @@ export interface MagasinSimule {
   ajustements?: Record<string, unknown>
   groupe_id?: number | null
 }
+export interface VenteSimulee { store_name: string; mois: string; univers: string; famille: string; ca_ht: number; ca_ttc: number | null; marge_ht: number | null }
+export interface TicketsSimules { store_name: string; mois: string; univers: string; tickets: number }
 export interface GroupeSimule { id: number; nom: string; cibles: Record<string, unknown> | null }
 export interface OptionsSimulation {
   role?: 'directeur' | 'rr' | 'coach' | 'franchise' | 'aucun'
@@ -20,6 +22,9 @@ export interface OptionsSimulation {
   reseau?: Record<string, unknown> | null
   groupes?: GroupeSimule[]
   parametres?: Record<string, unknown> | null // null : pas encore enregistrés pour l'année
+  reel?: VenteSimulee[]
+  tickets?: TicketsSimules[]
+  codes?: { code: string; store_name: string }[]
   panne?: boolean
   panneEcriture?: boolean
 }
@@ -40,6 +45,15 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
   const magasins = structuredClone(options.magasins ?? magasinsParDefaut).map((m) => ({ ajustements: {}, base: null, groupe_id: null, ...m }))
   const groupes = structuredClone(options.groupes ?? [])
   let reseau = options.reseau ?? null
+  const reel = { reel_mensuel: structuredClone(options.reel ?? []) as (VenteSimulee | TicketsSimules)[], reel_tickets: structuredClone(options.tickets ?? []) as (VenteSimulee | TicketsSimules)[] }
+  let codes = structuredClone(options.codes ?? [])
+  // Filtres PostgREST utilisés par l'app : eq, gte, lte
+  const filtrer = <T extends Record<string, unknown>>(lignes: T[], params: URLSearchParams) => lignes.filter((l) => [...params.entries()].every(([k, v]) => {
+    if (k === 'select' || k === 'order') return true
+    const [op, ...reste] = v.split('.')
+    const x = reste.join('.'), y = String(l[k])
+    return op === 'eq' ? y === x : op === 'gte' ? y >= x : op === 'lte' ? y <= x : true
+  }))
   await page.route('https://supabase.test/**', async (route) => {
     const req = route.request()
     const url = new URL(req.url())
@@ -92,9 +106,27 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
         groupes.splice(groupes.findIndex((g) => g.id === id), 1)
         for (const x of magasins) if (x.groupe_id === id) x.groupe_id = null
       }
+      if (table === 'rpc/remplacer_reel') {
+        const c = corps as { p_ventes: VenteSimulee[]; p_tickets: TicketsSimules[] }
+        for (const [t, lignes] of [['reel_mensuel', c.p_ventes], ['reel_tickets', c.p_tickets]] as const) {
+          const vides = new Set(lignes.map((l) => `${l.store_name}|${l.mois}`))
+          reel[t] = [...reel[t].filter((l) => !vides.has(`${l.store_name}|${l.mois}`)), ...lignes]
+        }
+        return route.fulfill({ json: c.p_ventes.length })
+      }
+      if ((table === 'reel_mensuel' || table === 'reel_tickets') && req.method() === 'DELETE') {
+        const garder = new Set(filtrer(reel[table], url.searchParams))
+        reel[table] = reel[table].filter((l) => !garder.has(l))
+      }
+      if (table === 'codes_caisse') {
+        if (req.method() === 'DELETE') codes = codes.filter((c) => c.code !== url.searchParams.get('code')?.replace(/^eq\./, ''))
+        else { const c = corps as { code: string; store_name: string }; codes = [...codes.filter((x) => x.code !== c.code), c] }
+      }
       if (table === 'groupe_magasins' && m) m.groupe_id = req.method() === 'DELETE' ? null : (corps as { groupe_id: number }).groupe_id
       return route.fulfill({ status: 204, body: '' })
     }
+    if (table === 'reel_mensuel' || table === 'reel_tickets') return route.fulfill({ json: filtrer(reel[table], url.searchParams) })
+    if (table === 'codes_caisse') return route.fulfill({ json: [...codes].sort((a, b) => a.code.localeCompare(b.code)) })
     if (url.pathname === '/rest/v1/parametres_reseau') {
       const lignes = options.parametres === null ? [] : [{ valeur: options.parametres ?? { tauxRedevance: 0.02, tauxPublicite: 0.01 } }]
       const objet = (req.headers()['accept'] ?? '').includes('vnd.pgrst.object')

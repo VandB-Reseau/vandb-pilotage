@@ -22,6 +22,7 @@ import AccountCircleOutlined from '@mui/icons-material/AccountCircleOutlined'
 import LogoutOutlined from '@mui/icons-material/LogoutOutlined'
 import StorefrontOutlined from '@mui/icons-material/StorefrontOutlined'
 import TuneOutlined from '@mui/icons-material/TuneOutlined'
+import UploadFileOutlined from '@mui/icons-material/UploadFileOutlined'
 import TrendingUpOutlined from '@mui/icons-material/TrendingUpOutlined'
 import { Logo } from '../components/Logo'
 import { useAuth } from '../auth/AuthContext'
@@ -30,7 +31,7 @@ import { brandStripe } from '../theme/theme'
 
 const LARGEUR_MENU = 248
 
-interface Destination { chemin: string; nom: string; icone: ReactNode }
+interface Destination { chemin: string; nom: string; court?: string; icone: ReactNode }
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { profil, deconnexion } = useAuth()
@@ -39,12 +40,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { pathname } = useLocation()
   const [menuCompte, setMenuCompte] = useState<HTMLElement | null>(null)
 
-  // Hypothèses et paramètres réseau : Directeur seul, comme les référentiels de l'app réseau
+  // Hypothèses, imports de caisse et paramètres réseau : Directeur seul, comme les référentiels de l'app réseau
   const destinations: Destination[] = [
     { chemin: '/', nom: 'Magasins', icone: <StorefrontOutlined /> },
     ...(estDirecteur(profil) ? [
       { chemin: '/hypotheses', nom: 'Hypothèses', icone: <TrendingUpOutlined /> },
-      { chemin: '/parametres', nom: 'Paramètres réseau', icone: <TuneOutlined /> },
+      { chemin: '/imports', nom: 'Imports de caisse', court: 'Imports', icone: <UploadFileOutlined /> },
+      { chemin: '/parametres', nom: 'Paramètres réseau', court: 'Paramètres', icone: <TuneOutlined /> },
     ] : []),
   ]
   const active = destinations.find((d) => d.chemin !== '/' && pathname.startsWith(d.chemin))?.chemin ?? '/'
@@ -96,7 +98,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Paper sx={{ position: 'fixed', left: 0, right: 0, bottom: 0, borderTop: 1, borderColor: 'divider', zIndex: (t) => t.zIndex.appBar }}>
           <BottomNavigation showLabels value={active} component="nav" aria-label="Menu principal">
             {destinations.map((d) => (
-              <BottomNavigationAction key={d.chemin} value={d.chemin} label={d.nom === 'Paramètres réseau' ? 'Paramètres' : d.nom} icon={d.icone} component={RouterLink} to={d.chemin} sx={{ minHeight: 56 }} />
+              <BottomNavigationAction key={d.chemin} value={d.chemin} label={d.court ?? d.nom} icon={d.icone} component={RouterLink} to={d.chemin} sx={{ minHeight: 56 }} />
             ))}
           </BottomNavigation>
         </Paper>

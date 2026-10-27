@@ -7,6 +7,9 @@ export const montant = (v: number) => euros.format(v)
 export const milliers = (v: number) => `${kilo.format(v / 1000)} k€`
 export const taux = (v: number) => pourcent.format(v)
 
+export const MOIS = ['Janv.', 'Févr.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.']
+export const MOIS_LONGS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
+
 export const lienMagasin = (nom: string) => `/magasins/${encodeURIComponent(nom)}`
 
 // Instant ISO en heure locale : « 21/10 à 14h32 »
