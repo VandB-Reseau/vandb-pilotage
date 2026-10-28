@@ -36,7 +36,7 @@ export function CompteResultatMois({ lignes, titre, libelleTableau, projeteA, en
         <Typography variant="h2" sx={{ flex: 1 }}>{titre}</Typography>
         {entete}
         {parents.size > 0 && (
-          <Button size="small" onClick={() => setOuvertes(toutOuvert ? new Set() : new Set(parents))} sx={{ minHeight: { xs: 48, md: 36 } }}>
+          <Button size="small" className="pas-a-l-impression" onClick={() => setOuvertes(toutOuvert ? new Set() : new Set(parents))} sx={{ minHeight: { xs: 48, md: 36 } }}>
             {toutOuvert ? 'Tout replier' : 'Tout détailler'}
           </Button>
         )}

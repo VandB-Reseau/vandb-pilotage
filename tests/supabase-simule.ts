@@ -30,6 +30,7 @@ export interface OptionsSimulation {
   equipe?: PersonneSimulee[]
   frais?: FraisSimule[]
   coachs?: Record<string, string>
+  rrs?: Record<string, string[]>
   panne?: boolean
   panneEcriture?: boolean
 }
@@ -102,7 +103,7 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
         if (v.marge_ht !== null) { l.marge += v.marge_ht; l.ca_marge += v.ca_ht }
       }
       for (const t of reel.reel_tickets as TicketsSimules[]) if (dansAnnees(t.mois)) ligne(t.store_name, t.mois).tickets += t.tickets
-      return route.fulfill({ json: { mois: [...lignes.values()], coachs: options.coachs ?? {} } })
+      return route.fulfill({ json: { mois: [...lignes.values()], coachs: options.coachs ?? {}, rrs: options.rrs ?? {} } })
     }
     const table = url.pathname.replace('/rest/v1/', '')
     if (req.method() !== 'GET') {

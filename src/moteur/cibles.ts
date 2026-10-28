@@ -20,6 +20,7 @@ export interface Cibles {
   evolutionFlux?: Partial<Record<'cave' | 'bar', number>>
   poidsMois?: number[]                                // magasin seulement : sa saisonnalité
   travaux?: Travaux                                   // magasin seulement : ses travaux de l'année
+  tresorerieDepart?: number                           // magasin seulement : trésorerie au 1er janvier
 }
 
 export interface Provenance { cle: string; libelle: string; valeur: number; source: Niveau | 'base' }
@@ -148,8 +149,13 @@ export function valeurHeritee(niveauxAuDessus: NiveauCibles[], cle: string): { v
   return resoudre(niveauxAuDessus, (c) => lireCible(c, cle) ?? (type === 'evolution' ? lireCible(c, `univers/${univers}`) : undefined))
 }
 
-// Ajustements d'un magasin repris sur un autre : tout sauf les travaux, propres à chaque magasin (ceux du magasin visé restent)
+// Ajustements d'un magasin repris sur un autre : tout sauf les travaux et la trésorerie de départ, propres à chaque
+// magasin (ceux du magasin visé restent)
 export function ajustementsCopies(source: Cibles, cible: Cibles): Cibles {
-  const { travaux: _, ...copie } = structuredClone(source)
-  return cible.travaux ? { ...copie, travaux: cible.travaux } : copie
+  const { travaux: _, tresorerieDepart: __, ...copie } = structuredClone(source)
+  return {
+    ...copie,
+    ...(cible.travaux ? { travaux: cible.travaux } : {}),
+    ...(cible.tresorerieDepart !== undefined ? { tresorerieDepart: cible.tresorerieDepart } : {}),
+  }
 }

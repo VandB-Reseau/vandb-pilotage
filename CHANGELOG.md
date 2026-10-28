@@ -5,6 +5,38 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+## Lot 11 — Consignes dans la trésorerie (28/10/2026)
+
+- Trésorerie du budget : consignes versées aux fournisseurs avec les achats (fûts, caisses, gaz) et remboursées une
+  fois le fût écoulé et rendu, à 30 jours fin de mois ; hors TVA et hors compte de résultat. Carte « Consignes avancées
+  aux fournisseurs » : argent bloqué en moyenne et au plus haut. Lignes dans l'export Excel. Les cautions des clients
+  (empreintes bancaires) ne sont pas encaissées et ne comptent pas.
+- Paramètres réseau : consigne en part des achats de chaque univers (Cave 3 %, Bar et Extérieur 15 % par défaut),
+  temps pour écouler un fût (1 mois) et délai de remboursement (1 mois), tous modifiables.
+- Pas de migration.
+
+## Lot 10 — Trésorerie du budget (28/10/2026)
+
+- Budget d'un magasin : trésorerie mois par mois en montants TTC (encaissements, fournisseurs, frais, redevance et
+  publicité, salaires et cotisations, TVA, emprunts, acomptes d'impôt, travaux), solde de fin de mois, point bas et mois
+  à découvert. Trésorerie au 1er janvier saisie par magasin, enregistrée avec les ajustements (non copiée d'un magasin
+  à l'autre). Onglet Trésorerie dans l'export Excel, soldes en formules.
+- Liste des magasins : colonne Point bas de trésorerie, en rouge sous zéro.
+- Paramètres réseau : délais de paiement des fournisseurs et de la redevance, TVA des ventes, des achats et des frais,
+  déclaration de TVA mensuelle ou trimestrielle, part du coût du personnel payée le mois suivant. Valeurs par défaut :
+  30 jours fin de mois, TVA mensuelle, 40 % de cotisations le mois suivant, à confirmer par Joseph.
+- Pas de migration : paramètres dans `parametres_reseau.valeur`, trésorerie de départ dans les ajustements.
+
+## Lot 9 — Export Excel, impression, filtre par Responsable Régional (28/10/2026)
+
+**Base : passer `supabase/migrations/0007_filtre_rr.sql`** (remplace la fonction de lecture de la vue réseau, aucune table).
+
+- Budget d'un magasin : bouton Exporter en Excel (compte de résultat sur 12 mois et hypothèses par famille ; totaux, parts
+  du CA et marge de chaque famille en formules) et bouton Imprimer (A4 paysage, sans menus ni boutons).
+- Vue Réseau : export Excel de la sélection affichée (filtres et tri compris) et impression, avec la sélection et la
+  date en tête.
+- Vue Réseau, Directeur : filtre et colonne Responsable Régional, noms lus dans la fiche des RR de l'app réseau.
+
 ## Lot 8 — Budgets 2027 complets (28/10/2026)
 
 - Démarque par famille, en part du CA, déduite de la marge visée : colonne de la grille des hypothèses du magasin, et

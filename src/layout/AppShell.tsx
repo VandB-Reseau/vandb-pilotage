@@ -37,6 +37,29 @@ const LARGEUR_MENU = 248
 
 interface Destination { chemin: string; nom: string; court?: string; icone: ReactNode }
 
+// Page imprimée (budget, vue réseau) : A4 paysage, sans menus ni boutons, tableaux en entier, texte à 9 pt (12 px)
+const impression = {
+  '.impression-seule': { display: 'none' },
+  '@page': { size: 'A4 landscape', margin: '10mm' },
+  '@media print': {
+    'body, .fond-app': { backgroundColor: '#ffffff !important' },
+    '*': { printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' },
+    '.pas-a-l-impression, .MuiTabs-root, .MuiAlert-root, .MuiIconButton-root, .MuiTableSortLabel-icon': { display: 'none !important' },
+    '.impression-seule': { display: 'inline' },
+    main: { marginLeft: '0 !important', padding: '0 !important', maxWidth: 'none !important' },
+    '.MuiCard-root': { boxShadow: 'none !important', border: '1px solid #d6d6d6', overflow: 'visible !important' },
+    '.MuiTableContainer-root': { overflow: 'visible !important' },
+    'table.colonne-fixe tr > *, table.deux-colonnes-fixes tr > *': { position: 'static !important', boxShadow: 'none !important' },
+    'table td, table th': { fontSize: '9pt !important', paddingTop: '3px !important', paddingBottom: '3px !important', minHeight: '0 !important' },
+    'table a, table .MuiButtonBase-root': { minHeight: '0 !important' },
+    // Champs de saisie imprimés comme du texte : valeur ou valeur reprise du niveau au-dessus, sans cadre
+    '.MuiOutlinedInput-notchedOutline': { border: 'none !important' },
+    'input::placeholder': { color: 'inherit !important', opacity: '1 !important' },
+    tr: { breakInside: 'avoid' },
+    'section, .MuiCard-root': { breakInside: 'auto' },
+  },
+} as const
+
 export function AppShell({ children }: { children: ReactNode }) {
   const { profil, deconnexion } = useAuth()
   const theme = useTheme()
@@ -59,10 +82,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <GardeSaisie>
-    <Box sx={{ minHeight: '100dvh', bgcolor: 'background.default' }}>
+    <Box className="fond-app" sx={{ minHeight: '100dvh', bgcolor: 'background.default' }}>
       {/* Ce qu'on fait défiler jusqu'à l'écran ne se cache ni sous la barre du haut, ni sous la barre basse du téléphone */}
       <GlobalStyles styles={{ html: { scrollPaddingTop: 80, scrollPaddingBottom: telephone && destinations.length > 1 ? 88 : 0 } }} />
-      <AppBar position="sticky" sx={{ bgcolor: '#1d1d1b', color: '#ffffff', zIndex: (t) => t.zIndex.drawer + 1 }}>
+      <GlobalStyles styles={impression} />
+      <AppBar position="sticky" className="pas-a-l-impression" sx={{ bgcolor: '#1d1d1b', color: '#ffffff', zIndex: (t) => t.zIndex.drawer + 1 }}>
         <Toolbar sx={{ gap: 1.5 }}>
           <Box component={RouterLink} to="/" aria-label="Accueil du pilotage" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'inherit', textDecoration: 'none', minHeight: 48 }}>
             <Logo size={18} />
@@ -87,7 +111,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </AppBar>
 
       {!telephone && (
-        <Drawer variant="permanent" sx={{ width: LARGEUR_MENU, flexShrink: 0, '& .MuiDrawer-paper': { width: LARGEUR_MENU, boxSizing: 'border-box', top: 68, height: 'calc(100% - 68px)', p: 1.5 } }}>
+        <Drawer variant="permanent" className="pas-a-l-impression" sx={{ width: LARGEUR_MENU, flexShrink: 0, '& .MuiDrawer-paper': { width: LARGEUR_MENU, boxSizing: 'border-box', top: 68, height: 'calc(100% - 68px)', p: 1.5 } }}>
           <List component="nav" aria-label="Menu principal">
             {destinations.map((d) => (
               <ListItemButton key={d.chemin} component={RouterLink} to={d.chemin} selected={active === d.chemin} sx={{ minHeight: 48, mb: 0.5 }}>
@@ -104,7 +128,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </Box>
 
       {telephone && destinations.length > 1 && (
-        <Paper sx={{ position: 'fixed', left: 0, right: 0, bottom: 0, borderTop: 1, borderColor: 'divider', zIndex: (t) => t.zIndex.appBar }}>
+        <Paper className="pas-a-l-impression" sx={{ position: 'fixed', left: 0, right: 0, bottom: 0, borderTop: 1, borderColor: 'divider', zIndex: (t) => t.zIndex.appBar }}>
           <BottomNavigation showLabels value={active} component="nav" aria-label="Menu principal">
             {destinations.map((d) => (
               <BottomNavigationAction key={d.chemin} value={d.chemin} label={d.court ?? d.nom} icon={d.icone} component={RouterLink} to={d.chemin} sx={{ minHeight: 56 }} />

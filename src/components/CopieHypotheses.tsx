@@ -18,7 +18,7 @@ export function CopieHypotheses({ source, magasins, occupe, onCopier, onFermer }
   const [choisis, setChoisis] = useState<string[]>([])
   const tous = choisis.length === magasins.length && magasins.length > 0
   return (
-    <Card component="section" aria-labelledby="titre-copie" sx={{ p: 2.5 }}>
+    <Card component="section" className="pas-a-l-impression" aria-labelledby="titre-copie" sx={{ p: 2.5 }}>
       <Typography id="titre-copie" variant="h2">Copier les hypothèses de {source}</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1.5 }}>
         Évolutions, marges, démarques, salaires, frais, tickets et saisonnalité remplacent ceux des magasins cochés ; leurs travaux restent.

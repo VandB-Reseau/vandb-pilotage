@@ -30,6 +30,7 @@ import { useChargement } from '../data/useChargement'
 import { correspond, filtrerMagasins, FILTRES, type Filtre } from '../lib/aFaire'
 import { dateHeure, lienMagasin, milliers, taux } from '../lib/format'
 import { calculerBudget } from '../moteur/budget'
+import { tresorerieBudget } from '../moteur/tresorerie'
 import { syntheseBudgets } from '../moteur/sante'
 
 export function Magasins() {
@@ -45,8 +46,10 @@ export function Magasins() {
         groupes: d.groupes,
         magasins: d.magasins.map((l) => {
           const h = hypothesesDe(l, d)
+          const budget = h ? calculerBudget(h.hypotheses, parametres) : null
           return {
-            ...l, groupe: l.groupeId ? groupes.get(l.groupeId) ?? '' : '', budget: h ? calculerBudget(h.hypotheses, parametres) : null,
+            ...l, groupe: l.groupeId ? groupes.get(l.groupeId) ?? '' : '', budget,
+            pointBas: budget && h ? tresorerieBudget(budget, h.hypotheses, parametres, parametres.tresorerie, l.ajustements?.tresorerieDepart ?? 0).pointBas.montant : null,
             aEquipe: !!d.equipes[l.magasin]?.length, aFrais: !!d.frais[l.magasin]?.length,
           }
         }),
@@ -173,6 +176,7 @@ export function Magasins() {
                       <TableCell align="right">Masse salariale / marge</TableCell>
                       <TableCell align="right">EBE</TableCell>
                       <TableCell align="right">EBE / CA</TableCell>
+                      <TableCell align="right">Point bas de trésorerie</TableCell>
                       <TableCell>Mis à jour</TableCell>
                     </TableRow>
                   </TableHead>
@@ -187,6 +191,7 @@ export function Magasins() {
                         <TableCell align="right">{m.budget ? taux(m.budget.ratios.personnelSurMarge) : ''}</TableCell>
                         <TableCell align="right">{m.budget ? milliers(m.budget.ebe) : ''}</TableCell>
                         <TableCell align="right">{m.budget ? taux(m.budget.ratios.ebeSurCA) : ''}</TableCell>
+                        <TableCell align="right" sx={m.pointBas !== null && m.pointBas < 0 ? { color: 'error.main', fontWeight: 600 } : undefined}>{m.pointBas === null ? '' : milliers(m.pointBas)}</TableCell>
                         <TableCell>{m.majLe ? dateHeure(m.majLe) : ''}</TableCell>
                       </TableRow>
                     ))}

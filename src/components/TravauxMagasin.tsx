@@ -33,7 +33,7 @@ export function TravauxMagasin({ travaux, onChange, lectureSeule, effetCA, dotat
   if (!travaux) {
     if (lectureSeule) return null
     return (
-      <Box>
+      <Box className="pas-a-l-impression">
         <Button variant="outlined" startIcon={<ConstructionOutlined />} onClick={() => onChange(sansTravaux())} sx={{ minHeight: 48 }}>Prévoir des travaux</Button>
       </Box>
     )
@@ -49,7 +49,7 @@ export function TravauxMagasin({ travaux, onChange, lectureSeule, effetCA, dotat
         <Typography variant="h2" sx={{ flex: 1 }}>Travaux</Typography>
         <Typography variant="body2" color="text.secondary">CA de l’année : {ecartMontant(effetCA)} · Dotation : {milliers(dotation)}</Typography>
         {!lectureSeule && (
-          <Button size="small" color="inherit" startIcon={<DeleteOutlined />} onClick={() => onChange(undefined)} sx={{ minHeight: 48 }}>Retirer les travaux</Button>
+          <Button size="small" color="inherit" className="pas-a-l-impression" startIcon={<DeleteOutlined />} onClick={() => onChange(undefined)} sx={{ minHeight: 48 }}>Retirer les travaux</Button>
         )}
       </Box>
       <TableContainer>
