@@ -123,3 +123,19 @@ export function tresorerieBudget(b: Budget, h: Hypotheses, p: { tauxRedevance: n
     consignesMoyennes: somme(mois.map((m) => m.consignesEnAttente)) / 12,
   }
 }
+
+// Trésorerie glissante (lot 17, 28/10/2026) : la trésorerie réelle de fin de quadrimestre, puis les flux des mois
+// suivants tirés de l'atterrissage de l'année (même calcul que la trésorerie du budget).
+export interface TresorerieGlissante {
+  depart: { montant: number; mois: number }          // fin du mois (0 à 11) où la trésorerie est connue
+  mois: { mois: number; flux: number; fin: number }[] // mois suivants, jusqu'à décembre
+  fin: number
+  pointBas: { montant: number; mois: number }
+  moisNegatifs: number
+}
+export function tresorerieGlissante(t: Tresorerie, depart: { montant: number; mois: number }): TresorerieGlissante {
+  let solde = depart.montant
+  const mois = t.mois.slice(depart.mois + 1).map((m, k) => ({ mois: depart.mois + 1 + k, flux: m.flux, fin: (solde += m.flux) }))
+  const bas = mois.reduce<{ montant: number; mois: number }>((b, m) => (m.fin < b.montant ? { montant: m.fin, mois: m.mois } : b), { montant: depart.montant, mois: depart.mois })
+  return { depart, mois, fin: solde, pointBas: bas, moisNegatifs: mois.filter((m) => m.fin < 0).length }
+}

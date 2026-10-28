@@ -33,13 +33,13 @@ test('vue réseau : filtre par Responsable Régional, export de la sélection', 
   await page.getByRole('link', { name: 'Réseau' }).first().click()
   const tableau = page.getByRole('table', { name: `Réel ${N} par magasin` })
   const lignes = tableau.getByRole('row')
-  await expect(lignes).toHaveCount(5)
-  if (!isMobile) await expect(lignes.nth(3)).toContainText('RR Nord, RR Est')
+  await expect(lignes).toHaveCount(6)
+  if (!isMobile) await expect(lignes.nth(4)).toContainText('RR Nord, RR Est')
 
   await page.getByLabel('Responsable Régional').click()
   await expect(page.getByRole('option')).toHaveText(['Tous les Responsables Régionaux', 'RR Est', 'RR Nord'])
   await page.getByRole('option', { name: 'RR Est' }).click()
-  await expect(lignes).toHaveCount(4)                                   // total + Valcourt et Saint-Aubin
+  await expect(lignes).toHaveCount(5)                                   // total, médiane, Valcourt et Saint-Aubin
   await expect(lignes.nth(1)).toContainText('Total de la sélection')
   await expect(lignes.nth(1)).toContainText(/50\sk€/)
   expect(page.url()).toContain('rr=RR+Est')
@@ -76,7 +76,7 @@ test('vue réseau imprimée : sans menu ni filtres, sélection et date en tête'
   await expect(page.getByRole('navigation', { name: 'Menu principal' })).toBeHidden()
   await expect(page.getByRole('button', { name: 'Exporter en Excel' })).toBeHidden()
   await expect(page.getByText(/Coach Sud · imprimé le/)).toBeVisible()
-  await expect(page.getByRole('table', { name: `Réel ${N} par magasin` }).getByRole('row')).toHaveCount(4)
+  await expect(page.getByRole('table', { name: `Réel ${N} par magasin` }).getByRole('row')).toHaveCount(5)
   await page.screenshot({ path: `captures/${info.project.name}-reseau-impression.png`, fullPage: true })
 })
 

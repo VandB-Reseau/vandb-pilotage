@@ -56,7 +56,7 @@ test('fiche magasin : le réel face au budget, mois par mois', async ({ page, is
 
 test('fiche magasin : sans budget de l’année, le suivi le dit', async ({ page }) => {
   await seConnecter(page, { reel })
-  await page.getByText(MAGASINS[2], { exact: true }).click()
+  await page.getByText(MAGASINS[2], { exact: true }).last().click()
   await page.getByRole('tab', { name: `Suivi du budget ${N}` }).click()
   await expect(page.getByText(`Pas de budget ${N} à suivre`)).toBeVisible()
 })
@@ -73,13 +73,14 @@ test('vue réseau : classement, total, tri, filtre par Coach et retour', async (
   const lignes = tableau.getByRole('row')
   await expect(lignes.nth(1)).toContainText('Total du réseau')
   await expect(lignes.nth(1)).toContainText('2 magasins')
+  await expect(lignes.nth(2)).toContainText('Médiane du réseau')
   // Trié par CA : Brionne-sur-Lac (94 000 €) en tête, puis Valcourt, puis le magasin sans réel
-  await expect(lignes.nth(2)).toContainText(MAGASINS[0])
-  await expect(lignes.nth(2)).toContainText(/\+17,5\s%/)              // 94 000 / 80 000 − 1
-  await expect(lignes.nth(2)).toContainText(/[-−]2,1\s%/)
-  await expect(lignes.nth(2)).toContainText(/30,00\s€/)                // panier : 60 000 € TTC / 2 000 tickets (janvier)
-  await expect(lignes.nth(3)).toContainText(/[-−]33,3\s%/)             // 30 000 / 45 000 − 1 (budget sans évolution)
-  await expect(lignes.nth(4)).toContainText(MAGASINS[2])
+  await expect(lignes.nth(3)).toContainText(MAGASINS[0])
+  await expect(lignes.nth(3)).toContainText(/\+17,5\s%/)              // 94 000 / 80 000 − 1
+  await expect(lignes.nth(3)).toContainText(/[-−]2,1\s%/)
+  await expect(lignes.nth(3)).toContainText(/30,00\s€/)                // panier : 60 000 € TTC / 2 000 tickets (janvier)
+  await expect(lignes.nth(4)).toContainText(/[-−]33,3\s%/)             // 30 000 / 45 000 − 1 (budget sans évolution)
+  await expect(lignes.nth(5)).toContainText(MAGASINS[2])
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-reseau.png`, fullPage: true })
@@ -87,18 +88,18 @@ test('vue réseau : classement, total, tri, filtre par Coach et retour', async (
   // Tri par écart au budget, du plus bas au plus haut : le magasin sans budget reste en bas
   await tableau.getByRole('button', { name: 'Écart au budget' }).click()
   await tableau.getByRole('button', { name: 'Écart au budget' }).click()
-  await expect(lignes.nth(2)).toContainText(MAGASINS[1])
-  await expect(lignes.nth(4)).toContainText(MAGASINS[2])
+  await expect(lignes.nth(3)).toContainText(MAGASINS[1])
+  await expect(lignes.nth(5)).toContainText(MAGASINS[2])
 
   await page.getByLabel('Coach').click()
   await page.getByRole('option', { name: 'Coach Nord' }).click()
-  await expect(lignes).toHaveCount(3)
+  await expect(lignes).toHaveCount(4)
   await expect(lignes.nth(1)).toContainText('Total de la sélection')
   await tableau.getByRole('link', { name: MAGASINS[0] }).click()
   await expect(page.getByRole('heading', { level: 1, name: MAGASINS[0] })).toBeVisible()
   await page.locator('main').getByRole('link', { name: 'Réseau' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Réseau' })).toBeVisible()
-  await expect(lignes).toHaveCount(3)
+  await expect(lignes).toHaveCount(4)
 })
 
 test('vue réseau : le Coach y accède, sans réel elle le dit', async ({ page }) => {

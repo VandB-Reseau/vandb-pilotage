@@ -20,19 +20,21 @@ import Typography from '@mui/material/Typography'
 import FileDownloadOutlined from '@mui/icons-material/FileDownloadOutlined'
 import PrintOutlined from '@mui/icons-material/PrintOutlined'
 import SearchOutlined from '@mui/icons-material/SearchOutlined'
+import { AlertesMagasins } from '../components/AlertesMagasins'
 import { EtatVide } from '../components/EtatVide'
 import { Indicateur } from '../components/Indicateur'
 import { Panne } from '../components/Panne'
-import { chargerBudgets, chargerParametres, chargerReelDuCompte, hypothesesDe } from '../data/pilotage'
+import { chargerAlertes, chargerBudgets, chargerParametres, chargerReelDuCompte, hypothesesDe } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { feuilleReseau } from '../lib/exports'
 import { ecartTaux, lienMagasin, milliers, MOIS, taux } from '../lib/format'
 import { classeur, nomFichier, telecharger } from '../lib/xlsx'
 import { fraisDepuisLignes } from '../moteur/atterrissage'
 import { calculerBudget } from '../moteur/budget'
+import { medianes, ratiosDuReel, RATIOS, type CleRatio } from '../moteur/comparaison'
 import { ligneReseau, totalReseau, type LigneReseau, type MoisReel } from '../moteur/suivi'
 
-type Cle = 'magasin' | 'moisRealises' | 'ca' | 'evolution' | 'ecartBudget' | 'tauxMarge' | 'panierTTC' | 'personnelSurMarge' | 'ebeSurCA'
+type Cle = 'magasin' | 'moisRealises' | 'ca' | 'evolution' | 'ecartBudget' | 'tauxMarge' | 'panierTTC' | 'personnelSurMarge' | 'loyerSurCA' | 'ebeSurCA'
 type Colonne = { cle: Exclude<Cle, 'magasin'>; libelle: string; texte: (v: number) => string; rouge?: (v: number) => boolean }
 
 const euros = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -44,6 +46,7 @@ const COLONNES: Colonne[] = [
   { cle: 'tauxMarge', libelle: 'Taux de marge', texte: taux },
   { cle: 'panierTTC', libelle: 'Panier moyen TTC', texte: (v) => euros.format(v) },
   { cle: 'personnelSurMarge', libelle: 'Masse salariale / marge', texte: taux },
+  { cle: 'loyerSurCA', libelle: 'Loyer / CA', texte: taux },
   { cle: 'ebeSurCA', libelle: 'EBE / CA', texte: taux, rouge: (v) => v < 0 },
 ]
 const douze = (): MoisReel[] => Array.from({ length: 12 }, () => ({ caHT: 0, margeHT: 0, caAvecMarge: 0, caTTC: 0, tickets: 0 }))
@@ -55,7 +58,7 @@ const simple = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerC
 export function Reseau() {
   const annee = new Date().getFullYear()
   const { donnees, erreur, chargement, recharger } = useChargement(async () => {
-    const [d, { parametres }, reel] = await Promise.all([chargerBudgets(annee), chargerParametres(annee), chargerReelDuCompte(annee)])
+    const [d, { parametres }, reel, alertes] = await Promise.all([chargerBudgets(annee), chargerParametres(annee), chargerReelDuCompte(annee), chargerAlertes()])
     const groupes = new Map(d.groupes.map((g) => [g.id, g.nom]))
     const p = { tauxRedevance: parametres.tauxRedevance, tauxPublicite: parametres.tauxPublicite, charges: parametres.charges, annee }
     const magasins = d.magasins.map((l) => {
@@ -71,7 +74,7 @@ export function Reseau() {
       }
     })
     const trie = (l: string[]) => [...new Set(l)].sort((a, b) => a.localeCompare(b, 'fr'))
-    return { magasins, groupes: d.groupes, coachs: trie(Object.values(reel.coachs)), rrs: trie(Object.values(reel.rrs).flat()) }
+    return { magasins, alertes, groupes: d.groupes, coachs: trie(Object.values(reel.coachs)), rrs: trie(Object.values(reel.rrs).flat()) }
   }, [annee])
 
   // Filtres et tri gardés dans l'adresse : le retour depuis une fiche les retrouve
@@ -101,6 +104,8 @@ export function Reseau() {
     })
   }, [donnees, recherche, groupe, coach, rr, tri, sens])
   const total = totalReseau(visibles)
+  // Médiane de la sélection : un groupe filtré donne la médiane du groupe
+  const mediane = medianes(visibles.filter((m) => m.moisRealises > 0).map(ratiosDuReel))
   const filtre = visibles.length !== (donnees?.magasins.length ?? 0)
   const etat = { liste: visibles.map((m) => m.magasin), retour: params.toString(), depuis: { chemin: '/reseau', nom: 'Réseau' } }
   const trier = (cle: Cle) => changer({ tri: cle, sens: tri === cle ? (sens === 'asc' ? 'desc' : 'asc') : cle === 'magasin' ? 'asc' : 'desc' })
@@ -167,6 +172,10 @@ export function Reseau() {
         />
       </Box>
 
+      <Box className="pas-a-l-impression" sx={{ mb: 4 }}>
+        <AlertesMagasins alertes={donnees.alertes.filter((a) => visibles.some((m) => m.magasin === a.magasin))} etat={etat} />
+      </Box>
+
       <Stack direction="row" spacing={2} useFlexGap className="pas-a-l-impression" sx={{ mb: 2, flexWrap: 'wrap' }}>
         <TextField
           size="small" value={recherche} onChange={(e) => changer({ q: e.target.value })} placeholder="Rechercher un magasin"
@@ -226,6 +235,15 @@ export function Reseau() {
                   {COLONNES.map((c) => (c.cle === 'moisRealises'
                     ? <TableCell key={c.cle} align="right" sx={{ whiteSpace: 'nowrap', fontWeight: 700 }}>{total.magasins} magasin{total.magasins > 1 ? 's' : ''}</TableCell>
                     : cellule(c, (total as unknown as Record<string, number | null>)[c.cle], true)))}
+                </TableRow>
+                <TableRow sx={{ '& td': { color: 'text.secondary' } }}>
+                  <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{filtre ? 'Médiane de la sélection' : 'Médiane du réseau'}</TableCell>
+                  {donnees.coachs.length > 0 && <TableCell sx={surPC} />}
+                  {donnees.rrs.length > 0 && <TableCell sx={surPC} />}
+                  {donnees.groupes.length > 0 && <TableCell sx={surPC} />}
+                  {COLONNES.map((c) => ((RATIOS as string[]).includes(c.cle)
+                    ? cellule(c, mediane[c.cle as CleRatio])
+                    : <TableCell key={c.cle} />))}
                 </TableRow>
                 {visibles.map((m) => (
                   <TableRow key={m.magasin} hover onClick={() => navigate(lienMagasin(m.magasin), { state: etat })} sx={{ cursor: 'pointer' }}>

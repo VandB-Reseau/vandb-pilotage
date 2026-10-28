@@ -4,7 +4,7 @@ Même base Supabase que l'app réseau. Le pilotage n'écrit que dans le schéma 
 fonctions (`mon_role()`, `est_directeur()`, `magasins_visibles()`, `mes_magasins()`, `json_sur()`) et ses tables `perimetre_equipe`
 et `app_config` (lue seulement : fiche des Responsables Régionaux, clé `drs_data`).
 
-Mis à jour le 28/10/2026 (migration `0007`).
+Mis à jour le 28/10/2026 (migration `0009`).
 
 ## Principes
 
@@ -18,13 +18,15 @@ Mis à jour le 28/10/2026 (migration `0007`).
 
 | Table | Contenu | Clé | Lecture | Écriture |
 | --- | --- | --- | --- | --- |
-| `parametres_reseau` | Paramètres de l'année : `valeur` jsonb (`tauxRedevance`, `tauxPublicite`, `impot`, `tvaPanier`, `charges` : taux de charges patronales par catégorie et paramètres de la réduction générale ; `tresorerie` : délais de paiement en mois, TVA des ventes, des achats et des frais, `tvaTrimestrielle`, `partCotisations`, `consignes` : part des achats par univers, `ecoulement` et `remboursement` en mois) | `annee` | Comptes ouverts | Directeur |
+| `parametres_reseau` | Paramètres de l'année : `valeur` jsonb (`tauxRedevance`, `tauxPublicite`, `impot`, `tvaPanier`, `charges` : taux de charges patronales par catégorie et paramètres de la réduction générale ; `tresorerie` : délais de paiement en mois, TVA des ventes, des achats et des frais, `tvaTrimestrielle`, `partCotisations`, `consignes` : part des achats par univers, `ecoulement` et `remboursement` en mois ; `alertes` : seuils `ecartCA`, `baisseMarge` en points, `moisRetard`, `tresorerie` en euros) | `annee` | Comptes ouverts | Directeur |
 | `budgets` | Budget d'un magasin pour une année : `statut` (`propose`, `en_discussion`, `valide`), `base` (réalisé importé du prévisionnel), `ajustements` (écarts du magasin aux cibles, format `Cibles`, dont saisonnalité, travaux et `tresorerieDepart`), `proposition` (base proposée par le siège), `hypotheses` (hypothèses calculées au dernier enregistrement, figées à la validation), `valide_le` | `store_name`, `annee` | Magasins du compte | Création et suppression : Directeur. Modification : Directeur, franchisé sur ses magasins |
 | `reel_mensuel` | Réel par mois (1er du mois), univers (`cave`, `bar`, `exterieur`) et famille : `ca_ht`, `ca_ttc`, `marge_ht` (marge théorique de la caisse), `maj_par`. La colonne `tickets` de `0001` n'est plus utilisée (voir `reel_tickets`) | `store_name`, `mois`, `univers`, `famille` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
 | `reel_tickets` | Tickets par mois et univers (un ticket ne se compte pas par famille) : `tickets`, `maj_par` | `store_name`, `mois`, `univers` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
 | `codes_caisse` | Code magasin de la caisse (fichiers de la DSI) → nom du magasin, un code par magasin | `code` | Équipe | Directeur |
 | `equipe` | Équipe d'un magasin, une ligne par poste sans nom : `poste`, `categorie` (`employe`, `agent_maitrise`, `cadre`, `apprenti`, `gerant_tns`), `heures_hebdo`, `brut_mensuel` (rémunération pour un gérant TNS), `primes` (`[{mois, montant}]`), `entree` et `sortie` (1er du mois, facultatives), `maj_le`, `maj_par` | `id` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
 | `frais` | Frais annuels d'un magasin, une ligne par code de la grille (`src/moteur/parametres.ts`) : `code`, `libelle`, `rubrique` (rubriques de la grille, plus `hors_exploitation` pour `amortissements`, `interets`, `remboursement_capital`), `annuel` (€ par an) ou `taux_ca` (part du CA HT), l'un ou l'autre, `maj_le`, `maj_par` | `store_name`, `code` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
+| `quadrimestres` | Chiffres comptables d'un magasin tous les 4 mois (1 : janvier à avril, 2 : mai à août, 3 : septembre à décembre), saisis ou importés : `achats` de marchandises, `variation_stock` (stock de fin − stock de début), `charges_externes` (redevance et publicité comprises), `impots_taxes`, `personnel`, `tresorerie` en fin de période, `maj_le`, `maj_par`. Achats et charges positifs. Le CA vient de la caisse ; marge réelle et EBE sont calculés par l'app (0008) | `store_name`, `annee`, `quadrimestre` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
+| `parts_realisees` | Part de l'année réalisée à fin du dernier mois, saisie par univers (`cave`, `bar`, `exterieur`) pour l'atterrissage d'un magasin sans réel de l'an dernier : `part` (0 à 1), `maj_le`, `maj_par`. Pas de ligne : calcul automatique (0009) | `store_name`, `annee`, `univers` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
 | `groupes` | Groupes libres de magasins (centre-ville, zone commerciale…) : `nom` | `id` | Équipe | Directeur |
 | `groupe_magasins` | Groupe d'un magasin (un au plus) | `store_name` | Équipe | Directeur |
 | `cibles_reseau` | Cibles du réseau pour l'année : `valeur` (format `Cibles`) | `annee` | Équipe | Directeur |

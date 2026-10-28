@@ -5,6 +5,64 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 18 — Espace franchisé
+
+- Synthèse du magasin, pour le franchisé : liste « À faire » (réel du dernier mois terminé, quadrimestre fini à saisir,
+  budget proposé par le siège ou en discussion, équipe, frais), chaque ligne ouvre l'onglet ; « Tout est à jour »
+  sinon. Rien de changé pour l'équipe.
+- Pas de migration.
+
+### Lot 16 — Atterrissage sans réel de l'an dernier
+
+- Atterrissage d'un magasin : tableau « Projection des mois restants » par univers (réalisé, méthode, part de l'année
+  réalisée, atterrissage). Sans réel de l'an dernier, la part de l'année réalisée peut être saisie par univers, comme
+  dans le prévisionnel Excel (CA atterri = réalisé / part) ; à défaut, la saisonnalité médiane du réseau l'an dernier
+  (au moins 3 magasins avec leurs 12 mois), puis la moyenne des mois réalisés. Repris dans la synthèse.
+- **Base : migration `0009_parts_realisees.sql` à passer.**
+
+### Lot 17 — Trésorerie glissante
+
+- Onglet Quadrimestres : trésorerie prévue jusqu'à décembre, à partir de la dernière trésorerie saisie (fin avril ou
+  fin août) et des flux de l'atterrissage de l'année (mêmes délais et TVA que la trésorerie du budget). Point bas prévu,
+  mois à découvert, trésorerie de fin décembre ; suit la saisie sans enregistrer.
+- Pas de migration.
+
+### Lot 12 — Quadrimestres : résultat réel tous les 4 mois
+
+- Fiche magasin, onglet Quadrimestres : six montants comptables par période (achats de marchandises, variation de
+  stock, charges externes redevance et publicité comprises, impôts et taxes, frais de personnel, trésorerie de fin de
+  période). Le CA vient de la caisse ; l'app calcule la marge réelle (CA − achats + variation de stock), l'écart à la
+  marge théorique de la caisse (démarque constatée), l'EBE réel, l'EBE / CA et l'écart à l'EBE du budget, par
+  quadrimestre et en cumul. Saisie par le Directeur, le RR, le Coach et le franchisé sur leurs magasins.
+- Imports de caisse : fichier des comptables (plusieurs magasins d'un coup, code caisse ou nom du magasin).
+- **Base : migration `0008_quadrimestres.sql` à passer.**
+
+### Lot 13 — Alertes
+
+- Accueil, vue Réseau (selon les filtres) et synthèse d'un magasin : CA cumulé sous le budget, taux de marge en baisse
+  sur l'an dernier aux mêmes mois (marge de caisse contre marge de caisse), réel en retard, trésorerie sous le seuil
+  (fin du dernier quadrimestre, ou point bas du budget à venir quand la trésorerie de départ est saisie). Les plus
+  graves d'abord, filtre par type, lien vers l'onglet concerné.
+- Paramètres réseau : seuils modifiables (5 % sous le budget, 1 point de marge, 1 mois de retard, trésorerie sous 0 €
+  par défaut). Pas d'alerte de retard tant qu'aucun réel de l'année n'est importé.
+- Pas de migration (seuils dans `parametres_reseau.valeur`).
+
+### Lot 14 — Et si…
+
+- Fiche magasin, onglet « Et si… » : variation du CA, du taux de marge, hausse du loyer, embauche (salaire, heures,
+  catégorie, mois d'arrivée, charges moins la réduction générale). Effet sur la marge, le personnel, l'EBE, le résultat
+  net, la trésorerie de fin d'année et son point bas, face au budget. Rien n'est enregistré.
+- Pas de migration.
+
+### Lot 15 — Face au réseau
+
+- Synthèse d'un magasin (Directeur, RR, Coach) : taux de marge, masse salariale / marge, loyer / CA, panier moyen et
+  EBE / CA face à la médiane du groupe et du réseau, avec le rang ; sur le réel à date ou sur les budgets de l'an
+  prochain. Au moins 3 magasins pour une médiane.
+- Vue Réseau : colonne Loyer / CA (aussi dans l'export Excel) et ligne de la médiane de la sélection (un filtre par
+  groupe donne la médiane du groupe).
+- Pas de migration.
+
 ## Lot 11 — Consignes dans la trésorerie (28/10/2026)
 
 - Trésorerie du budget : consignes versées aux fournisseurs avec les achats (fûts, caisses, gaz) et remboursées une

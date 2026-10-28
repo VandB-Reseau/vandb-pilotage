@@ -47,6 +47,28 @@ code_magasin;date;univers;tickets
 0101;2026-09-01;BAR;30
 ```
 
+## `quadrimestres_AAAA-Q.csv` (comptables)
+
+Tous les 4 mois, un fichier pour un ou plusieurs magasins, déposé par le Directeur dans **Imports de caisse**. Une ligne
+par magasin et par quadrimestre ; un montant vide reste à saisir dans la fiche magasin. Réimporter remplace la ligne.
+
+| Colonne | Contenu |
+| --- | --- |
+| `code_magasin` | Code caisse du magasin, ou son nom |
+| `annee` | Année |
+| `quadrimestre` | `1` (janvier à avril), `2` (mai à août), `3` (septembre à décembre) |
+| `achats` | Achats de marchandises HT de la période |
+| `variation_stock` | Stock de fin − stock de début (négatif si le stock baisse) |
+| `charges_externes` | Charges externes HT, redevance et publicité comprises |
+| `impots_taxes` | Impôts et taxes |
+| `personnel` | Frais de personnel (salaires et charges, rémunération du gérant comprise) |
+| `tresorerie` | Trésorerie en fin de période |
+
+```
+code_magasin;annee;quadrimestre;achats;variation_stock;charges_externes;impots_taxes;personnel;tresorerie
+0101;2027;1;130000;8000;30000;3000;35000;25000
+```
+
 ## Contrôles à l'import
 
 Une ligne illisible (date, univers, montant) est écartée et citée avec son numéro ; le reste du fichier s'importe. Un

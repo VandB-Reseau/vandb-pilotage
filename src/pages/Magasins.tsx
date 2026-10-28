@@ -21,11 +21,12 @@ import useMediaQuery from '@mui/material/useMediaQuery'
 import { useTheme } from '@mui/material/styles'
 import SearchOutlined from '@mui/icons-material/SearchOutlined'
 import { useAuth } from '../auth/AuthContext'
+import { AlertesMagasins } from '../components/AlertesMagasins'
 import { EtatVide } from '../components/EtatVide'
 import { Indicateur } from '../components/Indicateur'
 import { Panne } from '../components/Panne'
 import { PastilleStatut } from '../components/PastilleStatut'
-import { anneeBudget, chargerBudgets, chargerParametres, hypothesesDe } from '../data/pilotage'
+import { anneeBudget, chargerAlertes, chargerBudgets, chargerParametres, hypothesesDe } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { correspond, filtrerMagasins, FILTRES, type Filtre } from '../lib/aFaire'
 import { dateHeure, lienMagasin, milliers, taux } from '../lib/format'
@@ -40,10 +41,10 @@ export function Magasins() {
   const annee = anneeBudget()
   const { donnees, erreur, chargement, recharger } = useChargement(
     async () => {
-      const [d, { parametres }] = await Promise.all([chargerBudgets(annee), chargerParametres(annee)])
+      const [d, { parametres }, alertes] = await Promise.all([chargerBudgets(annee), chargerParametres(annee), chargerAlertes()])
       const groupes = new Map(d.groupes.map((g) => [g.id, g.nom]))
       return {
-        groupes: d.groupes,
+        groupes: d.groupes, alertes,
         magasins: d.magasins.map((l) => {
           const h = hypothesesDe(l, d)
           const budget = h ? calculerBudget(h.hypotheses, parametres) : null
@@ -102,6 +103,7 @@ export function Magasins() {
               <Indicateur libelle="Fiches à compléter" valeur={String(synthese.aCompleter)} detail="Équipe ou frais à renseigner" />
             </Box>
           )}
+          <Box sx={{ mb: 4 }}><AlertesMagasins alertes={donnees.alertes} etat={{ liste: tous.map((m) => m.magasin) }} /></Box>
           {(tous.length > 5 || donnees.groupes.length > 0) && (
             <Stack direction="row" spacing={2} useFlexGap sx={{ mb: 2, flexWrap: 'wrap' }}>
               {tous.length > 5 && (

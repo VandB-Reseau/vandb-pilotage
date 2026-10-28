@@ -40,7 +40,7 @@ test('le Directeur voit tous les magasins, l’avancement des budgets et les chi
 
 test('la fiche d’un magasin montre le compte de résultat et le budget mois par mois', async ({ page, isMobile }, info) => {
   await seConnecter(page)
-  await page.getByText(MAGASINS[0], { exact: true }).click()
+  await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await expect(page.getByRole('heading', { level: 1, name: MAGASINS[0] })).toBeVisible()
   await page.getByRole('tab', { name: /^Budget/ }).click()
   const resultat = page.getByRole('table', { name: 'Budget 2027 mois par mois' })
@@ -62,7 +62,7 @@ test('la fiche d’un magasin montre le compte de résultat et le budget mois pa
 
 test('un magasin sans budget l’explique', async ({ page }) => {
   await seConnecter(page)
-  await page.getByText(MAGASINS[2], { exact: true }).click()
+  await page.getByText(MAGASINS[2], { exact: true }).last().click()
   await page.getByRole('tab', { name: /^Budget/ }).click()
   await expect(page.getByText('Pas encore de budget', { exact: false })).toBeVisible()
 })
@@ -77,7 +77,7 @@ test('les paramètres réseau : redevance 2 % et publicité 1 % pour le Directeu
 
 test('un Coach n’a pas les paramètres réseau', async ({ page }) => {
   await seConnecter(page, { role: 'coach', magasins: [{ magasin: MAGASINS[1], statut: 'propose', hypotheses: null, maj_le: null }] })
-  await expect(page.getByText(MAGASINS[1], { exact: true })).toBeVisible()
+  await expect(page.getByText(MAGASINS[1], { exact: true }).last()).toBeVisible()
   await expect(page.getByRole('link', { name: /Paramètres/ })).toHaveCount(0)
   await page.goto('./#/parametres')
   await expect(page.getByRole('heading', { level: 1, name: 'Magasins' })).toBeVisible()

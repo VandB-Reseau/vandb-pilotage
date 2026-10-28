@@ -1,0 +1,5 @@
+code_magasin;annee;quadrimestre;achats;variation_stock;charges_externes;impots_taxes;personnel;tresorerie
+0101;2026;1;130 000,00;8000;30000;3000;35000;25000
+Brionne-sur-Lac;2026;2;100000;;;;;
+0999;2026;1;1000;0;0;0;0;0
+0101;2026;4;1000;0;0;0;0;0
