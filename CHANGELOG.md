@@ -5,6 +5,16 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+## Lot 9 — Export Excel, impression, filtre par Responsable Régional (28/10/2026)
+
+**Base : passer `supabase/migrations/0007_filtre_rr.sql`** (remplace la fonction de lecture de la vue réseau, aucune table).
+
+- Budget d'un magasin : bouton Exporter en Excel (compte de résultat sur 12 mois et hypothèses par famille ; totaux, parts
+  du CA et marge de chaque famille en formules) et bouton Imprimer (A4 paysage, sans menus ni boutons).
+- Vue Réseau : export Excel de la sélection affichée (filtres et tri compris) et impression, avec la sélection et la
+  date en tête.
+- Vue Réseau, Directeur : filtre et colonne Responsable Régional, noms lus dans la fiche des RR de l'app réseau.
+
 ## Lot 8 — Budgets 2027 complets (28/10/2026)
 
 - Démarque par famille, en part du CA, déduite de la marge visée : colonne de la grille des hypothèses du magasin, et

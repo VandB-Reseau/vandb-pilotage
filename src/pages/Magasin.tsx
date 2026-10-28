@@ -18,7 +18,9 @@ import ChevronLeftOutlined from '@mui/icons-material/ChevronLeftOutlined'
 import ChevronRightOutlined from '@mui/icons-material/ChevronRightOutlined'
 import CheckCircleOutlined from '@mui/icons-material/CheckCircleOutlined'
 import ContentCopyOutlined from '@mui/icons-material/ContentCopyOutlined'
+import FileDownloadOutlined from '@mui/icons-material/FileDownloadOutlined'
 import LockOpenOutlined from '@mui/icons-material/LockOpenOutlined'
+import PrintOutlined from '@mui/icons-material/PrintOutlined'
 import SaveOutlined from '@mui/icons-material/SaveOutlined'
 import { useAuth } from '../auth/AuthContext'
 import { AtterrissageMagasin } from '../components/AtterrissageMagasin'
@@ -39,11 +41,13 @@ import { SyntheseMagasin } from '../components/SyntheseMagasin'
 import { GrilleHypotheses } from '../components/GrilleHypotheses'
 import { lignesCibles, TableauCibles } from '../components/TableauCibles'
 import {
-  anneeBudget, changerStatut, chargerBudgets, chargerParametres, chargerReel, enregistrerAjustements, hypothesesDe, niveauxDe, valeursSansCible,
+  anneeBudget, changerStatut, chargerBudgets, chargerParametres, chargerReel, enregistrerAjustements, hypothesesDe, niveauxDe, statutLibelle, valeursSansCible,
 } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { reelEnRetard } from '../lib/aFaire'
+import { feuillesBudget } from '../lib/exports'
 import { lienMagasin, milliers, taux } from '../lib/format'
+import { classeur, nomFichier, telecharger } from '../lib/xlsx'
 import { syntheseReel } from '../moteur/reel'
 import { calculerBudget, effetTravaux } from '../moteur/budget'
 import { compteResultat } from '../moteur/compteResultat'
@@ -96,7 +100,7 @@ export function Magasin() {
   const voisin = (pas: number) => (rang < 0 || liste.length < 2 ? null : liste[(rang + pas + liste.length) % liste.length])
   const precedent = voisin(-1), suivant = voisin(1)
   const retour = seul ? null : (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+    <Box className="pas-a-l-impression" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, flexWrap: 'wrap' }}>
       <Button component={RouterLink} to={`${state?.depuis?.chemin ?? '/'}${state?.retour ? `?${state.retour}` : ''}`} startIcon={<ArrowBack />} sx={{ minHeight: 48 }}>{state?.depuis?.nom ?? 'Magasins'}</Button>
       <Box sx={{ flex: 1 }} />
       {precedent && (
@@ -140,6 +144,14 @@ export function Magasin() {
     setCopie(false)
   }, vers.length > 1 ? `Hypothèses copiées vers ${vers.length} magasins.` : `Hypothèses copiées vers ${vers[0]}.`)
 
+  // Export du budget tel qu'à l'écran, ajustements en cours compris
+  const exporter = () => {
+    if (!b || !resolu) return
+    const statut = `${ligne.statut ? statutLibelle[ligne.statut] : 'Pas encore proposé'}${modifie ? ', ajustements non enregistrés' : ''}`
+    telecharger(nomFichier(`Budget ${annee} - ${ligne.magasin}`),
+      classeur(feuillesBudget({ magasin: ligne.magasin, annee, statut, lignes: compteResultat(b, resolu.hypotheses, parametres), familles: b.familles })))
+  }
+
   const agir = async (action: () => Promise<void>, reussite: string) => {
     setOccupe(true)
     setMessage(null)
@@ -164,6 +176,7 @@ export function Magasin() {
       </Box>
       <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5, mb: 2, minHeight: '1.5em' }}>
         {onglet === 'budget' && ligne.base ? `${nbEcarts === 0 ? 'Aucun écart' : nbEcarts === 1 ? '1 écart' : `${nbEcarts} écarts`} aux cibles du siège` : ''}
+        {onglet === 'budget' && <Box component="span" className="impression-seule">{ligne.base ? ' · ' : ''}Budget {annee} · imprimé le {new Date().toLocaleDateString('fr-FR')}</Box>}
       </Typography>
 
       <Tabs value={onglet} onChange={(_, v: string) => garde(() => { setOnglet(v); setBrouillon(ligne.ajustements) })} variant="scrollable" scrollButtons="auto" aria-label="Vues du magasin" sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
@@ -228,37 +241,38 @@ export function Magasin() {
             <Indicateur libelle="Résultat net" valeur={milliers(b.resultatNet)} detail={`Impôt : ${milliers(b.impot)}`} />
           </Stack>
 
-          {(directeur || modifie) && (
-            <Stack direction="row" useFlexGap spacing={1.5} sx={{ flexWrap: 'wrap' }} aria-label="Actions sur le budget">
-              {peutAjuster && modifie && (
-                <Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe || !enregistrable} sx={{ minHeight: 48 }}
-                  onClick={() => resolu && void agir(() => enregistrerAjustements(ligne.magasin, annee, brouillon, resolu.hypotheses),
-                    directeur ? 'Ajustements enregistrés.' : 'Ajustements enregistrés : le budget est en discussion avec le siège.')}>
-                  Enregistrer les ajustements
-                </Button>
-              )}
-              {directeur && ligne.base && ligne.statut !== 'valide' && (
-                <Button variant={modifie ? 'outlined' : 'contained'} color="success" startIcon={<CheckCircleOutlined />} disabled={occupe || !enregistrable} sx={{ minHeight: 48 }}
-                  onClick={() => resolu && void agir(async () => {
-                    if (modifie) await enregistrerAjustements(ligne.magasin, annee, brouillon, resolu.hypotheses)
-                    await changerStatut(ligne.magasin, annee, 'valide', resolu.hypotheses)
-                  }, `Budget ${annee} validé.`)}>
-                  Valider le budget
-                </Button>
-              )}
-              {directeur && ligne.statut === 'valide' && resolu && (
-                <Button variant="outlined" startIcon={<LockOpenOutlined />} disabled={occupe} sx={{ minHeight: 48 }}
-                  onClick={() => void agir(() => changerStatut(ligne.magasin, annee, 'en_discussion', resolu.hypotheses), 'Budget rouvert : il est de nouveau en discussion.')}>
-                  Rouvrir la discussion
-                </Button>
-              )}
-              {directeur && ligne.base && !copie && (
-                <Button variant="outlined" startIcon={<ContentCopyOutlined />} disabled={occupe || modifie} onClick={() => setCopie(true)} sx={{ minHeight: 48 }}>
-                  Copier vers d’autres magasins
-                </Button>
-              )}
-            </Stack>
-          )}
+          <Stack direction="row" useFlexGap spacing={1.5} className="pas-a-l-impression" sx={{ flexWrap: 'wrap' }} aria-label="Actions sur le budget">
+            {peutAjuster && modifie && (
+              <Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe || !enregistrable} sx={{ minHeight: 48 }}
+                onClick={() => resolu && void agir(() => enregistrerAjustements(ligne.magasin, annee, brouillon, resolu.hypotheses),
+                  directeur ? 'Ajustements enregistrés.' : 'Ajustements enregistrés : le budget est en discussion avec le siège.')}>
+                Enregistrer les ajustements
+              </Button>
+            )}
+            {directeur && ligne.base && ligne.statut !== 'valide' && (
+              <Button variant={modifie ? 'outlined' : 'contained'} color="success" startIcon={<CheckCircleOutlined />} disabled={occupe || !enregistrable} sx={{ minHeight: 48 }}
+                onClick={() => resolu && void agir(async () => {
+                  if (modifie) await enregistrerAjustements(ligne.magasin, annee, brouillon, resolu.hypotheses)
+                  await changerStatut(ligne.magasin, annee, 'valide', resolu.hypotheses)
+                }, `Budget ${annee} validé.`)}>
+                Valider le budget
+              </Button>
+            )}
+            {directeur && ligne.statut === 'valide' && resolu && (
+              <Button variant="outlined" startIcon={<LockOpenOutlined />} disabled={occupe} sx={{ minHeight: 48 }}
+                onClick={() => void agir(() => changerStatut(ligne.magasin, annee, 'en_discussion', resolu.hypotheses), 'Budget rouvert : il est de nouveau en discussion.')}>
+                Rouvrir la discussion
+              </Button>
+            )}
+            {directeur && ligne.base && !copie && (
+              <Button variant="outlined" startIcon={<ContentCopyOutlined />} disabled={occupe || modifie} onClick={() => setCopie(true)} sx={{ minHeight: 48 }}>
+                Copier vers d’autres magasins
+              </Button>
+            )}
+            <Box sx={{ flex: 1, display: { xs: 'none', md: 'block' } }} />
+            <Button variant="outlined" startIcon={<FileDownloadOutlined />} onClick={exporter} sx={{ minHeight: 48 }}>Exporter en Excel</Button>
+            <Button variant="outlined" startIcon={<PrintOutlined />} onClick={() => window.print()} sx={{ minHeight: 48, display: { xs: 'none', md: 'inline-flex' } }}>Imprimer</Button>
+          </Stack>
 
           {copie && <CopieHypotheses source={ligne.magasin} magasins={destinations.map((l) => l.magasin)} occupe={occupe} onCopier={copier} onFermer={() => setCopie(false)} />}
 

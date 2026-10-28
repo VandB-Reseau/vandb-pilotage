@@ -210,8 +210,9 @@ export async function enregistrerMoisReel(magasin: string, annee: number, mois: 
   if (ventes.length || t.length) verifier(await pilotage().rpc('remplacer_reel', { p_ventes: ventes, p_tickets: t }))
 }
 
-// Réel de tous les magasins du compte, totalisé par mois dans la base (vue réseau) : année demandée et précédente
-export interface ReelDuCompte { magasins: Record<string, { n: MoisReel[]; n1: MoisReel[] }>; coachs: Record<string, string> }
+// Réel de tous les magasins du compte, totalisé par mois dans la base (vue réseau) : année demandée et précédente.
+// Coach de chaque magasin pour le Directeur et le RR, RR de chaque magasin pour le Directeur seul.
+export interface ReelDuCompte { magasins: Record<string, { n: MoisReel[]; n1: MoisReel[] }>; coachs: Record<string, string>; rrs: Record<string, string[]> }
 export const chargerReelDuCompte = (annee: number): Promise<ReelDuCompte> => memo(`reel-compte|${annee}`, () => lireReelDuCompte(annee))
 async function lireReelDuCompte(annee: number): Promise<ReelDuCompte> {
   const { data, error } = await pilotage().rpc('reel_du_compte', { p_annee: annee })
@@ -224,7 +225,9 @@ async function lireReelDuCompte(annee: number): Promise<ReelDuCompte> {
     const r = (magasins[l.magasin] ??= { n: douze(), n1: douze() })
     r[a === annee ? 'n' : 'n1'][m - 1] = { caHT: Number(l.ca), margeHT: Number(l.marge), caAvecMarge: Number(l.ca_marge), caTTC: Number(l.ttc), tickets: Number(l.tickets) }
   }
-  return { magasins, coachs: objet(data.coachs) ? (data.coachs as Record<string, string>) : {} }
+  const rrs: ReelDuCompte['rrs'] = {}
+  if (objet(data.rrs)) for (const [m, noms] of Object.entries(data.rrs)) if (Array.isArray(noms)) rrs[m] = noms.filter((x): x is string => typeof x === 'string' && x !== '')
+  return { magasins, coachs: objet(data.coachs) ? (data.coachs as Record<string, string>) : {}, rrs }
 }
 
 export interface CodeCaisse { code: string; magasin: string }
