@@ -23,6 +23,7 @@ import LockOpenOutlined from '@mui/icons-material/LockOpenOutlined'
 import PrintOutlined from '@mui/icons-material/PrintOutlined'
 import SaveOutlined from '@mui/icons-material/SaveOutlined'
 import { useAuth } from '../auth/AuthContext'
+import { AFaireFranchise } from '../components/AFaireFranchise'
 import { AtterrissageMagasin } from '../components/AtterrissageMagasin'
 import { CompteResultatMois } from '../components/CompteResultatMois'
 import { CopieHypotheses } from '../components/CopieHypotheses'
@@ -101,7 +102,8 @@ export function Magasin() {
 
   const directeur = profil?.role === 'directeur'
   const peutSaisir = !!profil && profil.role !== 'aucun'
-  const seul = profil?.role === 'franchise' && donnees?.d.magasins.length === 1
+  const franchise = profil?.role === 'franchise'
+  const seul = franchise && donnees?.d.magasins.length === 1
   const liste = (state?.liste ?? donnees?.d.magasins.map((l) => l.magasin) ?? []).filter((m) => donnees?.d.magasins.some((l) => l.magasin === m))
   const rang = liste.indexOf(nom)
   const voisin = (pas: number) => (rang < 0 || liste.length < 2 ? null : liste[(rang + pas + liste.length) % liste.length])
@@ -199,11 +201,18 @@ export function Magasin() {
         <Tab value="frais" label={<LibelleOnglet texte="Frais" manque={!d.frais[ligne.magasin]?.length} detail="à renseigner" />} sx={{ minHeight: 48 }} />
       </Tabs>
 
+      {onglet === 'synthese' && franchise && (
+        <AFaireFranchise
+          key={`a-faire-${ligne.magasin}`} magasin={ligne.magasin} allerA={(o, a) => { if (a) setAnneeQuadri(a); setOnglet(o) }}
+          moisRenseignes={reel.donnees ? syntheseReel(reel.donnees.lignes, reel.donnees.tickets).moisRenseignes : null}
+          budget={{ annee, statut: ligne.statut }} aEquipe={!!d.equipes[ligne.magasin]?.length} aFrais={!!d.frais[ligne.magasin]?.length}
+        />
+      )}
       {onglet === 'synthese' && <AlertesDuMagasin magasin={ligne.magasin} />}
       {onglet === 'synthese' ? (
         <>
           <SyntheseMagasin key={ligne.magasin} magasin={ligne.magasin} d={d} annee={anneeEnCours} parametres={donnees.parametresN} allerA={setOnglet} />
-          {profil?.role !== 'franchise' && <ComparaisonMagasin key={`comparaison-${ligne.magasin}`} magasin={ligne.magasin} directeur={directeur} />}
+          {!franchise && <ComparaisonMagasin key={`comparaison-${ligne.magasin}`} magasin={ligne.magasin} directeur={directeur} />}
         </>
       ) : onglet === 'suivi' ? (
         <SuiviBudget key={ligne.magasin} magasin={ligne.magasin} annee={anneeEnCours} allerA={setOnglet} />

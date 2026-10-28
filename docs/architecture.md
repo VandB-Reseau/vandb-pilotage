@@ -66,6 +66,14 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
    marge, loyer / CA, panier, EBE / CA) sur le réel à date et sur les budgets de l'an prochain ; `medianes` et `rang`
    placent le magasin face à son groupe et au réseau (au périmètre pour un Coach ou un RR). Vue Réseau : ligne de la
    médiane de la sélection. Pas montré au franchisé.
+16. Atterrissage sans réel de l'an dernier : `baseDepuisReel` projette les mois restants de chaque univers avec la part
+   de l'année réalisée saisie (`parts_realisees`), sinon la saisonnalité médiane du réseau l'an dernier
+   (`saisonnaliteMediane`, au moins 3 magasins complets), sinon la moyenne des mois réalisés.
+17. Trésorerie glissante : `tresorerieGlissante` part de la dernière trésorerie saisie d'un quadrimestre et déroule les
+   flux de l'atterrissage jusqu'à décembre.
+18. Espace franchisé : en tête de la synthèse, `tachesFranchise` (`src/lib/aFaire.ts`) liste ce qu'il a à faire selon
+   la date (réel du dernier mois, quadrimestre fini, budget proposé ou en discussion, équipe, frais) ; chaque ligne
+   ouvre l'onglet. La comparaison aux autres magasins ne lui est pas montrée.
 
 ## Rôles
 

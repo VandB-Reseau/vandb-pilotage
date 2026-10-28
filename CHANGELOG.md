@@ -5,6 +5,13 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 18 — Espace franchisé
+
+- Synthèse du magasin, pour le franchisé : liste « À faire » (réel du dernier mois terminé, quadrimestre fini à saisir,
+  budget proposé par le siège ou en discussion, équipe, frais), chaque ligne ouvre l'onglet ; « Tout est à jour »
+  sinon. Rien de changé pour l'équipe.
+- Pas de migration.
+
 ### Lot 16 — Atterrissage sans réel de l'an dernier
 
 - Atterrissage d'un magasin : tableau « Projection des mois restants » par univers (réalisé, méthode, part de l'année
