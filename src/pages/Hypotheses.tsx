@@ -54,6 +54,8 @@ export function Hypotheses() {
 
   // Les familles proposées sont celles trouvées dans les prévisionnels importés
   const familles = useMemo(() => donnees?.d.magasins.flatMap((l) => l.base?.familles ?? []) ?? [], [donnees])
+  // Cave et Bar se règlent par les tickets dès qu'un magasin en a (lot 22)
+  const parTickets = useMemo(() => (['cave', 'bar'] as const).filter((u) => donnees?.d.magasins.some((l) => (l.base?.flux?.[u]?.realise ?? 0) > 0)), [donnees])
 
   if (chargement && !donnees) return <Box><Typography variant="h1">Hypothèses</Typography><Skeleton variant="rounded" height={240} sx={{ mt: 3 }} /></Box>
   if (erreur || !donnees) return <Box><Typography variant="h1" sx={{ mb: 3 }}>Hypothèses</Typography><Panne quoi="Les hypothèses" recharger={recharger} /></Box>
@@ -149,7 +151,7 @@ export function Hypotheses() {
           <TableContainer>
             <TableauCibles
               titre={groupe ? `Cibles du groupe ${groupe.nom}` : 'Cibles du réseau'}
-              lignes={lignesCibles(familles, true)}
+              lignes={lignesCibles(familles, true, parTickets)}
               niveau={groupe ? 'groupe' : 'reseau'}
               cibles={cibles}
               auDessus={groupe ? [{ niveau: 'reseau', cibles: d.reseau }] : []}

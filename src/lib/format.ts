@@ -1,9 +1,11 @@
 // Montants arrondis à l'euro (« 640 000 € ») ou en milliers (« 640 k€ ») dans les tableaux serrés
 const euros = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0, signDisplay: 'negative' })
+const centimes = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const kilo = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0, signDisplay: 'negative' })
 const pourcent = new Intl.NumberFormat('fr-FR', { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1, signDisplay: 'negative' })
 
 export const montant = (v: number) => euros.format(v)
+export const panier = (v: number) => centimes.format(v) // panier moyen, au centime
 export const milliers = (v: number) => `${kilo.format(v / 1000)} k€`
 export const taux = (v: number) => pourcent.format(v)
 

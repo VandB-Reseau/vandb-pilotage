@@ -11,11 +11,11 @@ const duSiege: MessageSimule = {
   id: 1, store_name: MAGASINS[0], annee: B, sujet: 'ca', texte: 'Proposition : +5 % sur la bière, en ligne avec le réseau.',
   auteur: '00000000-0000-0000-0000-0000000000dd', auteur_role: 'directeur', auteur_nom: null, cree_le: `${N}-10-20T09:30:00Z`,
 }
-// Le franchisé ajuste la bière à −5 % : la bière pèse 120/360 des 600 000 € de CA, soit 200 000 € ; −10 000 € de CA à
+// Le franchisé ajuste les tickets de la Cave (sa bière) à −5 % : la bière pèse 120/360 des 600 000 € de CA, soit 200 000 € ; −10 000 € de CA à
 // 36 % de marge (−3 600 €), moins redevance, publicité et énergie qui suivent le CA (4,3 % × 10 000 = −430 €) : EBE −3 170 €
 const versions: VersionSimulee[] = [
   { id: 1, store_name: MAGASINS[0], annee: B, statut: 'propose', base: magasinFictif, ajustements: {}, auteur_role: 'directeur', auteur_nom: null, cree_le: `${N}-10-20T09:00:00Z` },
-  { id: 2, store_name: MAGASINS[0], annee: B, statut: 'en_discussion', base: magasinFictif, ajustements: { evolutionFamille: { 'cave/Bière': -0.05 } }, auteur_role: 'franchise', auteur_nom: 'Franchise Test', cree_le: `${N}-10-22T16:05:00Z` },
+  { id: 2, store_name: MAGASINS[0], annee: B, statut: 'en_discussion', base: magasinFictif, ajustements: { evolutionFlux: { cave: -0.05 } }, auteur_role: 'franchise', auteur_nom: 'Franchise Test', cree_le: `${N}-10-22T16:05:00Z` },
 ]
 
 test.beforeEach(async ({ page }) => {

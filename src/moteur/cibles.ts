@@ -17,7 +17,9 @@ export interface Cibles {
   demarqueFamille?: Record<string, number>            // démarque en part du CA, par cleFamille
   hausseSalaires?: number                             // appliquée aux salaires de l'année en cours
   inflationFrais?: number                             // appliquée aux frais annuels (pas à ceux en % du CA)
-  evolutionFlux?: Partial<Record<'cave' | 'bar', number>>
+  evolutionFlux?: Partial<Record<'cave' | 'bar', number>>  // évolution du nombre de tickets
+  evolutionPanier?: Partial<Record<'cave' | 'bar', number>> // évolution du panier moyen TTC
+  mixFamille?: Record<string, number>                  // part visée de la famille dans le CA de son univers (Cave, Bar)
   poidsMois?: number[]                                // magasin seulement : sa saisonnalité
   travaux?: Travaux                                   // magasin seulement : ses travaux de l'année
   tresorerieDepart?: number                           // magasin seulement : trésorerie au 1er janvier
@@ -42,8 +44,23 @@ function resoudre(niveaux: NiveauCibles[], lire: (c: Cibles) => number | undefin
 export function appliquerCibles(base: Hypotheses, niveaux: NiveauCibles[]): { hypotheses: Hypotheses; provenance: Provenance[] } {
   const provenance: Provenance[] = []
 
+  // Univers pilotés par les tickets : le mix des familles remplace leur évolution
+  const pilote = (u: Univers) => (u === 'cave' || u === 'bar') && (base.flux?.[u]?.realise ?? 0) > 0
+  const caUnivers = (u: Univers) => base.familles.filter((f) => f.univers === u).reduce((a, f) => a + f.caRealise, 0)
   const familles = base.familles.map((f) => {
     const cle = cleFamille(f)
+    if (pilote(f.univers)) {
+      const marge = resoudre(niveaux, (c) => c.margeFamille?.[cle])
+      const dem = resoudre(niveaux, (c) => c.demarqueFamille?.[cle])
+      const part = resoudre(niveaux, (c) => c.mixFamille?.[cle])
+      const total = caUnivers(f.univers)
+      const nom = `${f.famille} (${universLibelle[f.univers]})`
+      provenance.push({ cle: `mix/${cle}`, libelle: `Part de ${nom}`, valeur: part?.valeur ?? (total > 0 ? f.caRealise / total : 0), source: part?.source ?? 'base' })
+      provenance.push({ cle: `marge/${cle}`, libelle: `Marge visée ${nom}`, valeur: marge?.valeur ?? f.margeRealisee, source: marge?.source ?? 'base' })
+      provenance.push({ cle: `demarque/${cle}`, libelle: `Démarque ${nom}`, valeur: dem?.valeur ?? 0, source: dem?.source ?? 'base' })
+      const { part: _, ...sansPart } = f
+      return { ...sansPart, evolution: 0, margeCible: marge?.valeur ?? f.margeRealisee, demarque: dem?.valeur ?? 0, ...(part ? { part: part.valeur } : {}) }
+    }
     const evo = resoudre(niveaux, (c) => c.evolutionFamille?.[cle] ?? c.evolutionUnivers?.[f.univers])
     const marge = resoudre(niveaux, (c) => c.margeFamille?.[cle])
     const dem = resoudre(niveaux, (c) => c.demarqueFamille?.[cle])
@@ -71,10 +88,14 @@ export function appliquerCibles(base: Hypotheses, niveaux: NiveauCibles[]): { hy
     for (const u of ['cave', 'bar'] as const) {
       const f = base.flux[u]
       if (!f) continue
+      // Comme pour les familles, la base est le réalisé : sans cible, ni les tickets ni le panier n'évoluent
       const evo = resoudre(niveaux, (c) => c.evolutionFlux?.[u])
-      const evolution = evo?.valeur ?? f.evolution
+      const pan = resoudre(niveaux, (c) => c.evolutionPanier?.[u])
+      const evolution = evo?.valeur ?? 0
+      const evolutionPanier = pan?.valeur ?? 0
       provenance.push({ cle: `flux/${u}`, libelle: `Évolution du nombre de tickets ${universLibelle[u]}`, valeur: evolution, source: evo?.source ?? 'base' })
-      flux[u] = { ...f, evolution }
+      provenance.push({ cle: `panier/${u}`, libelle: `Évolution du panier moyen ${universLibelle[u]}`, valeur: evolutionPanier, source: pan?.source ?? 'base' })
+      flux[u] = { ...f, evolution, evolutionPanier }
     }
   }
 
@@ -90,6 +111,7 @@ export function appliquerCibles(base: Hypotheses, niveaux: NiveauCibles[]): { hy
       ...base,
       familles,
       flux,
+      caParTickets: true,
       ...(poids ? { poidsMois: poids.cibles!.poidsMois } : {}),
       ...(travaux ? { travaux: travaux.cibles!.travaux } : {}),
       // Avec l'équipe, la hausse s'applique au brut de chacun (la réduction générale en dépend) ; sinon aux salaires chargés
@@ -117,6 +139,8 @@ export function lireCible(c: Cibles | null | undefined, cle: string): number | u
   if (type === 'demarque') return c.demarqueFamille?.[k]
   if (type === 'univers') return c.evolutionUnivers?.[k as Univers]
   if (type === 'flux') return c.evolutionFlux?.[k as 'cave' | 'bar']
+  if (type === 'panier') return c.evolutionPanier?.[k as 'cave' | 'bar']
+  if (type === 'mix') return c.mixFamille?.[k]
   if (type === 'hausseSalaires') return c.hausseSalaires
   if (type === 'inflationFrais') return c.inflationFrais
   return undefined
@@ -137,6 +161,8 @@ export function ecrireCible(c: Cibles, cle: string, v: number | undefined): Cibl
   else if (type === 'demarque') r.demarqueFamille = dans(c.demarqueFamille)
   else if (type === 'univers') r.evolutionUnivers = dans(c.evolutionUnivers)
   else if (type === 'flux') r.evolutionFlux = dans(c.evolutionFlux)
+  else if (type === 'panier') r.evolutionPanier = dans(c.evolutionPanier)
+  else if (type === 'mix') r.mixFamille = dans(c.mixFamille)
   else if (type === 'hausseSalaires') { if (defini(v)) r.hausseSalaires = v; else delete r.hausseSalaires }
   else if (type === 'inflationFrais') { if (defini(v)) r.inflationFrais = v; else delete r.inflationFrais }
   return r

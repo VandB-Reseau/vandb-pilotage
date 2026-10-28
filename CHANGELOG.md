@@ -5,6 +5,19 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 22 — Cave et Bar séparés, tickets, panier et mix comme leviers du budget
+
+- Budget : le CA de la Cave et celui du Bar se construisent chacun par CA attendu × (1 + évolution des tickets) ×
+  (1 + évolution du panier moyen). Les familles d'un univers s'y répartissent par leur part (réglable : les parts
+  fixées restent, les autres se partagent le reste comme cette année). Le compte de résultat reste celui du magasin :
+  marge et démarque par famille, achats et charges inchangés. La grille d'hypothèses montre les tickets et le panier
+  de chaque univers, réalisés et visés ; cibles du réseau et des groupes : tickets, panier et parts des familles.
+- Les anciennes évolutions de CA par univers ou par famille ne s'appliquent plus à la Cave et au Bar d'un magasin
+  qui a ses tickets : à ressaisir en tickets et panier. Les budgets enregistrés avant restent calculés comme alors.
+- Réel, vue Réseau, médianes et export Excel : tickets, panier TTC et évolution des tickets sur l'an dernier pour la
+  Cave et pour le Bar, jamais additionnés.
+- **Base : migration `0013_cave_bar_separes.sql` à passer.** Sans elle, la vue Réseau n'affiche pas les paniers.
+
 ### Lot 21 — Plan d'action relié aux alertes
 
 - Synthèse du magasin : « Agir » sur une alerte (Directeur, RR, Coach) ajoute une action au plan : quoi, qui

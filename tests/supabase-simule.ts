@@ -112,10 +112,11 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
     // Réel totalisé par magasin et par mois, comme pilotage.reel_du_compte
     if (url.pathname === '/rest/v1/rpc/reel_du_compte') {
       const annee = (req.postDataJSON() as { p_annee: number }).p_annee
-      const lignes = new Map<string, { magasin: string; mois: string; ca: number; marge: number; ca_marge: number; ttc: number; tickets: number }>()
+      type L = { magasin: string; mois: string; ca: number; marge: number; ca_marge: number; ttc: number; tickets: number; ttc_cave: number; ttc_bar: number; tickets_cave: number; tickets_bar: number }
+      const lignes = new Map<string, L>()
       const ligne = (magasin: string, mois: string) => {
         const cle = `${magasin}|${mois.slice(0, 7)}`
-        if (!lignes.has(cle)) lignes.set(cle, { magasin, mois: mois.slice(0, 7), ca: 0, marge: 0, ca_marge: 0, ttc: 0, tickets: 0 })
+        if (!lignes.has(cle)) lignes.set(cle, { magasin, mois: mois.slice(0, 7), ca: 0, marge: 0, ca_marge: 0, ttc: 0, tickets: 0, ttc_cave: 0, ttc_bar: 0, tickets_cave: 0, tickets_bar: 0 })
         return lignes.get(cle)!
       }
       const dansAnnees = (mois: string) => [annee, annee - 1].includes(Number(mois.slice(0, 4)))
@@ -123,9 +124,15 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
         if (!dansAnnees(v.mois)) continue
         const l = ligne(v.store_name, v.mois)
         l.ca += v.ca_ht; l.ttc += v.ca_ttc ?? 0
+        if (v.univers === 'cave' || v.univers === 'bar') l[`ttc_${v.univers}`] += v.ca_ttc ?? 0
         if (v.marge_ht !== null) { l.marge += v.marge_ht; l.ca_marge += v.ca_ht }
       }
-      for (const t of reel.reel_tickets as TicketsSimules[]) if (dansAnnees(t.mois)) ligne(t.store_name, t.mois).tickets += t.tickets
+      for (const t of reel.reel_tickets as TicketsSimules[]) {
+        if (!dansAnnees(t.mois)) continue
+        const l = ligne(t.store_name, t.mois)
+        l.tickets += t.tickets
+        if (t.univers === 'cave' || t.univers === 'bar') l[`tickets_${t.univers}`] += t.tickets
+      }
       return route.fulfill({ json: { mois: [...lignes.values()], coachs: options.coachs ?? {}, rrs: options.rrs ?? {} } })
     }
     const table = url.pathname.replace('/rest/v1/', '')

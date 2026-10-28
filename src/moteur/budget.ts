@@ -45,6 +45,18 @@ export function effetTravaux(t: Travaux | undefined): { activite: number[]; dota
   }
 }
 
+// Mix des familles d'un univers : les parts visées restent telles quelles (ramenées à 100 % si elles le dépassent),
+// les autres familles se partagent le reste au prorata de leur CA atterri
+export function mix(familles: { part?: number; poids: number }[]): number[] {
+  const fixees = familles.map((f) => (Number.isFinite(f.part) && f.part! >= 0 ? f.part! : null))
+  const totalFixe = somme(fixees.map((x) => x ?? 0))
+  const libres = familles.filter((_, i) => fixees[i] === null)
+  const poidsLibres = somme(libres.map((f) => Math.max(0, f.poids)))
+  if (totalFixe >= 1 || !libres.length) return totalFixe > 0 ? fixees.map((x) => (x ?? 0) / totalFixe) : familles.map(() => 1 / familles.length)
+  const reste = 1 - totalFixe
+  return familles.map((f, i) => fixees[i] ?? (poidsLibres > 0 ? reste * Math.max(0, f.poids) / poidsLibres : reste / libres.length))
+}
+
 export function impotSocietes(resultat: number, deficit: number, p: ParametresReseau['impot']): number {
   const base = Math.max(0, resultat - Math.max(0, deficit))
   return Math.min(base, p.plafondTauxReduit) * p.tauxReduit + Math.max(0, base - p.plafondTauxReduit) * p.tauxNormal
@@ -59,10 +71,34 @@ export function calculerBudget(h: Hypotheses, p: ParametresReseau): Budget {
   // Part de l'année réellement ouverte (fermetures, activité réduite, gain après réouverture) : s'applique à chaque famille
   const ouverture = somme(poids.map((w, i) => w * travaux.activite[i]))
 
-  const familles: ResultatFamille[] = h.familles.map((f) => {
-    const atterrissage = ratio(f.caRealise, partRealisee[f.univers])
-    const objectif = atterrissage * (1 + f.evolution) * ouverture
-    return { ...f, atterrissage, objectif, margeObjectif: objectif * (f.margeCible - (f.demarque ?? 0)) }
+  // Cave et Bar avec leurs tickets : CA de l'univers = CA atterri × (1 + évolution des tickets) × (1 + évolution du panier),
+  // réparti entre les familles selon le mix visé ; sinon, famille par famille avec son évolution
+  const atterries = h.familles.map((f) => ratio(f.caRealise, partRealisee[f.univers]))
+  const flux: Budget['flux'] = {}
+  const objectifs = h.familles.map((f, i) => atterries[i] * (1 + f.evolution) * ouverture)
+  for (const u of ['cave', 'bar'] as const) {
+    const fl = h.flux?.[u]
+    if (!fl || !(fl.realise > 0)) continue
+    const ticketsAtterris = ratio(fl.realise, partRealisee[u])
+    if (!h.caParTickets) {
+      flux[u] = { atterrissage: ticketsAtterris, objectif: ticketsAtterris * (1 + fl.evolution), evolution: fl.evolution, panierRealiseTTC: fl.panierCibleTTC, panierObjectifTTC: fl.panierCibleTTC, evolutionPanier: 0, caAtterri: 0, ca: 0, parTickets: false }
+      continue
+    }
+    const dans = h.familles.map((f, i) => (f.univers === u ? i : -1)).filter((i) => i >= 0)
+    const caAtterri = somme(dans.map((i) => atterries[i]))
+    const evolutionPanier = fl.evolutionPanier ?? 0
+    const caU = caAtterri * (1 + fl.evolution) * (1 + evolutionPanier) * ouverture
+    const parts = mix(dans.map((i) => ({ part: h.familles[i].part, poids: atterries[i] })))
+    dans.forEach((i, k) => { objectifs[i] = caU * parts[k] })
+    flux[u] = {
+      atterrissage: ticketsAtterris, objectif: ticketsAtterris * (1 + fl.evolution) * ouverture, evolution: fl.evolution,
+      panierRealiseTTC: fl.panierCibleTTC, panierObjectifTTC: fl.panierCibleTTC * (1 + evolutionPanier), evolutionPanier,
+      caAtterri, ca: caU, parTickets: true,
+    }
+  }
+  const familles: ResultatFamille[] = h.familles.map((f, i) => {
+    const objectif = objectifs[i]
+    return { ...f, atterrissage: atterries[i], objectif, margeObjectif: objectif * (f.margeCible - (f.demarque ?? 0)) }
   })
   const atterrissage = somme(familles.map((f) => f.atterrissage))
   const ca = somme(familles.map((f) => f.objectif))
@@ -100,15 +136,6 @@ export function calculerBudget(h: Hypotheses, p: ParametresReseau): Budget {
   const impot = impotSocietes(resultatAvantImpot, h.deficitReportable, p.impot)
   const resultatNet = resultatAvantImpot - impot
   const capaciteAutofinancement = resultatNet + amortissements
-
-  const flux: Budget['flux'] = {}
-  for (const u of ['cave', 'bar'] as const) {
-    const f = h.flux?.[u]
-    if (!f) continue
-    const fluxAtterri = ratio(f.realise, partRealisee[u])
-    const objectif = fluxAtterri * (1 + f.evolution)
-    flux[u] = { atterrissage: fluxAtterri, objectif, caParPanier: objectif * f.panierCibleTTC / (1 + p.tvaPanier[u]) }
-  }
 
   return {
     familles, partRealisee, atterrissage, ca, marge, tauxMarge, poids, activite: travaux.activite, amortissements, mois,

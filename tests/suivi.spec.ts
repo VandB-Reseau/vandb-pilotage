@@ -16,7 +16,9 @@ const reel: VenteSimulee[] = [
   vente(MAGASINS[0], N - 1, 1, 'cave', 'Bière', 40_000, null), vente(MAGASINS[0], N - 1, 2, 'cave', 'Bière', 40_000, null),
   vente(MAGASINS[1], N, 1, 'cave', 'Vin', 30_000, 15_000),
 ]
-const tickets: TicketsSimules[] = [{ store_name: MAGASINS[0], mois: mois(N, 1), univers: 'cave', tickets: 2_000 }]
+const tickets: TicketsSimules[] = [
+  { store_name: MAGASINS[0], mois: mois(N, 1), univers: 'cave', tickets: 2_000 }, { store_name: MAGASINS[0], mois: mois(N - 1, 1), univers: 'cave', tickets: 1_600 },
+]
 const coachs = { [MAGASINS[0]]: 'Coach Nord', [MAGASINS[1]]: 'Coach Sud', [MAGASINS[2]]: 'Coach Sud' }
 
 test.beforeEach(async ({ page }) => {
@@ -78,7 +80,8 @@ test('vue réseau : classement, total, tri, filtre par Coach et retour', async (
   await expect(lignes.nth(3)).toContainText(MAGASINS[0])
   await expect(lignes.nth(3)).toContainText(/\+17,5\s%/)              // 94 000 / 80 000 − 1
   await expect(lignes.nth(3)).toContainText(/[-−]2,1\s%/)
-  await expect(lignes.nth(3)).toContainText(/30,00\s€/)                // panier : 60 000 € TTC / 2 000 tickets (janvier)
+  await expect(lignes.nth(3)).toContainText(/18,00\s€/)                // panier Cave : 36 000 € TTC / 2 000 tickets (janvier), le Bar à part
+  await expect(lignes.nth(3)).toContainText(/\+25,0\s%/)              // tickets Cave : 2 000 / 1 600 l'an dernier − 1
   await expect(lignes.nth(4)).toContainText(/[-−]33,3\s%/)             // 30 000 / 45 000 − 1 (budget sans évolution)
   await expect(lignes.nth(5)).toContainText(MAGASINS[2])
   expect(await textesTropPetits(page)).toEqual([])

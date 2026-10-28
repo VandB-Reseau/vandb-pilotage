@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { calculerBudget, impotSocietes, partRealiseeReference, poidsMensuels } from '../../src/moteur/budget'
+import { calculerBudget, mix, impotSocietes, partRealiseeReference, poidsMensuels } from '../../src/moteur/budget'
 import { parametresParDefaut } from '../../src/moteur/parametres'
 import { magasinFictif } from '../donnees-fictives'
 
@@ -71,8 +71,49 @@ test('impôt sur les sociétés : taux réduit puis taux normal, déficit report
   proche(impotSocietes(-5_000, 0, parametresParDefaut.impot), 0)
 })
 
-test('seconde projection : flux × panier TTC ramené en HT', () => {
-  // 6 000 tickets à fin août → 10 000 sur l'année → 10 300 avec +3 % ; 10 300 × 24 € / 1,2
+test('Cave pilotée par les tickets : CA atterri × évolution des tickets × évolution du panier', () => {
+  // Budget du lot 22 (caParTickets) : l'évolution de la Bière (+5 %) ne compte plus, la Cave suit ses tickets.
+  // 6 000 tickets à fin août, 60 % du CA de référence → 10 000 sur l'année → 10 300 avec +3 % ; panier 24 € inchangé
+  const h = { ...magasinFictif, caParTickets: true }
+  const b = calculerBudget(h, parametresParDefaut)
   proche(b.flux.cave!.atterrissage, 10_000)
-  proche(b.flux.cave!.caParPanier, 206_000)
+  proche(b.flux.cave!.objectif, 10_300)
+  proche(b.flux.cave!.panierObjectifTTC, 24)
+  proche(b.flux.cave!.caAtterri, 200_000)
+  proche(b.flux.cave!.ca, 206_000)
+  proche(b.ca, 636_000)                            // 206 000 + Fût 330 000 + Événements 100 000
+  // Panier +2 % : 200 000 × 1,03 × 1,02 = 210 120
+  const panier = calculerBudget({ ...h, flux: { cave: { ...magasinFictif.flux!.cave!, evolutionPanier: 0.02 } } }, parametresParDefaut)
+  proche(panier.flux.cave!.panierObjectifTTC, 24.48)
+  proche(panier.flux.cave!.ca, 210_120)
+  // Budget enregistré avant le lot 22 (sans caParTickets) : calculé comme alors, famille par famille
+  const ancien = calculerBudget(magasinFictif, parametresParDefaut)
+  proche(ancien.ca, 640_000)
+  proche(ancien.flux.cave!.objectif, 10_300)
+})
+
+test('mix des familles d’un univers : les parts visées restent, les autres se partagent le reste', () => {
+  expect(mix([{ poids: 200 }, { poids: 100 }, { poids: 100 }])).toEqual([0.5, 0.25, 0.25])
+  // Vin visé à 40 % : Bière et Spiritueux se partagent 60 % à proportion de leur CA (2 pour 1)
+  const m = mix([{ poids: 200 }, { part: 0.4, poids: 100 }, { poids: 100 }])
+  proche(m[0], 0.4)
+  proche(m[1], 0.4)
+  proche(m[2], 0.2)
+  // Parts visées au-delà de 100 % : ramenées à 100 %
+  expect(mix([{ part: 0.6, poids: 1 }, { part: 0.6, poids: 1 }])).toEqual([0.5, 0.5])
+  // Cave à deux familles : Bière 200 000 atterris et Vin 100 000 ; Vin visé à 50 % à 48 % de marge
+  const h = {
+    ...magasinFictif,
+    caParTickets: true,
+    familles: [
+      ...magasinFictif.familles,
+      { univers: 'cave' as const, famille: 'Vin', caRealise: 60_000, margeRealisee: 0.42, evolution: 0, margeCible: 0.48, part: 0.5 },
+    ],
+  }
+  const b2 = calculerBudget(h, parametresParDefaut)
+  // CA Cave : 300 000 × 1,03 = 309 000, moitié chacune ; marge Cave : 154 500 × 38 % + 154 500 × 48 %
+  proche(b2.flux.cave!.ca, 309_000)
+  proche(b2.familles[0].objectif, 154_500)
+  proche(b2.familles[3].objectif, 154_500)
+  proche(b2.familles[0].margeObjectif + b2.familles[3].margeObjectif, 58_710 + 74_160)
 })

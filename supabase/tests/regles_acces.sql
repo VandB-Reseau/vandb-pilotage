@@ -42,7 +42,7 @@ INSERT INTO pilotage.reel_mensuel (store_name, mois, univers, famille, ca_ht) VA
 SELECT pg_temp.attendre('Directeur : tous les magasins', (SELECT cardinality(pilotage.mes_magasins())), 3);
 SELECT pg_temp.attendre('Directeur : tous les budgets', (SELECT count(*) FROM pilotage.budgets), 3);
 SELECT pg_temp.attendre('Directeur : tableau des magasins', (SELECT jsonb_array_length(pilotage.magasins_du_compte(2027))), 3);
-SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 12);
+SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 13);
 -- Frais : le Directeur saisit partout
 INSERT INTO pilotage.frais (store_name, code, libelle, rubrique, annuel) VALUES ('Lille', 'loyer', 'Locations immobilières', 'immobilier', 60000), ('Nice', 'loyer', 'Locations immobilières', 'immobilier', 40000);
 SELECT pg_temp.attendre('Directeur : tous les frais', (SELECT count(*) FROM pilotage.frais), 2);
@@ -83,6 +83,8 @@ GRANT EXECUTE ON FUNCTION pg_temp.reel_magasins(integer) TO authenticated, anon;
 SELECT pg_temp.attendre('Directeur : réel de tous les magasins', (SELECT count(*) FROM regexp_split_to_table(pg_temp.reel_magasins(2026), ',')), 2);
 SELECT pg_temp.attendre('Directeur : réel du compte totalisé par mois', (SELECT count(*) FROM jsonb_array_elements(pilotage.reel_du_compte(2026)->'mois') x
   WHERE x->>'magasin' = 'Lille' AND x->>'mois' = '2026-08' AND (x->>'ca')::numeric = 80 AND (x->>'marge')::numeric = 24 AND (x->>'ca_marge')::numeric = 80), 1);
+SELECT pg_temp.attendre('Directeur : Cave et Bar séparés dans le réel du compte', (SELECT count(*) FROM jsonb_array_elements(pilotage.reel_du_compte(2026)->'mois') x
+  WHERE x->>'magasin' = 'Lille' AND x->>'mois' = '2026-08' AND (x->>'ttc_cave')::numeric = 96 AND (x->>'ttc_bar')::numeric = 0 AND x ? 'tickets_cave'), 1);
 SELECT pg_temp.attendre('Directeur : réel de l''année et de la précédente seulement', jsonb_array_length(pilotage.reel_du_compte(2030)->'mois'), 0);
 SELECT pg_temp.attendre('Directeur : Coach de chaque magasin', (SELECT count(*) FROM jsonb_object_keys(pilotage.reel_du_compte(2026)->'coachs')), 3);
 SELECT pg_temp.attendre('Directeur : RR des magasins qui en ont un nommé', (SELECT count(*) FROM jsonb_object_keys(pilotage.reel_du_compte(2026)->'rrs')), 2);

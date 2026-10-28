@@ -18,6 +18,8 @@ export function hypothesesSimulees(h: Hypotheses, l: Leviers, p: ParametresResea
   const s: Hypotheses = {
     ...h,
     familles: h.familles.map((f) => ({ ...f, evolution: (1 + f.evolution) * (1 + l.ca) - 1, margeCible: f.margeCible + l.marge })),
+    // Cave et Bar pilotés par les tickets : la variation du CA porte sur leurs tickets
+    ...(h.flux ? { flux: Object.fromEntries(Object.entries(h.flux).map(([u, f]) => [u, f && { ...f, evolution: (1 + f.evolution) * (1 + l.ca) - 1 }])) } : {}),
     frais: l.loyer ? [...h.frais, { code: 'simulation_loyer', libelle: 'Hausse de loyer', rubrique: 'immobilier', annuel: l.loyer }] : h.frais,
   }
   if (l.embauche && l.embauche.brutMensuel > 0) {

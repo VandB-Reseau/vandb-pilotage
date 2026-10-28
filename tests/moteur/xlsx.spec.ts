@@ -34,7 +34,8 @@ test('budget : totaux et parts du CA en formules, marge recalculée famille par 
     { univers: 'cave', famille: 'Bière', caRealise: 0, margeRealisee: 0, evolution: 0.1, margeCible: 0.36, demarque: 0.02, atterrissage: 100_000, objectif: 110_000, margeObjectif: 37_400 },
     { univers: 'bar', famille: 'Fût', caRealise: 0, margeRealisee: 0, evolution: 0, margeCible: 0.74, atterrissage: 50_000, objectif: 50_000, margeObjectif: 37_000 },
   ]
-  const [compte, hyp] = feuillesBudget({ magasin: 'Brionne-sur-Lac', annee: 2027, statut: 'Validé', lignes, familles })
+  const flux = { cave: { atterrissage: 10_000, objectif: 10_500, evolution: 0.05, panierRealiseTTC: 24, panierObjectifTTC: 24.48, evolutionPanier: 0.02, caAtterri: 100_000, ca: 110_000, parTickets: true } }
+  const [compte, hyp] = feuillesBudget({ magasin: 'Brionne-sur-Lac', annee: 2027, statut: 'Validé', lignes, familles, flux })
   const f = lireClasseur(classeur([compte, hyp]))
   const c = f['xl/worksheets/sheet1.xml'], h = f['xl/worksheets/sheet2.xml']
 
@@ -58,16 +59,21 @@ test('budget : totaux et parts du CA en formules, marge recalculée famille par 
   // Marge visée : (74 400 + démarque 2 200) / 160 000 = 47,875 % ; démarque : 2 200 / 160 000 = 1,375 %
   expect(celluleXml(h, 'F7')).toBe('<f>IF(E7=0,0,(H7+SUMPRODUCT(E5:E6,G5:G6))/E7)</f><v>0.47875</v>')
   expect(celluleXml(h, 'G7')).toBe('<f>IF(E7=0,0,SUMPRODUCT(E5:E6,G5:G6)/E7)</f><v>0.01375</v>')
+  // Tickets et panier de la Cave sous les familles : ligne d'en-tête 9, Cave en ligne 10
+  expect(celluleXml(h, 'C9')).toContain('Tickets 2026 attendus')
+  expect(celluleXml(h, 'C10')).toBe('<v>10000</v>')
+  expect(celluleXml(h, 'E10')).toBe('<v>10500</v>')
+  expect(celluleXml(h, 'H10')).toBe('<v>24.48</v>')
 })
 
 test('réseau : une ligne par magasin, total de la sélection, colonnes Coach et RR à la demande', () => {
   const ligne = (magasin: string, ca: number, rrs: string[]): LigneExportReseau => ({
-    magasin, moisRealises: 2, ca, evolution: 0.1, ecartBudget: -0.05, tauxMarge: 0.4, panierTTC: 30, personnelSurMarge: null, ebeSurCA: null,
+    magasin, moisRealises: 2, ca, evolution: 0.1, ecartBudget: -0.05, tauxMarge: 0.4, panierCave: 30, ticketsCave: 0.02, panierBar: null, ticketsBar: null, personnelSurMarge: null, ebeSurCA: null,
     sommes: { ca, caN1: ca / 1.1, caBudget: ca / 0.95, marge: 0.4 * ca, caAvecMarge: ca, ttc: 0, tickets: 0, personnel: 0, marge100: 0, ebe: 0, caEbe: 0 },
     coach: 'Coach Nord', rrs, groupe: '',
   } as unknown as LigneExportReseau)
   const lignes = [ligne('Brionne-sur-Lac', 50_000, ['RR Nord']), ligne('Valcourt', 30_000, ['RR Nord', 'RR Est'])]
-  const total = { ...totalReseau([]), magasins: 2, ca: 80_000, evolution: 0.1, ecartBudget: -0.05, tauxMarge: 0.4, panierTTC: 30 }
+  const total = { ...totalReseau([]), magasins: 2, ca: 80_000, evolution: 0.1, ecartBudget: -0.05, tauxMarge: 0.4, panierCave: 30, ticketsCave: 0.02, panierBar: null, ticketsBar: null }
   const f = lireClasseur(classeur([feuilleReseau({ annee: 2027, selection: 'RR Nord', lignes, total, avec: { coach: true, rr: true, groupe: false } })]))
   const s = f['xl/worksheets/sheet1.xml']
   expect(f['xl/workbook.xml']).toContain('name="Réseau 2027"')
@@ -78,7 +84,9 @@ test('réseau : une ligne par magasin, total de la sélection, colonnes Coach et
   expect(celluleXml(s, 'E5')).toBe('<f>SUM(E6:E7)</f><v>80000</v>')
   expect(celluleXml(s, 'C7')).toContain('RR Nord, RR Est')
   expect(celluleXml(s, 'D6')).toContain('Févr.')
-  expect(celluleXml(s, 'J6')).toBeNull()                                  // masse salariale non renseignée : cellule vide
+  expect(celluleXml(s, 'I4')).toContain('Panier Cave TTC')
+  expect(celluleXml(s, 'K6')).toBeNull()                                  // pas de tickets au Bar : cellule vide
+  expect(celluleXml(s, 'M6')).toBeNull()                                  // masse salariale non renseignée : cellule vide
 })
 
 test('budget : feuille de trésorerie, solde de fin de mois enchaîné en formules', () => {

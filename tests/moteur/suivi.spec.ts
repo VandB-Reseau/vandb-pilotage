@@ -45,7 +45,7 @@ test('réseau : indicateurs à date de chaque magasin et total pondéré par le 
   const vide = moisDuReel([], [])
   const a: EntreeReseau = {
     magasin: 'Brionne-sur-Lac', n: moisDuReel(lignes, tickets),
-    n1: moisDuReel([1, 2].map((mois) => ({ mois, univers: 'cave' as const, famille: 'Vin', caHT: 16_000, caTTC: null, margeHT: null })), []),
+    n1: moisDuReel([1, 2].map((mois) => ({ mois, univers: 'cave' as const, famille: 'Vin', caHT: 16_000, caTTC: null, margeHT: null })), [{ mois: 1, univers: 'cave', tickets: 800 }]),
     budget, equipe: [gerant],
     frais: [{ code: 'loyer', libelle: 'Loyer', rubrique: 'immobilier', annuel: 12_000 }, { code: 'energie', libelle: 'Énergie', rubrique: 'energies', tauxCA: 0.01 }],
   }
@@ -61,14 +61,17 @@ test('réseau : indicateurs à date de chaque magasin et total pondéré par le 
   proche(la.evolution, 0.25)                       // 40 000 / 32 000 − 1
   proche(la.ecartBudget, 0)
   proche(la.tauxMarge, 16_000 / 37_000)
-  proche(la.panierTTC, 26.4)                       // janvier : 26 400 € TTC / 1 000 tickets
+  proche(la.panierCave, 21.6)                      // janvier : 21 600 € TTC de Cave / 1 000 tickets de Cave (le Bar à part)
+  expect(la.panierBar).toBeNull()                  // pas de tickets au Bar
+  proche(la.ticketsCave, 0.25)                     // 1 000 tickets / 800 l'an dernier − 1
+  expect(la.ticketsBar).toBeNull()
   // Marge de tout le CA : 40 000 × 16 000 / 37 000 = 640 000 / 37 ; équipe 6 000 €
   proche(la.personnelSurMarge, 6_000 / (640_000 / 37))
   // EBE : 640 000 / 37 − redevance et publicité 1 200 − loyer 2 000 − énergie 400 − équipe 6 000
   proche(la.ebeSurCA, (640_000 / 37 - 9_600) / 40_000)
 
   // Sans an dernier, budget, équipe ni frais : seuls CA et marge
-  expect(lb).toMatchObject({ ca: 20_000, evolution: null, ecartBudget: null, tauxMarge: 0.5, panierTTC: null, personnelSurMarge: null, ebeSurCA: null })
+  expect(lb).toMatchObject({ ca: 20_000, evolution: null, ecartBudget: null, tauxMarge: 0.5, panierCave: null, ticketsCave: null, personnelSurMarge: null, ebeSurCA: null })
   expect(lc.moisRealises).toBe(0)
 
   const t = totalReseau([la, lb, lc])
@@ -77,7 +80,8 @@ test('réseau : indicateurs à date de chaque magasin et total pondéré par le 
   proche(t.evolution, 0.25)                        // seulement les magasins qui ont un an dernier
   proche(t.ecartBudget, 0)
   proche(t.tauxMarge, 26_000 / 57_000)
-  proche(t.panierTTC, 26.4)
+  proche(t.panierCave, 21.6)
+  proche(t.ticketsCave, 0.25)                      // seulement les magasins qui ont des tickets l'an dernier
   proche(t.personnelSurMarge, la.personnelSurMarge!)
   proche(t.ebeSurCA, la.ebeSurCA!)
 })

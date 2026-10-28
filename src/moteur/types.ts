@@ -17,10 +17,12 @@ export interface Famille {
   evolution: number      // évolution visée du CA l'an prochain
   margeCible: number     // marge visée l'an prochain
   demarque?: number      // démarque l'an prochain, en part du CA de la famille, déduite de la marge visée
+  part?: number          // Cave et Bar pilotés par les tickets : part visée de la famille dans le CA de l'univers
 }
 
-// Flux (nombre de tickets) de la Cave et du Bar : sert à la seconde projection du CA, par flux × panier
-export interface Flux { realise: number; evolution: number; panierCibleTTC: number }
+// Fréquentation (nombre de tickets) et panier de la Cave et du Bar (lot 22, 28/10/2026) : le CA de l'univers se construit
+// par tickets × panier ; les familles en donnent le mix et la marge. panierCibleTTC : panier TTC réalisé, point de départ.
+export interface Flux { realise: number; evolution: number; panierCibleTTC: number; evolutionPanier?: number }
 
 export type Rubrique = 'immobilier' | 'energies' | 'entretien' | 'honoraires' | 'communication' | 'deplacements' | 'banque_assurances' | 'autres' | 'impots_taxes'
 
@@ -41,6 +43,8 @@ export interface Hypotheses {
   partRealisee?: Partial<Record<Univers, number>> // part du CA annuel réalisée à fin de période, si connue par univers
   familles: Famille[]
   flux?: Partial<Record<'cave' | 'bar', Flux>>
+  // Lot 22 : Cave et Bar construits par tickets × panier. Absent des budgets enregistrés avant : calculés comme alors
+  caParTickets?: boolean
   personnel: Personnel
   frais: LigneFrais[]
   amortissements: number              // dotations de l'année
@@ -107,5 +111,12 @@ export interface Budget {
   capaciteAutofinancement: number
   tresorerieDegagee: number      // capacité d'autofinancement moins capital remboursé
   ratios: { personnelSurMarge: number; personnelSurCA: number; ebeSurCA: number }
-  flux: Partial<Record<'cave' | 'bar', { atterrissage: number; objectif: number; caParPanier: number }>>
+  // Par univers piloté : tickets atterris et visés, panier TTC réalisé et visé, CA atterri et visé
+  flux: Partial<Record<'cave' | 'bar', FluxBudget>>
+}
+export interface FluxBudget {
+  atterrissage: number; objectif: number; evolution: number
+  panierRealiseTTC: number; panierObjectifTTC: number; evolutionPanier: number
+  caAtterri: number; ca: number
+  parTickets: boolean   // CA de l'univers construit par les tickets (faux pour un budget enregistré avant le lot 22)
 }

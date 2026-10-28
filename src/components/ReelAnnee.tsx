@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -22,8 +22,8 @@ import { Indicateur } from './Indicateur'
 import { Panne } from './Panne'
 import { chargerReel, enregistrerMoisReel } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
-import { milliers, montant, MOIS, MOIS_LONGS, taux } from '../lib/format'
-import { syntheseReel } from '../moteur/reel'
+import { ecartTaux, milliers, montant, MOIS, MOIS_LONGS, taux } from '../lib/format'
+import { cumulUnivers, syntheseReel } from '../moteur/reel'
 import { cleVente, famillesASaisir, lireSaisie, saisieDepuisReel, UNIVERS_TICKETS, type ChampsVente, type SaisieMois } from '../moteur/saisieReel'
 import { universLibelle } from '../moteur/types'
 
@@ -33,7 +33,9 @@ const panier = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EU
 
 // Réel d'une année d'un magasin : indicateurs, CA par famille et par mois, saisie d'un mois
 export function ReelAnnee({ magasin, annee, peutSaisir, apresEnregistrement }: { magasin: string; annee: number; peutSaisir: boolean; apresEnregistrement?: () => void }) {
-  const { donnees, erreur, chargement, recharger } = useChargement(() => chargerReel(magasin, annee), [magasin, annee])
+  const { donnees: tout, erreur, chargement, recharger } = useChargement(
+    () => Promise.all([chargerReel(magasin, annee), chargerReel(magasin, annee - 1).catch(() => null)]), [magasin, annee])
+  const donnees = tout?.[0]
   const [mois, setMois] = useState<number | null>(null)
   const [saisie, setSaisie] = useState<SaisieMois>({ ventes: {}, tickets: {} })
   const [erreursSaisie, setErreursSaisie] = useState<string[]>([])
@@ -49,6 +51,15 @@ export function ReelAnnee({ magasin, annee, peutSaisir, apresEnregistrement }: {
   if (erreur || !donnees) return <Panne quoi={`Les chiffres réels ${annee}`} recharger={recharger} />
 
   const s = syntheseReel(donnees.lignes, donnees.tickets)
+  const avant = tout?.[1] ? syntheseReel(tout[1].lignes, tout[1].tickets) : null
+  // Cave et Bar séparés, comparés à l'an dernier sur les mêmes mois
+  const parUnivers = (['cave', 'bar'] as const).filter((u) => s.parUnivers[u].tickets > 0).map((u) => {
+    const n = s.parUnivers[u]
+    const n1 = avant ? cumulUnivers(avant.parUnivers[u], s.moisRenseignes) : null
+    const evo = (a: number | null, b: number | null | undefined) => (a !== null && b ? a / b - 1 : null)
+    return { u, n, evoTickets: evo(n.tickets, n1?.tickets), evoPanier: evo(n.panierTTC, n1?.panierTTC) }
+  })
+  const surAvant = (e: number | null) => (e === null ? undefined : `${ecartTaux(e)} sur ${annee - 1}`)
   const ouvrir = (m: number) => {
     setMois(m)
     const depart = saisieDepuisReel(donnees.lignes, donnees.tickets, m)
@@ -102,8 +113,13 @@ export function ReelAnnee({ magasin, annee, peutSaisir, apresEnregistrement }: {
           <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap' }} component="section" aria-label={`Réel ${annee} en chiffres`}>
             <Indicateur libelle={`CA HT ${annee}`} valeur={milliers(s.caHT)} detail={s.moisRenseignes === 12 ? 'Année complète' : `De janvier à fin ${MOIS_LONGS[s.moisRenseignes - 1]}`} />
             <Indicateur libelle="Marge théorique" valeur={taux(s.tauxMarge)} detail={milliers(s.margeHT)} />
-            <Indicateur libelle="Tickets" valeur={nombreEntier.format(s.tickets)} detail="Cave et Bar" />
-            <Indicateur libelle="Panier moyen TTC" valeur={s.panierTTC === null ? 'Non connu' : panier.format(s.panierTTC)} detail={s.panierTTC === null ? 'Il faut le CA TTC et les tickets' : undefined} />
+            {parUnivers.map(({ u, n, evoTickets, evoPanier }) => (
+              <Fragment key={u}>
+                <Indicateur libelle={`Tickets ${universLibelle[u]}`} valeur={nombreEntier.format(n.tickets)} detail={surAvant(evoTickets)} />
+                <Indicateur libelle={`Panier ${universLibelle[u]} TTC`} valeur={n.panierTTC === null ? 'Non connu' : panier.format(n.panierTTC)}
+                  detail={n.panierTTC === null ? 'Il faut le CA TTC et les tickets' : surAvant(evoPanier)} />
+              </Fragment>
+            ))}
           </Stack>
           {boutonSaisie && <Box>{boutonSaisie}</Box>}
 
@@ -143,18 +159,22 @@ export function ReelAnnee({ magasin, annee, peutSaisir, apresEnregistrement }: {
                     <TableCell />
                     <TableCell align="right" sx={{ fontWeight: 700 }}>{taux(s.tauxMarge)}</TableCell>
                   </TableRow>
-                  <TableRow>
-                    <TableCell>Tickets</TableCell>
-                    {s.parMois.map((m) => <TableCell key={m.mois} align="right">{m.tickets ? nombreEntier.format(m.tickets) : ''}</TableCell>)}
-                    <TableCell align="right">{nombreEntier.format(s.tickets)}</TableCell>
-                    <TableCell colSpan={2} />
-                  </TableRow>
-                  <TableRow>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>Panier moyen TTC</TableCell>
-                    {s.parMois.map((m) => <TableCell key={m.mois} align="right" sx={{ whiteSpace: 'nowrap' }}>{m.panierTTC === null ? '' : panier.format(m.panierTTC)}</TableCell>)}
-                    <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{s.panierTTC === null ? '' : panier.format(s.panierTTC)}</TableCell>
-                    <TableCell colSpan={2} />
-                  </TableRow>
+                  {parUnivers.map(({ u, n }) => (
+                    <Fragment key={u}>
+                      <TableRow>
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>Tickets {universLibelle[u]}</TableCell>
+                        {n.parMois.map((m, i) => <TableCell key={i} align="right">{m.tickets ? nombreEntier.format(m.tickets) : ''}</TableCell>)}
+                        <TableCell align="right">{nombreEntier.format(n.tickets)}</TableCell>
+                        <TableCell colSpan={2} />
+                      </TableRow>
+                      <TableRow>
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>Panier {universLibelle[u]} TTC</TableCell>
+                        {n.parMois.map((m, i) => <TableCell key={i} align="right" sx={{ whiteSpace: 'nowrap' }}>{m.panierTTC === null ? '' : panier.format(m.panierTTC)}</TableCell>)}
+                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{n.panierTTC === null ? '' : panier.format(n.panierTTC)}</TableCell>
+                        <TableCell colSpan={2} />
+                      </TableRow>
+                    </Fragment>
+                  ))}
                 </TableBody>
               </Table>
             </TableContainer>

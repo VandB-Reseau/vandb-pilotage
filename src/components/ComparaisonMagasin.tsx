@@ -13,11 +13,11 @@ import Typography from '@mui/material/Typography'
 import { chargerComparaison } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { taux } from '../lib/format'
-import { medianes, plusHautMieux, rang, RATIOS, ratioLibelle, type CleRatio } from '../moteur/comparaison'
+import { enEuros, medianes, plusHautMieux, rang, RATIOS, ratioLibelle, type CleRatio } from '../moteur/comparaison'
 
 const MIN_MAGASINS = 3   // en dessous, une médiane ne dit rien
 const euros = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const texte = (k: CleRatio, v: number | null) => (v === null ? '–' : k === 'panierTTC' ? euros.format(v) : taux(v))
+const texte = (k: CleRatio, v: number | null) => (v === null ? '–' : enEuros(k) ? euros.format(v) : taux(v))
 
 // Le magasin face à la médiane de son groupe et du réseau (ou des magasins du compte), sur le réel ou sur les budgets
 export function ComparaisonMagasin({ magasin, directeur }: { magasin: string; directeur: boolean }) {

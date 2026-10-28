@@ -231,13 +231,19 @@ export const chargerReelDuCompte = (annee: number): Promise<ReelDuCompte> => mem
 async function lireReelDuCompte(annee: number): Promise<ReelDuCompte> {
   const { data, error } = await pilotage().rpc('reel_du_compte', { p_annee: annee })
   if (error || !objet(data) || !Array.isArray(data.mois)) throw new ErreurChargement()
-  const douze = () => Array.from({ length: 12 }, () => ({ caHT: 0, margeHT: 0, caAvecMarge: 0, caTTC: 0, tickets: 0 }))
+  const douze = (): MoisReel[] => Array.from({ length: 12 }, () => ({ caHT: 0, margeHT: 0, caAvecMarge: 0, caTTC: 0, tickets: 0 }))
   const magasins: ReelDuCompte['magasins'] = {}
-  for (const l of data.mois as { magasin: string; mois: string; ca: unknown; marge: unknown; ca_marge: unknown; ttc: unknown; tickets: unknown }[]) {
+  type Ligne = { magasin: string; mois: string; ca: unknown; marge: unknown; ca_marge: unknown; ttc: unknown; tickets: unknown; ttc_cave?: unknown; ttc_bar?: unknown; tickets_cave?: unknown; tickets_bar?: unknown }
+  for (const l of data.mois as Ligne[]) {
     const a = Number(l.mois.slice(0, 4)), m = Number(l.mois.slice(5, 7))
     if ((a !== annee && a !== annee - 1) || m < 1 || m > 12) continue
     const r = (magasins[l.magasin] ??= { n: douze(), n1: douze() })
-    r[a === annee ? 'n' : 'n1'][m - 1] = { caHT: Number(l.ca), margeHT: Number(l.marge), caAvecMarge: Number(l.ca_marge), caTTC: Number(l.ttc), tickets: Number(l.tickets) }
+    r[a === annee ? 'n' : 'n1'][m - 1] = { caHT: Number(l.ca), margeHT: Number(l.marge), caAvecMarge: Number(l.ca_marge), caTTC: Number(l.ttc), tickets: Number(l.tickets),
+      // Sans le script 0013, la base ne sépare pas encore la Cave et le Bar
+      ...(l.tickets_cave === undefined ? {} : {
+        univers: { cave: { caTTC: Number(l.ttc_cave), tickets: Number(l.tickets_cave) }, bar: { caTTC: Number(l.ttc_bar), tickets: Number(l.tickets_bar) } },
+      }),
+    }
   }
   const rrs: ReelDuCompte['rrs'] = {}
   if (objet(data.rrs)) for (const [m, noms] of Object.entries(data.rrs)) if (Array.isArray(noms)) rrs[m] = noms.filter((x): x is string => typeof x === 'string' && x !== '')
@@ -393,7 +399,7 @@ async function entreesAlertes(aujourdhui: Date): Promise<{ entrees: EntreeAlerte
   const [d, { parametres }, dB, { parametres: pB }, reel, quadrimestres] = await Promise.all([
     chargerBudgets(annee), chargerParametres(annee), chargerBudgets(aB), chargerParametres(aB), chargerReelDuCompte(annee), chargerQuadrimestres(annee),
   ])
-  const douze = () => Array.from({ length: 12 }, () => ({ caHT: 0, margeHT: 0, caAvecMarge: 0, caTTC: 0, tickets: 0 }))
+  const douze = (): MoisReel[] => Array.from({ length: 12 }, () => ({ caHT: 0, margeHT: 0, caAvecMarge: 0, caTTC: 0, tickets: 0 }))
   // Réel en retard : seulement une fois les imports de l'année commencés (sinon tous les magasins alerteraient)
   const reelCommence = Object.values(reel.magasins).some((r) => r.n.some((m) => m.caHT > 0))
   const entrees = d.magasins.map((l): EntreeAlertes => {
@@ -432,7 +438,7 @@ export async function chargerComparaison(aujourdhui = new Date()): Promise<{ ann
     chargerBudgets(annee), chargerParametres(annee), chargerBudgets(aB), chargerParametres(aB), chargerReelDuCompte(annee),
   ])
   const p = { tauxRedevance: parametres.tauxRedevance, tauxPublicite: parametres.tauxPublicite, charges: parametres.charges, annee }
-  const douze = () => Array.from({ length: 12 }, () => ({ caHT: 0, margeHT: 0, caAvecMarge: 0, caTTC: 0, tickets: 0 }))
+  const douze = (): MoisReel[] => Array.from({ length: 12 }, () => ({ caHT: 0, margeHT: 0, caAvecMarge: 0, caTTC: 0, tickets: 0 }))
   return {
     annee, anneeBudget: aB, groupes: dB.groupes,
     reel: d.magasins.flatMap((l) => {

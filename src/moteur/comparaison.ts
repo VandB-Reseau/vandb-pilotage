@@ -4,14 +4,16 @@ import type { Budget, Hypotheses } from './types'
 // Comparaison d'un magasin à la médiane du réseau ou de son groupe (lot 15, 28/10/2026). La médiane plutôt que la
 // moyenne : un magasin hors normes ne la tire pas. Sur le réel de l'année à date, ou sur les budgets de l'an prochain.
 
-export type CleRatio = 'tauxMarge' | 'personnelSurMarge' | 'loyerSurCA' | 'panierTTC' | 'ebeSurCA'
+// Panier de la Cave et du Bar séparés (lot 22) : deux clientèles, une moyenne des deux ne dit rien
+export type CleRatio = 'tauxMarge' | 'personnelSurMarge' | 'loyerSurCA' | 'panierCave' | 'panierBar' | 'ebeSurCA'
 export type Ratios = Record<CleRatio, number | null>
-export const RATIOS: CleRatio[] = ['tauxMarge', 'personnelSurMarge', 'loyerSurCA', 'panierTTC', 'ebeSurCA']
+export const RATIOS: CleRatio[] = ['tauxMarge', 'personnelSurMarge', 'loyerSurCA', 'panierCave', 'panierBar', 'ebeSurCA']
 export const ratioLibelle: Record<CleRatio, string> = {
-  tauxMarge: 'Taux de marge', personnelSurMarge: 'Masse salariale / marge', loyerSurCA: 'Loyer / CA', panierTTC: 'Panier moyen TTC', ebeSurCA: 'EBE / CA',
+  tauxMarge: 'Taux de marge', personnelSurMarge: 'Masse salariale / marge', loyerSurCA: 'Loyer / CA', panierCave: 'Panier Cave TTC', panierBar: 'Panier Bar TTC', ebeSurCA: 'EBE / CA',
 }
+export const enEuros = (k: CleRatio) => k === 'panierCave' || k === 'panierBar'
 // Sens favorable : plus haut vaut mieux, sauf pour les charges
-export const plusHautMieux: Record<CleRatio, boolean> = { tauxMarge: true, personnelSurMarge: false, loyerSurCA: false, panierTTC: true, ebeSurCA: true }
+export const plusHautMieux: Record<CleRatio, boolean> = { tauxMarge: true, personnelSurMarge: false, loyerSurCA: false, panierCave: true, panierBar: true, ebeSurCA: true }
 
 export function mediane(l: number[]): number | null {
   if (!l.length) return null
@@ -37,19 +39,18 @@ export function rang(v: number | null, l: Ratios[], k: CleRatio): { rang: number
 }
 
 export const ratiosDuReel = (l: LigneReseau): Ratios => ({
-  tauxMarge: l.tauxMarge, personnelSurMarge: l.personnelSurMarge, loyerSurCA: l.loyerSurCA, panierTTC: l.panierTTC, ebeSurCA: l.ebeSurCA,
+  tauxMarge: l.tauxMarge, personnelSurMarge: l.personnelSurMarge, loyerSurCA: l.loyerSurCA, panierCave: l.panierCave, panierBar: l.panierBar, ebeSurCA: l.ebeSurCA,
 })
 
 export function ratiosDuBudget(b: Budget, h: Hypotheses): Ratios {
   const loyers = h.frais.filter((l) => l.code === 'loyer')
-  // Panier : moyenne des paniers visés de la Cave et du Bar, pondérée par les tickets visés
-  const flux = (['cave', 'bar'] as const).map((u) => ({ tickets: b.flux[u]?.objectif ?? 0, panier: h.flux?.[u]?.panierCibleTTC ?? 0 })).filter((f) => f.tickets > 0 && f.panier > 0)
-  const tickets = flux.reduce((a, f) => a + f.tickets, 0)
+  const panier = (u: 'cave' | 'bar') => (b.flux[u]?.panierObjectifTTC ? b.flux[u]!.panierObjectifTTC : null)
   return {
     tauxMarge: b.ca ? b.tauxMarge : null,
     personnelSurMarge: b.marge ? b.ratios.personnelSurMarge : null,
     loyerSurCA: loyers.length && b.ca ? loyers.reduce((a, l) => a + (l.annuel ?? 0) + b.ca * (l.tauxCA ?? 0), 0) / b.ca : null,
-    panierTTC: tickets ? flux.reduce((a, f) => a + f.tickets * f.panier, 0) / tickets : null,
+    panierCave: panier('cave'),
+    panierBar: panier('bar'),
     ebeSurCA: b.ca ? b.ratios.ebeSurCA : null,
   }
 }

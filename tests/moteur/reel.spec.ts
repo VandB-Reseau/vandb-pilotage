@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
 import { apercuImport, FichierInattendu, lireTickets, lireVentes, moisDe, nombre } from '../../src/import/caisse'
-import { syntheseReel, type LigneReel } from '../../src/moteur/reel'
+import { cumulUnivers, syntheseReel, type LigneReel } from '../../src/moteur/reel'
 import { famillesASaisir, lireSaisie, saisieDepuisReel } from '../../src/moteur/saisieReel'
 
 // Fichiers fictifs au format de la DSI (tests/fichiers) : codes magasins et montants inventés.
@@ -68,6 +68,10 @@ test('synthèse du réel : cumul, marge, poids des familles et panier moyen', ()
   expect(s.parMois[0].panierTTC).toBe(24)
   expect(s.parMois[1].panierTTC).toBeNull()
   expect(s.panierTTC).toBe(24)
+  // Cave et Bar séparés : 12 000 TTC / 600 tickets = 20 € ; 12 000 / 400 = 30 €. Février (Cave sans tickets) n'y entre pas
+  expect(s.parUnivers.cave).toMatchObject({ tickets: 600, panierTTC: 20 })
+  expect(s.parUnivers.bar).toMatchObject({ tickets: 400, panierTTC: 30 })
+  expect(cumulUnivers(s.parUnivers.cave, 1)).toEqual({ tickets: 600, panierTTC: 20 })
 })
 
 test('aperçu de l’import : totaux par magasin et par mois, codes caisse inconnus', () => {
