@@ -7,11 +7,12 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## Lot 11 — Consignes dans la trésorerie (28/10/2026)
 
-- Trésorerie du budget : consignes versées aux fournisseurs avec les achats (fûts, caisses, gaz) et remboursées au retour
-  des vides, cautions des clients reçues puis rendues ; hors TVA et hors compte de résultat. Carte « Consignes avancées
-  aux fournisseurs » : argent bloqué en moyenne et au plus haut. Lignes dans l'export Excel.
+- Trésorerie du budget : consignes versées aux fournisseurs avec les achats (fûts, caisses, gaz) et remboursées une
+  fois le fût écoulé et rendu, à 30 jours fin de mois ; hors TVA et hors compte de résultat. Carte « Consignes avancées
+  aux fournisseurs » : argent bloqué en moyenne et au plus haut. Lignes dans l'export Excel. Les cautions des clients
+  (empreintes bancaires) ne sont pas encaissées et ne comptent pas.
 - Paramètres réseau : consigne en part des achats de chaque univers (Cave 3 %, Bar et Extérieur 15 % par défaut),
-  remboursement à 2 mois, caution clients en part du CA de l'Extérieur et délai de restitution. Valeurs à confirmer.
+  temps pour écouler un fût (1 mois) et délai de remboursement (1 mois), tous modifiables.
 - Pas de migration.
 
 ## Lot 10 — Trésorerie du budget (28/10/2026)
