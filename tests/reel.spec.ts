@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { MAGASINS } from './donnees-fictives'
-import { seConnecter, textesTropPetits, zonesTropPetites, type TicketsSimules, type VenteSimulee } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type TicketsSimules, type VenteSimulee } from './supabase-simule'
 
 // Réel de l'année : import des fichiers de la DSI par le Directeur, consultation et saisie d'un mois dans la fiche magasin.
 // Données fictives uniquement (codes caisse et montants inventés) : dépôt public.
@@ -78,7 +78,7 @@ test('un fichier qui n’est pas celui de la DSI est expliqué ; un code caisse 
 test('le franchisé lit le réel de son magasin et saisit le mois suivant', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { role: 'franchise', reel, tickets })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: /^Réel/ }).click()
+  await ouvrir(page, 'Réel')
   const chiffres = page.getByRole('region', { name: `Réel ${N} en chiffres` })
   // 40 000 de CA, 18 200 de marge (45,5 %) ; Cave et Bar séparés : 12 000 TTC / 600 tickets, 12 000 / 400
   await expect(chiffres).toContainText(/40\sk€/)
@@ -126,7 +126,7 @@ test('le franchisé lit le réel de son magasin et saisit le mois suivant', asyn
 test('un mois déjà saisi se corrige ; vidé, il est effacé', async ({ page }) => {
   const ecritures = await seConnecter(page, { role: 'coach', reel, tickets })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: /^Réel/ }).click()
+  await ouvrir(page, 'Réel')
   await page.getByRole('button', { name: `Saisir février ${N}` }).click()
   const saisie = page.getByRole('region', { name: /Réel du mois/ })
   await expect(saisie.getByLabel('CA HT : Bière (Cave)')).toHaveValue('20000')
@@ -144,7 +144,7 @@ test('sans chiffres, l’année l’explique et propose la saisie ; le Coach n�
   await seConnecter(page, { role: 'coach', reel, tickets })
   await expect(page.getByRole('link', { name: /Imports/ })).toHaveCount(0)
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: /^Réel/ }).click()
+  await ouvrir(page, 'Réel')
   await page.getByRole('button', { name: String(N - 1), exact: true }).click()
   await expect(page.getByText(`Pas encore de chiffres réels ${N - 1}`)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Saisir un mois' })).toBeVisible()

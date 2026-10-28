@@ -6,7 +6,7 @@ import type { Budget } from './types'
 export interface Sante {
   moisRealises: number
   caCumule: number
-  caCumuleN1: number | null          // mêmes mois l'an dernier (null : pas de réel l'an dernier)
+  caCumuleN1: number | null          // mêmes mois l'an dernier (null : l'an dernier n'a pas de CA chacun de ces mois)
   evolution: number | null           // caCumule / caCumuleN1 − 1
   tauxMarge: number | null           // marge réelle / CA des familles dont la marge est connue
   margeCumulee: number
@@ -24,7 +24,9 @@ export function santeMagasin(n: { lignes: LigneReel[]; tickets: TicketsReel[] },
   const m = s.moisRenseignes
   const caCumule = somme(s.parMois.slice(0, m).map((x) => x.caHT))
   const aN1 = s1.caHT > 0
-  const caCumuleN1 = aN1 ? somme(s1.parMois.slice(0, m).map((x) => x.caHT)) : null
+  // Lot 27 : l'évolution n'a de sens que si l'an dernier a du CA chacun des mêmes mois (pas un magasin ouvert en cours d'année)
+  const comparable = aN1 && m > 0 && s1.parMois.slice(0, m).every((x) => x.caHT > 0)
+  const caCumuleN1 = comparable ? somme(s1.parMois.slice(0, m).map((x) => x.caHT)) : null
   // Marge : seules les lignes dont la marge est renseignée comptent, pour ne pas sous-estimer le taux
   const avecMarge = n.lignes.filter((l) => l.mois <= m && l.margeHT !== null)
   const caAvecMarge = somme(avecMarge.map((l) => l.caHT))
@@ -56,4 +58,25 @@ export function syntheseBudgets(l: MagasinSynthese[]) {
     ca, ebe, ebeSurCA: ca ? ebe / ca : 0,
     aCompleter: l.filter((m) => !m.aEquipe || !m.aFrais).length,
   }
+}
+
+// Cumul mois après mois (lot 27, CA cumulé de la synthèse) : null au-delà de la série
+export function cumul(valeurs: (number | null)[]): (number | null)[] {
+  let total = 0
+  return valeurs.map((v) => (v === null ? null : (total += v)))
+}
+// Cumul d'une série qui en prolonge une autre : la projection part du dernier cumul réalisé
+export function cumulApres(realise: (number | null)[], suite: (number | null)[]): (number | null)[] {
+  const m = realise.reduce<number>((d, v, i) => (v !== null ? i + 1 : d), 0)
+  let total = realise.slice(0, m).reduce<number>((a, v) => a + (v ?? 0), 0)
+  return suite.map((v, i) => (i < m - 1 ? null : i === m - 1 ? total : v === null ? null : (total += v)))
+}
+
+// Ligne Total de la liste des magasins (lot 27) : sommes et ratios recalculés sur les sommes, jamais la moyenne des ratios
+export function totalBudgets(budgets: Budget[]) {
+  const ca = somme(budgets.map((b) => b.ca))
+  const marge = somme(budgets.map((b) => b.marge))
+  const personnel = somme(budgets.map((b) => b.personnel))
+  const ebe = somme(budgets.map((b) => b.ebe))
+  return { magasins: budgets.length, ca, marge, ebe, tauxMarge: ca ? marge / ca : 0, personnelSurMarge: marge ? personnel / marge : 0, ebeSurCA: ca ? ebe / ca : 0 }
 }

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule, type QuadrimestreSimule, type VenteSimulee } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule, type QuadrimestreSimule, type VenteSimulee } from './supabase-simule'
 
 // Quadrimestres : quelques montants comptables saisis, marge réelle et EBE calculés. Données fictives : dépôt public.
 // Mêmes chiffres que tests/moteur/quadrimestre.spec.ts, vérifiés à la main.
@@ -24,7 +24,7 @@ test.afterEach(async ({ page }) => {
 
 test('le franchisé saisit son premier quadrimestre : marge réelle, démarque et EBE calculés', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { role: 'franchise', magasins: [magasin], reel })
-  await page.getByRole('tab', { name: 'Quadrimestres' }).click()
+  await ouvrir(page, 'Quadrimestres')
   await expect(ligne(page, 'CA HT de la caisse')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Enregistrer les quadrimestres' })).toHaveCount(0)
 
@@ -69,7 +69,7 @@ test('quadrimestre enregistré repris ; sans caisse, la marge reste à calculer'
     { store_name: MAGASINS[0], annee: N, quadrimestre: 2, achats: 100_000, variation_stock: null, charges_externes: null, impots_taxes: null, personnel: null, tresorerie: null },
   ]
   await seConnecter(page, { role: 'franchise', magasins: [magasin], reel, quadrimestres })
-  await page.getByRole('tab', { name: 'Quadrimestres' }).click()
+  await ouvrir(page, 'Quadrimestres')
   await expect(page.getByLabel('Achats de marchandises HT : janvier à avril')).toHaveValue(/130\s000/)
   // Mai à août : pas de caisse, pas de marge ; le cumul s'arrête aux charges complètes
   const marge = ligne(page, 'Marge réelle').getByRole('cell')
@@ -103,7 +103,7 @@ test('trésorerie glissante : fin avril saisie, puis mai à décembre selon l’
     { store_name: MAGASINS[0], annee: N, quadrimestre: 1, achats: 130_000, variation_stock: 8_000, charges_externes: 30_000, impots_taxes: 3_000, personnel: 35_000, tresorerie: 25_000 },
   ]
   await seConnecter(page, { role: 'franchise', magasins: [magasin], reel, quadrimestres })
-  await page.getByRole('tab', { name: 'Quadrimestres' }).click()
+  await ouvrir(page, 'Quadrimestres')
   const section = page.getByRole('region', { name: 'Trésorerie prévue jusqu’à décembre' })
   await expect(section).toContainText(/Trésorerie fin avril25\sk€/)
   const tableau = section.getByRole('table', { name: `Trésorerie prévue ${N} mois par mois` })
@@ -130,7 +130,7 @@ test('cumul face au budget et à la même période de l’an passé, ligne par l
     ({ store_name: MAGASINS[0], annee, quadrimestre: 1, achats, variation_stock: variation, charges_externes: externes, impots_taxes: impots, personnel, tresorerie: null })
   await seConnecter(page, { role: 'franchise', magasins: [magasin], reel: [...reel, ...reelN1],
     quadrimestres: [q(N, 130_000, 8_000, 30_000, 3_000, 35_000), q(N - 1, 100_000, 4_000, 28_000, 3_000, 31_000)] })
-  await page.getByRole('tab', { name: 'Quadrimestres' }).click()
+  await ouvrir(page, 'Quadrimestres')
   const tableau = page.getByRole('table', { name: `Cumul ${N} face au budget et à ${N - 1}` })
   await expect(tableau.getByRole('columnheader', { name: 'Écart au budget' })).toBeVisible()
   // CA 200 000 contre 160 000 : + 25 % ; marge 78 000 contre 64 000 (100 000 − 4 000 retirés de 160 000) ; EBE 10 000 contre 2 000

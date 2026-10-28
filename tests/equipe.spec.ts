@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule, type PersonneSimulee } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule, type PersonneSimulee } from './supabase-simule'
 
 // Équipe et masse salariale : postes sans nom, coût chargé avec la réduction générale, effet sur le budget.
 // Données fictives uniquement : dépôt public. Paramètres par défaut : employé 35 %, gérant TNS 33 %, SMIC 21 876,40 €.
@@ -25,7 +25,7 @@ test.afterEach(async ({ page }) => {
 test('le franchisé ajoute un vendeur au SMIC : coût chargé, réduction générale et budget recalculé', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { role: 'franchise', magasins: avecBase, reseau })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: 'Équipe' }).click()
+  await ouvrir(page, 'Équipe')
   await expect(page.getByText('Pas encore d’équipe')).toBeVisible()
   await page.getByRole('button', { name: 'Ajouter un poste' }).click()
   const fiche = page.getByRole('region', { name: 'Nouveau poste' })
@@ -49,14 +49,14 @@ test('le franchisé ajoute un vendeur au SMIC : coût chargé, réduction géné
   await expect(ligne).toContainText(/22\s145\s€/)
   await expect(ligne).toContainText(/22\s588\s€/)
   await expect(page.getByRole('region', { name: 'Masse salariale en chiffres' })).toContainText('Hausse des salaires : 2,0')
-  await page.getByRole('tab', { name: /^Budget/ }).click()
+  await ouvrir(page, 'Résultat et trésorerie')
   await expect(page.getByRole('table', { name: 'Budget 2027 mois par mois' }).getByRole('row', { name: /^Frais de personnel/ })).toContainText(/22\s588\s€/)
 })
 
 test('le Directeur prévoit une prime et un départ, retire un poste ; le tableau suit', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { magasins: avecBase, reseau, equipe })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: 'Équipe' }).click()
+  await ouvrir(page, 'Équipe')
   const tableau = page.getByRole('table', { name: 'Postes et coût chargé' })
   // Gérant TNS : 3 000 × 12 × 1,33, sans réduction
   await expect(tableau.getByRole('row', { name: /Gérant/ })).toContainText(/47\s880\s€/)
@@ -106,7 +106,7 @@ test('le Directeur ajuste les taux de charges du réseau', async ({ page, isMobi
 test('un Coach complète l’équipe d’un magasin de son périmètre', async ({ page }) => {
   const ecritures = await seConnecter(page, { role: 'coach', magasins: avecBase, reseau, equipe })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: 'Équipe' }).click()
+  await ouvrir(page, 'Équipe')
   await page.getByRole('button', { name: 'Ajouter un poste' }).click()
   const fiche = page.getByRole('region', { name: 'Nouveau poste' })
   await expect(fiche.getByLabel('Poste')).toHaveValue('Vendeur 2')
@@ -124,7 +124,7 @@ test('un Coach complète l’équipe d’un magasin de son périmètre', async (
 test('primes d’équipe sans salarié, heures saisies au mois, productivité par heure travaillée', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { magasins: avecBase, reseau, equipe })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: 'Équipe' }).click()
+  await ouvrir(page, 'Équipe')
   // 35 h + 45 h par semaine, 52 semaines : 4 160 h ; CA 600 000 € ÷ 4 160 h = 144 € par heure
   const chiffres = page.getByRole('region', { name: 'Masse salariale en chiffres' })
   await expect(chiffres).toContainText(/144\s€ par heure/)

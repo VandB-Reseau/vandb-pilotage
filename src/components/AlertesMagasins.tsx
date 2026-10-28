@@ -36,7 +36,7 @@ export function texteAlerte(a: Alerte): string {
   }
 }
 // Onglet de la fiche où l'alerte se lit
-const ongletDe = (a: Alerte) => (a.type === 'reel' ? 'reel' : a.type === 'tresorerie' ? (a.source === 'reel' ? 'quadrimestres' : 'budget') : 'suivi')
+const ongletDe = (a: Alerte) => (a.type === 'reel' ? 'reel' : a.type === 'tresorerie' ? (a.source === 'reel' ? 'quadrimestres' : 'resultat') : 'suivi')
 
 const PREMIERES = 6
 

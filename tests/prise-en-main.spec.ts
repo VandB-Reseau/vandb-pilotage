@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule } from './supabase-simule'
 
 // Prise en main (lot 25) : recherche d'un magasin depuis tout écran, aide derrière les icônes, calcul détaillé du budget.
 // Données fictives : dépôt public. Les montants viennent du moteur, vérifié à la main dans tests/moteur/explication.spec.ts.
@@ -68,6 +68,7 @@ test('le franchisé ouvre l’aide d’une hypothèse et voit d’où viennent s
   expect(await textesTropPetits(page)).toEqual([])
   await page.keyboard.press('Escape')
   await expect(aide).toHaveCount(0)
+  await ouvrir(page, 'Calendrier')
   await page.getByRole('button', { name: 'Aide : Saisonnalité' }).click()
   await expect(page.getByRole('dialog', { name: 'Saisonnalité' })).toContainText('ramenées à 100 %')
   await page.keyboard.press('Escape')

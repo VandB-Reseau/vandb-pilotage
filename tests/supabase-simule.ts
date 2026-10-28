@@ -305,3 +305,11 @@ export async function zonesTropPetites(page: Page, min = 48): Promise<string[]> 
       .map((el) => `${el.textContent?.trim() || el.getAttribute('aria-label') || el.tagName} (${Math.round(el.getBoundingClientRect().height)} px)`)
   }, min)
 }
+
+// Fiche magasin (lot 27) : une partie s'ouvre depuis son espace (année en cours ou budget)
+const PARTIES_ANNEE = ['Réel', 'Suivi du budget', 'Atterrissage', 'Quadrimestres']
+export async function ouvrir(page: Page, partie: string) {
+  const annee = PARTIES_ANNEE.some((p) => partie.startsWith(p))
+  await page.getByRole('tablist', { name: 'Vues du magasin' }).getByRole('tab', { name: annee ? /^\d{4} en cours/ : /^Budget \d{4}/ }).click()
+  await page.getByRole('tablist', { name: annee ? /^Parties de l’année/ : /^Parties du budget/ }).getByRole('tab', { name: new RegExp(`^${partie}`) }).click()
+}

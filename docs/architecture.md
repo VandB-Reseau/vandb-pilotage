@@ -9,12 +9,12 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
 
 | Dossier | Contenu |
 | --- | --- |
-| `src/moteur/` | Moteur de calcul pur : `types.ts` (hypothèses, résultats), `budget.ts` (calcul), `cibles.ts` (hypothèses par niveaux réseau, groupe, magasin), `parametres.ts` (paramètres par défaut, grille des frais), `reel.ts` (synthèse du réel d'une année, familles de la caisse), `saisieReel.ts` (saisie d'un mois à la main), `equipe.ts` (masse salariale chargée personne par personne, réduction générale), `saisieEquipe.ts` (fiche d'un poste), `atterrissage.ts` (atterrissage de l'année depuis le réel, base du budget suivant, frais du magasin), `saisieFrais.ts` (saisie des frais), `compteResultat.ts` (compte de résultat sur 12 mois, rubriques et détail), `sante.ts` (santé d'un magasin depuis le réel, synthèse des budgets), `suivi.ts` (réel face au budget, indicateurs du réseau à date), `tresorerie.ts` (trésorerie du budget mois par mois), `quadrimestre.ts` (marge réelle et EBE depuis les chiffres comptables de chaque quadrimestre), `alertes.ts` (alertes des magasins et leurs seuils), `explication.ts` (« D'où vient ce chiffre ? »), `versions.ts` (versions du budget côte à côte), `comparaison.ts` (médianes, rangs, ratios du réel et des budgets) |
+| `src/moteur/` | Moteur de calcul pur : `types.ts` (hypothèses, résultats), `budget.ts` (calcul), `cibles.ts` (hypothèses par niveaux réseau, groupe, magasin), `parametres.ts` (paramètres par défaut, grille des frais), `reel.ts` (synthèse du réel d'une année, familles de la caisse), `saisieReel.ts` (saisie d'un mois à la main), `equipe.ts` (masse salariale chargée personne par personne, réduction générale), `saisieEquipe.ts` (fiche d'un poste), `atterrissage.ts` (atterrissage de l'année depuis le réel, base du budget suivant, frais du magasin), `saisieFrais.ts` (saisie des frais), `compteResultat.ts` (compte de résultat sur 12 mois, rubriques et détail), `sante.ts` (santé d'un magasin depuis le réel, synthèse des budgets), `suivi.ts` (réel face au budget, indicateurs du réseau à date), `tresorerie.ts` (trésorerie du budget mois par mois), `quadrimestre.ts` (marge réelle et EBE depuis les chiffres comptables de chaque quadrimestre), `alertes.ts` (alertes des magasins et leurs seuils), `explication.ts` (« D'où vient ce chiffre ? »), `versions.ts` (versions du budget côte à côte), `comparaison.ts` (médianes, rangs, ratios du réel et des budgets), `periodes.ts` (mois, quadrimestres, année) |
 | `src/import/` | Lecture des fichiers mensuels de la DSI (`caisse.ts` : ventes, tickets, quadrimestres des comptables, aperçu avant import ; format dans [import-caisse.md](import-caisse.md)) |
 | `src/data/` | Lecture de la base (`pilotage.ts`, lectures gardées une minute et lues par pages de 1 000 lignes), chargement avec nouvelle tentative (`useChargement.ts`) |
 | `src/lib/` | Classeur Excel écrit sans bibliothèque (`xlsx.ts`), contenu des exports du budget et de la vue réseau (`exports.ts`), mise en forme (`format.ts`), filtres de l'accueil et réel en retard (`aFaire.ts`), Entrée vers le montant suivant (`champSuivant.ts`) |
 | `src/auth/` | Connexion et rôle lu dans la base |
-| `src/pages/` | Connexion, Magasins, Réseau (classement des magasins), fiche Magasin (onglets Synthèse, Suivi du budget, Budget, Atterrissage de l'année en cours, Réel avec choix de l'année et saisie d'un mois, Quadrimestres, Équipe, Frais), Hypothèses (cibles du réseau et des groupes), Imports de caisse (fichiers de la DSI, quadrimestres des comptables, codes caisse), Paramètres réseau (dont charges sociales) |
+| `src/pages/` | Connexion, Magasins, Réseau (classement des magasins), fiche Magasin (trois espaces : Synthèse ; année en cours avec Réel, Suivi du budget, Atterrissage, Quadrimestres ; budget avec Hypothèses, Équipe, Frais, Calendrier, Résultat et trésorerie, Échanges et versions), Hypothèses (cibles du réseau et des groupes), Imports de caisse (fichiers de la DSI, quadrimestres des comptables, codes caisse), Paramètres réseau (dont charges sociales) |
 | `src/components/` | Écrans partagés, dont `SyntheseMagasin.tsx`, `CompteResultatMois.tsx` (tableau dépliable), `GraphiqueMois.tsx` (graphique 12 mois avec infobulle), `Indicateur.tsx` et `Courbe.tsx` (cartes chiffrées), `SuiviBudget.tsx`, `GrilleHypotheses.tsx` (hypothèses par famille), `SaisonnaliteMagasin.tsx`, `TravauxMagasin.tsx`, `CopieHypotheses.tsx` |
 | `src/layout/` | Cadre : barre du haut, menu latéral sur PC, barre basse sur téléphone ; garde des saisies non enregistrées (`components/GardeSaisie.tsx`) |
 | `supabase/` | Migrations du schéma `pilotage` et leurs tests |
@@ -110,6 +110,14 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
    saisonnalité du magasin seulement sur une année précédente complète, magasin de moins de 18 mois projeté sur le
    rythme de ses 4 derniers mois (`JEUNE_MAGASIN`) ; `expliquerAtterrissage`. Quadrimestres : `comparaisonPeriode` et
    `memePeriode` (cumul face au budget et à l'an passé, ligne par ligne).
+27. Lot 27, ergonomie : fiche magasin en trois espaces (Synthèse, année en cours, budget de l'an prochain) découpés en
+   parties ; les parties du budget non affichées gardent leur saisie (classe `partie-cachee`, imprimées avec le reste).
+   `BarreEnregistrement` collée en bas tant qu'un ajustement n'est pas enregistré, avec l'effet avant → après.
+   `src/moteur/periodes.ts` regroupe le compte de résultat et la trésorerie par quadrimestre ou sur l'année
+   (`ChoixPeriode`, choix gardé dans le navigateur par `src/lib/preferences.ts`). `GraphiqueTresorerie` (barres de fin
+   de mois, `plusGrosseSortie`). Synthèse face au budget de l'année et CA cumulé (`cumul`, `cumulApres`). Liste des
+   magasins triable avec ligne Total (`totalBudgets`), alertes par magasin ; « À traiter » (`aTraiter`, `ATraiter`)
+   pour le Directeur, le RR et le Coach.
 
 ## Rôles
 

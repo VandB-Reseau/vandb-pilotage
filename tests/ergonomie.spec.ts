@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { seConnecter, textesTropPetits, zonesTropPetites, type FraisSimule, type MagasinSimule, type PersonneSimulee } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type FraisSimule, type MagasinSimule, type PersonneSimulee } from './supabase-simule'
 
 // Ergonomie : saisie jamais perdue, filtres de l'accueil, magasin précédent et suivant, pastilles, saisie rapide.
 // Données fictives uniquement : dépôt public.
@@ -26,12 +26,12 @@ test.afterEach(async ({ page }) => {
 test('une saisie en cours n’est jamais perdue sans confirmation', async ({ page, isMobile }, info) => {
   await seConnecter(page, { role: 'coach' })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: /^Frais/ }).click()
+  await ouvrir(page, 'Frais')
   await page.getByRole('button', { name: 'Partir des lignes courantes' }).click()
   await page.getByLabel('Locations immobilières', { exact: true }).fill('48000')
 
   // Changer d'onglet : on reste, la saisie est intacte
-  await page.getByRole('tab', { name: /^Équipe/ }).click()
+  await ouvrir(page, 'Équipe')
   const garde = page.getByRole('dialog', { name: 'Modifications non enregistrées' })
   await expect(garde).toBeVisible()
   expect(await textesTropPetits(page)).toEqual([])
@@ -47,7 +47,7 @@ test('une saisie en cours n’est jamais perdue sans confirmation', async ({ pag
 
   // Sans modification, aucune question
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: /^Équipe/ }).click()
+  await ouvrir(page, 'Équipe')
   await expect(garde).toHaveCount(0)
 })
 
@@ -55,7 +55,7 @@ test('l’accueil filtre les magasins, la recherche ignore les accents, le retou
   await seConnecter(page, { magasins: sept, frais: [loyer(MAGASINS[0]), loyer('Port-Navalo')], equipe: [vendeur(1, MAGASINS[0])] })
   const filtres = page.getByRole('group', { name: 'Filtres' })
   const tableau = page.getByRole('table', { name: /Budgets .* par magasin/ })
-  const cartes = page.locator('main').getByRole('heading', { level: 2 })
+  const cartes = page.locator('main').getByRole('heading', { level: 2 }).filter({ hasNotText: 'À traiter' })
   const lignes = isMobile ? cartes : tableau.getByRole('row').filter({ has: page.getByRole('link') })
   await expect(filtres.getByRole('button', { name: 'Tous · 7' })).toHaveAttribute('aria-pressed', 'true')
   await expect(filtres.getByRole('button', { name: 'Sans budget · 5' })).toBeVisible()
@@ -85,7 +85,7 @@ test('d’un magasin au suivant, dans la liste filtrée, en restant sur le même
   await seConnecter(page, { magasins: sept, frais: [loyer(MAGASINS[0])] })
   await page.getByRole('group', { name: 'Filtres' }).getByRole('button', { name: /Sans budget/ }).click()
   await page.getByText('Port-Navalo', { exact: true }).click()
-  await page.getByRole('tab', { name: /^Frais/ }).click()
+  await ouvrir(page, 'Frais')
   await page.getByRole('link', { name: 'Magasin suivant : Les Ormes' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Les Ormes' })).toBeVisible()
   await expect(page.getByRole('tab', { name: /^Frais/ })).toHaveAttribute('aria-selected', 'true')
@@ -98,9 +98,10 @@ test('d’un magasin au suivant, dans la liste filtrée, en restant sur le même
 test('les onglets signalent ce qui manque', async ({ page }) => {
   await seConnecter(page, { magasins: sept, frais: [loyer(MAGASINS[0])] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
+  await expect(page.getByRole('tab', { name: /^Budget \d+$/ })).toBeVisible()
+  await page.getByRole('tab', { name: /^Budget \d+$/ }).click()
   await expect(page.getByRole('tab', { name: 'Équipe (à renseigner)' })).toBeVisible()
   await expect(page.getByRole('tab', { name: 'Frais', exact: true })).toBeVisible()
-  await expect(page.getByRole('tab', { name: /^Budget \d+$/ })).toBeVisible()
   await page.getByRole('link', { name: `Magasin suivant : ${MAGASINS[1]}` }).click()
   await page.getByRole('link', { name: `Magasin suivant : ${MAGASINS[2]}` }).click()
   // Directeur : budget à proposer
@@ -116,7 +117,7 @@ test('un franchisé avec un seul magasin arrive sur sa fiche', async ({ page }) 
 test('saisie rapide : Entrée passe au montant suivant, les milliers s’affichent', async ({ page }) => {
   await seConnecter(page, { role: 'franchise' })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: /^Frais/ }).click()
+  await ouvrir(page, 'Frais')
   await page.getByRole('button', { name: 'Partir des lignes courantes' }).click()
   const loyerChamp = page.getByLabel('Locations immobilières', { exact: true })
   await loyerChamp.fill('60000')

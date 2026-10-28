@@ -39,3 +39,8 @@ export const ecartMontant = (v: number) => ecartEuros.format(Math.round(v))
 export const ecartTaux = (v: number) => ecartPourcent.format(v)
 export const ecartChiffres = (v: number) => ecartNombre.format(Math.round(v)).replace(/[  ]/g, ' ')
 export const ecartPts = (v: number) => `${ecartPoints.format(v * 100)} pt`
+// Tableaux en k€ (lot 27) : une décimale au plus, sans unité dans la cellule (l'en-tête dit « En k€ »)
+const enKilo = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 })
+export const enMilliers = (v: number) => enKilo.format(Math.round(v / 100) / 10 || 0).replace(/[  ]/g, ' ')
+// Libellé d'un quadrimestre de colonne : « Janv. – avr. »
+export const QUADRIMESTRES_COURTS = ['Janv. – avr.', 'Mai – août', 'Sept. – déc.']

@@ -3,7 +3,7 @@ import { calculerBudget } from '../src/moteur/budget'
 import { parametresParDefaut } from '../src/moteur/parametres'
 import { tresorerieBudget } from '../src/moteur/tresorerie'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule } from './supabase-simule'
 
 // Trésorerie du budget : section du budget, paramètres réseau, point bas dans la liste. Données fictives : dépôt public.
 // Les montants attendus viennent du moteur, vérifié à la main dans tests/moteur/tresorerie.spec.ts.
@@ -25,11 +25,14 @@ test.afterEach(async ({ page }) => {
 
 test('budget : trésorerie mois par mois, le franchisé saisit sa trésorerie de départ', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { role: 'franchise', magasins: [magasin('propose')] })
-  await page.getByRole('tab', { name: /^Budget/ }).click()
+  await ouvrir(page, 'Résultat et trésorerie')
   // Budget proposé, sans cible : 600 000 € de CA, 45 000 € en janvier (tests/budget-complet.spec.ts)
   const section = page.getByRole('region', { name: 'Trésorerie 2027' })
   const bref = section.getByLabel('Trésorerie en bref')
   const tableau = section.getByRole('table', { name: 'Trésorerie 2027 mois par mois' })
+  // Détail replié d'office pour le franchisé (lot 27) : la courbe et le bref d'abord
+  await expect(tableau).toBeHidden()
+  await section.getByRole('button', { name: 'Voir le détail mois par mois' }).click()
   const ligne = (nom: string) => tableau.getByRole('row').filter({ has: page.getByRole('cell', { name: nom, exact: true }) })
   await expect(ligne('Encaissements des ventes TTC')).toContainText(/^Encaissements des ventes TTC53\s550/)   // 45 000 × 1,19
   await expect(ligne('TVA reversée')).toBeVisible()
@@ -64,7 +67,7 @@ test('budget validé : trésorerie en lecture seule, départ enregistré repris,
     await expect(liste.getByRole('row').nth(1)).toContainText(k(attendu(-50_000).pointBas.montant))
   }
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: /^Budget/ }).click()
+  await ouvrir(page, 'Résultat et trésorerie')
   await expect(page.getByLabel('Trésorerie au 1er janvier')).toBeDisabled()
   await expect(page.getByLabel('Trésorerie au 1er janvier')).toHaveValue(/[-−]50\s000/)
   await expect(page.getByLabel('Trésorerie en bref')).toContainText(`${attendu(-50_000).moisNegatifs} mois`)

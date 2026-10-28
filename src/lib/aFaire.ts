@@ -67,3 +67,45 @@ export function tachesFranchise(e: {
   for (const a of [...(e.actions ?? [])].sort((x, y) => (x.echeance ?? '9999').localeCompare(y.echeance ?? '9999'))) t.push({ type: 'action', ...a })
   return t
 }
+
+// Nombre de valeurs changées entre deux saisies (lot 27, barre d'enregistrement) : on descend dans les objets,
+// une liste (saisonnalité, temps forts) compte pour un changement
+export function nombreChangements(a: unknown, b: unknown): number {
+  const objet = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
+  if (objet(a) || objet(b)) {
+    const x = objet(a) ? a : {}, y = objet(b) ? b : {}
+    return [...new Set([...Object.keys(x), ...Object.keys(y)])].reduce((n, k) => n + nombreChangements(x[k], y[k]), 0)
+  }
+  return JSON.stringify(a) === JSON.stringify(b) ? 0 : 1
+}
+
+// « À traiter » de l'accueil (lot 27) : ce qui attend le Directeur, le RR ou le Coach sur son périmètre, du plus urgent au moins urgent
+export interface ATraiter {
+  cle: 'alertes' | 'actions' | 'a_proposer' | 'en_discussion' | 'equipe' | 'frais'
+  nombre: number
+  magasins: string[]
+  filtre?: Filtre
+}
+export function aTraiter(
+  magasins: MagasinListe[],
+  alertes: { magasin: string }[],
+  actions: { magasin: string; statut: string; echeance: string | null }[],
+  directeur: boolean,
+  aujourdhui: string,          // AAAA-MM-JJ
+): ATraiter[] {
+  const uniques = (l: string[]) => [...new Set(l)]
+  const noms = (l: MagasinListe[]) => l.map((m) => m.magasin)
+  const enRetard = actions.filter((a) => a.statut === 'a_faire' && a.echeance !== null && a.echeance < aujourdhui)
+  const avecAlerte = uniques(alertes.map((a) => a.magasin))
+  const items: ATraiter[] = [
+    { cle: 'alertes', nombre: avecAlerte.length, magasins: avecAlerte },
+    { cle: 'actions', nombre: enRetard.length, magasins: uniques(enRetard.map((a) => a.magasin)) },
+  ]
+  const parMagasin = (cle: ATraiter['cle'], filtre: Filtre, l: MagasinListe[]) => items.push({ cle, filtre, nombre: l.length, magasins: noms(l) })
+  // Proposer un budget est l'affaire du Directeur seul
+  if (directeur) parMagasin('a_proposer', 'sans_budget', magasins.filter((m) => !m.statut))
+  parMagasin('en_discussion', 'en_discussion', magasins.filter((m) => m.statut === 'en_discussion'))
+  parMagasin('equipe', 'equipe', magasins.filter((m) => !m.aEquipe))
+  parMagasin('frais', 'frais', magasins.filter((m) => !m.aFrais))
+  return items.filter((x) => x.nombre > 0)
+}

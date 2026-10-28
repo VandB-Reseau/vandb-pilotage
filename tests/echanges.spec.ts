@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule, type MessageSimule, type VersionSimulee } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule, type MessageSimule, type VersionSimulee } from './supabase-simule'
 
 // Échanges sur le budget et historique des versions. Données fictives : dépôt public.
 
@@ -29,7 +29,7 @@ test.afterEach(async ({ page }) => {
 
 test('le franchisé répond au siège sur un sujet, retire son message et voit les versions du budget', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { role: 'franchise', magasins: [magasin], messages: [duSiege], versions })
-  await page.getByRole('tab', { name: new RegExp(`^Budget ${B}`) }).click()
+  await ouvrir(page, 'Échanges et versions')
   const echanges = page.getByRole('region', { name: 'Échanges sur le budget' })
   const messages = echanges.getByRole('list', { name: 'Messages' }).getByRole('listitem')
   await expect(messages).toHaveCount(1)
@@ -66,7 +66,7 @@ test('le franchisé répond au siège sur un sujet, retire son message et voit l
 test('le Coach écrit aussi ; sans message ni version, la carte reste sobre', async ({ page }) => {
   await seConnecter(page, { role: 'coach', magasins: [magasin] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: new RegExp(`^Budget ${B}`) }).click()
+  await ouvrir(page, 'Échanges et versions')
   const echanges = page.getByRole('region', { name: 'Échanges sur le budget' })
   await expect(echanges).toContainText('Aucun message pour l’instant.')
   await expect(page.getByRole('region', { name: 'Historique du budget' })).toHaveCount(0)

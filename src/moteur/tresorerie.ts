@@ -173,3 +173,10 @@ export function tresorerieGlissante(t: Tresorerie, depart: { montant: number; mo
   const bas = mois.reduce<{ montant: number; mois: number }>((b, m) => (m.fin < b.montant ? { montant: m.fin, mois: m.mois } : b), { montant: depart.montant, mois: depart.mois })
   return { depart, mois, fin: solde, pointBas: bas, moisNegatifs: mois.filter((m) => m.fin < 0).length }
 }
+
+// Plus grosse sortie d'un mois (lot 27, au survol du graphique de trésorerie) ; null si le mois ne décaisse rien
+export const SORTIES: (keyof MoisTresorerie)[] = ['fournisseurs', 'frais', 'personnel', 'tva', 'emprunts', 'impot', 'travaux', 'consignesVersees']
+export function plusGrosseSortie(m: MoisTresorerie): { cle: keyof MoisTresorerie; montant: number } | null {
+  const cle = SORTIES.reduce((a, c) => (m[c] > m[a] ? c : a), SORTIES[0])
+  return m[cle] > 0 ? { cle, montant: m[cle] } : null
+}

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule } from './supabase-simule'
 
 // Budget complet : démarque par famille, saisonnalité du magasin, travaux, copie d'un magasin à l'autre.
 // Données fictives uniquement : dépôt public. Sans cible, le magasin fictif fait 600 000 € de CA
@@ -32,6 +32,7 @@ test('le franchisé ajoute démarque, saisonnalité et travaux, puis enregistre'
   await page.getByLabel('Démarque par famille : Bière (Cave)').fill('2')
   await expect(biere).toContainText(/68\sk€/)
 
+  await ouvrir(page, 'Calendrier')
   // Saisonnalité : janvier à 10 %, le total dépasse 100 % et bloque l'enregistrement
   const saison = page.getByRole('region', { name: 'Saisonnalité' })
   await page.getByLabel('Part du CA en Janv.').fill('10')
@@ -49,6 +50,7 @@ test('le franchisé ajoute démarque, saisonnalité et travaux, puis enregistre'
   const chantier = page.getByRole('region', { name: 'Travaux' })
   await expect(chantier).toContainText(/CA de l’année : [-−]45\s000\s€/)
   await expect(chantier).toContainText(/Dotation : 9\sk€/)
+  await ouvrir(page, 'Résultat et trésorerie')
   await expect(page.getByRole('table', { name: 'Budget 2027 mois par mois' }).getByRole('row', { name: /^Dotations aux amortissements/ })).toContainText(/[-−]33\s000\s€/)
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
