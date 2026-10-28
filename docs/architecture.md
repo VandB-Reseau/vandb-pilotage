@@ -35,8 +35,9 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
    réduction générale, hausse des salaires des cibles) au lieu des salaires saisis en bloc.
 6. Frais : lus avec les budgets (`chargerFrais`) ; comme l'équipe, ils remplacent frais, amortissements et emprunts de la
    base tant que le budget n'est pas validé (`avecEquipeEtFrais`).
-7. Atterrissage : `baseDepuisReel` part du réel de l'année (mois passés) et projette les mois restants sur la
-   saisonnalité de chaque univers l'année précédente (à défaut, la moyenne réalisée) ; `calculerBudget` en tire le compte
+7. Atterrissage : `baseDepuisReel` part du réel de l'année (mois passés) et projette les mois restants, univers par
+   univers : part de l'année réalisée saisie (`parts_realisees`), sinon saisonnalité du magasin l'année précédente, sinon
+   saisonnalité médiane du réseau (`saisonnaliteMediane`), sinon moyenne réalisée ; `calculerBudget` en tire le compte
    de résultat. Le Directeur en fait la base du budget de l'an prochain (« Proposer le budget »), que les cibles ajustent.
 8. Synthèse : `santeMagasin` compare le cumul réel à l'an dernier et reprend l'atterrissage (`atterrissageDe`) ;
    `compteResultat` met tout budget calculé en lignes mois par mois pour `CompteResultatMois`.

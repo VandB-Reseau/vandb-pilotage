@@ -12,6 +12,7 @@ une migration par changement, numérotée dans l'ordre où elle s'applique. Cart
 | `0005_frais` | Frais des magasins ligne par ligne (€ par an ou part du CA), emprunts et amortissements, saisis par le Directeur, le RR, le Coach et le franchisé sur leurs magasins | 27/10/2026 |
 | `0007_filtre_rr` | `reel_du_compte` donne aussi au Directeur les Responsables Régionaux de chaque magasin, pour filtrer la vue réseau ; aucune table ni règle d'accès nouvelle | 28/10/2026 |
 | `0008_quadrimestres` | Table `quadrimestres` : achats, variation de stock, charges externes, impôts et taxes, personnel et trésorerie tous les 4 mois, saisis par le Directeur, le RR, le Coach et le franchisé sur leurs magasins | 28/10/2026 |
+| `0009_parts_realisees` | Table `parts_realisees` : part de l'année réalisée saisie par univers pour l'atterrissage sans réel de l'an dernier, saisie par le Directeur, le RR, le Coach et le franchisé sur leurs magasins | 28/10/2026 |
 | `0006_suivi_reseau` | Fonction `reel_du_compte` : réel de tous les magasins du compte totalisé par mois, pour la vue réseau ; aucune table ni règle d'accès nouvelle | 27/10/2026 |
 
 ## Passer une migration

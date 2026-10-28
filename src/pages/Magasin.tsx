@@ -210,7 +210,7 @@ export function Magasin() {
       ) : onglet === 'atterrissage' ? (
         <AtterrissageMagasin
           key={ligne.magasin} ligne={ligne} d={d} annee={anneeEnCours} anneeBudget={annee} parametres={donnees.parametresN}
-          directeur={directeur} allerA={setOnglet} apresProposition={recharger}
+          directeur={directeur} peutSaisir={peutSaisir} allerA={setOnglet} apresProposition={recharger}
         />
       ) : onglet === 'reel' ? (
         <Stack spacing={2}>

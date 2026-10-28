@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { baseDepuisReel, fraisDepuisLignes } from '../../src/moteur/atterrissage'
+import { baseDepuisReel, fraisDepuisLignes, saisonnaliteMediane } from '../../src/moteur/atterrissage'
 import { calculerBudget } from '../../src/moteur/budget'
 import { ajouterLigne, lignesDisponibles, lireSaisieFrais, saisieDepuisLignes, totauxFrais } from '../../src/moteur/saisieFrais'
 import { parametresParDefaut } from '../../src/moteur/parametres'
@@ -84,4 +84,25 @@ test('saisie des frais : lignes de la grille, part du CA en %, lignes vidées re
   expect(lu.lignes.find((l) => l.code === 'charges_locatives')).toEqual({ code: 'charges_locatives', libelle: 'Charges locatives', rubrique: 'immobilier', annuel: 6_000, tauxCA: null })
   expect(lu.lignes.find((l) => l.code === 'energie')?.tauxCA).toBeCloseTo(0.013, 9)
   expect(lireSaisieFrais({ ...s, lignes: [{ ...s.lignes[0], valeur: '120' }] }, []).erreurs).toEqual(['Électricité, eau, gaz : montant illisible.'])
+})
+
+test('atterrissage sans N-1 : part saisie par univers, sinon saisonnalité médiane du réseau', () => {
+  // Réseau : trois magasins ; janvier pèse 10 %, 10 % et 20 % de leur année → médiane 10 %, puis remise à 100 %
+  const plat = Array(12).fill(1_000)
+  const reseau = saisonnaliteMediane([plat.map((v, i) => (i === 0 ? 1_222.22 : v)), plat.map((v, i) => (i === 0 ? 1_222.22 : v)), plat.map((v, i) => (i === 0 ? 2_750 : v))])!
+  proche(reseau.reduce((a, b) => a + b, 0), 1)
+  expect(saisonnaliteMediane([plat, plat])).toBeNull()             // moins de 3 magasins : pas de médiane
+
+  const sansN1 = { n: { lignes: n, tickets: [] }, n1: { lignes: [], tickets: [] } }
+  // Cave : part saisie 40 % → Bière 30 000 / 0,4 = 75 000 ; Bar : saisonnalité du réseau
+  const r = baseDepuisReel(sansN1, 2026, [], undefined, { parts: { cave: 0.4 }, saisonnaliteReseau: reseau })!
+  expect(r.methodes).toEqual({ cave: 'saisie', bar: 'reseau', exterieur: 'reseau' })
+  proche(r.base.partRealisee!.cave!, 0.4)
+  proche(r.base.partRealisee!.bar!, reseau[0] + reseau[1])
+  const cave = 75_000, bar = 10_000 / (reseau[0] + reseau[1])
+  proche(r.parMois.reduce((a, x) => a + x.ca, 0), cave + bar)
+  // Mois restants de la Cave : 45 000 répartis selon le réseau (mars à décembre ont le même poids : 4 500 chacun)
+  proche(r.parMois[2].ca, 4_500 + bar * reseau[2])
+  // Sans part ni réseau : la moyenne, comme avant
+  expect(baseDepuisReel(sansN1, 2026)!.methodes).toEqual({ cave: 'moyenne', bar: 'moyenne', exterieur: 'moyenne' })
 })

@@ -9,7 +9,7 @@ import { EtatVide } from './EtatVide'
 import { GraphiqueMois } from './GraphiqueMois'
 import { Indicateur } from './Indicateur'
 import { Panne } from './Panne'
-import { atterrissageDe, chargerReel, type DonneesBudgets } from '../data/pilotage'
+import { atterrissageDe, chargerReel, chargerSecours, type DonneesBudgets } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { milliers, montant, MOIS_LONGS, taux } from '../lib/format'
 import { santeMagasin } from '../moteur/sante'
@@ -25,14 +25,14 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA }: {
   allerA: (onglet: string) => void
 }) {
   const { donnees, erreur, chargement, recharger } = useChargement(
-    () => Promise.all([chargerReel(magasin, annee), chargerReel(magasin, annee - 1)]).then(([n, n1]) => ({ n, n1 })), [magasin, annee])
+    () => Promise.all([chargerReel(magasin, annee), chargerReel(magasin, annee - 1), chargerSecours(magasin, annee)]).then(([n, n1, secours]) => ({ n, n1, secours })), [magasin, annee])
 
   if (chargement && !donnees) return <Skeleton variant="rounded" height={320} />
   if (erreur || !donnees) return <Panne quoi={`Les chiffres réels ${annee}`} recharger={recharger} />
 
   const equipe = d.equipes[magasin]
   const frais = d.frais[magasin]
-  const a = atterrissageDe(donnees, annee, equipe, frais, parametres)
+  const a = atterrissageDe(donnees, annee, equipe, frais, parametres, donnees.secours)
   const s = santeMagasin(donnees.n, donnees.n1, a?.budget ?? null)
   if (s.moisRealises === 0 || !a) {
     return (

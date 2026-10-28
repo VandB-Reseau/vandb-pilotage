@@ -3,7 +3,7 @@ import { calculerBudget } from '../moteur/budget'
 import { appliquerCibles, type Cibles, type NiveauCibles, type Provenance } from '../moteur/cibles'
 import { parametresParDefaut } from '../moteur/parametres'
 import type { TicketsMois, VenteMois } from '../import/caisse'
-import { baseDepuisReel, fraisDepuisLignes, type LigneFraisMagasin, type ReelAnnees } from '../moteur/atterrissage'
+import { baseDepuisReel, fraisDepuisLignes, saisonnaliteMediane, type LigneFraisMagasin, type ReelAnnees, type SecoursAtterrissage } from '../moteur/atterrissage'
 import type { Categorie, ParametresCharges, Personne } from '../moteur/equipe'
 import type { LigneReel, TicketsReel } from '../moteur/reel'
 import type { MoisReel } from '../moteur/suivi'
@@ -93,8 +93,8 @@ export function avecEquipeEtFrais(base: Hypotheses, equipe: Personne[] | undefin
   return h
 }
 // Atterrissage de l'année d'un magasin : réel des mois passés, projection, équipe et frais enregistrés
-export function atterrissageDe(reel: ReelAnnees, annee: number, equipe: Personne[] | undefined, frais: LigneFraisMagasin[] | undefined, parametres: ParametresReseau) {
-  const r = baseDepuisReel(reel, annee)
+export function atterrissageDe(reel: ReelAnnees, annee: number, equipe: Personne[] | undefined, frais: LigneFraisMagasin[] | undefined, parametres: ParametresReseau, secours?: SecoursAtterrissage) {
+  const r = baseDepuisReel(reel, annee, [], undefined, secours)
   return r ? { ...r, budget: calculerBudget(avecEquipeEtFrais(r.base, equipe, frais), parametres) } : null
 }
 export function hypothesesDe(ligne: LigneMagasin, d: DonneesBudgets, ajustements?: Cibles): { hypotheses: Hypotheses; provenance: Provenance[] } | null {
@@ -436,4 +436,23 @@ export async function chargerComparaison(aujourdhui = new Date()): Promise<{ ann
       return h ? [{ magasin: l.magasin, groupeId: l.groupeId, ratios: ratiosDuBudget(calculerBudget(h.hypotheses, pB), h.hypotheses) }] : []
     }),
   }
+}
+
+// Secours de l'atterrissage sans réel de l'an dernier (lot 16) : parts de l'année réalisées saisies, saisonnalité du réseau
+export type PartsRealisees = Partial<Record<Univers, number>>
+export const chargerPartsRealisees = (annee: number): Promise<Record<string, PartsRealisees>> => memo(`parts|${annee}`, async () => {
+  const lignes = await toutesLesLignes<{ store_name: string; univers: Univers; part: number }>((de, a) =>
+    pilotage().from('parts_realisees').select('store_name, univers, part').eq('annee', annee).order('store_name').range(de, a))
+  const r: Record<string, PartsRealisees> = {}
+  for (const l of lignes) (r[l.store_name] ??= {})[l.univers] = Number(l.part)
+  return r
+})
+export async function enregistrerPartsRealisees(magasin: string, annee: number, parts: PartsRealisees) {
+  verifier(await pilotage().from('parts_realisees').delete().eq('store_name', magasin).eq('annee', annee))
+  const lignes = Object.entries(parts).filter(([, v]) => v !== undefined).map(([univers, part]) => ({ store_name: magasin, annee, univers, part }))
+  if (lignes.length) verifier(await pilotage().from('parts_realisees').insert(lignes))
+}
+export async function chargerSecours(magasin: string, annee: number): Promise<SecoursAtterrissage> {
+  const [parts, reel] = await Promise.all([chargerPartsRealisees(annee), chargerReelDuCompte(annee)])
+  return { parts: parts[magasin] ?? {}, saisonnaliteReseau: saisonnaliteMediane(Object.values(reel.magasins).map((r) => r.n1.map((x) => x.caHT))) }
 }

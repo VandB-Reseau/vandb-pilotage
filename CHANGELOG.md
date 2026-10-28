@@ -5,6 +5,14 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 16 — Atterrissage sans réel de l'an dernier
+
+- Atterrissage d'un magasin : tableau « Projection des mois restants » par univers (réalisé, méthode, part de l'année
+  réalisée, atterrissage). Sans réel de l'an dernier, la part de l'année réalisée peut être saisie par univers, comme
+  dans le prévisionnel Excel (CA atterri = réalisé / part) ; à défaut, la saisonnalité médiane du réseau l'an dernier
+  (au moins 3 magasins avec leurs 12 mois), puis la moyenne des mois réalisés. Repris dans la synthèse.
+- **Base : migration `0009_parts_realisees.sql` à passer.**
+
 ### Lot 12 — Quadrimestres : résultat réel tous les 4 mois
 
 - Fiche magasin, onglet Quadrimestres : six montants comptables par période (achats de marchandises, variation de

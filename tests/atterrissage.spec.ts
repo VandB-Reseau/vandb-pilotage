@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { MAGASINS } from './donnees-fictives'
-import { seConnecter, textesTropPetits, zonesTropPetites, type FraisSimule, type TicketsSimules, type VenteSimulee } from './supabase-simule'
+import { seConnecter, textesTropPetits, zonesTropPetites, type FraisSimule, type PartSimulee, type TicketsSimules, type VenteSimulee } from './supabase-simule'
 
 // Frais ligne par ligne et atterrissage de l'année en cours ; le Directeur en tire le budget de l'an prochain.
 // Données fictives uniquement : dépôt public. Mêmes chiffres que tests/moteur/atterrissage.spec.ts, vérifiés à la main.
@@ -152,4 +152,44 @@ test('sans réel de l’année, l’atterrissage renvoie vers le réel', async (
   await expect(page.getByText(`Pas encore de réel ${N}`)).toBeVisible()
   await page.getByRole('button', { name: 'Voir le réel' }).click()
   await expect(page.getByRole('button', { name: String(N), exact: true })).toHaveAttribute('aria-pressed', 'true')
+})
+
+test('sans réel de l’an dernier : part de l’année réalisée saisie par univers, comme dans le prévisionnel', async ({ page, isMobile }, info) => {
+  // Cave : 10 000 € par mois de janvier à août, pas d'an dernier
+  const reel: VenteSimulee[] = Array.from({ length: 8 }, (_, i) => ({ store_name: MAGASINS[0], mois: mois(N, i + 1), univers: 'cave', famille: 'Bière', ca_ht: 10_000, ca_ttc: 12_000, marge_ht: 3_600 }))
+  const ecritures = await seConnecter(page, { role: 'franchise', reel })
+  await page.getByText(MAGASINS[0], { exact: true }).last().click()
+  await page.getByRole('tab', { name: `Atterrissage ${N}` }).click()
+  const projection = page.getByRole('table', { name: `Projection ${N} par univers` })
+  const cave = projection.getByRole('row', { name: /Cave/ })
+  // Sans part ni réseau : la moyenne, 80 000 × 12 / 8
+  await expect(cave).toContainText('Moyenne des mois réalisés')
+  await expect(cave).toContainText(/120\s000\s€$/)
+  await page.getByLabel('Part de l’année réalisée : Cave').fill('62,6')
+  // 80 000 / 0,626 = 127 795,53
+  await expect(cave).toContainText('Part saisie')
+  await expect(cave).toContainText(/127\s796\s€$/)
+  expect(await textesTropPetits(page)).toEqual([])
+  if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
+  await page.getByRole('region', { name: 'Projection des mois restants' }).screenshot({ path: `captures/${info.project.name}-projection.png` })
+  await page.getByRole('button', { name: 'Enregistrer les parts' }).click()
+  await expect(page.getByText('Parts de l’année réalisées enregistrées.')).toBeVisible()
+  expect(ecritures.find((e) => e.table === 'parts_realisees' && e.methode === 'POST')?.corps).toEqual([{ store_name: MAGASINS[0], annee: N, univers: 'cave', part: 0.626 }])
+})
+
+test('part enregistrée reprise ; vidée, la projection redevient automatique', async ({ page }) => {
+  const reel: VenteSimulee[] = Array.from({ length: 8 }, (_, i) => ({ store_name: MAGASINS[0], mois: mois(N, i + 1), univers: 'cave', famille: 'Bière', ca_ht: 10_000, ca_ttc: 12_000, marge_ht: 3_600 }))
+  const parts: PartSimulee[] = [{ store_name: MAGASINS[0], annee: N, univers: 'cave', part: 0.626 }]
+  const ecritures = await seConnecter(page, { role: 'franchise', reel, parts })
+  await page.getByText(MAGASINS[0], { exact: true }).last().click()
+  await page.getByRole('tab', { name: `Atterrissage ${N}` }).click()
+  const cave = page.getByRole('table', { name: `Projection ${N} par univers` }).getByRole('row', { name: /Cave/ })
+  await expect(cave).toContainText(/127\s796\s€$/)
+  await expect(page.getByLabel('Part de l’année réalisée : Cave')).toHaveValue('62,6')
+  await page.getByLabel('Part de l’année réalisée : Cave').fill('')
+  await expect(cave).toContainText(/120\s000\s€$/)
+  await page.getByRole('button', { name: 'Enregistrer les parts' }).click()
+  await expect(page.getByText('Parts de l’année réalisées enregistrées.')).toBeVisible()
+  expect(ecritures.some((e) => e.table === 'parts_realisees' && e.methode === 'DELETE')).toBe(true)
+  expect(ecritures.some((e) => e.table === 'parts_realisees' && e.methode === 'POST')).toBe(false)
 })
