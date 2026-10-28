@@ -87,7 +87,7 @@ const SORTIES: [keyof MoisTresorerie, string][] = [
   ['consignesVersees', 'Consignes versées aux fournisseurs'],
 ]
 const ENTREES: [keyof MoisTresorerie, string][] = [
-  ['consignesRemboursees', 'Consignes remboursées par les fournisseurs'], ['consignesClients', 'Cautions des clients (reçues moins rendues)'],
+  ['consignesRemboursees', 'Consignes remboursées par les fournisseurs'],
 ]
 function feuilleTresorerie(t: Tresorerie, titre: string, statut: string): Feuille {
   const rDebut = 4, rEnc = 5, rE1 = rEnc + ENTREES.length, rS0 = rE1 + 1, rS1 = rS0 + SORTIES.length - 1, rDec = rS1 + 1, rFlux = rDec + 1, rFin = rFlux + 1

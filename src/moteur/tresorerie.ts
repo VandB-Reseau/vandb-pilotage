@@ -18,9 +18,8 @@ export interface ParametresTresorerie {
   // Consignes (fûts, caisses, bouteilles de gaz) : hors TVA et hors compte de résultat, elles décalent la trésorerie
   consignes?: {
     achats: Record<Univers, number>   // consigne payée aux fournisseurs, en part des achats de l'univers
-    delaiRetour: number               // mois avant le remboursement des vides par le fournisseur
-    ventes: Record<Univers, number>   // caution prise aux clients (fûts et tireuses loués), en part du CA de l'univers
-    delaiRestitution: number          // mois avant de rendre la caution au client
+    ecoulement: number                // mois pour vider le fût et le rendre au fournisseur
+    remboursement: number             // mois de remboursement après le retour (1 = 30 jours fin de mois)
   }
 }
 
@@ -33,8 +32,9 @@ export const tresorerieParDefaut: ParametresTresorerie = {
   tvaFrais: 0.2,
   tvaTrimestrielle: false,
   partCotisations: 0.4,
-  // À confirmer par Joseph (28/10/2026) : consigne d'un fût autour de 15 % de sa valeur d'achat, remboursée à 2 mois
-  consignes: { achats: { cave: 0.03, bar: 0.15, exterieur: 0.15 }, delaiRetour: 2, ventes: { cave: 0, bar: 0, exterieur: 0.1 }, delaiRestitution: 0 },
+  // Joseph (28/10/2026) : remboursé à 30 jours fin de mois une fois le fût fini ; taux et délais modifiables. Les cautions
+  // des clients sont des empreintes bancaires, jamais encaissées : elles ne comptent pas.
+  consignes: { achats: { cave: 0.03, bar: 0.15, exterieur: 0.15 }, ecoulement: 1, remboursement: 1 },
 }
 
 export interface MoisTresorerie {
@@ -48,7 +48,6 @@ export interface MoisTresorerie {
   travaux: number             // investissement TTC, payé le premier mois des travaux
   consignesVersees: number    // consignes payées aux fournisseurs avec les achats du mois
   consignesRemboursees: number // vides rendus aux fournisseurs, remboursés
-  consignesClients: number    // cautions des clients reçues moins rendues (positif : argent gardé)
   consignesEnAttente: number  // fin de mois : consignes payées aux fournisseurs, pas encore remboursées
   decaissements: number
   flux: number
@@ -96,8 +95,7 @@ export function tresorerieBudget(b: Budget, h: Hypotheses, p: { tauxRedevance: n
   const parUnivers = (f: (u: Univers) => number) => ca.map((caMois) => (b.ca ? somme(UNIVERS.map((u) => f(u))) * caMois / b.ca : 0))
   const familles = b.familles ?? []
   const versees = c ? parUnivers((u) => somme(familles.filter((f) => f.univers === u).map((f) => f.objectif - f.margeObjectif)) * (c.achats[u] ?? 0)) : Array(12).fill(0)
-  const cautions = c ? parUnivers((u) => somme(familles.filter((f) => f.univers === u).map((f) => f.objectif)) * (c.ventes[u] ?? 0)) : Array(12).fill(0)
-  const retour = Math.max(0, Math.round(c?.delaiRetour ?? 0)), restitution = Math.max(0, Math.round(c?.delaiRestitution ?? 0))
+  const retour = Math.max(0, Math.round((c?.ecoulement ?? 0) + (c?.remboursement ?? 0)))
   // Encours en fin de mois : consignes du mois et des mois dont le remboursement n'est pas encore arrivé
   const enAttente = (i: number) => somme(Array.from({ length: retour }, (_, k) => decale(versees, i, k)))
 
@@ -111,13 +109,12 @@ export function tresorerieBudget(b: Budget, h: Hypotheses, p: { tauxRedevance: n
     const emprunts = (h.interets + h.remboursementCapital) / 12
     const travaux = investissement[i] * (1 + t.tvaFrais)
     const consignesVersees = versees[i], consignesRemboursees = decale(versees, i, retour)
-    const consignesClients = cautions[i] - decale(cautions, i, restitution)
     const decaissements = fournisseurs + frais + salaires + tva + emprunts + impot(i) + travaux + consignesVersees
-    const flux = encaissements + consignesRemboursees + consignesClients - decaissements
+    const flux = encaissements + consignesRemboursees - decaissements
     solde += flux
     return {
       encaissements, fournisseurs, frais, personnel: salaires, tva, emprunts, impot: impot(i), travaux,
-      consignesVersees, consignesRemboursees, consignesClients, consignesEnAttente: enAttente(i), decaissements, flux, fin: solde,
+      consignesVersees, consignesRemboursees, consignesEnAttente: enAttente(i), decaissements, flux, fin: solde,
     }
   })
   const bas = mois.reduce((m, x, i) => (x.fin < mois[m].fin ? i : m), 0)

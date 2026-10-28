@@ -20,7 +20,6 @@ import { Indicateur } from './Indicateur'
 export const LIGNES_TRESORERIE: { cle: keyof MoisTresorerie; libelle: string; sortie?: boolean; fort?: boolean; facultative?: boolean }[] = [
   { cle: 'encaissements', libelle: 'Encaissements des ventes TTC', fort: true },
   { cle: 'consignesRemboursees', libelle: 'Consignes remboursées par les fournisseurs', facultative: true },
-  { cle: 'consignesClients', libelle: 'Cautions des clients (reçues moins rendues)', facultative: true },
   { cle: 'fournisseurs', libelle: 'Fournisseurs de marchandises', sortie: true },
   { cle: 'frais', libelle: 'Frais, redevance et publicité', sortie: true },
   { cle: 'personnel', libelle: 'Salaires et cotisations', sortie: true },

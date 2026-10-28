@@ -67,16 +67,16 @@ test('trésorerie du magasin fictif : saisonnalité, délais et TVA ne changent 
   proche(t.mois[6].travaux, 36_000)           // juillet, premier mois touché
 })
 
-test('consignes : payées avec les achats, remboursées deux mois après ; cautions des clients rendues le mois suivant', () => {
+test('consignes : payées avec les achats, remboursées deux mois après (un mois pour écouler le fût, 30 jours fin de mois)', () => {
   // Bar seul : 130 000 € de CA (10 000 € par mois, 20 000 € en décembre), 78 000 € d'achats ; consigne 15 % des achats,
-  // soit 0,09 € par euro de CA : 900 € par mois, 1 800 € en décembre ; caution clients 10 % du CA
+  // soit 0,09 € par euro de CA : 900 € par mois, 1 800 € en décembre
   const ca = [...Array(11).fill(10_000), 20_000]
   const saison = {
     ca: 130_000, impot: 0,
     mois: ca.map((c) => ({ ca: c, achats: c * 0.6, personnel: 0 })),
     familles: [{ univers: 'bar', famille: 'Fût', objectif: 130_000, margeObjectif: 52_000 }],
   } as unknown as Budget
-  const reglages = { ...tresorerieParDefaut, consignes: { achats: { cave: 0, bar: 0.15, exterieur: 0 }, delaiRetour: 2, ventes: { cave: 0, bar: 0.1, exterieur: 0 }, delaiRestitution: 1 } }
+  const reglages = { ...tresorerieParDefaut, consignes: { achats: { cave: 0, bar: 0.15, exterieur: 0 }, ecoulement: 1, remboursement: 1 } }
   const t = tresorerieBudget(saison, { frais: [], interets: 0, remboursementCapital: 0 } as unknown as Hypotheses, p, reglages)
   const [jan, fev, dec] = [t.mois[0], t.mois[1], t.mois[11]]
   proche(jan.consignesVersees, 900)
@@ -86,14 +86,12 @@ test('consignes : payées avec les achats, remboursées deux mois après ; cauti
   proche(dec.consignesRemboursees, 900)       // vides d'octobre
   proche(dec.consignesEnAttente, 2_700)       // décembre et novembre pas encore remboursés
   proche(jan.consignesEnAttente, 900 + 1_800)
-  proche(dec.consignesClients, 2_000 - 1_000) // cautions de décembre gardées, celles de novembre rendues
-  proche(jan.consignesClients, 1_000 - 2_000)
   proche(t.consignesMoyennes, (10 * 1_800 + 2 * 2_700) / 12)   // 2 700 en décembre et janvier, 1 800 les autres mois
   // Sur l'année, les consignes s'annulent : seul l'EBE compte (40 % de 130 000 = 52 000, TVA comprise à l'équilibre)
   const sans = tresorerieBudget(saison, { frais: [], interets: 0, remboursementCapital: 0 } as unknown as Hypotheses, p, { ...tresorerieParDefaut, consignes: undefined })
   proche(t.fin, sans.fin)
-  // Le mois de décembre est plus creux avec les consignes : − 1 800 + 900 + 1 000
-  proche(dec.flux - sans.mois[11].flux, 100)
-  proche(jan.flux - sans.mois[0].flux, -900 + 900 - 1_000)       // cautions de décembre rendues
+  // Le mois de décembre est plus creux avec les consignes : − 1 800 + 900
+  proche(dec.flux - sans.mois[11].flux, -900)
+  proche(jan.flux - sans.mois[0].flux, 0)
   proche(fev.flux - sans.mois[1].flux, -900 + 1_800)              // vides de décembre remboursés
 })

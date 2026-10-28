@@ -34,7 +34,7 @@ test('budget : trésorerie mois par mois, le franchisé saisit sa trésorerie de
   await expect(ligne('Encaissements des ventes TTC')).toContainText(/^Encaissements des ventes TTC53\s550/)   // 45 000 × 1,19
   await expect(ligne('TVA reversée')).toBeVisible()
   await expect(ligne('Travaux')).toHaveCount(0)                       // pas de travaux : pas de ligne
-  // Consignes : versées avec les achats, remboursées deux mois après ; cautions des événements rendues le mois même
+  // Consignes : versées avec les achats, remboursées deux mois après ; les cautions des clients ne sont pas encaissées
   await expect(ligne('Consignes versées aux fournisseurs')).toBeVisible()
   await expect(ligne('Consignes remboursées par les fournisseurs')).toBeVisible()
   await expect(ligne('Cautions des clients (reçues moins rendues)')).toHaveCount(0)
@@ -80,7 +80,7 @@ test('paramètres réseau : le Directeur règle délais et TVA de la trésorerie
   await section.getByRole('button', { name: 'Chaque trimestre' }).click()
   await page.getByLabel('TVA moyenne sur les ventes').fill('18')
   await page.getByLabel('Consignes sur les achats : Bar').fill('20')
-  await page.getByLabel('Délai de remboursement des consignes').fill('3')
+  await page.getByLabel('Temps pour écouler et rendre un fût').fill('2')
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   // Un délai hors de 0 à 3 mois bloque l'enregistrement
   await page.getByLabel('Délai de paiement de la redevance').fill('6')
@@ -90,5 +90,5 @@ test('paramètres réseau : le Directeur règle délais et TVA de la trésorerie
   await expect(page.getByText('Paramètres de trésorerie 2027 enregistrés.')).toBeVisible()
   const envoi = ecritures.find((e) => e.table === 'parametres_reseau')?.corps as { valeur: { tresorerie: Record<string, unknown> & { consignes: unknown } } }
   expect(envoi.valeur.tresorerie).toMatchObject({ delaiFournisseurs: 2, delaiRedevance: 1, tvaTrimestrielle: true, tvaVentes: 0.18 })
-  expect(envoi.valeur.tresorerie.consignes).toMatchObject({ achats: { cave: 0.03, bar: 0.2, exterieur: 0.15 }, delaiRetour: 3, delaiRestitution: 0 })
+  expect(envoi.valeur.tresorerie.consignes).toMatchObject({ achats: { cave: 0.03, bar: 0.2, exterieur: 0.15 }, ecoulement: 2, remboursement: 1 })
 })
