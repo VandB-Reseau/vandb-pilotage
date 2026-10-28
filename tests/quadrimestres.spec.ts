@@ -121,3 +121,27 @@ test('trésorerie glissante : fin avril saisie, puis mai à décembre selon l’
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await section.screenshot({ path: `captures/${info.project.name}-tresorerie-glissante.png` })
 })
+
+test('cumul face au budget et à la même période de l’an passé, ligne par ligne', async ({ page, isMobile }, info) => {
+  // An passé : 40 000 € de CA par mois de janvier à avril ; quadrimestre comptable saisi
+  const reelN1: VenteSimulee[] = [1, 2, 3, 4].map((m) =>
+    ({ store_name: MAGASINS[0], mois: `${N - 1}-0${m}-01`, univers: 'cave', famille: 'Bière', ca_ht: 40_000, ca_ttc: 48_000, marge_ht: 16_000 }))
+  const q = (annee: number, achats: number, variation: number, externes: number, impots: number, personnel: number): QuadrimestreSimule =>
+    ({ store_name: MAGASINS[0], annee, quadrimestre: 1, achats, variation_stock: variation, charges_externes: externes, impots_taxes: impots, personnel, tresorerie: null })
+  await seConnecter(page, { role: 'franchise', magasins: [magasin], reel: [...reel, ...reelN1],
+    quadrimestres: [q(N, 130_000, 8_000, 30_000, 3_000, 35_000), q(N - 1, 100_000, 4_000, 28_000, 3_000, 31_000)] })
+  await page.getByRole('tab', { name: 'Quadrimestres' }).click()
+  const tableau = page.getByRole('table', { name: `Cumul ${N} face au budget et à ${N - 1}` })
+  await expect(tableau.getByRole('columnheader', { name: 'Écart au budget' })).toBeVisible()
+  // CA 200 000 contre 160 000 : + 25 % ; marge 78 000 contre 64 000 (100 000 − 4 000 retirés de 160 000) ; EBE 10 000 contre 2 000
+  const ligneN1 = (nom: string) => tableau.getByRole('row').filter({ has: page.getByRole('cell', { name: nom, exact: true }) })
+  await expect(ligneN1('CA HT')).toContainText(/160\s000\s€/)
+  await expect(ligneN1('CA HT')).toContainText(/\+25,0\s%/)
+  await expect(ligneN1('Marge réelle')).toContainText(/64\s000\s€/)
+  await expect(ligneN1('Frais de personnel')).toContainText(/31\s000\s€/)
+  await expect(ligneN1('EBE')).toContainText(/2\s000\s€/)
+  await expect(ligneN1('EBE')).toContainText(/\+400,0\s%/)
+  expect(await textesTropPetits(page)).toEqual([])
+  if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
+  await page.screenshot({ path: `captures/${info.project.name}-quadrimestres-comparaison.png`, fullPage: true })
+})

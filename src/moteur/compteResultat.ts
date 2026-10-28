@@ -11,6 +11,7 @@ export interface LigneCompte {
   fort?: boolean            // sous-total (marge, EBE, résultat)
   parent?: string           // ligne de détail, repliée sous sa rubrique
   indicateur?: boolean      // ligne de lecture (CA par heure) : ni part du CA, ni signe de charge
+  heures?: boolean          // ligne en heures, pas en euros
 }
 
 const somme = (l: number[]) => l.reduce((a, b) => a + b, 0)
@@ -72,5 +73,8 @@ function productivite(b: Budget): LigneCompte[] {
   const heures = b.mois.map((m) => (m.productivite ? m.ca / m.productivite : 0))
   const total = somme(heures)
   if (!total) return []
-  return [{ cle: 'productivite', libelle: 'CA par heure travaillée', mois: b.mois.map((m) => m.productivite), total: b.ca / total, indicateur: true }]
+  return [
+    { cle: 'heures', libelle: 'Heures travaillées', mois: heures, total, indicateur: true, heures: true },
+    { cle: 'productivite', libelle: 'CA par heure travaillée', mois: b.mois.map((m) => m.productivite), total: b.ca / total, indicateur: true },
+  ]
 }

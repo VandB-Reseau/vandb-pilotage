@@ -12,22 +12,25 @@ import useMediaQuery from '@mui/material/useMediaQuery'
 import { useTheme } from '@mui/material/styles'
 import CalculateOutlined from '@mui/icons-material/CalculateOutlined'
 import { ecartMontant, ecartTaux, montant, taux } from '../lib/format'
-import { expliquerCA, expliquerEBE, expliquerMarge, type Etape } from '../moteur/explication'
+import { expliquerAtterrissage, expliquerCA, expliquerEBE, expliquerMarge, type Etape, type Explication } from '../moteur/explication'
+import type { BaseDepuisReel } from '../moteur/atterrissage'
 import type { Budget } from '../moteur/types'
 
-type Quoi = 'ca' | 'marge' | 'ebe'
-const titres: Record<Quoi, string> = { ca: 'Chiffre d’affaires HT', marge: 'Marge commerciale', ebe: 'EBE' }
+type Quoi = 'ca' | 'marge' | 'ebe' | 'atterrissage'
+const titres: Record<Quoi, string> = { ca: 'Chiffre d’affaires HT', marge: 'Marge commerciale', ebe: 'EBE', atterrissage: 'Chiffre d’affaires HT atterri' }
 
 // « D'où vient ce chiffre ? » : le calcul du budget étape par étape, avec les chiffres du magasin (moteur src/moteur/explication)
-export function DetailCalcul({ quoi, budget, annee }: { quoi: Quoi; budget: Budget; annee: number }) {
+export function DetailCalcul({ quoi, budget, annee, atterrissage }: { quoi: Quoi; budget: Budget; annee: number; atterrissage?: BaseDepuisReel }) {
   const [ouvert, setOuvert] = useState(false)
   const theme = useTheme()
   const telephone = useMediaQuery(theme.breakpoints.down('md'))
   const titre = `${titres[quoi]} ${annee}`
-  const e = quoi === 'ca' ? expliquerCA(budget, annee) : quoi === 'marge' ? expliquerMarge(budget) : expliquerEBE(budget)
+  const e: Explication = quoi === 'atterrissage' && atterrissage ? expliquerAtterrissage(atterrissage)
+    : quoi === 'ca' ? expliquerCA(budget, annee) : quoi === 'marge' ? expliquerMarge(budget) : expliquerEBE(budget)
   const effet = (x: Etape) => {
     if (x.part !== undefined && x.montant !== undefined) return `${ecartMontant(x.montant)} (${taux(x.part)} du CA)`
     if (x.part !== undefined) return `× ${taux(x.part)}`
+    if (x.diviseur !== undefined) return `÷ ${taux(x.diviseur)}`
     if (x.taux !== undefined) return ecartTaux(x.taux)
     if (x.montant !== undefined) return ecartMontant(x.montant)
     return ''
@@ -36,7 +39,7 @@ export function DetailCalcul({ quoi, budget, annee }: { quoi: Quoi; budget: Budg
   return (
     <>
       <Button size="small" startIcon={<CalculateOutlined />} onClick={() => setOuvert(true)} className="pas-a-l-impression"
-        aria-label={`D’où vient ce chiffre ? ${titres[quoi]}`} sx={{ alignSelf: 'flex-start', minHeight: { xs: 48, md: 32 }, px: 1, ml: -1 }}>
+        aria-label={`D’où vient ce chiffre ? ${titres[quoi]}`} aria-haspopup="dialog" sx={{ alignSelf: 'flex-start', minHeight: { xs: 48, md: 32 }, px: 1, ml: -1 }}>
         D’où vient ce chiffre ?
       </Button>
       <Dialog open={ouvert} onClose={() => setOuvert(false)} fullScreen={telephone} maxWidth="sm" fullWidth aria-labelledby={`calcul-${quoi}`}>
@@ -59,7 +62,7 @@ export function DetailCalcul({ quoi, budget, annee }: { quoi: Quoi; budget: Budg
                 </Fragment>
               ))}
               <TableRow sx={{ '& td': { fontWeight: 700, borderTop: 2, borderBottom: 0, borderColor: 'divider' } }}>
-                <TableCell colSpan={2}>{titre}{quoi !== 'ca' && budget.ca ? ` (${taux(e.total / budget.ca)} du CA)` : ''}</TableCell>
+                <TableCell colSpan={2}>{titre}{quoi !== 'ca' && quoi !== 'atterrissage' && budget.ca ? ` (${taux(e.total / budget.ca)} du CA)` : ''}</TableCell>
                 <TableCell align="right" sx={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{montant(e.total)}</TableCell>
               </TableRow>
             </TableBody>

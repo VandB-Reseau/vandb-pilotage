@@ -2,7 +2,9 @@
 // - une ligne par poste (« Vendeur 1 », « Vendeur 2 »), sans nom ; le gérant y figure s'il se rémunère (souvent TNS) ;
 // - charges patronales : un taux par catégorie, moins la réduction générale dégressive unique (RGDU, ex-réduction Fillon),
 //   calculée sur le brut annuel de chaque salarié, maximale au SMIC, nulle à 3 SMIC ; pas de réduction pour un gérant TNS ;
-// - primes annuelles versées le mois choisi, pas de 13e mois ; entrées et sorties au mois.
+// - primes annuelles versées le mois choisi, pas de 13e mois ; entrées et sorties au mois ;
+// - primes d'équipe (lot 26) : une enveloppe sans heures ni salaire, chargée au taux de sa catégorie, sans réduction
+//   (la réduction dépend du salaire de chaque bénéficiaire, inconnu ici : le coût n'est pas sous-estimé).
 // Fonction pure, testée dans tests/moteur/equipe.spec.ts.
 
 export type Categorie = 'employe' | 'agent_maitrise' | 'cadre' | 'apprenti' | 'gerant_tns'
@@ -21,7 +23,12 @@ export interface Personne {
   primes: Prime[]
   entree: string | null    // « AAAA-MM » ; null : déjà là au 1er janvier
   sortie: string | null    // « AAAA-MM », dernier mois travaillé ; null : pas de départ prévu
+  heuresSaisie?: 'semaine' | 'mois'  // unité choisie à la saisie (lot 26) ; le calcul part toujours des heures par semaine
+  enveloppe?: boolean      // primes d'équipe sans salarié (lot 26) : ni heures ni salaire, charges de la catégorie, sans réduction
 }
+
+// Heures par mois ↔ heures par semaine : 52 semaines sur 12 mois
+export const SEMAINES_PAR_MOIS = 52 / 12
 
 export interface ParametresCharges {
   taux: Record<Categorie, number>   // charges patronales avant réduction, en part du brut
@@ -78,7 +85,7 @@ export function coutPersonne(p: Personne, c: ParametresCharges, annee: number, h
   const charges = brut.map((b) => b * taux)
   const reduction = brut.map((b) => b * coefficient)
   const cout = brut.map((b, i) => b + charges[i] - reduction[i])
-  const heures = presents.map((ok) => (ok ? p.heuresHebdo * 52 / 12 : 0))
+  const heures = presents.map((ok) => (ok ? p.heuresHebdo * SEMAINES_PAR_MOIS : 0))
   return {
     personne: p, brut, charges, reduction, cout, heures, brutAnnuel, coutAnnuel: somme(cout), coefficient,
     tauxEffectif: taux - coefficient, etp: (p.heuresHebdo / DUREE_LEGALE) * (nbMois / 12),

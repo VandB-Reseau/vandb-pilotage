@@ -23,10 +23,10 @@ import { atterrissageDe, chargerBudgets, chargerParametres, chargerQuadrimestres
 import { useChargement } from '../data/useChargement'
 import { nombre } from '../import/caisse'
 import { lireFEC, texteDuFEC } from '../import/fec'
-import { ecartMontant, ecartPts, enChiffres, milliers, MOIS, MOIS_LONGS, taux } from '../lib/format'
+import { ecartMontant, ecartPts, ecartTaux, enChiffres, milliers, montant, MOIS, MOIS_LONGS, taux } from '../lib/format'
 import { tresorerieBudget, tresorerieGlissante } from '../moteur/tresorerie'
 import { calculerBudget } from '../moteur/budget'
-import { moisDuQuadrimestre, QUADRIMESTRES, quadrimestreLibelle, resultatsQuadrimestres, type Quadrimestre, type ResultatQuadrimestre, type SaisieQuadrimestre } from '../moteur/quadrimestre'
+import { comparaisonPeriode, memePeriode, moisDuQuadrimestre, QUADRIMESTRES, quadrimestreLibelle, resultatsQuadrimestres, type Quadrimestre, type ResultatQuadrimestre, type SaisieQuadrimestre } from '../moteur/quadrimestre'
 import { moisDuReel } from '../moteur/suivi'
 
 type Champ = keyof SaisieQuadrimestre
@@ -47,8 +47,9 @@ const vers = (saisies: Partial<Record<Quadrimestre, SaisieQuadrimestre>>): Texte
 // Résultat réel tous les 4 mois : quelques montants comptables saisis, le reste calculé (CA de la caisse, marge, EBE)
 export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: string; annee: number; peutSaisir: boolean }) {
   const { donnees, erreur, chargement, recharger } = useChargement(
-    () => Promise.all([chargerBudgets(annee), chargerParametres(annee), chargerReel(magasin, annee), chargerQuadrimestres(annee), chargerReel(magasin, annee - 1), chargerSecours(magasin, annee)])
-      .then(([d, p, reel, q, reelN1, secours]) => ({ d, parametres: p.parametres, reel, saisies: q[magasin] ?? {}, reelN1, secours })),
+    () => Promise.all([chargerBudgets(annee), chargerParametres(annee), chargerReel(magasin, annee), chargerQuadrimestres(annee), chargerReel(magasin, annee - 1), chargerSecours(magasin, annee),
+      chargerQuadrimestres(annee - 1).catch(() => ({}) as Awaited<ReturnType<typeof chargerQuadrimestres>>)])
+      .then(([d, p, reel, q, reelN1, secours, qN1]) => ({ d, parametres: p.parametres, reel, saisies: q[magasin] ?? {}, reelN1, secours, saisiesN1: qN1[magasin] ?? {} })),
     [magasin, annee])
   const [textes, setTextes] = useState<Textes>(vers({}))
   const [message, setMessage] = useState<{ gravite: 'success' | 'error' | 'warning'; texte: string } | null>(null)
@@ -75,7 +76,9 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
   const h = ligne?.statut ? hypothesesDe(ligne, donnees.d) : null
   const budget = h ? calculerBudget(h.hypotheses, donnees.parametres) : null
   const moisCaisse = moisDuReel(donnees.reel.lignes, donnees.reel.tickets)
-  const { parQuadrimestre, cumul, dernier } = resultatsQuadrimestres(moisCaisse, lues, budget)
+  const { parQuadrimestre, cumul, dernier, moisCumul } = resultatsQuadrimestres(moisCaisse, lues, budget)
+  // Cumul face au budget et à la même période de l'an passé
+  const comparaison = cumul ? comparaisonPeriode(cumul, memePeriode(moisCumul, moisDuReel(donnees.reelN1.lignes, donnees.reelN1.tickets), donnees.saisiesN1)) : null
   const caCaisse = Object.fromEntries(QUADRIMESTRES.map((q) => [q, moisDuQuadrimestre(q).reduce((a, m) => a + (moisCaisse[m]?.caHT ?? 0), 0)])) as Record<Quadrimestre, number>
   const colonnes: (ResultatQuadrimestre | null)[] = [...parQuadrimestre, cumul]
   // Trésorerie glissante : dernière trésorerie saisie, puis les flux de l'atterrissage jusqu'à décembre
@@ -215,6 +218,43 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
           </Table>
         </TableContainer>
       </Card>
+
+      {comparaison && (
+        <Card component="section" aria-label={`Cumul à fin ${fin} face au budget et à ${annee - 1}`}>
+          <Typography variant="h2" sx={{ px: 2.5, pt: 2, pb: 1 }}>Cumul à fin {fin} : budget et {annee - 1}</Typography>
+          <TableContainer>
+            <Table size="small" className="colonne-fixe" aria-label={`Cumul ${annee} face au budget et à ${annee - 1}`} sx={{ '& td, & th': { px: 1.25, whiteSpace: 'nowrap' }, '& td:first-of-type, & th:first-of-type': { pl: 2.5, minWidth: 200 } }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell><Box component="span" sx={{ fontWeight: 400 }}>En euros HT</Box></TableCell>
+                  <TableCell align="right">Réel {annee}</TableCell>
+                  <TableCell align="right">Budget</TableCell>
+                  <TableCell align="right">Écart au budget</TableCell>
+                  <TableCell align="right">{annee - 1}, même période</TableCell>
+                  <TableCell align="right">Évolution</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {comparaison.map((l) => {
+                  const fort = l.cle === 'ca' || l.cle === 'marge' || l.cle === 'ebe'
+                  const favorable = (v: number) => (l.charge ? v <= 0 : v >= 0)
+                  const tiret = <Box component="span" sx={{ color: 'text.disabled' }}>–</Box>
+                  return (
+                    <TableRow key={l.cle} sx={fort ? { bgcolor: 'background.default', '& td': { bgcolor: 'background.default', fontWeight: 700 } } : undefined}>
+                      <TableCell>{l.libelle}</TableCell>
+                      <TableCell align="right">{l.reel === null ? tiret : montant(l.reel)}</TableCell>
+                      <TableCell align="right">{l.budget === null ? tiret : montant(l.budget)}</TableCell>
+                      <TableCell align="right" sx={l.ecartBudget === null ? undefined : { color: favorable(l.ecartBudget) ? 'success.dark' : 'error.main' }}>{l.ecartBudget === null ? tiret : ecartMontant(l.ecartBudget)}</TableCell>
+                      <TableCell align="right">{l.n1 === null ? tiret : montant(l.n1)}</TableCell>
+                      <TableCell align="right" sx={l.evolution === null ? undefined : { color: favorable(l.evolution) ? 'success.dark' : 'error.main' }}>{l.evolution === null ? tiret : ecartTaux(l.evolution)}</TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Card>
+      )}
 
       {glissante && (
         <Card component="section" aria-label="Trésorerie prévue jusqu’à décembre">

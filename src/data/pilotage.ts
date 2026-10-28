@@ -302,11 +302,13 @@ export async function enregistrerParametres(annee: number, parametres: Parametre
 export type { ParametresCharges }
 
 // ── Équipe (lot 3)
-interface LigneEquipe { id: number; store_name: string; poste: string; categorie: Categorie; heures_hebdo: number; brut_mensuel: number; primes: unknown; entree: string | null; sortie: string | null }
+interface LigneEquipe { id: number; store_name: string; poste: string; categorie: Categorie; heures_hebdo: number; brut_mensuel: number; primes: unknown; entree: string | null; sortie: string | null; heures_saisie?: string | null; enveloppe?: boolean | null }
 const versPersonne = (l: LigneEquipe): Personne => ({
   id: l.id, poste: l.poste, categorie: l.categorie, heuresHebdo: Number(l.heures_hebdo), brutMensuel: Number(l.brut_mensuel),
   primes: Array.isArray(l.primes) ? (l.primes as { mois: number; montant: number }[]).map((x) => ({ mois: Number(x.mois), montant: Number(x.montant) })) : [],
   entree: l.entree?.slice(0, 7) ?? null, sortie: l.sortie?.slice(0, 7) ?? null,
+  ...(l.heures_saisie === 'mois' ? { heuresSaisie: 'mois' as const } : {}),
+  ...(l.enveloppe ? { enveloppe: true } : {}),
 })
 
 // Toutes les lignes d'une table, par pages : l'API renvoie au plus 1 000 lignes par appel
@@ -324,7 +326,7 @@ async function toutesLesLignes<T>(page: (de: number, a: number) => PromiseLike<{
 // Équipes de tous les magasins du compte (la base ne renvoie que ceux de son périmètre)
 export async function chargerEquipes(): Promise<Record<string, Personne[]>> {
   const lignes = await toutesLesLignes<LigneEquipe>((de, a) =>
-    pilotage().from('equipe').select('id, store_name, poste, categorie, heures_hebdo, brut_mensuel, primes, entree, sortie').order('id').range(de, a))
+    pilotage().from('equipe').select('*').order('id').range(de, a))
   const r: Record<string, Personne[]> = {}
   for (const l of lignes) (r[l.store_name] ??= []).push(versPersonne(l))
   return r
@@ -334,6 +336,7 @@ export async function enregistrerPersonne(magasin: string, p: Personne) {
   const ligne = {
     store_name: magasin, poste: p.poste.trim(), categorie: p.categorie, heures_hebdo: p.heuresHebdo, brut_mensuel: p.brutMensuel, primes: p.primes,
     entree: p.entree ? `${p.entree}-01` : null, sortie: p.sortie ? `${p.sortie}-01` : null,
+    heures_saisie: p.heuresSaisie ?? 'semaine', enveloppe: !!p.enveloppe,   // lot 26, migration 0015
   }
   if (p.id) verifier(await pilotage().from('equipe').update(ligne).eq('id', p.id))
   else verifier(await pilotage().from('equipe').insert(ligne))
@@ -540,6 +543,23 @@ export async function envoyerMessage(magasin: string, annee: number, sujet: Suje
 }
 export async function retirerMessage(id: number) {
   verifier(await pilotage().from('echanges_budget').delete().eq('id', id))
+}
+
+// Versions nommées du budget (lot 26) : enregistrées sans toucher au budget en cours, comparées côte à côte
+export interface VersionNommee { id: number; nom: string; base: Hypotheses; ajustements: Cibles; auteur: string | null; auteurRole: Role | null; auteurNom: string | null; creeLe: string }
+export async function chargerVersionsNommees(magasin: string, annee: number): Promise<VersionNommee[]> {
+  const { data, error } = await pilotage().from('versions_nommees').select('id, nom, base, ajustements, auteur, auteur_role, auteur_nom, cree_le')
+    .eq('store_name', magasin).eq('annee', annee).order('cree_le')
+  if (error) throw new ErreurChargement()
+  return (data as { id: number; nom: string; base: unknown; ajustements: Cibles | null; auteur: string | null; auteur_role: Role | null; auteur_nom: string | null; cree_le: string }[])
+    .filter((x) => hypothesesValides(x.base))
+    .map((x) => ({ id: x.id, nom: x.nom, base: x.base as Hypotheses, ajustements: x.ajustements ?? {}, auteur: x.auteur, auteurRole: x.auteur_role, auteurNom: x.auteur_nom, creeLe: x.cree_le }))
+}
+export async function enregistrerVersionNommee(magasin: string, annee: number, nom: string, base: Hypotheses, ajustements: Cibles) {
+  verifier(await pilotage().from('versions_nommees').insert({ store_name: magasin, annee, nom: nom.trim(), base, ajustements }))
+}
+export async function retirerVersionNommee(id: number) {
+  verifier(await pilotage().from('versions_nommees').delete().eq('id', id))
 }
 
 // Plan d'action (lot 21) : auteur posé par la base ; le franchisé ne change que le statut

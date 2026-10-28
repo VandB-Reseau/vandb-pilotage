@@ -5,6 +5,23 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 26 — Équipe, réel, atterrissage, quadrimestres, versions du budget
+
+- **Base : `0015_versions_et_equipe.sql`** (colonnes `heures_saisie` et `enveloppe` de `equipe`, table
+  `versions_nommees`). À passer avant d'enregistrer un poste : l'app envoie ces deux colonnes.
+- Équipe : « Primes d'équipe » sans salarié (montants par mois, chargés au taux de la catégorie, sans réduction
+  générale) ; heures saisies par semaine ou par mois (52 semaines sur 12 mois) ; productivité (CA HT par heure
+  travaillée) dans les chiffres de la masse salariale.
+- Réel : tableau présenté comme le compte de résultat (univers en tête, familles en retrait, totaux du CA et de la
+  marge théorique, tickets et panier).
+- Atterrissage : « D'où vient ce chiffre ? » sur le CA atterri (réalisé, puis rythme ou part de l'année réalisée par
+  univers). Réalisé compté depuis le mois d'ouverture ; saisonnalité du magasin seulement si l'an dernier est complet ;
+  magasin de moins de 18 mois : mois restants au rythme des 4 derniers mois, répartis selon la saisonnalité du réseau.
+- Quadrimestres : carte « Cumul à fin … : budget et N-1 » : réel, budget, écart, même période de l'an passé et
+  évolution, ligne par ligne (CA, marge réelle, charges externes, impôts et taxes, personnel, EBE).
+- Budget, carte « Versions » : enregistrer une version nommée (Directeur ou franchisé), la comparer au budget en cours
+  (jusqu'à 4 côte à côte), reprendre ses hypothèses, la retirer (Directeur ou auteur). L'onglet « Et si » est retiré.
+
 ### Lot 25 — Prise en main : recherche, aide, calcul détaillé
 
 - Recherche d'un magasin dans la barre du haut, sur tous les écrans : sans accent ni tiret, les 5 derniers magasins

@@ -108,3 +108,36 @@ test('atterrissage sans N-1 : part saisie par univers, sinon saisonnalité médi
   // Sans part ni réseau : la moyenne, comme avant
   expect(baseDepuisReel(sansN1, 2026)!.methodes).toEqual({ cave: 'moyenne', bar: 'moyenne', exterieur: 'moyenne' })
 })
+
+// Lot 26 : jeunes magasins. Saisonnalité du réseau : 7,5 % par mois de janvier à août, 10 % de septembre à décembre.
+const reseau = [...Array(8).fill(0.075), ...Array(4).fill(0.1)]
+const cave = (ca: Record<number, number>): LigneReel[] => Object.entries(ca).map(([mois, caHT]) => ({ mois: Number(mois), univers: 'cave' as const, famille: 'Bière', caHT, caTTC: null, margeHT: caHT * 0.4 }))
+
+test('magasin ouvert en mars : rien avant l’ouverture, mois restants au rythme de mai à août', () => {
+  // Mars 5 000 (mois d'ouverture, partiel), avril 10 000, mai 12 000, juin 14 000, juillet 16 000, août 18 000 : 75 000
+  const reel = { n: { lignes: cave({ 3: 5_000, 4: 10_000, 5: 12_000, 6: 14_000, 7: 16_000, 8: 18_000 }), tickets: [] }, n1: { lignes: [], tickets: [] } }
+  const r = baseDepuisReel(reel, 2026, [], undefined, { saisonnaliteReseau: reseau, ouverture: { annee: 2026, mois: 3 } })!
+  expect(r.methodes.cave).toBe('rythme')
+  expect(r.debut).toBe(3)
+  // 6 mois d'activité : rythme de mai à août (60 000 pour 30 % de l'année), soit 80 000 pour les 40 % restants
+  expect(r.rythmes?.cave).toEqual({ de: 5, a: 8, ca: 60_000 })
+  proche(r.parMois.reduce((a, x) => a + x.ca, 0), 155_000)
+  proche(r.parMois[8].ca, 20_000)
+  proche(r.base.partRealisee!.cave!, 75_000 / 155_000)
+  proche(calculerBudget(r.base, parametresParDefaut).ca, 155_000)
+  // Sans date d'ouverture : janvier et février comptés à zéro, 75 000 / 60 % = 125 000 (sous-estimé)
+  proche(baseDepuisReel(reel, 2026, [], undefined, { saisonnaliteReseau: reseau })!.parMois.reduce((a, x) => a + x.ca, 0), 125_000)
+})
+
+test('ouvert en février de l’an passé : saisonnalité du réseau, pas celle d’une première année incomplète', () => {
+  // 2025 de février à décembre, montée en charge : 2 000 puis + 1 000 par mois
+  const n1Lancement = cave(Object.fromEntries(Array.from({ length: 11 }, (_, i) => [i + 2, 2_000 + 1_000 * i])))
+  const n = cave(Object.fromEntries(Array.from({ length: 8 }, (_, i) => [i + 1, 15_000])))   // 120 000 de janvier à août
+  // 19 mois d'activité à fin août : plus de montée en charge ; 2025 sans janvier : réseau, 120 000 / 60 % = 200 000
+  const r = baseDepuisReel({ n: { lignes: n, tickets: [] }, n1: { lignes: n1Lancement, tickets: [] } }, 2026, [], undefined, { saisonnaliteReseau: reseau, ouverture: { annee: 2025, mois: 2 } })!
+  expect(r.methodes.cave).toBe('reseau')
+  proche(r.parMois.reduce((a, x) => a + x.ca, 0), 200_000)
+  // Même magasin ouvert en janvier 2025 : 2025 complète, sa propre saisonnalité sert
+  const complet = cave(Object.fromEntries(Array.from({ length: 12 }, (_, i) => [i + 1, 10_000])))
+  expect(baseDepuisReel({ n: { lignes: n, tickets: [] }, n1: { lignes: complet, tickets: [] } }, 2026, [], undefined, { saisonnaliteReseau: reseau, ouverture: { annee: 2025, mois: 1 } })!.methodes.cave).toBe('magasin')
+})

@@ -17,26 +17,39 @@ import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import TextField from '@mui/material/TextField'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import AddOutlined from '@mui/icons-material/AddOutlined'
 import DeleteOutlined from '@mui/icons-material/DeleteOutlined'
 import EditOutlined from '@mui/icons-material/EditOutlined'
 import PersonAddAltOutlined from '@mui/icons-material/PersonAddAltOutlined'
+import RedeemOutlined from '@mui/icons-material/RedeemOutlined'
 import { ChampNombre } from './ChampNombre'
 import { EtatVide } from './EtatVide'
 import { useSaisieEnCours } from './GardeSaisie'
 import { Indicateur } from './Indicateur'
 import { enregistrerPersonne, supprimerPersonne } from '../data/pilotage'
 import { milliers, montant, MOIS_LONGS, taux } from '../lib/format'
-import { CATEGORIES, categorieLibelle, masseSalariale, type ParametresCharges, type Personne } from '../moteur/equipe'
-import { champsDepuisPersonne, lirePersonne, nouvellePersonne, type ChampsPersonne } from '../moteur/saisieEquipe'
+import { CATEGORIES, categorieLibelle, masseSalariale, SEMAINES_PAR_MOIS, type ParametresCharges, type Personne } from '../moteur/equipe'
+import { champsDepuisPersonne, lirePersonne, nouvellePersonne, nouvellesPrimesEquipe, type ChampsPersonne } from '../moteur/saisieEquipe'
+import { nombre } from '../import/caisse'
 
 const nombreEtp = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 })
 const heures = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 })
 const select = { minWidth: 200, '& .MuiSelect-select': { minHeight: 48, boxSizing: 'border-box', display: 'flex', alignItems: 'center' }, '& .MuiSelect-nativeInput': { height: 48 } }
 
+// Valeur saisie convertie quand on change d'unité : 35 h par semaine ↔ 151,67 h par mois
+function convertir(texte: string, vers: 'semaine' | 'mois'): string {
+  const v = nombre(texte)
+  if (v === null || Number.isNaN(v)) return texte
+  const r = vers === 'mois' ? v * SEMAINES_PAR_MOIS : v / SEMAINES_PAR_MOIS
+  return String(Math.round(r * 100) / 100).replace('.', ',')
+}
+
 const nomMois = (m: string) => `${MOIS_LONGS[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`
 function presence(p: Personne): string {
+  if (p.enveloppe) return 'Sans salarié'
   if (p.entree && p.sortie) return `De ${nomMois(p.entree)} à ${nomMois(p.sortie)}`
   if (p.entree) return `Depuis ${nomMois(p.entree)}`
   if (p.sortie) return `Jusqu’à ${nomMois(p.sortie)}`
@@ -44,7 +57,10 @@ function presence(p: Personne): string {
 }
 
 // Équipe d'un magasin : une ligne par poste, coût chargé de l'année en cours et de l'année budgétée
-export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, charges, chargesBudget, peutSaisir, apresEnregistrement }: {
+const parHeure = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
+const heuresDe = (p: Personne) => (p.enveloppe ? '–' : p.heuresSaisie === 'mois' ? `${heures.format(p.heuresHebdo * SEMAINES_PAR_MOIS)} h par mois` : `${heures.format(p.heuresHebdo)} h par semaine`)
+
+export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, charges, chargesBudget, peutSaisir, apresEnregistrement, caAnnee, caBudget }: {
   magasin: string
   equipe: Personne[]
   annee: number
@@ -54,6 +70,8 @@ export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, cha
   chargesBudget: ParametresCharges
   peutSaisir: boolean
   apresEnregistrement: () => void
+  caAnnee?: number     // CA HT atterri de l'année en cours, pour la productivité
+  caBudget?: number    // CA HT du budget
 }) {
   const [fiche, setFiche] = useState<ChampsPersonne | null>(null)
   const [erreurs, setErreurs] = useState<string[]>([])
@@ -88,7 +106,7 @@ export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, cha
     setErreurs(lu.erreurs)
     if (!lu.personne) return
     const p = lu.personne
-    if (await agir(() => enregistrerPersonne(magasin, p), `${p.poste} enregistré dans l’équipe.`)) setFiche(null)
+    if (await agir(() => enregistrerPersonne(magasin, p), p.enveloppe ? `${p.poste} : primes enregistrées dans l’équipe.` : `${p.poste} enregistré dans l’équipe.`)) setFiche(null)
     else setErreurs(['L’enregistrement n’a pas abouti. Vérifie ta connexion, puis réessaie.'])
   }
   const retirer = async (p: Personne) => {
@@ -101,7 +119,7 @@ export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, cha
   // Fiche d'un poste dans la page, sans fenêtre : sous la ligne modifiée, ou en bas du tableau pour un nouveau poste
   const formulaire = fiche && (
     <Box component="section" aria-labelledby="titre-poste" sx={{ p: { xs: 2, md: 2.5 }, bgcolor: 'background.default', borderRadius: 2 }}>
-      <Typography variant="h3" component="h3" id="titre-poste" sx={{ mb: 2 }}>{fiche.id ? `Modifier ${fiche.poste}` : 'Nouveau poste'}</Typography>
+      <Typography variant="h3" component="h3" id="titre-poste" sx={{ mb: 2 }}>{fiche.id ? `Modifier ${fiche.poste}` : fiche.enveloppe ? 'Primes d’équipe' : 'Nouveau poste'}</Typography>
       {erreurs.length > 0 && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {erreurs.length === 1 ? erreurs[0] : <Box component="ul" sx={{ m: 0, pl: 2.5 }}>{erreurs.map((t) => <li key={t}>{t}</li>)}</Box>}
@@ -109,20 +127,31 @@ export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, cha
       )}
       <Stack spacing={2.5}>
         <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <TextField label="Poste" value={fiche.poste} onChange={(e) => changer({ poste: e.target.value })} slotProps={{ htmlInput: { maxLength: 80 } }} sx={{ minWidth: 200, bgcolor: 'background.paper' }} />
-          <TextField select label="Catégorie" value={fiche.categorie} onChange={(e) => changer({ categorie: e.target.value as ChampsPersonne['categorie'] })} sx={{ ...select, bgcolor: 'background.paper' }}>
+          <TextField label={fiche.enveloppe ? 'Nom' : 'Poste'} value={fiche.poste} onChange={(e) => changer({ poste: e.target.value })} slotProps={{ htmlInput: { maxLength: 80 } }} sx={{ minWidth: 200, bgcolor: 'background.paper' }} />
+          <TextField select label={fiche.enveloppe ? 'Catégorie des bénéficiaires' : 'Catégorie'} value={fiche.categorie} onChange={(e) => changer({ categorie: e.target.value as ChampsPersonne['categorie'] })} sx={{ ...select, bgcolor: 'background.paper' }}>
             {CATEGORIES.map((c) => <MenuItem key={c} value={c} sx={{ minHeight: 48 }}>{categorieLibelle[c]}</MenuItem>)}
           </TextField>
-          <Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>Heures par semaine</Typography>
-            <ChampNombre libelle="Heures par semaine" valeur={fiche.heuresHebdo} unite="h" largeur={140} onChange={(v) => changer({ heuresHebdo: v })} />
-          </Box>
-          <Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>{fiche.categorie === 'gerant_tns' ? 'Rémunération mensuelle' : 'Brut mensuel'}</Typography>
-            <ChampNombre libelle={fiche.categorie === 'gerant_tns' ? 'Rémunération mensuelle' : 'Brut mensuel'} valeur={fiche.brutMensuel} largeur={180} onChange={(v) => changer({ brutMensuel: v })} />
-          </Box>
+          {!fiche.enveloppe && (
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                <Typography variant="body2" color="text.secondary">Heures</Typography>
+                <ToggleButtonGroup exclusive size="small" value={fiche.heuresSaisie} aria-label="Heures saisies"
+                  onChange={(_, u: 'semaine' | 'mois' | null) => u && u !== fiche.heuresSaisie && changer({ heuresSaisie: u, heures: convertir(fiche.heures, u) })}>
+                  <ToggleButton value="semaine" sx={{ minHeight: { xs: 48, md: 32 }, px: 1.25 }}>Par semaine</ToggleButton>
+                  <ToggleButton value="mois" sx={{ minHeight: { xs: 48, md: 32 }, px: 1.25 }}>Par mois</ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
+              <ChampNombre libelle={fiche.heuresSaisie === 'mois' ? 'Heures par mois' : 'Heures par semaine'} valeur={fiche.heures} unite="h" largeur={140} onChange={(v) => changer({ heures: v })} />
+            </Box>
+          )}
+          {!fiche.enveloppe && (
+            <Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>{fiche.categorie === 'gerant_tns' ? 'Rémunération mensuelle' : 'Brut mensuel'}</Typography>
+              <ChampNombre libelle={fiche.categorie === 'gerant_tns' ? 'Rémunération mensuelle' : 'Brut mensuel'} valeur={fiche.brutMensuel} largeur={180} onChange={(v) => changer({ brutMensuel: v })} />
+            </Box>
+          )}
         </Stack>
-        <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap' }}>
+        {!fiche.enveloppe && <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap' }}>
           <TextField select label="Arrivée" slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }} value={fiche.entree} onChange={(e) => changer({ entree: e.target.value })} sx={{ ...select, bgcolor: 'background.paper' }}>
             <MenuItem value="" sx={{ minHeight: 48 }}>Déjà dans l’équipe</MenuItem>
             {moisPossibles.map((m) => <MenuItem key={m} value={m} sx={{ minHeight: 48 }}>{nomMois(m)}</MenuItem>)}
@@ -131,9 +160,9 @@ export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, cha
             <MenuItem value="" sx={{ minHeight: 48 }}>Pas de départ prévu</MenuItem>
             {moisPossibles.map((m) => <MenuItem key={m} value={m} sx={{ minHeight: 48 }}>{nomMois(m)}</MenuItem>)}
           </TextField>
-        </Stack>
+        </Stack>}
         <Box>
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>Primes annuelles</Typography>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>{fiche.enveloppe ? 'Primes versées à l’équipe' : 'Primes annuelles'}</Typography>
           <Stack spacing={1.5}>
             {fiche.primes.map((x, i) => (
               <Box key={i} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -165,10 +194,19 @@ export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, cha
   )
 
   const boutonAjout = peutSaisir && (
-    <Button variant={equipe.length ? 'outlined' : 'contained'} startIcon={<PersonAddAltOutlined />} sx={{ minHeight: 48 }} onClick={() => ouvrir(nouvellePersonne(equipe))}>
-      Ajouter un poste
-    </Button>
+    <Stack direction="row" useFlexGap spacing={1.5} sx={{ flexWrap: 'wrap' }}>
+      <Button variant={equipe.length ? 'outlined' : 'contained'} startIcon={<PersonAddAltOutlined />} sx={{ minHeight: 48 }} onClick={() => ouvrir(nouvellePersonne(equipe))}>
+        Ajouter un poste
+      </Button>
+      <Button variant="outlined" startIcon={<RedeemOutlined />} sx={{ minHeight: 48 }} onClick={() => ouvrir(nouvellesPrimesEquipe())}>
+        Primes d’équipe
+      </Button>
+    </Stack>
   )
+  // Productivité : CA HT par heure travaillée sur l'année
+  const heuresAn = (m: ReturnType<typeof masseSalariale>) => m.parMois.reduce((a, x) => a + x.heures, 0)
+  const productivite = (ca: number | undefined, m: ReturnType<typeof masseSalariale>) => (ca && heuresAn(m) > 0 ? ca / heuresAn(m) : null)
+  const prodN = productivite(caAnnee, n), prodN1 = productivite(caBudget, n1)
 
   return (
     <Stack spacing={3}>
@@ -189,6 +227,10 @@ export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, cha
             <Indicateur libelle={`Masse salariale chargée ${anneeBudget}`} valeur={milliers(n1.cout)} detail={`Hausse des salaires : ${taux(hausse)}`} />
             <Indicateur libelle="Équivalents temps plein" valeur={nombreEtp.format(n.etp)} detail={`${equipe.length} poste${equipe.length > 1 ? 's' : ''}`} />
             <Indicateur libelle="Charges patronales" valeur={taux(n.tauxEffectif)} detail={`Réduction générale : ${milliers(n.reduction)}`} />
+            {(prodN1 !== null || prodN !== null) && (
+              <Indicateur libelle={`Productivité ${prodN1 !== null ? anneeBudget : annee}`} valeur={`${parHeure.format((prodN1 ?? prodN)!)} par heure`}
+                detail={`CA HT par heure travaillée${prodN1 !== null && prodN !== null ? ` · ${annee} : ${parHeure.format(prodN)}` : ''} · ${heures.format(heuresAn(prodN1 !== null ? n1 : n))} h`} />
+            )}
           </Stack>
           {boutonAjout && <Box>{boutonAjout}</Box>}
 
@@ -200,7 +242,7 @@ export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, cha
                   <TableRow>
                     <TableCell>Poste</TableCell>
                     <TableCell>Catégorie</TableCell>
-                    <TableCell align="right">Heures par semaine</TableCell>
+                    <TableCell align="right">Heures</TableCell>
                     <TableCell align="right">Brut mensuel</TableCell>
                     <TableCell align="right">Primes</TableCell>
                     <TableCell>Présence</TableCell>
@@ -218,8 +260,8 @@ export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, cha
                       <TableRow key={p.id ?? i}>
                         <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 600 }}>{p.poste}</TableCell>
                         <TableCell sx={{ whiteSpace: 'nowrap' }}>{categorieLibelle[p.categorie]}</TableCell>
-                        <TableCell align="right">{heures.format(p.heuresHebdo)}</TableCell>
-                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{montant(p.brutMensuel)}</TableCell>
+                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{heuresDe(p)}</TableCell>
+                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{p.enveloppe ? '–' : montant(p.brutMensuel)}</TableCell>
                         <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{primes ? montant(primes) : ''}</TableCell>
                         <TableCell sx={{ whiteSpace: 'nowrap' }}>{presence(p)}</TableCell>
                         <TableCell align="right">{taux(x.tauxEffectif)}</TableCell>

@@ -42,7 +42,7 @@ INSERT INTO pilotage.reel_mensuel (store_name, mois, univers, famille, ca_ht) VA
 SELECT pg_temp.attendre('Directeur : tous les magasins', (SELECT cardinality(pilotage.mes_magasins())), 3);
 SELECT pg_temp.attendre('Directeur : tous les budgets', (SELECT count(*) FROM pilotage.budgets), 3);
 SELECT pg_temp.attendre('Directeur : tableau des magasins', (SELECT jsonb_array_length(pilotage.magasins_du_compte(2027))), 3);
-SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 14);
+SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 15);
 -- Frais : le Directeur saisit partout
 INSERT INTO pilotage.frais (store_name, code, libelle, rubrique, annuel) VALUES ('Lille', 'loyer', 'Locations immobilières', 'immobilier', 60000), ('Nice', 'loyer', 'Locations immobilières', 'immobilier', 40000);
 SELECT pg_temp.attendre('Directeur : tous les frais', (SELECT count(*) FROM pilotage.frais), 2);
@@ -118,6 +118,15 @@ SELECT pg_temp.attendre('Directeur : modifie les paramètres', (SELECT count(*) 
 INSERT INTO pilotage.ouvertures (store_name, ouverture) VALUES ('Lille', '2024-03-01'), ('Nice', '2025-11-01') ON CONFLICT (store_name) DO UPDATE SET ouverture = EXCLUDED.ouverture;
 SELECT pg_temp.attendre('Directeur : toutes les dates d''ouverture', (SELECT count(*) FROM pilotage.ouvertures), 2);
 SELECT pg_temp.attendre('Ouvertures : un autre jour que le 1er est refusé', pg_temp.refuse('INSERT INTO pilotage.ouvertures (store_name, ouverture) VALUES (''Arras'', ''2025-05-12'')'), 1);
+-- Versions nommées (lot 26) : le Directeur en enregistre partout, auteur posé par la base
+INSERT INTO pilotage.versions_nommees (store_name, annee, nom, base, ajustements, auteur_role) VALUES
+  ('Lille', 2027, ' Prudente ', '{"v":1}', '{}', 'franchise'), ('Nice', 2027, 'Ambitieuse', '{"v":1}', '{"hausseSalaires":0.02}', NULL);
+SELECT pg_temp.attendre('Directeur : versions nommées à son rôle, nom nettoyé', (SELECT count(*) FROM pilotage.versions_nommees WHERE auteur_role = 'directeur' AND nom IN ('Prudente', 'Ambitieuse')), 2);
+SELECT pg_temp.attendre('Versions nommées : nom vide refusé', pg_temp.refuse('INSERT INTO pilotage.versions_nommees (store_name, annee, nom, base) VALUES (''Lille'', 2027, ''  '', ''{}'')'), 1);
+-- Équipe : heures au mois et primes d'équipe (lot 26)
+INSERT INTO pilotage.equipe (store_name, poste, categorie, heures_hebdo, brut_mensuel, primes, heures_saisie, enveloppe) VALUES
+  ('Lille', 'Primes d''équipe', 'employe', 0, 0, '[{"mois":12,"montant":2000}]', 'semaine', true);
+SELECT pg_temp.attendre('Équipe : unité d''heures inconnue refusée', pg_temp.refuse('INSERT INTO pilotage.equipe (store_name, poste, categorie, heures_hebdo, brut_mensuel, heures_saisie) VALUES (''Lille'', ''X'', ''employe'', 35, 1, ''jour'')'), 1);
 
 -- ── Coach : lit les budgets et le réel de ses magasins, n'écrit rien
 SET request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
@@ -185,6 +194,10 @@ SELECT pg_temp.attendre('Coach : date d''ouverture de ses magasins seulement', (
 SELECT pg_temp.attendre('Coach : ne change pas une date d''ouverture', pg_temp.refuse('INSERT INTO pilotage.ouvertures (store_name, ouverture) VALUES (''Arras'', ''2025-05-01'')'), 1);
 WITH m AS (UPDATE pilotage.ouvertures SET ouverture = '2020-01-01' RETURNING 1)
 SELECT pg_temp.attendre('Coach : ne modifie pas la date de son magasin', (SELECT count(*) FROM m), 0);
+SELECT pg_temp.attendre('Coach : versions nommées de ses magasins seulement', (SELECT count(*) FROM pilotage.versions_nommees), 1);
+SELECT pg_temp.attendre('Coach : n''enregistre pas de version nommée', pg_temp.refuse('INSERT INTO pilotage.versions_nommees (store_name, annee, nom, base) VALUES (''Lille'', 2027, ''Coach'', ''{}'')'), 1);
+WITH m AS (DELETE FROM pilotage.versions_nommees RETURNING 1)
+SELECT pg_temp.attendre('Coach : ne retire pas de version nommée', (SELECT count(*) FROM m), 0);
 
 -- ── RR : les magasins qu'il suit
 SET request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000e';
@@ -264,6 +277,14 @@ SELECT pg_temp.attendre('Franchisé : date d''ouverture de son magasin', (SELECT
 SELECT pg_temp.attendre('Franchisé : pas d''autre date d''ouverture', (SELECT count(*) FROM pilotage.ouvertures WHERE store_name <> 'Lille'), 0);
 WITH m AS (DELETE FROM pilotage.ouvertures RETURNING 1)
 SELECT pg_temp.attendre('Franchisé : ne retire pas sa date d''ouverture', (SELECT count(*) FROM m), 0);
+SELECT pg_temp.attendre('Franchisé : versions nommées de son magasin seulement', (SELECT count(*) FROM pilotage.versions_nommees WHERE store_name <> 'Lille'), 0);
+INSERT INTO pilotage.versions_nommees (store_name, annee, nom, base) VALUES ('Lille', 2027, 'Avec un vendeur de plus', '{"v":1}');
+SELECT pg_temp.attendre('Franchisé : sa version nommée à son nom', (SELECT count(*) FROM pilotage.versions_nommees WHERE auteur_role = 'franchise' AND auteur_nom = 'Franchisé Test'), 1);
+SELECT pg_temp.attendre('Franchisé : pas de version nommée sur un autre magasin', pg_temp.refuse('INSERT INTO pilotage.versions_nommees (store_name, annee, nom, base) VALUES (''Nice'', 2027, ''x'', ''{}'')'), 1);
+WITH m AS (DELETE FROM pilotage.versions_nommees WHERE auteur_role = 'directeur' RETURNING 1)
+SELECT pg_temp.attendre('Franchisé : ne retire pas la version du Directeur', (SELECT count(*) FROM m), 0);
+WITH m AS (DELETE FROM pilotage.versions_nommees WHERE auteur_role = 'franchise' RETURNING 1)
+SELECT pg_temp.attendre('Franchisé : retire sa propre version', (SELECT count(*) FROM m), 1);
 
 -- ── Directeur : valide ; le budget validé est figé pour le franchisé
 SET request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
@@ -286,6 +307,8 @@ SELECT pg_temp.attendre('Sans rôle : aucun quadrimestre', (SELECT count(*) FROM
 SELECT pg_temp.attendre('Sans rôle : aucun échange ni version', (SELECT count(*) FROM pilotage.echanges_budget) + (SELECT count(*) FROM pilotage.versions_budget), 0);
 SELECT pg_temp.attendre('Sans rôle : aucune action', (SELECT count(*) FROM pilotage.actions), 0);
 SELECT pg_temp.attendre('Sans rôle : aucune date d''ouverture', (SELECT count(*) FROM pilotage.ouvertures), 0);
+SELECT pg_temp.attendre('Sans rôle : aucune version nommée', (SELECT count(*) FROM pilotage.versions_nommees), 0);
+SELECT pg_temp.attendre('Sans rôle : n''enregistre pas de version nommée', pg_temp.refuse('INSERT INTO pilotage.versions_nommees (store_name, annee, nom, base) VALUES (''Lille'', 2027, ''x'', ''{}'')'), 1);
 SELECT pg_temp.attendre('Sans rôle : n''écrit pas de message', pg_temp.refuse('INSERT INTO pilotage.echanges_budget (store_name, annee, texte) VALUES (''Lille'', 2027, ''x'')'), 1);
 SELECT pg_temp.attendre('Sans rôle : ne saisit pas de quadrimestre', pg_temp.refuse('INSERT INTO pilotage.quadrimestres (store_name, annee, quadrimestre) VALUES (''Lille'', 2026, 3)'), 1);
 SELECT pg_temp.attendre('Sans rôle : aucune équipe', (SELECT count(*) FROM pilotage.equipe), 0);
@@ -308,6 +331,7 @@ SELECT pg_temp.attendre('Visiteur : aucun accès aux échanges', pg_temp.refuse(
 SELECT pg_temp.attendre('Visiteur : aucun accès aux versions', pg_temp.refuse('SELECT count(*) FROM pilotage.versions_budget'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès aux actions', pg_temp.refuse('SELECT count(*) FROM pilotage.actions'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès aux dates d''ouverture', pg_temp.refuse('SELECT count(*) FROM pilotage.ouvertures'), 1);
+SELECT pg_temp.attendre('Visiteur : aucun accès aux versions nommées', pg_temp.refuse('SELECT count(*) FROM pilotage.versions_nommees'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès à l''équipe', pg_temp.refuse('SELECT count(*) FROM pilotage.equipe'), 1);
 SELECT pg_temp.attendre('Visiteur : pas de réel du compte', pg_temp.refuse('SELECT pilotage.reel_du_compte(2026)'), 1);
 SELECT pg_temp.attendre('Visiteur : pas d''import de réel', pg_temp.refuse('SELECT pilotage.remplacer_reel(''[]'', ''[]'')'), 1);
