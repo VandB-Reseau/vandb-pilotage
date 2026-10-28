@@ -17,6 +17,7 @@ import { ecartTaux, milliers, MOIS_LONGS } from '../lib/format'
 import type { Cibles } from '../moteur/cibles'
 import { trancheLibelle, trancheMillesime, type Ouverture } from '../moteur/projection'
 import { universLibelle, type Budget, type RythmeSortie, type UniversTickets } from '../moteur/types'
+import { Aide } from './Aide'
 
 const STATUT: Record<RythmeSortie['statut'], string> = { applique: 'Rythme de sortie retenu', a_confirmer: 'Écart de plus de 15 % : à confirmer', ignore: 'Atterrissage gardé' }
 const enMois = (o: Ouverture | undefined) => (o ? `${o.annee}-${String(o.mois).padStart(2, '0')}` : '')
@@ -65,7 +66,7 @@ export function BaseCAMagasin({ magasin, budget, annee, ouverture, rythme, onRyt
   return (
     <Card component="section" aria-label="Base du CA">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2.5, pt: 2, pb: 1 }}>
-        <Typography variant="h2" sx={{ flex: 1 }}>Base du CA</Typography>
+        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}><Typography variant="h2">Base du CA</Typography><Aide sujet="base" /></Box>
         <Typography variant="body2" color="text.secondary">
           {ouverture ? `Ouvert en ${MOIS_LONGS[ouverture.mois - 1]} ${ouverture.annee} · ${trancheLibelle[tranche!]} en ${annee}` : 'Date d’ouverture à renseigner'}
         </Typography>

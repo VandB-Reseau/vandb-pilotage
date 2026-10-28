@@ -19,7 +19,7 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import useMediaQuery from '@mui/material/useMediaQuery'
 import { useTheme } from '@mui/material/styles'
-import SearchOutlined from '@mui/icons-material/SearchOutlined'
+import FilterListOutlined from '@mui/icons-material/FilterListOutlined'
 import { useAuth } from '../auth/AuthContext'
 import { AlertesMagasins } from '../components/AlertesMagasins'
 import { EtatVide } from '../components/EtatVide'
@@ -108,8 +108,8 @@ export function Magasins() {
             <Stack direction="row" spacing={2} useFlexGap sx={{ mb: 2, flexWrap: 'wrap' }}>
               {tous.length > 5 && (
                 <TextField
-                  size="small" value={recherche} onChange={(e) => changer('q', e.target.value)} placeholder="Rechercher un magasin"
-                  slotProps={{ htmlInput: { 'aria-label': 'Rechercher un magasin' }, input: { startAdornment: <InputAdornment position="start"><SearchOutlined /></InputAdornment> } }}
+                  size="small" value={recherche} onChange={(e) => changer('q', e.target.value)} placeholder="Filtrer la liste"
+                  slotProps={{ htmlInput: { 'aria-label': 'Filtrer la liste des magasins' }, input: { startAdornment: <InputAdornment position="start"><FilterListOutlined /></InputAdornment> } }}
                   sx={{ width: { xs: '100%', sm: 320 }, '& input': { height: 48, boxSizing: 'border-box', py: 0 } }}
                 />
               )}

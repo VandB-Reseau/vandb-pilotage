@@ -1,6 +1,6 @@
 import { masseSalariale } from './equipe'
 import { SEUIL_RYTHME } from './projection'
-import { UNIVERS, type Budget, type Hypotheses, type Mois, type ParametresReseau, type ResultatFamille, type RythmeSortie, type TempsFort, type Travaux, type Univers } from './types'
+import { UNIVERS, type Budget, type DetailCAUnivers, type Hypotheses, type Mois, type ParametresReseau, type ResultatFamille, type RythmeSortie, type TempsFort, type Travaux, type Univers } from './types'
 
 // Moteur du budget annuel d'un magasin. Fonction pure : le même calcul sert à l'écran, au simulateur et aux tests.
 // Il corrige les biais du prévisionnel Excel 2027 (constats du 26/10/2026) :
@@ -138,6 +138,19 @@ export function calculerBudget(h: Hypotheses, p: ParametresReseau): Budget {
     return { tf, adj }
   })])) as Record<Univers, { tf: number; adj: number }[]>
 
+  const detailCA = Object.fromEntries(UNIVERS.map((u) => {
+    const depart = atterriU(u) * facteur[u]
+    const fl = flux[u as 'cave' | 'bar']
+    const tf = somme(ajout[u].map((x) => x.tf)), adj = somme(ajout[u].map((x) => x.adj))
+    const d: DetailCAUnivers = {
+      atterri: atterriU(u), horsTempsForts: horsTempsForts[u], base: depart, rythme: sortie[u as 'cave' | 'bar']?.statut === 'applique',
+      ...(fl?.parTickets ? { tickets: fl.evolution, panier: fl.evolutionPanier } : {}),
+      evolution: fl?.parTickets || !(depart * ouverture > 0) ? 0 : base[u] / (depart * ouverture) - 1,
+      ouverture, tempsForts: tf, ajustements: adj, ca: base[u] + tf + adj,
+    }
+    return [u, d]
+  })) as Record<Univers, DetailCAUnivers>
+
   const tauxDe = (f: { margeCible: number; demarque?: number }) => f.margeCible - (f.demarque ?? 0)
   const margeAvant = somme(h.familles.map((f, i) => objectifs[i] * tauxDe(f)))
   const tauxAvant = ratio(margeAvant, somme(objectifs))
@@ -213,6 +226,7 @@ export function calculerBudget(h: Hypotheses, p: ParametresReseau): Budget {
     ratios: { personnelSurMarge: ratio(personnel, marge), personnelSurCA: ratio(personnel, ca), ebeSurCA: ratio(ebe, ca) },
     flux,
     sortie,
+    detailCA,
     tempsForts: {
       retire: somme(UNIVERS.map((u) => passes(u))),
       ajoute: somme(tempsForts.map((t) => t.ca || 0)),

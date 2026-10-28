@@ -142,6 +142,16 @@ export interface Budget {
   sortie?: Partial<Record<UniversTickets, RythmeSortie>>
   tempsForts?: { retire: number; ajoute: number; charges: number; ajustements: number }
   paiementsTempsForts?: { mois: number; vente: number; univers: Univers; montant: number }[] // achats HT, mois de 0 à 11
+  detailCA?: Record<Univers, DetailCAUnivers>
+}
+// Étapes du CA d'un univers, pour « D'où vient ce chiffre ? » (lot 25) :
+// atterri → hors temps forts passés → base (rythme de sortie s'il est retenu) × évolutions × ouverture + temps forts + ajustements
+export interface DetailCAUnivers {
+  atterri: number; horsTempsForts: number; base: number; rythme: boolean
+  tickets?: number; panier?: number   // évolutions, Cave et Bar construits par les tickets
+  evolution: number                   // évolution des familles (sans tickets), 0 sinon
+  ouverture: number                   // part de l'année ouverte (travaux), 1 sans travaux
+  tempsForts: number; ajustements: number; ca: number
 }
 // Base du CA d'un univers : atterrissage hors temps forts passés, rythme de sortie annualisé, écart et ce qui est retenu
 export interface RythmeSortie {

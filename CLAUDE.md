@@ -11,7 +11,8 @@ Supabase (base partagée avec l'app réseau, schéma `pilotage`), Playwright.
 - Français partout dans l'interface. Vocabulaire de l'app réseau : Coach, RR / Responsable Régional, Directeur de réseau,
   magasin, Franchisé. Pas d'abréviation non expliquée, jamais « CS » ni « DR ».
 - Aucun texte sous 12 px, zones tactiles ≥ 48 px sur téléphone (vérifié par les tests). Icônes `@mui/icons-material`, pas d'emojis.
-- Pas de texte d'explication de l'outil dans l'interface. Aucune erreur technique à l'écran : messages humains, états vides
+- Pas de texte d'explication de l'outil affiché d'office : l'aide passe par l'icône (i) (`src/components/Aide.tsx`, textes
+  dans `src/lib/aide.ts`) et ne s'ouvre qu'à la demande (Joseph, 28/10/2026). Aucune erreur technique à l'écran : messages humains, états vides
   qui expliquent et proposent l'action.
 - PC = usage principal (menu latéral, tableaux complets) ; téléphone soigné.
 - Montants HT dans tous les calculs ; le TTC ne sert qu'à la trésorerie et aux paniers saisis. Redevance 2 % et publicité 1 %

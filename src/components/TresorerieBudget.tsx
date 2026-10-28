@@ -14,6 +14,7 @@ import { enChiffres, milliers, montant, MOIS, MOIS_LONGS } from '../lib/format'
 import type { MoisTresorerie, Tresorerie } from '../moteur/tresorerie'
 import { ChampNombre } from './ChampNombre'
 import { Indicateur } from './Indicateur'
+import { Aide } from './Aide'
 
 // Trésorerie du budget mois par mois : encaissements, décaissements (montants TTC, délais de paiement compris), solde
 // « facultative » : ligne masquée quand elle est nulle toute l'année
@@ -56,7 +57,7 @@ export function TresorerieBudget({ tresorerie: t, annee, depart, onDepart, lectu
   return (
     <Card component="section" aria-label={`Trésorerie ${annee}`}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2.5, pt: 2, pb: 1 }}>
-        <Typography variant="h2" sx={{ flex: 1 }}>Trésorerie {annee}</Typography>
+        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}><Typography variant="h2">Trésorerie {annee}</Typography><Aide sujet="tresorerie" /></Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Typography variant="body2" color="text.secondary">Au 1er janvier</Typography>
           <ChampNombre libelle="Trésorerie au 1er janvier" valeur={saisie} onChange={changer} desactive={lectureSeule} largeur={160} />

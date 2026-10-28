@@ -17,6 +17,7 @@ import { ecartMontant, enChiffres, milliers, MOIS } from '../lib/format'
 import type { Travaux } from '../moteur/types'
 import { ChampNombre } from './ChampNombre'
 import { ChampTaux } from './ChampTaux'
+import { Aide } from './Aide'
 
 export const sansTravaux = (): Travaux => ({ activite: Array(12).fill(1), gain: 0, investissement: 0, dureeAmortissement: 5 })
 
@@ -46,7 +47,7 @@ export function TravauxMagasin({ travaux, onChange, lectureSeule, effetCA, dotat
   return (
     <Card component="section" aria-label="Travaux">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2.5, pt: 2, pb: 1 }}>
-        <Typography variant="h2" sx={{ flex: 1 }}>Travaux</Typography>
+        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}><Typography variant="h2">Travaux</Typography><Aide sujet="travaux" /></Box>
         <Typography variant="body2" color="text.secondary">CA de l’année : {ecartMontant(effetCA)} · Dotation : {milliers(dotation)}</Typography>
         {!lectureSeule && (
           <Button size="small" color="inherit" className="pas-a-l-impression" startIcon={<DeleteOutlined />} onClick={() => onChange(undefined)} sx={{ minHeight: 48 }}>Retirer les travaux</Button>

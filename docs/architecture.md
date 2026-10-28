@@ -101,6 +101,10 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
    multiplicateurs. Temps forts et ajustements datés (cibles du magasin) : CA de l'an passé retiré de la base, CA du
    budget ajouté au mois, extras de personnel et autres charges, achats payés au mois saisi (`paiementsAchats`).
    `calageMillesimes` donne la médiane du réseau par ancienneté dans l'écran Hypothèses.
+25. Prise en main : `calculerBudget` garde le détail du CA de chaque univers (`Budget.detailCA`) ; `src/moteur/explication.ts`
+   en tire les étapes du CA, de la marge et de l'EBE (« D'où vient ce chiffre ? », `DetailCalcul`). Aides à la demande
+   (`Aide`, textes dans `src/lib/aide.ts`). Recherche de magasin dans la barre du haut (`RechercheMagasin`, magasins
+   récents dans le stockage du navigateur, sans donnée chiffrée).
 
 ## Rôles
 

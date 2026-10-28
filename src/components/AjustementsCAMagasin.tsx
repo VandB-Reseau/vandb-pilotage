@@ -19,6 +19,7 @@ import { UNIVERS, universLibelle, type AjustementCA } from '../moteur/types'
 import { ChampMontant } from './ChampMontant'
 import { ChampTaux } from './ChampTaux'
 import { ChoixListe } from './ChoixListe'
+import { Aide } from './Aide'
 
 const MOIS_OPTIONS = MOIS_LONGS.map((m, i) => ({ valeur: i + 1, libelle: m.charAt(0).toUpperCase() + m.slice(1) }))
 const sx = { '& td, & th': { px: 0.75, whiteSpace: 'nowrap' }, '& td:first-of-type, & th:first-of-type': { pl: 2.5 } }
@@ -45,7 +46,7 @@ export function AjustementsCAMagasin({ ajustements, onChange, lectureSeule, anne
   return (
     <Card component="section" aria-label="Clients gagnés ou perdus">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2.5, pt: 2, pb: 1 }}>
-        <Typography variant="h2" sx={{ flex: 1 }}>Clients gagnés ou perdus</Typography>
+        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}><Typography variant="h2">Clients gagnés ou perdus</Typography><Aide sujet="ajustements" /></Box>
         <Typography variant="body2" color="text.secondary">CA {annee} : {ecartMontant(effet)}</Typography>
       </Box>
       <TableContainer>

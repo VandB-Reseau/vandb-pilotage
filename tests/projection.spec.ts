@@ -63,7 +63,7 @@ test('sous 15 % le rythme s’applique de lui-même ; un Coach le lit sans pouvo
   await expect(base.getByRole('row', { name: /^Cave/ })).toContainText('Rythme de sortie retenu')
   await expect(page.getByRole('table', { name: 'Budget 2027 mois par mois' }).getByRole('row', { name: /^Chiffre d’affaires HT/ })).toContainText(/620\s000\s€/)
   await expect(base).toContainText('Année 2 en 2027')
-  await expect(base.getByRole('button')).toHaveCount(0)
+  await expect(base.getByRole('button', { name: /rythme/i })).toHaveCount(0)
   await expect(page.getByLabel('Mois d’ouverture du magasin')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Prévoir un temps fort' })).toHaveCount(0)
 })
