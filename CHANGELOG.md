@@ -25,6 +25,13 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
   par défaut). Pas d'alerte de retard tant qu'aucun réel de l'année n'est importé.
 - Pas de migration (seuils dans `parametres_reseau.valeur`).
 
+### Lot 14 — Et si…
+
+- Fiche magasin, onglet « Et si… » : variation du CA, du taux de marge, hausse du loyer, embauche (salaire, heures,
+  catégorie, mois d'arrivée, charges moins la réduction générale). Effet sur la marge, le personnel, l'EBE, le résultat
+  net, la trésorerie de fin d'année et son point bas, face au budget. Rien n'est enregistré.
+- Pas de migration.
+
 ## Lot 11 — Consignes dans la trésorerie (28/10/2026)
 
 - Trésorerie du budget : consignes versées aux fournisseurs avec les achats (fûts, caisses, gaz) et remboursées une

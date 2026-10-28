@@ -34,6 +34,7 @@ import { FraisMagasin } from '../components/FraisMagasin'
 import { useGarde, useSaisieEnCours } from '../components/GardeSaisie'
 import { PastilleStatut } from '../components/PastilleStatut'
 import { AlertesDuMagasin } from '../components/AlertesMagasins'
+import { SimulationMagasin } from '../components/SimulationMagasin'
 import { QuadrimestresMagasin } from '../components/QuadrimestresMagasin'
 import { ReelAnnee } from '../components/ReelAnnee'
 import { poidsValides, SaisonnaliteMagasin } from '../components/SaisonnaliteMagasin'
@@ -192,6 +193,7 @@ export function Magasin() {
         <Tab value="atterrissage" label={`Atterrissage ${anneeEnCours}`} sx={{ minHeight: 48 }} />
         <Tab value="reel" label={<LibelleOnglet texte="Réel" manque={!!reel.donnees && reelEnRetard(syntheseReel(reel.donnees.lignes, reel.donnees.tickets).moisRenseignes)} detail="en retard" />} sx={{ minHeight: 48 }} />
         <Tab value="quadrimestres" label="Quadrimestres" sx={{ minHeight: 48 }} />
+        <Tab value="simulation" label="Et si…" sx={{ minHeight: 48 }} />
         <Tab value="equipe" label={<LibelleOnglet texte="Équipe" manque={!d.equipes[ligne.magasin]?.length} detail="à renseigner" />} sx={{ minHeight: 48 }} />
         <Tab value="frais" label={<LibelleOnglet texte="Frais" manque={!d.frais[ligne.magasin]?.length} detail="à renseigner" />} sx={{ minHeight: 48 }} />
       </Tabs>
@@ -220,6 +222,13 @@ export function Magasin() {
           </ToggleButtonGroup>
           <QuadrimestresMagasin key={`${ligne.magasin}-${anneeQuadri}`} magasin={ligne.magasin} annee={anneeQuadri} peutSaisir={peutSaisir} />
         </Stack>
+      ) : onglet === 'simulation' ? (
+        resolu ? (
+          <SimulationMagasin key={ligne.magasin} hypotheses={resolu.hypotheses} parametres={parametres} annee={annee} depart={brouillon.tresorerieDepart ?? 0} />
+        ) : (
+          <EtatVide titre={`Pas encore de budget ${annee}`} texte="La simulation part du budget du magasin. Elle sera possible dès que le siège l’aura proposé."
+            action={directeur ? <Button variant="contained" onClick={() => setOnglet('atterrissage')} sx={{ minHeight: 48 }}>Proposer le budget</Button> : undefined} />
+        )
       ) : onglet === 'frais' ? (
         <FraisMagasin key={ligne.magasin} magasin={ligne.magasin} lignes={d.frais[ligne.magasin] ?? []} annee={anneeEnCours} peutSaisir={peutSaisir} apresEnregistrement={recharger} />
       ) : onglet === 'equipe' ? (
