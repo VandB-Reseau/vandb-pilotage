@@ -22,7 +22,10 @@ import { nombre } from '../import/caisse'
 import { CATEGORIES, categorieLibelle } from '../moteur/equipe'
 import { useChargement } from '../data/useChargement'
 import type { ParametresTresorerie } from '../moteur/tresorerie'
+import { UNIVERS, universLibelle, type Univers } from '../moteur/types'
 import { montant, taux } from '../lib/format'
+
+const DE_L_UNIVERS: Record<Univers, string> = { cave: 'de la Cave', bar: 'du Bar', exterieur: 'de l’Extérieur' }
 
 export function Parametres() {
   const annee = anneeBudget()
@@ -35,12 +38,15 @@ export function Parametres() {
   const [occupe, setOccupe] = useState(false)
   // Trésorerie : délais en mois gardés en texte pendant la frappe
   const [treso, setTreso] = useState<ParametresTresorerie | null>(null)
-  const [delais, setDelais] = useState({ fournisseurs: '', redevance: '' })
+  const [delais, setDelais] = useState({ fournisseurs: '', redevance: '', retour: '', restitution: '' })
   const [messageTreso, setMessageTreso] = useState<{ gravite: 'success' | 'error'; texte: string } | null>(null)
   useEffect(() => {
     if (!p) return
     setTreso(p.tresorerie)
-    setDelais({ fournisseurs: String(p.tresorerie.delaiFournisseurs), redevance: String(p.tresorerie.delaiRedevance) })
+    setDelais({
+      fournisseurs: String(p.tresorerie.delaiFournisseurs), redevance: String(p.tresorerie.delaiRedevance),
+      retour: String(p.tresorerie.consignes?.delaiRetour ?? 0), restitution: String(p.tresorerie.consignes?.delaiRestitution ?? 0),
+    })
     setCharges(p.charges)
     setSmic(String(p.charges.reduction.smicAnnuel).replace('.', ','))
     setPuissance(String(p.charges.reduction.puissance).replace('.', ','))
@@ -64,17 +70,22 @@ export function Parametres() {
       setOccupe(false)
     }
   }
-  const delai = (t: string) => { const n = nombre(t); return n !== null && Number.isInteger(n) && n >= 0 && n <= 3 ? n : null }
+  const delai = (t: string, max = 3) => { const n = nombre(t); return n !== null && Number.isInteger(n) && n >= 0 && n <= max ? n : null }
   const delaisLus = { delaiFournisseurs: delai(delais.fournisseurs), delaiRedevance: delai(delais.redevance) }
-  const tresoValide = delaisLus.delaiFournisseurs !== null && delaisLus.delaiRedevance !== null
-  const tresoModifiee = !!p && !!treso && JSON.stringify({ ...treso, ...delaisLus }) !== JSON.stringify(p.tresorerie)
+  const delaisConsignes = { delaiRetour: delai(delais.retour, 6), delaiRestitution: delai(delais.restitution, 6) }
+  const tresoValide = Object.values({ ...delaisLus, ...delaisConsignes }).every((v) => v !== null)
+  const tresoLue = (t: ParametresTresorerie): ParametresTresorerie => ({
+    ...t, delaiFournisseurs: delaisLus.delaiFournisseurs ?? 0, delaiRedevance: delaisLus.delaiRedevance ?? 0,
+    consignes: t.consignes && { ...t.consignes, delaiRetour: delaisConsignes.delaiRetour ?? 0, delaiRestitution: delaisConsignes.delaiRestitution ?? 0 },
+  })
+  const tresoModifiee = !!p && !!treso && JSON.stringify(tresoLue(treso)) !== JSON.stringify(p.tresorerie)
   useSaisieEnCours(tresoModifiee)
   const enregistrerTreso = async () => {
     if (!p || !treso || !tresoValide) return
     setOccupe(true)
     setMessageTreso(null)
     try {
-      await enregistrerParametres(annee, { ...p, tresorerie: { ...treso, delaiFournisseurs: delaisLus.delaiFournisseurs!, delaiRedevance: delaisLus.delaiRedevance! } })
+      await enregistrerParametres(annee, { ...p, tresorerie: tresoLue(treso) })
       setMessageTreso({ gravite: 'success', texte: `Paramètres de trésorerie ${annee} enregistrés.` })
       recharger()
     } catch {
@@ -83,6 +94,8 @@ export function Parametres() {
       setOccupe(false)
     }
   }
+  const consigne = (sens: 'achats' | 'ventes', u: Univers, v: number | undefined) =>
+    setTreso((t) => (t?.consignes ? { ...t, consignes: { ...t.consignes, [sens]: { ...t.consignes[sens], [u]: v ?? 0 } } } : t))
   const tvaTreso = (k: 'tvaVentes' | 'tvaAchats' | 'tvaFrais' | 'partCotisations', v: number | undefined) => setTreso((t) => (t ? { ...t, [k]: v ?? 0 } : t))
 
   const lignes = p ? [
@@ -199,6 +212,26 @@ export function Parametres() {
                   <TableCell>Part du coût du personnel payée le mois suivant (cotisations salariales et patronales)</TableCell>
                   <TableCell align="right"><ChampTaux libelle="Part du coût du personnel payée le mois suivant" valeur={treso.partCotisations} onChange={(v) => tvaTreso('partCotisations', v)} /></TableCell>
                 </TableRow>
+                {treso.consignes && (<>
+                  {UNIVERS.map((u) => (
+                    <TableRow key={u}>
+                      <TableCell>Consignes payées aux fournisseurs (fûts, caisses, gaz), en part des achats {DE_L_UNIVERS[u]}</TableCell>
+                      <TableCell align="right"><ChampTaux libelle={`Consignes sur les achats : ${universLibelle[u]}`} valeur={treso.consignes!.achats[u]} onChange={(v) => consigne('achats', u, v)} /></TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow>
+                    <TableCell>Remboursement des consignes par les fournisseurs, en mois après l’achat</TableCell>
+                    <TableCell align="right"><ChampNombre libelle="Délai de remboursement des consignes" valeur={delais.retour} unite="mois" largeur={120} onChange={(v) => setDelais((d) => ({ ...d, retour: v }))} /></TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Cautions prises aux clients (fûts et tireuses loués), en part du CA de l’Extérieur</TableCell>
+                    <TableCell align="right"><ChampTaux libelle="Cautions des clients : Extérieur" valeur={treso.consignes.ventes.exterieur} onChange={(v) => consigne('ventes', 'exterieur', v)} /></TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Restitution des cautions aux clients, en mois après la location</TableCell>
+                    <TableCell align="right"><ChampNombre libelle="Délai de restitution des cautions" valeur={delais.restitution} unite="mois" largeur={120} onChange={(v) => setDelais((d) => ({ ...d, restitution: v }))} /></TableCell>
+                  </TableRow>
+                </>)}
               </TableBody>
             </Table>
           </Card>

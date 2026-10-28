@@ -84,9 +84,13 @@ export function feuillesBudget({ magasin, annee, statut, lignes, familles, treso
 const SORTIES: [keyof MoisTresorerie, string][] = [
   ['fournisseurs', 'Fournisseurs de marchandises'], ['frais', 'Frais, redevance et publicité'], ['personnel', 'Salaires et cotisations'],
   ['tva', 'TVA reversée'], ['emprunts', 'Emprunts (intérêts et capital)'], ['impot', 'Impôt sur les sociétés'], ['travaux', 'Travaux'],
+  ['consignesVersees', 'Consignes versées aux fournisseurs'],
+]
+const ENTREES: [keyof MoisTresorerie, string][] = [
+  ['consignesRemboursees', 'Consignes remboursées par les fournisseurs'], ['consignesClients', 'Cautions des clients (reçues moins rendues)'],
 ]
 function feuilleTresorerie(t: Tresorerie, titre: string, statut: string): Feuille {
-  const rDebut = 4, rEnc = 5, rS0 = 6, rS1 = rS0 + SORTIES.length - 1, rDec = rS1 + 1, rFlux = rDec + 1, rFin = rFlux + 1
+  const rDebut = 4, rEnc = 5, rE1 = rEnc + ENTREES.length, rS0 = rE1 + 1, rS1 = rS0 + SORTIES.length - 1, rDec = rS1 + 1, rFlux = rDec + 1, rFin = rFlux + 1
   const annee = (r: number, v: number, s: 'euros' | 'eurosGras' = 'eurosGras'): Cellule => ({ v, f: `SUM(${cellule(r, 1)}:${cellule(r, 12)})`, s })
   const sommeMois = (cle: keyof MoisTresorerie, signe = 1) => signe * t.mois.reduce((a, m) => a + m[cle], 0)
   return {
@@ -98,6 +102,9 @@ function feuilleTresorerie(t: Tresorerie, titre: string, statut: string): Feuill
       [{ v: 'En euros TTC', s: 'entete' }, ...[...MOIS, 'Année'].map((v) => ({ v, s: 'enteteDroite' as const }))],
       [{ v: 'Trésorerie au 1er janvier', s: 'gras' }, { v: t.debut, s: 'eurosGras' }],
       [{ v: 'Encaissements des ventes TTC', s: 'gras' }, ...t.mois.map((m) => ({ v: m.encaissements, s: 'euros' } as Cellule)), annee(rEnc, sommeMois('encaissements'))],
+      ...ENTREES.map(([cle, libelle], k): Cellule[] => [
+        libelle, ...t.mois.map((m) => ({ v: m[cle], s: 'euros' } as Cellule)), annee(rEnc + 1 + k, sommeMois(cle), 'euros'),
+      ]),
       ...SORTIES.map(([cle, libelle], k): Cellule[] => [
         libelle, ...t.mois.map((m) => ({ v: -m[cle], s: 'euros' } as Cellule)), annee(rS0 + k, sommeMois(cle, -1), 'euros'),
       ]),
@@ -105,7 +112,7 @@ function feuilleTresorerie(t: Tresorerie, titre: string, statut: string): Feuill
         ...t.mois.map((m, i) => ({ v: -m.decaissements, f: `SUM(${cellule(rS0, i + 1)}:${cellule(rS1, i + 1)})`, s: 'eurosGras' } as Cellule)),
         annee(rDec, sommeMois('decaissements', -1))],
       [{ v: 'Variation du mois', s: 'gras' },
-        ...t.mois.map((m, i) => ({ v: m.flux, f: `${cellule(rEnc, i + 1)}+${cellule(rDec, i + 1)}`, s: 'eurosGras' } as Cellule)),
+        ...t.mois.map((m, i) => ({ v: m.flux, f: `SUM(${cellule(rEnc, i + 1)}:${cellule(rE1, i + 1)})+${cellule(rDec, i + 1)}`, s: 'eurosGras' } as Cellule)),
         annee(rFlux, sommeMois('flux'))],
       [{ v: 'Trésorerie en fin de mois', s: 'gras' },
         ...t.mois.map((m, i) => ({ v: m.fin, f: `${i === 0 ? `$B$${rDebut + 1}` : cellule(rFin, i)}+${cellule(rFlux, i + 1)}`, s: 'eurosGras' } as Cellule)),

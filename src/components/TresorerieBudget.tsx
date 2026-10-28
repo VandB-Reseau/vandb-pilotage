@@ -16,15 +16,19 @@ import { ChampNombre } from './ChampNombre'
 import { Indicateur } from './Indicateur'
 
 // Trésorerie du budget mois par mois : encaissements, décaissements (montants TTC, délais de paiement compris), solde
-export const LIGNES_TRESORERIE: { cle: keyof MoisTresorerie; libelle: string; sortie?: boolean; fort?: boolean }[] = [
+// « facultative » : ligne masquée quand elle est nulle toute l'année
+export const LIGNES_TRESORERIE: { cle: keyof MoisTresorerie; libelle: string; sortie?: boolean; fort?: boolean; facultative?: boolean }[] = [
   { cle: 'encaissements', libelle: 'Encaissements des ventes TTC', fort: true },
+  { cle: 'consignesRemboursees', libelle: 'Consignes remboursées par les fournisseurs', facultative: true },
+  { cle: 'consignesClients', libelle: 'Cautions des clients (reçues moins rendues)', facultative: true },
   { cle: 'fournisseurs', libelle: 'Fournisseurs de marchandises', sortie: true },
   { cle: 'frais', libelle: 'Frais, redevance et publicité', sortie: true },
   { cle: 'personnel', libelle: 'Salaires et cotisations', sortie: true },
   { cle: 'tva', libelle: 'TVA reversée', sortie: true },
   { cle: 'emprunts', libelle: 'Emprunts (intérêts et capital)', sortie: true },
-  { cle: 'impot', libelle: 'Impôt sur les sociétés', sortie: true },
-  { cle: 'travaux', libelle: 'Travaux', sortie: true },
+  { cle: 'impot', libelle: 'Impôt sur les sociétés', sortie: true, facultative: true },
+  { cle: 'travaux', libelle: 'Travaux', sortie: true, facultative: true },
+  { cle: 'consignesVersees', libelle: 'Consignes versées aux fournisseurs', sortie: true, facultative: true },
   { cle: 'decaissements', libelle: 'Total des décaissements', sortie: true, fort: true },
   { cle: 'flux', libelle: 'Variation du mois', fort: true },
 ]
@@ -45,8 +49,8 @@ export function TresorerieBudget({ tresorerie: t, annee, depart, onDepart, lectu
   }
   const somme = (cle: keyof MoisTresorerie) => t.mois.reduce((a, m) => a + m[cle], 0)
   const rouge = (v: number) => (Math.round(v) < 0 ? { color: 'error.main' } : {})
-  const sansTravaux = t.mois.every((m) => !m.travaux), sansImpot = t.mois.every((m) => !m.impot)
-  const lignes = LIGNES_TRESORERIE.filter((l) => !(l.cle === 'travaux' && sansTravaux) && !(l.cle === 'impot' && sansImpot))
+  const lignes = LIGNES_TRESORERIE.filter((l) => !l.facultative || t.mois.some((m) => Math.round(m[l.cle]) !== 0))
+  const plusHaut = t.mois.reduce((m, x, i) => (x.consignesEnAttente > t.mois[m].consignesEnAttente ? i : m), 0)
 
   return (
     <Card component="section" aria-label={`Trésorerie ${annee}`}>
@@ -64,6 +68,12 @@ export function TresorerieBudget({ tresorerie: t, annee, depart, onDepart, lectu
           libelle="Mois à découvert" valeur={t.moisNegatifs === 0 ? 'Aucun' : `${t.moisNegatifs} mois`}
           detail={t.moisNegatifs === 0 ? 'Trésorerie positive toute l’année' : `Besoin de financement : ${montant(-t.pointBas.montant)}`}
         />
+        {t.consignesMoyennes > 0 && (
+          <Indicateur
+            libelle="Consignes avancées aux fournisseurs" valeur={milliers(t.consignesMoyennes)}
+            detail={`Moyenne sur l’année ; au plus haut fin ${MOIS_LONGS[plusHaut]} : ${milliers(t.mois[plusHaut].consignesEnAttente)}`}
+          />
+        )}
       </Stack>
       <TableContainer>
         <Table size="small" className="colonne-fixe" aria-label={`Trésorerie ${annee} mois par mois`} sx={{ '& td, & th': { py: 0.75, px: 1, fontSize: '0.8125rem', whiteSpace: 'nowrap' }, '& td:first-of-type, & th:first-of-type': { pl: 2.5 } }}>

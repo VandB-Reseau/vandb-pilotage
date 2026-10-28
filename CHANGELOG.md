@@ -5,6 +5,15 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+## Lot 11 — Consignes dans la trésorerie (28/10/2026)
+
+- Trésorerie du budget : consignes versées aux fournisseurs avec les achats (fûts, caisses, gaz) et remboursées au retour
+  des vides, cautions des clients reçues puis rendues ; hors TVA et hors compte de résultat. Carte « Consignes avancées
+  aux fournisseurs » : argent bloqué en moyenne et au plus haut. Lignes dans l'export Excel.
+- Paramètres réseau : consigne en part des achats de chaque univers (Cave 3 %, Bar et Extérieur 15 % par défaut),
+  remboursement à 2 mois, caution clients en part du CA de l'Extérieur et délai de restitution. Valeurs à confirmer.
+- Pas de migration.
+
 ## Lot 10 — Trésorerie du budget (28/10/2026)
 
 - Budget d'un magasin : trésorerie mois par mois en montants TTC (encaissements, fournisseurs, frais, redevance et

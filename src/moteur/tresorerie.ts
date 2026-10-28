@@ -1,9 +1,11 @@
-import type { Budget, Hypotheses } from './types'
+import { UNIVERS, type Budget, type Hypotheses, type Univers } from './types'
 
 // Trésorerie mois par mois du budget : ce qui entre et sort de la banque, TVA comprise, avec les délais de paiement.
 // Hypothèse de régime établi : ce qui se paie en début d'année au titre de l'année précédente (achats de décembre,
 // TVA et cotisations de décembre…) vaut le même mois du budget. Sur l'année, la trésorerie varie donc exactement de
-// la trésorerie dégagée (EBE − intérêts − capital remboursé − impôt) moins l'investissement des travaux.
+// la trésorerie dégagée (EBE − intérêts − capital remboursé − impôt) moins l'investissement des travaux ; les consignes
+// ne changent rien sur l'année mais creusent les mois où les achats montent (l'encours au 1er janvier est déjà dans la
+// trésorerie de départ).
 
 export interface ParametresTresorerie {
   delaiFournisseurs: number   // en mois : 1 = 30 jours fin de mois (achats de janvier payés fin février)
@@ -13,6 +15,13 @@ export interface ParametresTresorerie {
   tvaFrais: number            // TVA sur les frais, la redevance, la publicité et les travaux
   tvaTrimestrielle: boolean   // sinon mensuelle (régime réel normal)
   partCotisations: number     // part du coût du personnel payée le mois suivant (cotisations salariales et patronales)
+  // Consignes (fûts, caisses, bouteilles de gaz) : hors TVA et hors compte de résultat, elles décalent la trésorerie
+  consignes?: {
+    achats: Record<Univers, number>   // consigne payée aux fournisseurs, en part des achats de l'univers
+    delaiRetour: number               // mois avant le remboursement des vides par le fournisseur
+    ventes: Record<Univers, number>   // caution prise aux clients (fûts et tireuses loués), en part du CA de l'univers
+    delaiRestitution: number          // mois avant de rendre la caution au client
+  }
 }
 
 // Valeurs par défaut (lot 10, 28/10/2026), à confirmer par Joseph : pratiques courantes, modifiables dans Paramètres réseau
@@ -24,6 +33,8 @@ export const tresorerieParDefaut: ParametresTresorerie = {
   tvaFrais: 0.2,
   tvaTrimestrielle: false,
   partCotisations: 0.4,
+  // À confirmer par Joseph (28/10/2026) : consigne d'un fût autour de 15 % de sa valeur d'achat, remboursée à 2 mois
+  consignes: { achats: { cave: 0.03, bar: 0.15, exterieur: 0.15 }, delaiRetour: 2, ventes: { cave: 0, bar: 0, exterieur: 0.1 }, delaiRestitution: 0 },
 }
 
 export interface MoisTresorerie {
@@ -35,6 +46,10 @@ export interface MoisTresorerie {
   emprunts: number            // intérêts et capital
   impot: number               // acomptes d'impôt sur les sociétés
   travaux: number             // investissement TTC, payé le premier mois des travaux
+  consignesVersees: number    // consignes payées aux fournisseurs avec les achats du mois
+  consignesRemboursees: number // vides rendus aux fournisseurs, remboursés
+  consignesClients: number    // cautions des clients reçues moins rendues (positif : argent gardé)
+  consignesEnAttente: number  // fin de mois : consignes payées aux fournisseurs, pas encore remboursées
   decaissements: number
   flux: number
   fin: number                 // trésorerie en fin de mois
@@ -46,6 +61,7 @@ export interface Tresorerie {
   fin: number
   pointBas: { montant: number; mois: number }   // mois de 0 (janvier) à 11
   moisNegatifs: number
+  consignesMoyennes: number   // argent avancé en moyenne aux fournisseurs (part du besoin en fonds de roulement)
 }
 
 const somme = (l: number[]) => l.reduce((a, b) => a + b, 0)
@@ -75,6 +91,16 @@ export function tresorerieBudget(b: Budget, h: Hypotheses, p: { tauxRedevance: n
   }
   const impot = (i: number) => (i % 3 === 2 ? b.impot / 4 : 0)   // acomptes de mars, juin, septembre et décembre
 
+  // Consignes : achats et CA de chaque univers répartis comme le CA du mois
+  const c = t.consignes
+  const parUnivers = (f: (u: Univers) => number) => ca.map((caMois) => (b.ca ? somme(UNIVERS.map((u) => f(u))) * caMois / b.ca : 0))
+  const familles = b.familles ?? []
+  const versees = c ? parUnivers((u) => somme(familles.filter((f) => f.univers === u).map((f) => f.objectif - f.margeObjectif)) * (c.achats[u] ?? 0)) : Array(12).fill(0)
+  const cautions = c ? parUnivers((u) => somme(familles.filter((f) => f.univers === u).map((f) => f.objectif)) * (c.ventes[u] ?? 0)) : Array(12).fill(0)
+  const retour = Math.max(0, Math.round(c?.delaiRetour ?? 0)), restitution = Math.max(0, Math.round(c?.delaiRestitution ?? 0))
+  // Encours en fin de mois : consignes du mois et des mois dont le remboursement n'est pas encore arrivé
+  const enAttente = (i: number) => somme(Array.from({ length: retour }, (_, k) => decale(versees, i, k)))
+
   let solde = debut
   const mois = ca.map((c, i): MoisTresorerie => {
     const encaissements = c * (1 + t.tvaVentes)
@@ -84,11 +110,19 @@ export function tresorerieBudget(b: Budget, h: Hypotheses, p: { tauxRedevance: n
     const tva = tvaPayee(i)
     const emprunts = (h.interets + h.remboursementCapital) / 12
     const travaux = investissement[i] * (1 + t.tvaFrais)
-    const decaissements = fournisseurs + frais + salaires + tva + emprunts + impot(i) + travaux
-    const flux = encaissements - decaissements
+    const consignesVersees = versees[i], consignesRemboursees = decale(versees, i, retour)
+    const consignesClients = cautions[i] - decale(cautions, i, restitution)
+    const decaissements = fournisseurs + frais + salaires + tva + emprunts + impot(i) + travaux + consignesVersees
+    const flux = encaissements + consignesRemboursees + consignesClients - decaissements
     solde += flux
-    return { encaissements, fournisseurs, frais, personnel: salaires, tva, emprunts, impot: impot(i), travaux, decaissements, flux, fin: solde }
+    return {
+      encaissements, fournisseurs, frais, personnel: salaires, tva, emprunts, impot: impot(i), travaux,
+      consignesVersees, consignesRemboursees, consignesClients, consignesEnAttente: enAttente(i), decaissements, flux, fin: solde,
+    }
   })
   const bas = mois.reduce((m, x, i) => (x.fin < mois[m].fin ? i : m), 0)
-  return { debut, mois, fin: solde, pointBas: { montant: mois[bas].fin, mois: bas }, moisNegatifs: mois.filter((m) => m.fin < 0).length }
+  return {
+    debut, mois, fin: solde, pointBas: { montant: mois[bas].fin, mois: bas }, moisNegatifs: mois.filter((m) => m.fin < 0).length,
+    consignesMoyennes: somme(mois.map((m) => m.consignesEnAttente)) / 12,
+  }
 }

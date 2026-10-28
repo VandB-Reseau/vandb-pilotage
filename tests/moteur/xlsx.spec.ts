@@ -84,20 +84,23 @@ test('réseau : une ligne par magasin, total de la sélection, colonnes Coach et
 test('budget : feuille de trésorerie, solde de fin de mois enchaîné en formules', () => {
   const mois = Array.from({ length: 12 }, (_, i) => ({
     encaissements: 11_900, fournisseurs: 7_200, frais: 1_660, personnel: 2_000, tva: 440, emprunts: 300, impot: 0, travaux: 0,
-    decaissements: 11_600, flux: 300, fin: 5_000 + 300 * (i + 1),
+    consignesVersees: 900, consignesRemboursees: 900, consignesClients: 0, consignesEnAttente: 1_800,
+    decaissements: 12_500, flux: 300, fin: 5_000 + 300 * (i + 1),
   }))
-  const tresorerie = { debut: 5_000, mois, fin: 8_600, pointBas: { montant: 5_300, mois: 0 }, moisNegatifs: 0 }
+  const tresorerie = { debut: 5_000, mois, fin: 8_600, pointBas: { montant: 5_300, mois: 0 }, moisNegatifs: 0, consignesMoyennes: 1_800 }
   const feuilles = feuillesBudget({ magasin: 'Brionne-sur-Lac', annee: 2027, statut: 'Validé', lignes: [], familles: [], tresorerie })
   const f = lireClasseur(classeur(feuilles))
   expect(f['xl/workbook.xml']).toContain('name="Trésorerie"')
   const t = f['xl/worksheets/sheet3.xml']
   expect(celluleXml(t, 'B5')).toBe('<v>5000</v>')                        // trésorerie au 1er janvier
   expect(celluleXml(t, 'B6')).toBe('<v>11900</v>')
-  expect(celluleXml(t, 'B7')).toBe('<v>-7200</v>')                       // fournisseurs, en sortie
-  expect(celluleXml(t, 'B14')).toBe('<f>SUM(B7:B13)</f><v>-11600</v>')
-  expect(celluleXml(t, 'B15')).toBe('<f>B6+B14</f><v>300</v>')
-  expect(celluleXml(t, 'B16')).toBe('<f>$B$5+B15</f><v>5300</v>')
-  expect(celluleXml(t, 'C16')).toBe('<f>B16+C15</f><v>5600</v>')
-  expect(celluleXml(t, 'N15')).toBe('<f>SUM(B15:M15)</f><v>3600</v>')
-  expect(celluleXml(t, 'N16')).toBe('<f>M16</f><v>8600</v>')
+  expect(celluleXml(t, 'B7')).toBe('<v>900</v>')                         // consignes remboursées, en entrée
+  expect(celluleXml(t, 'B9')).toBe('<v>-7200</v>')                       // fournisseurs, en sortie
+  expect(celluleXml(t, 'B16')).toBe('<v>-900</v>')                       // consignes versées
+  expect(celluleXml(t, 'B17')).toBe('<f>SUM(B9:B16)</f><v>-12500</v>')
+  expect(celluleXml(t, 'B18')).toBe('<f>SUM(B6:B8)+B17</f><v>300</v>')
+  expect(celluleXml(t, 'B19')).toBe('<f>$B$5+B18</f><v>5300</v>')
+  expect(celluleXml(t, 'C19')).toBe('<f>B19+C18</f><v>5600</v>')
+  expect(celluleXml(t, 'N18')).toBe('<f>SUM(B18:M18)</f><v>3600</v>')
+  expect(celluleXml(t, 'N19')).toBe('<f>M19</f><v>8600</v>')
 })

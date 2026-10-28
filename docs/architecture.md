@@ -45,6 +45,7 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
    équipe et frais de chaque magasin, `totalReseau` en fait le total pondéré.
 10. Trésorerie : `tresorerieBudget` (moteur pur) déroule le budget en encaissements et décaissements TTC avec les délais
    de `ParametresReseau.tresorerie` ; début d'année en régime établi (décembre de l'année précédente = décembre du budget).
+   Les consignes s'y ajoutent hors TVA : nulles sur l'année, elles déplacent la trésorerie d'un mois à l'autre.
 11. Export et impression : `feuillesBudget` et `feuilleReseau` reprennent les chiffres du moteur tels qu'à l'écran
    (totaux et parts du CA en formules Excel) ; `classeur` écrit le .xlsx. L'impression (A4 paysage) passe par les styles
    `@media print` d'`AppShell` : classes `pas-a-l-impression` (masqué) et `impression-seule` (montré à l'impression).
