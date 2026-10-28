@@ -13,6 +13,7 @@ export interface MagasinSimule {
   ajustements?: Record<string, unknown>
   groupe_id?: number | null
 }
+export type QuadrimestreSimule = { store_name: string; annee: number; quadrimestre: number; achats: number | null; variation_stock: number | null; charges_externes: number | null; impots_taxes: number | null; personnel: number | null; tresorerie: number | null }
 export interface VenteSimulee { store_name: string; mois: string; univers: string; famille: string; ca_ht: number; ca_ttc: number | null; marge_ht: number | null }
 export interface TicketsSimules { store_name: string; mois: string; univers: string; tickets: number }
 export interface PersonneSimulee { id: number; store_name: string; poste: string; categorie: string; heures_hebdo: number; brut_mensuel: number; primes: { mois: number; montant: number }[]; entree: string | null; sortie: string | null }
@@ -31,6 +32,7 @@ export interface OptionsSimulation {
   frais?: FraisSimule[]
   coachs?: Record<string, string>
   rrs?: Record<string, string[]>
+  quadrimestres?: QuadrimestreSimule[]
   panne?: boolean
   panneEcriture?: boolean
 }
@@ -55,6 +57,7 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
   let codes = structuredClone(options.codes ?? [])
   let equipe = structuredClone(options.equipe ?? [])
   let frais = structuredClone(options.frais ?? [])
+  let quadrimestres = structuredClone(options.quadrimestres ?? [])
   let parametres = options.parametres === null ? null : options.parametres ?? { tauxRedevance: 0.02, tauxPublicite: 0.01 }
   // Filtres PostgREST utilisés par l'app : eq, gte, lte, in
   const filtrer = <T extends Record<string, unknown>>(lignes: T[], params: URLSearchParams) => lignes.filter((l) => [...params.entries()].every(([k, v]) => {
@@ -161,6 +164,11 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
         if (req.method() === 'DELETE') { const retirer = new Set(filtrer(frais, url.searchParams)); frais = frais.filter((l) => !retirer.has(l)) }
         else for (const l of ([] as FraisSimule[]).concat(corps as FraisSimule)) frais = [...frais.filter((x) => !(x.store_name === l.store_name && x.code === l.code)), l]
       }
+      if (table === 'quadrimestres') {
+        for (const l of ([] as QuadrimestreSimule[]).concat(corps as QuadrimestreSimule)) {
+          quadrimestres = [...quadrimestres.filter((x) => !(x.store_name === l.store_name && x.annee === l.annee && x.quadrimestre === l.quadrimestre)), l]
+        }
+      }
       if (table === 'parametres_reseau') parametres = (corps as { valeur: Record<string, unknown> }).valeur
       if (table === 'groupe_magasins' && m) m.groupe_id = req.method() === 'DELETE' ? null : (corps as { groupe_id: number }).groupe_id
       return route.fulfill({ status: 204, body: '' })
@@ -170,6 +178,7 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
     const page = <T,>(l: T[]) => { const de = Number(url.searchParams.get('offset') ?? 0); return l.slice(de, de + Math.min(1000, Number(url.searchParams.get('limit') ?? 1000))) }
     if (table === 'equipe') return route.fulfill({ json: page(equipe) })
     if (table === 'frais') return route.fulfill({ json: page(frais) })
+    if (table === 'quadrimestres') return route.fulfill({ json: page(filtrer(quadrimestres, url.searchParams)) })
     if (table === 'codes_caisse') return route.fulfill({ json: [...codes].sort((a, b) => a.code.localeCompare(b.code)) })
     if (url.pathname === '/rest/v1/parametres_reseau') {
       const lignes = parametres === null ? [] : [{ valeur: parametres }]

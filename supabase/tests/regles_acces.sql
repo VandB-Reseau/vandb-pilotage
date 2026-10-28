@@ -42,10 +42,16 @@ INSERT INTO pilotage.reel_mensuel (store_name, mois, univers, famille, ca_ht) VA
 SELECT pg_temp.attendre('Directeur : tous les magasins', (SELECT cardinality(pilotage.mes_magasins())), 3);
 SELECT pg_temp.attendre('Directeur : tous les budgets', (SELECT count(*) FROM pilotage.budgets), 3);
 SELECT pg_temp.attendre('Directeur : tableau des magasins', (SELECT jsonb_array_length(pilotage.magasins_du_compte(2027))), 3);
-SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 7);
+SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 8);
 -- Frais : le Directeur saisit partout
 INSERT INTO pilotage.frais (store_name, code, libelle, rubrique, annuel) VALUES ('Lille', 'loyer', 'Locations immobilières', 'immobilier', 60000), ('Nice', 'loyer', 'Locations immobilières', 'immobilier', 40000);
 SELECT pg_temp.attendre('Directeur : tous les frais', (SELECT count(*) FROM pilotage.frais), 2);
+-- Quadrimestres : le Directeur saisit partout
+INSERT INTO pilotage.quadrimestres (store_name, annee, quadrimestre, achats, charges_externes, impots_taxes, personnel, tresorerie) VALUES
+  ('Lille', 2026, 1, 100000, 30000, 2000, 50000, 15000), ('Nice', 2026, 1, 80000, 20000, 1000, 40000, -5000);
+SELECT pg_temp.attendre('Directeur : tous les quadrimestres', (SELECT count(*) FROM pilotage.quadrimestres), 2);
+SELECT pg_temp.attendre('Quadrimestres : un quatrième quadrimestre est refusé', pg_temp.refuse('INSERT INTO pilotage.quadrimestres (store_name, annee, quadrimestre) VALUES (''Lille'', 2026, 4)'), 1);
+SELECT pg_temp.attendre('Quadrimestres : des achats négatifs sont refusés', pg_temp.refuse('INSERT INTO pilotage.quadrimestres (store_name, annee, quadrimestre, achats) VALUES (''Lille'', 2026, 2, -1)'), 1);
 SELECT pg_temp.attendre('Frais : montant et part du CA ensemble refusés', pg_temp.refuse('INSERT INTO pilotage.frais (store_name, code, libelle, rubrique, annuel, taux_ca) VALUES (''Lille'', ''energie'', ''Énergie'', ''energies'', 1, 0.01)'), 1);
 -- Équipe : le Directeur saisit partout
 INSERT INTO pilotage.equipe (store_name, poste, categorie, heures_hebdo, brut_mensuel) VALUES
@@ -111,6 +117,9 @@ WITH m AS (DELETE FROM pilotage.equipe WHERE store_name = 'Nice' RETURNING 1)
 SELECT pg_temp.attendre('Coach : ne supprime pas l''équipe d''un autre magasin', (SELECT count(*) FROM m), 0);
 SELECT pg_temp.attendre('Coach : frais de ses magasins seulement', (SELECT count(*) FROM pilotage.frais WHERE store_name <> 'Lille'), 0);
 INSERT INTO pilotage.frais (store_name, code, libelle, rubrique, taux_ca) VALUES ('Lille', 'energie', 'Électricité, eau, gaz', 'energies', 0.013);
+SELECT pg_temp.attendre('Coach : quadrimestres de ses magasins seulement', (SELECT count(*) FROM pilotage.quadrimestres WHERE store_name <> 'Lille'), 0);
+INSERT INTO pilotage.quadrimestres (store_name, annee, quadrimestre, achats) VALUES ('Lille', 2026, 2, 90000);
+SELECT pg_temp.attendre('Coach : pas de quadrimestre hors de ses magasins', pg_temp.refuse('INSERT INTO pilotage.quadrimestres (store_name, annee, quadrimestre, achats) VALUES (''Nice'', 2026, 2, 1)'), 1);
 SELECT pg_temp.attendre('Coach : pas de frais hors de ses magasins', pg_temp.refuse('INSERT INTO pilotage.frais (store_name, code, libelle, rubrique, annuel) VALUES (''Nice'', ''energie'', ''Énergie'', ''energies'', 1)'), 1);
 WITH m AS (UPDATE pilotage.frais SET annuel = 1 WHERE store_name = 'Nice' RETURNING 1)
 SELECT pg_temp.attendre('Coach : ne modifie pas les frais d''un autre magasin', (SELECT count(*) FROM m), 0);
@@ -154,6 +163,10 @@ SELECT pg_temp.attendre('Franchisé : pas l''équipe d''un autre magasin', pg_te
 SELECT pg_temp.attendre('Franchisé : ses frais seulement', (SELECT count(*) FROM pilotage.frais WHERE store_name <> 'Lille'), 0);
 WITH m AS (UPDATE pilotage.frais SET annuel = 62000 WHERE store_name = 'Lille' AND code = 'loyer' RETURNING 1)
 SELECT pg_temp.attendre('Franchisé : modifie les frais de son magasin', (SELECT count(*) FROM m), 1);
+WITH m AS (UPDATE pilotage.quadrimestres SET personnel = 52000 WHERE store_name = 'Lille' AND quadrimestre = 1 RETURNING 1)
+SELECT pg_temp.attendre('Franchisé : modifie les quadrimestres de son magasin', (SELECT count(*) FROM m), 1);
+WITH m AS (UPDATE pilotage.quadrimestres SET personnel = 1 WHERE store_name = 'Nice' RETURNING 1)
+SELECT pg_temp.attendre('Franchisé : ne touche pas aux quadrimestres d''un autre magasin', (SELECT count(*) FROM m), 0);
 SELECT pg_temp.attendre('Franchisé : pas les frais d''un autre magasin', pg_temp.refuse('INSERT INTO pilotage.frais (store_name, code, libelle, rubrique, annuel) VALUES (''Nice'', ''cfe'', ''CFE'', ''impots_taxes'', 1)'), 1);
 SELECT pg_temp.attendre('Franchisé : ne lit pas les codes caisse', (SELECT count(*) FROM pilotage.codes_caisse), 0);
 WITH m AS (UPDATE pilotage.budgets SET hypotheses = '{"v":2}' WHERE store_name = 'Lille' RETURNING statut)
@@ -192,6 +205,8 @@ SELECT pg_temp.attendre('Sans rôle : aucun magasin', (SELECT cardinality(pilota
 SELECT pg_temp.attendre('Sans rôle : aucun groupe', (SELECT count(*) FROM pilotage.groupes), 0);
 SELECT pg_temp.attendre('Sans rôle : aucun réel', (SELECT count(*) FROM pilotage.reel_mensuel) + (SELECT count(*) FROM pilotage.reel_tickets), 0);
 SELECT pg_temp.attendre('Sans rôle : aucun frais', (SELECT count(*) FROM pilotage.frais), 0);
+SELECT pg_temp.attendre('Sans rôle : aucun quadrimestre', (SELECT count(*) FROM pilotage.quadrimestres), 0);
+SELECT pg_temp.attendre('Sans rôle : ne saisit pas de quadrimestre', pg_temp.refuse('INSERT INTO pilotage.quadrimestres (store_name, annee, quadrimestre) VALUES (''Lille'', 2026, 3)'), 1);
 SELECT pg_temp.attendre('Sans rôle : aucune équipe', (SELECT count(*) FROM pilotage.equipe), 0);
 SELECT pg_temp.attendre('Sans rôle : n''écrit pas d''équipe', pg_temp.refuse('INSERT INTO pilotage.equipe (store_name, poste, categorie, heures_hebdo, brut_mensuel) VALUES (''Lille'', ''X'', ''employe'', 35, 1)'), 1);
 SELECT pg_temp.attendre('Sans rôle : n''écrit pas de réel', pg_temp.refuse('SELECT pilotage.remplacer_reel(''[{"store_name":"Lille","mois":"2026-04-01","univers":"bar","famille":"Fût","ca_ht":1}]'', ''[]'')'), 1);
@@ -205,6 +220,7 @@ SELECT pg_temp.attendre('Visiteur : aucun accès aux fonctions', pg_temp.refuse(
 SELECT pg_temp.attendre('Visiteur : pas de budgets du compte', pg_temp.refuse('SELECT pilotage.budgets_du_compte(2027)'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès aux groupes', pg_temp.refuse('SELECT count(*) FROM pilotage.groupes'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès aux frais', pg_temp.refuse('SELECT count(*) FROM pilotage.frais'), 1);
+SELECT pg_temp.attendre('Visiteur : aucun accès aux quadrimestres', pg_temp.refuse('SELECT count(*) FROM pilotage.quadrimestres'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès à l''équipe', pg_temp.refuse('SELECT count(*) FROM pilotage.equipe'), 1);
 SELECT pg_temp.attendre('Visiteur : pas de réel du compte', pg_temp.refuse('SELECT pilotage.reel_du_compte(2026)'), 1);
 SELECT pg_temp.attendre('Visiteur : pas d''import de réel', pg_temp.refuse('SELECT pilotage.remplacer_reel(''[]'', ''[]'')'), 1);

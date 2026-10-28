@@ -5,6 +5,16 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 12 — Quadrimestres : résultat réel tous les 4 mois
+
+- Fiche magasin, onglet Quadrimestres : six montants comptables par période (achats de marchandises, variation de
+  stock, charges externes redevance et publicité comprises, impôts et taxes, frais de personnel, trésorerie de fin de
+  période). Le CA vient de la caisse ; l'app calcule la marge réelle (CA − achats + variation de stock), l'écart à la
+  marge théorique de la caisse (démarque constatée), l'EBE réel, l'EBE / CA et l'écart à l'EBE du budget, par
+  quadrimestre et en cumul. Saisie par le Directeur, le RR, le Coach et le franchisé sur leurs magasins.
+- Imports de caisse : fichier des comptables (plusieurs magasins d'un coup, code caisse ou nom du magasin).
+- **Base : migration `0008_quadrimestres.sql` à passer.**
+
 ## Lot 11 — Consignes dans la trésorerie (28/10/2026)
 
 - Trésorerie du budget : consignes versées aux fournisseurs avec les achats (fûts, caisses, gaz) et remboursées une

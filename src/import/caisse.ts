@@ -128,6 +128,27 @@ export function lireTickets(texte: string): Lecture<TicketsMois> {
   return { ...lecture, lignes: [...cumuls.values()] }
 }
 
+// Quadrimestres des comptables (format du 28/10/2026, voir docs/import-caisse.md) :
+// code_magasin;annee;quadrimestre;achats;variation_stock;charges_externes;impots_taxes;personnel;tresorerie
+// Une ligne par magasin et par quadrimestre ; un montant vide reste à saisir.
+export interface QuadrimestreLu {
+  code: string; annee: number; quadrimestre: 1 | 2 | 3
+  achats: number | null; variationStock: number | null; chargesExternes: number | null; impotsTaxes: number | null; personnel: number | null; tresorerie: number | null
+}
+const COLONNES_QUADRIMESTRE = { achats: 'achats', variationStock: 'variation_stock', chargesExternes: 'charges_externes', impotsTaxes: 'impots_taxes', personnel: 'personnel', tresorerie: 'tresorerie' } as const
+export function lireQuadrimestres(texte: string): Lecture<QuadrimestreLu> {
+  return lire(texte, ['code_magasin', 'annee', 'quadrimestre', ...Object.values(COLONNES_QUADRIMESTRE)], (v, n, erreurs) => {
+    const annee = Number(v.annee), quadrimestre = Number(v.quadrimestre)
+    if (!v.code_magasin) { erreurs.push(`Ligne ${n} : code magasin vide.`); return null }
+    if (!Number.isInteger(annee) || annee < 2000 || annee > 2100) { erreurs.push(`Ligne ${n} : année « ${v.annee} » illisible.`); return null }
+    if (![1, 2, 3].includes(quadrimestre)) { erreurs.push(`Ligne ${n} : quadrimestre « ${v.quadrimestre} » inconnu (1, 2 ou 3).`); return null }
+    const montants = Object.fromEntries(Object.entries(COLONNES_QUADRIMESTRE).map(([cle, col]) => [cle, nombre(v[col])])) as Record<keyof typeof COLONNES_QUADRIMESTRE, number | null>
+    if (Object.values(montants).some((m) => Number.isNaN(m))) { erreurs.push(`Ligne ${n} : montant illisible.`); return null }
+    if ((['achats', 'chargesExternes', 'impotsTaxes', 'personnel'] as const).some((k) => (montants[k] ?? 0) < 0)) { erreurs.push(`Ligne ${n} : achats et charges attendus en positif.`); return null }
+    return { code: v.code_magasin, annee, quadrimestre: quadrimestre as 1 | 2 | 3, ...montants }
+  })
+}
+
 // Centimes : évite les restes de virgule flottante après des centaines de lignes cumulées
 const arrondi = (v: number) => Math.round(v * 100) / 100
 

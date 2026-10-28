@@ -7,6 +7,7 @@ import { baseDepuisReel, fraisDepuisLignes, type LigneFraisMagasin, type ReelAnn
 import type { Categorie, ParametresCharges, Personne } from '../moteur/equipe'
 import type { LigneReel, TicketsReel } from '../moteur/reel'
 import type { MoisReel } from '../moteur/suivi'
+import type { Quadrimestre, SaisieQuadrimestre } from '../moteur/quadrimestre'
 import type { Hypotheses, ParametresReseau, Univers } from '../moteur/types'
 
 export type Statut = 'propose' | 'en_discussion' | 'valide'
@@ -339,4 +340,38 @@ export async function enregistrerFrais(magasin: string, lignes: LigneFraisMagasi
     }))))
   }
   if (retirees.length) verifier(await pilotage().from('frais').delete().eq('store_name', magasin).in('code', retirees))
+}
+
+// ── Quadrimestres (lot 12) : montants comptables agrégés de chaque magasin du compte pour une année
+export type SaisiesQuadrimestres = Record<string, Partial<Record<Quadrimestre, SaisieQuadrimestre>>>
+type LigneQuadrimestre = { store_name: string; quadrimestre: number; achats: unknown; variation_stock: unknown; charges_externes: unknown; impots_taxes: unknown; personnel: unknown; tresorerie: unknown }
+export const chargerQuadrimestres = (annee: number): Promise<SaisiesQuadrimestres> => memo(`quadrimestres|${annee}`, async () => {
+  const lignes = await toutesLesLignes<LigneQuadrimestre>((de, a) =>
+    pilotage().from('quadrimestres').select('store_name, quadrimestre, achats, variation_stock, charges_externes, impots_taxes, personnel, tresorerie')
+      .eq('annee', annee).order('store_name').order('quadrimestre').range(de, a))
+  const num = (x: unknown) => (x === null || x === undefined ? null : Number(x))
+  const r: SaisiesQuadrimestres = {}
+  for (const l of lignes) {
+    if (![1, 2, 3].includes(l.quadrimestre)) continue
+    (r[l.store_name] ??= {})[l.quadrimestre as Quadrimestre] = {
+      achats: num(l.achats), variationStock: num(l.variation_stock), chargesExternes: num(l.charges_externes),
+      impotsTaxes: num(l.impots_taxes), personnel: num(l.personnel), tresorerie: num(l.tresorerie),
+    }
+  }
+  return r
+})
+
+const ligneQuadrimestre = (magasin: string, annee: number, q: Quadrimestre, s: SaisieQuadrimestre) => ({
+  store_name: magasin, annee, quadrimestre: q, achats: s.achats, variation_stock: s.variationStock, charges_externes: s.chargesExternes,
+  impots_taxes: s.impotsTaxes, personnel: s.personnel, tresorerie: s.tresorerie,
+})
+export async function enregistrerQuadrimestres(magasin: string, annee: number, saisies: Partial<Record<Quadrimestre, SaisieQuadrimestre>>) {
+  const lignes = Object.entries(saisies).map(([q, s]) => ligneQuadrimestre(magasin, annee, Number(q) as Quadrimestre, s!))
+  if (lignes.length) verifier(await pilotage().from('quadrimestres').upsert(lignes))
+}
+// Import d'un fichier : plusieurs magasins d'un bloc
+export async function importerQuadrimestres(lignes: { magasin: string; annee: number; quadrimestre: Quadrimestre; saisie: SaisieQuadrimestre }[]) {
+  for (let i = 0; i < lignes.length; i += 500) {
+    verifier(await pilotage().from('quadrimestres').upsert(lignes.slice(i, i + 500).map((l) => ligneQuadrimestre(l.magasin, l.annee, l.quadrimestre, l.saisie))))
+  }
 }

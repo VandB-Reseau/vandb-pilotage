@@ -33,6 +33,7 @@ import { EquipeMagasin } from '../components/EquipeMagasin'
 import { FraisMagasin } from '../components/FraisMagasin'
 import { useGarde, useSaisieEnCours } from '../components/GardeSaisie'
 import { PastilleStatut } from '../components/PastilleStatut'
+import { QuadrimestresMagasin } from '../components/QuadrimestresMagasin'
 import { ReelAnnee } from '../components/ReelAnnee'
 import { poidsValides, SaisonnaliteMagasin } from '../components/SaisonnaliteMagasin'
 import { SuiviBudget } from '../components/SuiviBudget'
@@ -84,6 +85,7 @@ export function Magasin() {
   // Synthèse d'abord : la santé du magasin en un coup d'œil
   const [onglet, setOnglet] = useState('synthese')
   const [anneeReel, setAnneeReel] = useState(anneeEnCours)
+  const [anneeQuadri, setAnneeQuadri] = useState(anneeEnCours)
 
   const ligne = donnees?.d.magasins.find((l) => l.magasin === nom) ?? null
   useEffect(() => { setBrouillon(ligne?.ajustements ?? {}) }, [ligne])
@@ -188,6 +190,7 @@ export function Magasin() {
         <Tab value="budget" label={<LibelleOnglet texte={`Budget ${annee}`} manque={directeur && !ligne.statut} detail="à proposer" />} sx={{ minHeight: 48 }} />
         <Tab value="atterrissage" label={`Atterrissage ${anneeEnCours}`} sx={{ minHeight: 48 }} />
         <Tab value="reel" label={<LibelleOnglet texte="Réel" manque={!!reel.donnees && reelEnRetard(syntheseReel(reel.donnees.lignes, reel.donnees.tickets).moisRenseignes)} detail="en retard" />} sx={{ minHeight: 48 }} />
+        <Tab value="quadrimestres" label="Quadrimestres" sx={{ minHeight: 48 }} />
         <Tab value="equipe" label={<LibelleOnglet texte="Équipe" manque={!d.equipes[ligne.magasin]?.length} detail="à renseigner" />} sx={{ minHeight: 48 }} />
         <Tab value="frais" label={<LibelleOnglet texte="Frais" manque={!d.frais[ligne.magasin]?.length} detail="à renseigner" />} sx={{ minHeight: 48 }} />
       </Tabs>
@@ -207,6 +210,13 @@ export function Magasin() {
             {[anneeEnCours, anneeEnCours - 1].map((a) => <ToggleButton key={a} value={a} sx={{ minHeight: 48, minWidth: 72 }}>{a}</ToggleButton>)}
           </ToggleButtonGroup>
           <ReelAnnee key={`${ligne.magasin}-${anneeReel}`} magasin={ligne.magasin} annee={anneeReel} peutSaisir={peutSaisir} apresEnregistrement={reel.recharger} />
+        </Stack>
+      ) : onglet === 'quadrimestres' ? (
+        <Stack spacing={2}>
+          <ToggleButtonGroup exclusive size="small" value={anneeQuadri} onChange={(_, v: number | null) => v && garde(() => setAnneeQuadri(v))} aria-label="Année des quadrimestres">
+            {[anneeEnCours, anneeEnCours - 1].map((a) => <ToggleButton key={a} value={a} sx={{ minHeight: 48, minWidth: 72 }}>{a}</ToggleButton>)}
+          </ToggleButtonGroup>
+          <QuadrimestresMagasin key={`${ligne.magasin}-${anneeQuadri}`} magasin={ligne.magasin} annee={anneeQuadri} peutSaisir={peutSaisir} />
         </Stack>
       ) : onglet === 'frais' ? (
         <FraisMagasin key={ligne.magasin} magasin={ligne.magasin} lignes={d.frais[ligne.magasin] ?? []} annee={anneeEnCours} peutSaisir={peutSaisir} apresEnregistrement={recharger} />

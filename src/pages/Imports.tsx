@@ -21,9 +21,9 @@ import DeleteOutlined from '@mui/icons-material/DeleteOutlined'
 import UploadFileOutlined from '@mui/icons-material/UploadFileOutlined'
 import { ChoixMagasin } from '../components/ChoixMagasin'
 import { Panne } from '../components/Panne'
-import { anneeBudget, chargerBudgets, chargerCodes, enregistrerCode, importerReel, supprimerCode } from '../data/pilotage'
+import { anneeBudget, chargerBudgets, chargerCodes, enregistrerCode, importerQuadrimestres, importerReel, supprimerCode } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
-import { apercuImport, FichierInattendu, lireTickets, lireVentes, type TicketsMois, type VenteMois } from '../import/caisse'
+import { apercuImport, FichierInattendu, lireQuadrimestres, lireTickets, lireVentes, type QuadrimestreLu, type TicketsMois, type VenteMois } from '../import/caisse'
 import { montant, MOIS_LONGS, taux } from '../lib/format'
 
 interface Lus { fichiers: string[]; ventes: VenteMois[]; tickets: TicketsMois[]; erreurs: string[]; alertes: string[] }
@@ -68,9 +68,11 @@ export function Imports() {
   const [lus, setLus] = useState<Lus | null>(null)
   const [message, setMessage] = useState<Message | null>(null)
   const [occupe, setOccupe] = useState(false)
+  const entreeQuadri = useRef<HTMLInputElement>(null)
+  const [quadri, setQuadri] = useState<{ fichier: string; lignes: QuadrimestreLu[]; erreurs: string[] } | null>(null)
   const [nouveauCode, setNouveauCode] = useState('')
   const [nouveauMagasin, setNouveauMagasin] = useState<string | null>(null)
-  useSaisieEnCours(!!lus)
+  useSaisieEnCours(!!lus || !!quadri)
 
   if (chargement && !donnees) return <Box><Typography variant="h1">Imports de caisse</Typography><Skeleton variant="rounded" height={240} sx={{ mt: 3 }} /></Box>
   if (erreur || !donnees) return <Box><Typography variant="h1" sx={{ mb: 3 }}>Imports de caisse</Typography><Panne quoi="Les codes caisse" recharger={recharger} /></Box>
@@ -78,6 +80,10 @@ export function Imports() {
   const { codes, magasins } = donnees
   const magasinDuCode = new Map(codes.map((c) => [c.code, c.magasin]))
   const apercu = lus ? apercuImport(lus.ventes, lus.tickets, magasinDuCode) : null
+  // Quadrimestres : le code caisse ou le nom du magasin
+  const magasinQuadri = (code: string) => magasinDuCode.get(code) ?? magasins.find((m) => m.toLowerCase() === code.toLowerCase()) ?? null
+  const quadriRetenus = quadri?.lignes.filter((l) => magasinQuadri(l.code)) ?? []
+  const quadriInconnus = [...new Set(quadri?.lignes.filter((l) => !magasinQuadri(l.code)).map((l) => l.code) ?? [])]
   const sansCode = magasins.filter((m) => !codes.some((c) => c.magasin === m))
 
   const agir = async (action: () => Promise<string>) => {
@@ -191,6 +197,57 @@ export function Imports() {
                   Importer
                 </Button>
                 <Button onClick={() => setLus(null)} disabled={occupe} sx={{ minHeight: 48 }}>Annuler</Button>
+              </Box>
+            </Stack>
+          )}
+        </Card>
+
+        <Card component="section" aria-label="Quadrimestres des comptables" sx={{ p: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+            <Typography variant="h2">Quadrimestres des comptables</Typography>
+            <Button variant="outlined" startIcon={<UploadFileOutlined />} disabled={occupe} onClick={() => entreeQuadri.current?.click()} sx={{ minHeight: 48 }}>
+              Choisir le fichier
+            </Button>
+            <input ref={entreeQuadri} type="file" accept=".csv,.txt,text/csv" hidden aria-label="Fichier des quadrimestres"
+              onChange={async (e) => {
+                const f = e.target.files?.[0]
+                e.target.value = ''
+                if (!f) return
+                setMessage(null)
+                try {
+                  const l = lireQuadrimestres(await f.text())
+                  setQuadri({ fichier: f.name, lignes: l.lignes, erreurs: l.erreurs })
+                } catch {
+                  setQuadri({ fichier: f.name, lignes: [], erreurs: ['Colonnes attendues : code_magasin, annee, quadrimestre, achats, variation_stock, charges_externes, impots_taxes, personnel, tresorerie.'] })
+                }
+              }} />
+          </Box>
+          {quadri && (
+            <Stack spacing={2} sx={{ mt: 2 }}>
+              <Typography>
+                {quadri.fichier} : {quadriRetenus.length === 0 ? 'aucune ligne à importer' : (() => { const m = new Set(quadriRetenus.map((l) => magasinQuadri(l.code))).size; return `${quadriRetenus.length === 1 ? '1 quadrimestre' : `${quadriRetenus.length} quadrimestres`}, ${m === 1 ? '1 magasin' : `${m} magasins`}` })()}
+              </Typography>
+              {quadri.erreurs.length > 0 && (
+                <Alert severity="error">
+                  {quadri.erreurs.length === 1 ? 'Une ligne est écartée :' : `${quadri.erreurs.length} lignes sont écartées :`}
+                  <Box component="ul" sx={{ m: 0, mt: 0.5, pl: 2.5 }}>
+                    {quadri.erreurs.slice(0, MAX_DETAILS).map((t) => <li key={t}>{t}</li>)}
+                    {quadri.erreurs.length > MAX_DETAILS && <li>et {quadri.erreurs.length - MAX_DETAILS} autres.</li>}
+                  </Box>
+                </Alert>
+              )}
+              {quadriInconnus.length > 0 && <Alert severity="warning">Magasin introuvable pour : {quadriInconnus.slice(0, MAX_DETAILS).join(', ')}{quadriInconnus.length > MAX_DETAILS ? '…' : '.'} Ces lignes ne seront pas importées.</Alert>}
+              <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+                <Button variant="contained" startIcon={<CloudUploadOutlined />} disabled={occupe || quadriRetenus.length === 0} sx={{ minHeight: 48 }}
+                  onClick={() => void agir(async () => {
+                    await importerQuadrimestres(quadriRetenus.map(({ code, annee, quadrimestre, ...saisie }) => ({ magasin: magasinQuadri(code)!, annee, quadrimestre, saisie })))
+                    const n = quadriRetenus.length
+                    setQuadri(null)
+                    return `${n === 1 ? 'Quadrimestre importé' : `${n} quadrimestres importés`}.`
+                  })}>
+                  Importer
+                </Button>
+                <Button onClick={() => setQuadri(null)} disabled={occupe} sx={{ minHeight: 48 }}>Annuler</Button>
               </Box>
             </Stack>
           )}

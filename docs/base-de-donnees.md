@@ -4,7 +4,7 @@ Même base Supabase que l'app réseau. Le pilotage n'écrit que dans le schéma 
 fonctions (`mon_role()`, `est_directeur()`, `magasins_visibles()`, `mes_magasins()`, `json_sur()`) et ses tables `perimetre_equipe`
 et `app_config` (lue seulement : fiche des Responsables Régionaux, clé `drs_data`).
 
-Mis à jour le 28/10/2026 (migration `0007`).
+Mis à jour le 28/10/2026 (migration `0008`).
 
 ## Principes
 
@@ -25,6 +25,7 @@ Mis à jour le 28/10/2026 (migration `0007`).
 | `codes_caisse` | Code magasin de la caisse (fichiers de la DSI) → nom du magasin, un code par magasin | `code` | Équipe | Directeur |
 | `equipe` | Équipe d'un magasin, une ligne par poste sans nom : `poste`, `categorie` (`employe`, `agent_maitrise`, `cadre`, `apprenti`, `gerant_tns`), `heures_hebdo`, `brut_mensuel` (rémunération pour un gérant TNS), `primes` (`[{mois, montant}]`), `entree` et `sortie` (1er du mois, facultatives), `maj_le`, `maj_par` | `id` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
 | `frais` | Frais annuels d'un magasin, une ligne par code de la grille (`src/moteur/parametres.ts`) : `code`, `libelle`, `rubrique` (rubriques de la grille, plus `hors_exploitation` pour `amortissements`, `interets`, `remboursement_capital`), `annuel` (€ par an) ou `taux_ca` (part du CA HT), l'un ou l'autre, `maj_le`, `maj_par` | `store_name`, `code` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
+| `quadrimestres` | Chiffres comptables d'un magasin tous les 4 mois (1 : janvier à avril, 2 : mai à août, 3 : septembre à décembre), saisis ou importés : `achats` de marchandises, `variation_stock` (stock de fin − stock de début), `charges_externes` (redevance et publicité comprises), `impots_taxes`, `personnel`, `tresorerie` en fin de période, `maj_le`, `maj_par`. Achats et charges positifs. Le CA vient de la caisse ; marge réelle et EBE sont calculés par l'app (0008) | `store_name`, `annee`, `quadrimestre` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
 | `groupes` | Groupes libres de magasins (centre-ville, zone commerciale…) : `nom` | `id` | Équipe | Directeur |
 | `groupe_magasins` | Groupe d'un magasin (un au plus) | `store_name` | Équipe | Directeur |
 | `cibles_reseau` | Cibles du réseau pour l'année : `valeur` (format `Cibles`) | `annee` | Équipe | Directeur |
