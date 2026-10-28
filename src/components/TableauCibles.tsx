@@ -30,6 +30,10 @@ export function lignesCibles(familles: Pick<Famille, 'univers' | 'famille'>[], a
     const [u, ...n] = cle.split('/')
     lignes.push({ cle: `marge/${cle}`, libelle: `${n.join('/')} (${universLibelle[u as Famille['univers']]})`, section: 'Marge visée par famille' })
   }
+  for (const cle of vues) {
+    const [u, ...n] = cle.split('/')
+    lignes.push({ cle: `demarque/${cle}`, libelle: `${n.join('/')} (${universLibelle[u as Famille['univers']]})`, section: 'Démarque par famille' })
+  }
   lignes.push({ cle: 'hausseSalaires', libelle: 'Hausse des salaires', section: 'Salaires et frais' })
   lignes.push({ cle: 'inflationFrais', libelle: 'Inflation des frais', section: 'Salaires et frais' })
   for (const u of flux) lignes.push({ cle: `flux/${u}`, libelle: universLibelle[u], section: 'Évolution du nombre de tickets' })

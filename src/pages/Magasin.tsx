@@ -17,11 +17,13 @@ import ArrowBack from '@mui/icons-material/ArrowBack'
 import ChevronLeftOutlined from '@mui/icons-material/ChevronLeftOutlined'
 import ChevronRightOutlined from '@mui/icons-material/ChevronRightOutlined'
 import CheckCircleOutlined from '@mui/icons-material/CheckCircleOutlined'
+import ContentCopyOutlined from '@mui/icons-material/ContentCopyOutlined'
 import LockOpenOutlined from '@mui/icons-material/LockOpenOutlined'
 import SaveOutlined from '@mui/icons-material/SaveOutlined'
 import { useAuth } from '../auth/AuthContext'
 import { AtterrissageMagasin } from '../components/AtterrissageMagasin'
 import { CompteResultatMois } from '../components/CompteResultatMois'
+import { CopieHypotheses } from '../components/CopieHypotheses'
 import { EtatVide } from '../components/EtatVide'
 import { Indicateur } from '../components/Indicateur'
 import { Panne } from '../components/Panne'
@@ -30,7 +32,9 @@ import { FraisMagasin } from '../components/FraisMagasin'
 import { useGarde, useSaisieEnCours } from '../components/GardeSaisie'
 import { PastilleStatut } from '../components/PastilleStatut'
 import { ReelAnnee } from '../components/ReelAnnee'
+import { poidsValides, SaisonnaliteMagasin } from '../components/SaisonnaliteMagasin'
 import { SuiviBudget } from '../components/SuiviBudget'
+import { TravauxMagasin } from '../components/TravauxMagasin'
 import { SyntheseMagasin } from '../components/SyntheseMagasin'
 import { GrilleHypotheses } from '../components/GrilleHypotheses'
 import { lignesCibles, TableauCibles } from '../components/TableauCibles'
@@ -41,9 +45,9 @@ import { useChargement } from '../data/useChargement'
 import { reelEnRetard } from '../lib/aFaire'
 import { lienMagasin, milliers, taux } from '../lib/format'
 import { syntheseReel } from '../moteur/reel'
-import { calculerBudget } from '../moteur/budget'
+import { calculerBudget, effetTravaux } from '../moteur/budget'
 import { compteResultat } from '../moteur/compteResultat'
-import { ecarts, valeurHeritee, type Cibles } from '../moteur/cibles'
+import { ajustementsCopies, ecarts, valeurHeritee, type Cibles } from '../moteur/cibles'
 
 
 // Onglet avec une pastille quand il manque quelque chose ; le détail est lu par les lecteurs d'écran
@@ -68,6 +72,7 @@ export function Magasin() {
   const [brouillon, setBrouillon] = useState<Cibles>({})
   const [message, setMessage] = useState<Message | null>(null)
   const [occupe, setOccupe] = useState(false)
+  const [copie, setCopie] = useState(false)
   // Budget de l'an prochain, réel de l'année en cours et de la précédente
   const anneeEnCours = new Date().getFullYear()
   // Synthèse d'abord : la santé du magasin en un coup d'œil
@@ -119,6 +124,21 @@ export function Magasin() {
   const modifie = JSON.stringify(brouillon) !== JSON.stringify(ligne.ajustements)
   const peutAjuster = (directeur || profil?.role === 'franchise') && !!ligne.base && ligne.statut !== 'valide'
   const nbEcarts = resolu ? ecarts(resolu.provenance).length : 0
+  const enregistrable = poidsValides(brouillon.poidsMois)
+  // Effet des travaux : même budget sans eux
+  const sansTravaux = resolu?.hypotheses.travaux ? calculerBudget({ ...resolu.hypotheses, travaux: undefined }, parametres) : null
+  // Copie : magasins dont le budget est proposé ou en discussion
+  const destinations = d.magasins.filter((l) => l.magasin !== ligne.magasin && l.base && l.statut && l.statut !== 'valide')
+  const copier = (vers: string[]) => void agir(async () => {
+    for (const nom of vers) {
+      const cible = destinations.find((l) => l.magasin === nom)
+      if (!cible) continue
+      const ajustements = ajustementsCopies(ligne.ajustements, cible.ajustements)
+      const h = hypothesesDe(cible, d, ajustements)
+      if (h) await enregistrerAjustements(nom, annee, ajustements, h.hypotheses)
+    }
+    setCopie(false)
+  }, vers.length > 1 ? `Hypothèses copiées vers ${vers.length} magasins.` : `Hypothèses copiées vers ${vers[0]}.`)
 
   const agir = async (action: () => Promise<void>, reussite: string) => {
     setOccupe(true)
@@ -211,14 +231,14 @@ export function Magasin() {
           {(directeur || modifie) && (
             <Stack direction="row" useFlexGap spacing={1.5} sx={{ flexWrap: 'wrap' }} aria-label="Actions sur le budget">
               {peutAjuster && modifie && (
-                <Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe} sx={{ minHeight: 48 }}
+                <Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe || !enregistrable} sx={{ minHeight: 48 }}
                   onClick={() => resolu && void agir(() => enregistrerAjustements(ligne.magasin, annee, brouillon, resolu.hypotheses),
                     directeur ? 'Ajustements enregistrés.' : 'Ajustements enregistrés : le budget est en discussion avec le siège.')}>
                   Enregistrer les ajustements
                 </Button>
               )}
               {directeur && ligne.base && ligne.statut !== 'valide' && (
-                <Button variant={modifie ? 'outlined' : 'contained'} color="success" startIcon={<CheckCircleOutlined />} disabled={occupe} sx={{ minHeight: 48 }}
+                <Button variant={modifie ? 'outlined' : 'contained'} color="success" startIcon={<CheckCircleOutlined />} disabled={occupe || !enregistrable} sx={{ minHeight: 48 }}
                   onClick={() => resolu && void agir(async () => {
                     if (modifie) await enregistrerAjustements(ligne.magasin, annee, brouillon, resolu.hypotheses)
                     await changerStatut(ligne.magasin, annee, 'valide', resolu.hypotheses)
@@ -232,8 +252,15 @@ export function Magasin() {
                   Rouvrir la discussion
                 </Button>
               )}
+              {directeur && ligne.base && !copie && (
+                <Button variant="outlined" startIcon={<ContentCopyOutlined />} disabled={occupe || modifie} onClick={() => setCopie(true)} sx={{ minHeight: 48 }}>
+                  Copier vers d’autres magasins
+                </Button>
+              )}
             </Stack>
           )}
+
+          {copie && <CopieHypotheses source={ligne.magasin} magasins={destinations.map((l) => l.magasin)} occupe={occupe} onCopier={copier} onFermer={() => setCopie(false)} />}
 
           {ligne.base && resolu && b && (
             <Card component="section" aria-label="Hypothèses du magasin">
@@ -259,6 +286,19 @@ export function Magasin() {
                 />
               </TableContainer>
             </Card>
+          )}
+
+          {ligne.base && b && (
+            <SaisonnaliteMagasin budget={b} poids={brouillon.poidsMois} lectureSeule={!peutAjuster}
+              onChange={(p) => setBrouillon(({ poidsMois: _, ...reste }) => (p ? { ...reste, poidsMois: p } : reste))} />
+          )}
+          {ligne.base && b && resolu && (
+            <TravauxMagasin
+              key={`${ligne.magasin}-${!!brouillon.travaux}`}
+              travaux={brouillon.travaux} lectureSeule={!peutAjuster}
+              effetCA={sansTravaux ? b.ca - sansTravaux.ca : 0} dotation={effetTravaux(resolu.hypotheses.travaux).dotation}
+              onChange={(t) => setBrouillon(({ travaux: _, ...reste }) => (t ? { ...reste, travaux: t } : reste))}
+            />
           )}
 
           {resolu && <CompteResultatMois lignes={compteResultat(b, resolu.hypotheses, parametres)} titre={`Compte de résultat ${annee}`} libelleTableau={`Budget ${annee} mois par mois`} />}

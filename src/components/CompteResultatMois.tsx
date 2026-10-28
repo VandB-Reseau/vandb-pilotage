@@ -72,7 +72,7 @@ export function CompteResultatMois({ lignes, titre, libelleTableau, projeteA, en
                   </TableCell>
                   {l.mois.map((v, i) => (
                     <TableCell key={i} align="right" sx={{ ...style, ...(projete(i) ? { color: 'text.secondary' } : {}), ...(v !== null && v < 0 && l.fort ? { color: 'error.main' } : {}) }}>
-                      {v === null ? '' : enChiffres(Math.round(v))}
+                      {v === null ? '' : enChiffres(Math.round(v) || 0)}
                     </TableCell>
                   ))}
                   <TableCell align="right" sx={{ ...style, fontWeight: 700, ...(l.total < 0 && l.fort ? { color: 'error.main' } : {}) }}>{montant(l.total)}</TableCell>

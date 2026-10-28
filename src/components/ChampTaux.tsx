@@ -11,12 +11,14 @@ const lire = (t: string): number | undefined | null => {
 }
 
 // Saisie d'un pourcentage (« 3,5 » pour 3,5 %). Vide : la valeur du niveau au-dessus s'applique, affichée en grisé.
-export function ChampTaux({ libelle, valeur, heritee, onChange, desactive }: {
+export function ChampTaux({ libelle, valeur, heritee, onChange, desactive, largeur = 120, sansUnite }: {
   libelle: string
   valeur: number | undefined
   heritee?: number
   onChange: (v: number | undefined) => void
   desactive?: boolean
+  largeur?: number
+  sansUnite?: boolean // colonne déjà titrée en %
 }) {
   const [texte, setTexte] = useState(enTexte(valeur))
   // Valeur changée ailleurs (retour à la cible) : le champ suit
@@ -36,9 +38,9 @@ export function ChampTaux({ libelle, valeur, heritee, onChange, desactive }: {
       }}
       slotProps={{
         htmlInput: { inputMode: 'decimal', 'aria-label': libelle, style: { textAlign: 'right' } },
-        input: { endAdornment: <InputAdornment position="end">%</InputAdornment> },
+        input: sansUnite ? undefined : { endAdornment: <InputAdornment position="end">%</InputAdornment> },
       }}
-      sx={{ width: 120, '& input': { height: 48, boxSizing: 'border-box', py: 0 } }}
+      sx={{ width: largeur, '& input': { height: 48, boxSizing: 'border-box', py: 0, px: sansUnite ? 1 : undefined } }}
     />
   )
 }
