@@ -15,7 +15,7 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
 | `src/lib/` | Mise en forme (`format.ts`), filtres de l'accueil et réel en retard (`aFaire.ts`), Entrée vers le montant suivant (`champSuivant.ts`) |
 | `src/auth/` | Connexion et rôle lu dans la base |
 | `src/pages/` | Connexion, Magasins, Réseau (classement des magasins), fiche Magasin (onglets Synthèse, Suivi du budget, Budget, Atterrissage de l'année en cours, Réel avec choix de l'année et saisie d'un mois, Équipe, Frais), Hypothèses (cibles du réseau et des groupes), Imports de caisse (fichiers de la DSI, codes caisse), Paramètres réseau (dont charges sociales) |
-| `src/components/` | Écrans partagés, dont `SyntheseMagasin.tsx`, `CompteResultatMois.tsx` (tableau dépliable), `GraphiqueMois.tsx` (graphique 12 mois avec infobulle), `Indicateur.tsx` et `Courbe.tsx` (cartes chiffrées), `SuiviBudget.tsx`, `GrilleHypotheses.tsx` (hypothèses par famille) |
+| `src/components/` | Écrans partagés, dont `SyntheseMagasin.tsx`, `CompteResultatMois.tsx` (tableau dépliable), `GraphiqueMois.tsx` (graphique 12 mois avec infobulle), `Indicateur.tsx` et `Courbe.tsx` (cartes chiffrées), `SuiviBudget.tsx`, `GrilleHypotheses.tsx` (hypothèses par famille), `SaisonnaliteMagasin.tsx`, `TravauxMagasin.tsx`, `CopieHypotheses.tsx` |
 | `src/layout/` | Cadre : barre du haut, menu latéral sur PC, barre basse sur téléphone ; garde des saisies non enregistrées (`components/GardeSaisie.tsx`) |
 | `supabase/` | Migrations du schéma `pilotage` et leurs tests |
 | `tests/` | `moteur/` (calculs, sans navigateur), écrans sur PC et téléphone avec Supabase simulé |
@@ -26,7 +26,7 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
 2. `pilotage.budgets_du_compte(annee)` renvoie les budgets du compte, les cibles du réseau et des groupes ; les
    paramètres viennent de `pilotage.parametres_reseau`.
 3. Budget d'un magasin : sa base (réalisé proposé par le siège) passe par `appliquerCibles` (réseau, groupe, ajustements du
-   magasin), puis par `calculerBudget`. Un budget validé garde les hypothèses figées à la validation.
+   magasin, dont démarque, saisonnalité et travaux), puis par `calculerBudget` (`poidsBudget`, `effetTravaux`). Un budget validé garde les hypothèses figées à la validation.
 4. Réel : chaque mois, le Directeur dépose les fichiers de la DSI (Imports de caisse) ; l'app les lit dans le navigateur,
    rattache les codes caisse aux magasins et remplace chaque mois reçu par `remplacer_reel`. Un mois peut aussi être saisi
    à la main depuis la fiche magasin. `syntheseReel` en tire cumul, marge, poids des familles et panier moyen.

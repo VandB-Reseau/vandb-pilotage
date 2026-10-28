@@ -1,4 +1,4 @@
-import { universLibelle, type Famille, type Hypotheses, type Univers } from './types'
+import { universLibelle, type Famille, type Hypotheses, type Travaux, type Univers } from './types'
 
 // Hypothèses du budget par niveaux : le siège fixe des cibles pour le réseau, éventuellement pour un groupe de magasins,
 // et le magasin peut s'en écarter. Chaque valeur vient du niveau le plus proche du magasin qui la renseigne :
@@ -14,9 +14,12 @@ export interface Cibles {
   evolutionUnivers?: Partial<Record<Univers, number>> // évolution du CA de toutes les familles d'un univers
   evolutionFamille?: Record<string, number>           // par cleFamille, prime sur l'univers au même niveau
   margeFamille?: Record<string, number>               // marge visée, par cleFamille
+  demarqueFamille?: Record<string, number>            // démarque en part du CA, par cleFamille
   hausseSalaires?: number                             // appliquée aux salaires de l'année en cours
   inflationFrais?: number                             // appliquée aux frais annuels (pas à ceux en % du CA)
   evolutionFlux?: Partial<Record<'cave' | 'bar', number>>
+  poidsMois?: number[]                                // magasin seulement : sa saisonnalité
+  travaux?: Travaux                                   // magasin seulement : ses travaux de l'année
 }
 
 export interface Provenance { cle: string; libelle: string; valeur: number; source: Niveau | 'base' }
@@ -42,12 +45,15 @@ export function appliquerCibles(base: Hypotheses, niveaux: NiveauCibles[]): { hy
     const cle = cleFamille(f)
     const evo = resoudre(niveaux, (c) => c.evolutionFamille?.[cle] ?? c.evolutionUnivers?.[f.univers])
     const marge = resoudre(niveaux, (c) => c.margeFamille?.[cle])
+    const dem = resoudre(niveaux, (c) => c.demarqueFamille?.[cle])
     const evolution = evo?.valeur ?? 0
     const margeCible = marge?.valeur ?? f.margeRealisee
+    const demarque = dem?.valeur ?? 0
     const nom = `${f.famille} (${universLibelle[f.univers]})`
     provenance.push({ cle: `evolution/${cle}`, libelle: `Évolution du CA ${nom}`, valeur: evolution, source: evo?.source ?? 'base' })
     provenance.push({ cle: `marge/${cle}`, libelle: `Marge visée ${nom}`, valeur: margeCible, source: marge?.source ?? 'base' })
-    return { ...f, evolution, margeCible }
+    provenance.push({ cle: `demarque/${cle}`, libelle: `Démarque ${nom}`, valeur: demarque, source: dem?.source ?? 'base' })
+    return { ...f, evolution, margeCible, demarque }
   })
 
   const hausse = resoudre(niveaux, (c) => c.hausseSalaires)
@@ -71,11 +77,20 @@ export function appliquerCibles(base: Hypotheses, niveaux: NiveauCibles[]): { hy
     }
   }
 
+  // Saisonnalité et travaux : propres au magasin, repris tels quels du niveau le plus proche qui les renseigne
+  const propre = <K extends 'poidsMois' | 'travaux'>(k: K) => [...niveaux].reverse().find((n) => n.cibles?.[k])
+  const poids = propre('poidsMois')
+  const travaux = propre('travaux')
+  if (poids) provenance.push({ cle: 'poidsMois', libelle: 'Saisonnalité du magasin', valeur: 1, source: poids.niveau })
+  if (travaux) provenance.push({ cle: 'travaux', libelle: 'Travaux', valeur: 1, source: travaux.niveau })
+
   return {
     hypotheses: {
       ...base,
       familles,
       flux,
+      ...(poids ? { poidsMois: poids.cibles!.poidsMois } : {}),
+      ...(travaux ? { travaux: travaux.cibles!.travaux } : {}),
       // Avec l'équipe, la hausse s'applique au brut de chacun (la réduction générale en dépend) ; sinon aux salaires chargés
       ...(base.equipe?.length ? { hausseSalaires: tauxHausse } : {}),
       personnel: base.equipe?.length ? base.personnel : { ...base.personnel, salairesMensuels: base.personnel.salairesMensuels.map((s) => s * (1 + tauxHausse)) },
@@ -98,6 +113,7 @@ export function lireCible(c: Cibles | null | undefined, cle: string): number | u
   const k = reste.join('/')
   if (type === 'evolution') return c.evolutionFamille?.[k]
   if (type === 'marge') return c.margeFamille?.[k]
+  if (type === 'demarque') return c.demarqueFamille?.[k]
   if (type === 'univers') return c.evolutionUnivers?.[k as Univers]
   if (type === 'flux') return c.evolutionFlux?.[k as 'cave' | 'bar']
   if (type === 'hausseSalaires') return c.hausseSalaires
@@ -117,6 +133,7 @@ export function ecrireCible(c: Cibles, cle: string, v: number | undefined): Cibl
   const r: Cibles = { ...c }
   if (type === 'evolution') r.evolutionFamille = dans(c.evolutionFamille)
   else if (type === 'marge') r.margeFamille = dans(c.margeFamille)
+  else if (type === 'demarque') r.demarqueFamille = dans(c.demarqueFamille)
   else if (type === 'univers') r.evolutionUnivers = dans(c.evolutionUnivers)
   else if (type === 'flux') r.evolutionFlux = dans(c.evolutionFlux)
   else if (type === 'hausseSalaires') { if (defini(v)) r.hausseSalaires = v; else delete r.hausseSalaires }
@@ -129,4 +146,10 @@ export function ecrireCible(c: Cibles, cle: string, v: number | undefined): Cibl
 export function valeurHeritee(niveauxAuDessus: NiveauCibles[], cle: string): { valeur: number; source: Niveau } | null {
   const [type, univers] = cle.split('/')
   return resoudre(niveauxAuDessus, (c) => lireCible(c, cle) ?? (type === 'evolution' ? lireCible(c, `univers/${univers}`) : undefined))
+}
+
+// Ajustements d'un magasin repris sur un autre : tout sauf les travaux, propres à chaque magasin (ceux du magasin visé restent)
+export function ajustementsCopies(source: Cibles, cible: Cibles): Cibles {
+  const { travaux: _, ...copie } = structuredClone(source)
+  return cible.travaux ? { ...copie, travaux: cible.travaux } : copie
 }

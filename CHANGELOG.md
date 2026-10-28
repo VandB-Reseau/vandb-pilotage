@@ -5,6 +5,18 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+## Lot 8 — Budgets 2027 complets (28/10/2026)
+
+- Démarque par famille, en part du CA, déduite de la marge visée : colonne de la grille des hypothèses du magasin, et
+  cible possible pour le réseau ou un groupe (page Hypothèses).
+- Saisonnalité propre au magasin : part du CA de chaque mois saisie dans la cellule, CA du mois recalculé ; un total
+  différent de 100 % bloque l'enregistrement ; retour possible au CA de référence.
+- Travaux : activité de chaque mois (fermé, réduit), gain de CA après réouverture, investissement amorti à partir de la
+  réouverture ; effet sur le CA et dotation affichés, compte de résultat à jour.
+- Directeur : copie des hypothèses d'un magasin vers d'autres magasins au budget proposé ou en discussion (les travaux
+  de chacun restent).
+- Pas de migration : les nouvelles hypothèses vivent dans les ajustements déjà enregistrés.
+
 ## Lot 7 — Pilotage du réel face au budget (27/10/2026)
 
 **Base : passer `supabase/migrations/0006_suivi_reseau.sql`** (une fonction de lecture, aucune table).

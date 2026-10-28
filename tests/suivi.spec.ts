@@ -43,7 +43,7 @@ test('fiche magasin : le réel face au budget, mois par mois', async ({ page, is
   await expect(ligne('CA HT réel')).toContainText(/50\s000.*44\s000.*94\s000\s€/)
   await expect(ligne('Écart de CA')).toContainText(/\+2\s000.*[-−]4\s000.*[-−]2\s000\s€/)
   // Février : marge incomplète, pas d'écart de marge ; janvier : 26 000 − 27 547,5
-  await expect(ligne('Écart de marge')).toContainText(/[-−]1\s547/)
+  await expect(ligne('Écart de marge')).toContainText(/[-−]1\s54[78]/)  // −1 547,5 arrondi
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-suivi-budget.png`, fullPage: true })

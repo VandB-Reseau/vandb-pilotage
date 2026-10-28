@@ -58,9 +58,10 @@ jamais plus ouvert. Repasser ensuite `0003` pour rouvrir la saisie à l'équipe 
 ## Format des hypothèses (`budgets.hypotheses`)
 
 Objet `Hypotheses` de `src/moteur/types.ts` : année, mois réalisés, CA mensuel de référence (12 mois), part réalisée
-par univers (facultative), familles (univers, famille, CA réalisé, marge réalisée, évolution, marge visée), flux Cave et
+par univers (facultative), familles (univers, famille, CA réalisé, marge réalisée, évolution, marge visée, démarque), flux Cave et
 Bar, personnel (salaires mensuels, gérance, heures), lignes de frais (grille de `src/moteur/parametres.ts`),
-amortissements, intérêts, capital remboursé, déficit reportable.
+amortissements, intérêts, capital remboursé, déficit reportable ; facultatifs : `poidsMois` (saisonnalité du magasin,
+12 parts) et `travaux` (`activite` des 12 mois de 0 à 1, `gain` après réouverture, `investissement`, `dureeAmortissement` en années).
 
 ## Format des charges (`parametres_reseau.valeur.charges`)
 
@@ -72,7 +73,7 @@ enregistrés dans `frais` remplacent ceux de la base du budget tant qu'il n'est 
 
 ## Format des cibles (`cibles_reseau.valeur`, `cibles_groupe.valeur`, `budgets.ajustements`)
 
-Objet `Cibles` de `src/moteur/cibles.ts`, chaque clé facultative : `evolutionUnivers` (par univers), `evolutionFamille`
-et `margeFamille` (par famille, clé `univers/famille`, par exemple `cave/Bière`), `hausseSalaires`, `inflationFrais`,
-`evolutionFlux` (`cave`, `bar`). Une clé absente reprend le niveau au-dessus : magasin, puis groupe, puis réseau, puis le
-réalisé du magasin (évolution nulle, marge réalisée).
+Objet `Cibles` de `src/moteur/cibles.ts`, chaque clé facultative : `evolutionUnivers` (par univers), `evolutionFamille`,
+`margeFamille` et `demarqueFamille` (par famille, clé `univers/famille`, par exemple `cave/Bière`), `hausseSalaires`, `inflationFrais`,
+`evolutionFlux` (`cave`, `bar`) ; au niveau du magasin seulement, `poidsMois` (12 parts, total 100 %) et `travaux`. Une clé absente reprend le niveau au-dessus : magasin, puis groupe, puis réseau, puis le
+réalisé du magasin (évolution nulle, marge réalisée, démarque nulle). Lot 8 : ces clés vivent dans le JSON existant, sans migration.

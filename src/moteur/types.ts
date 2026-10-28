@@ -14,6 +14,7 @@ export interface Famille {
   margeRealisee: number  // marge théorique de la famille sur la même période
   evolution: number      // évolution visée du CA l'an prochain
   margeCible: number     // marge visée l'an prochain
+  demarque?: number      // démarque l'an prochain, en part du CA de la famille, déduite de la marge visée
 }
 
 // Flux (nombre de tickets) de la Cave et du Bar : sert à la seconde projection du CA, par flux × panier
@@ -46,7 +47,13 @@ export interface Hypotheses {
   deficitReportable: number
   equipe?: Personne[]                 // équipe du magasin : remplace salaires, gérance et heures du personnel
   hausseSalaires?: number             // indexation appliquée aux salaires de l'équipe
+  poidsMois?: number[]                // saisonnalité propre au magasin (12 parts) ; sinon celle du CA de référence
+  travaux?: Travaux
 }
+
+// Travaux de l'année budgétée : activité de chaque mois (1 normal, 0 fermé), gain de CA après la réouverture,
+// investissement amorti à partir de la réouverture
+export interface Travaux { activite: number[]; gain: number; investissement: number; dureeAmortissement: number }
 
 // Fixés par le siège chaque année, communs au réseau
 export interface ParametresReseau {
@@ -79,7 +86,9 @@ export interface Budget {
   ca: number
   marge: number
   tauxMarge: number
-  poids: number[]
+  poids: number[]               // saisonnalité (12 parts, total 100 %), avant l'effet des travaux
+  activite: number[]            // effet des travaux sur chaque mois (1 sans travaux)
+  amortissements: number        // dotations de l'année, travaux compris
   mois: Mois[]
   redevance: number
   publicite: number

@@ -14,6 +14,7 @@ import { UNIVERS, universLibelle, type ResultatFamille } from '../moteur/types'
 import { ChampTaux } from './ChampTaux'
 
 // Hypothèses du budget famille par famille, saisies dans la cellule : le CA et la marge de l'an prochain suivent à chaque frappe.
+// Marge de l'an prochain : CA × (marge visée − démarque).
 // Une valeur propre au magasin ressort (bouton pour reprendre celle du niveau au-dessus) ; sinon, d'où elle vient.
 export function GrilleHypotheses({ titre, familles, annee, cibles, auDessus, valeursBase, onChange, lectureSeule }: {
   titre: string
@@ -54,7 +55,8 @@ export function GrilleHypotheses({ titre, familles, annee, cibles, auDessus, val
   }
   const totaux = (l: ResultatFamille[]) => {
     const n = somme(l.map((f) => f.atterrissage)), b = somme(l.map((f) => f.objectif)), m = somme(l.map((f) => f.margeObjectif))
-    return { n, b, m, evolution: ratio(b, n) - 1, taux: ratio(m, b) }
+    const dem = somme(l.map((f) => f.objectif * (f.demarque ?? 0)))
+    return { n, b, m, evolution: ratio(b, n) - 1, visee: ratio(m + dem, b), demarque: ratio(dem, b) }
   }
   const ligneTotal = (libelle: string, t: ReturnType<typeof totaux>, fort: boolean) => (
     <TableRow sx={{ bgcolor: 'background.default', '& td': { bgcolor: 'background.default', fontWeight: 700, ...(fort ? {} : { color: 'text.secondary' }) } }}>
@@ -62,7 +64,8 @@ export function GrilleHypotheses({ titre, familles, annee, cibles, auDessus, val
       <TableCell align="right">{milliers(t.n)}</TableCell>
       <TableCell align="right" sx={{ pr: '82px !important' }}>{taux(t.evolution)}</TableCell>
       <TableCell align="right">{milliers(t.b)}</TableCell>
-      <TableCell align="right" sx={{ pr: '82px !important' }}>{taux(t.taux)}</TableCell>
+      <TableCell align="right" sx={{ pr: '82px !important' }}>{taux(t.visee)}</TableCell>
+      <TableCell align="right" sx={{ pr: '82px !important' }}>{taux(t.demarque)}</TableCell>
       <TableCell align="right">{milliers(t.m)}</TableCell>
     </TableRow>
   )
@@ -77,6 +80,7 @@ export function GrilleHypotheses({ titre, familles, annee, cibles, auDessus, val
           <TableCell align="right" sx={{ pr: '82px !important' }}>Évolution</TableCell>
           <TableCell align="right">CA {annee}</TableCell>
           <TableCell align="right" sx={{ pr: '82px !important' }}>Marge visée</TableCell>
+          <TableCell align="right" sx={{ pr: '82px !important' }}>Démarque</TableCell>
           <TableCell align="right">Marge {annee}</TableCell>
         </TableRow>
       </TableHead>
@@ -95,6 +99,7 @@ export function GrilleHypotheses({ titre, familles, annee, cibles, auDessus, val
                     {cellule(`evolution/${cleFamille(f)}`, `Évolution du CA par famille : ${nom}`, `évolution de ${nom}`)}
                     <TableCell align="right" sx={{ fontWeight: 600 }}>{milliers(f.objectif)}</TableCell>
                     {cellule(`marge/${cleFamille(f)}`, `Marge visée par famille : ${nom}`, `marge visée de ${nom}`)}
+                    {cellule(`demarque/${cleFamille(f)}`, `Démarque par famille : ${nom}`, `démarque de ${nom}`)}
                     <TableCell align="right" sx={{ fontWeight: 600 }}>{milliers(f.margeObjectif)}</TableCell>
                   </TableRow>
                 )
