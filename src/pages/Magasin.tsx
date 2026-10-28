@@ -244,7 +244,8 @@ export function Magasin() {
             action={directeur ? <Button variant="contained" onClick={() => setOnglet('atterrissage')} sx={{ minHeight: 48 }}>Proposer le budget</Button> : undefined} />
         )
       ) : onglet === 'frais' ? (
-        <FraisMagasin key={ligne.magasin} magasin={ligne.magasin} lignes={d.frais[ligne.magasin] ?? []} annee={anneeEnCours} peutSaisir={peutSaisir} apresEnregistrement={recharger} />
+        <FraisMagasin key={ligne.magasin} magasin={ligne.magasin} lignes={d.frais[ligne.magasin] ?? []} annee={anneeEnCours} peutSaisir={peutSaisir} apresEnregistrement={recharger}
+          tauxSurCA={{ publicite: parametres.tauxPublicite, redevance: parametres.tauxRedevance }} />
       ) : onglet === 'equipe' ? (
         <EquipeMagasin
           key={ligne.magasin} magasin={ligne.magasin} equipe={d.equipes[ligne.magasin] ?? []} annee={anneeEnCours} anneeBudget={annee}

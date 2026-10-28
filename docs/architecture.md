@@ -89,6 +89,11 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
    d'une famille ne sert plus qu'aux univers sans tickets. Le compte de résultat reste celui du magasin. Réel :
    `syntheseReel().parUnivers`, `MoisReel.univers` (rempli par `reel_du_compte`, script 0013) ; vue Réseau, médianes
    et export avec un panier et une évolution des tickets par univers.
+23. Frais : `lignesFrais` (`src/moteur/parametres.ts`) reprend les lignes de l'onglet FFBUD dans son ordre, rangées par
+   bloc (`BLOCS_FRAIS` : charges externes, impôts et taxes, autres charges ; `blocDe`), avec les racines du plan
+   comptable de chaque ligne (`ligneFraisDuCompte` dans l'import du FEC). Publicité franchise et royalties restent
+   calculées sur le CA ; intérêts sur emprunts, des comptes courants et agios s'additionnent dans les intérêts.
+   La colonne `rubrique` de la table `frais` est gardée telle quelle : aucun changement de base.
 
 ## Rôles
 

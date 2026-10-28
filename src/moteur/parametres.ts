@@ -35,43 +35,67 @@ export const rubriqueLibelle: Record<Rubrique, string> = {
   impots_taxes: 'Impôts et taxes',
 }
 
-// Grille des frais commune au réseau, reprise des lignes du budget de frais (onglet FFBUD du prévisionnel).
-// La redevance et la publicité franchise sont calculées à part, sur le CA.
-export const lignesFrais: Omit<LigneFrais, 'annuel' | 'tauxCA'>[] = [
-  { code: 'energie', libelle: 'Électricité, eau, gaz', rubrique: 'energies' },
-  { code: 'carburant', libelle: 'Carburant', rubrique: 'energies' },
-  { code: 'loyer', libelle: 'Locations immobilières', rubrique: 'immobilier' },
-  { code: 'charges_locatives', libelle: 'Charges locatives', rubrique: 'immobilier' },
-  { code: 'entretien_immobilier', libelle: 'Entretien et réparations des locaux', rubrique: 'immobilier' },
-  { code: 'petit_equipement', libelle: 'Petit outillage et équipement', rubrique: 'entretien' },
-  { code: 'vetements', libelle: 'Vêtements professionnels', rubrique: 'entretien' },
-  { code: 'credit_bail', libelle: 'Crédit-bail mobilier', rubrique: 'entretien' },
-  { code: 'locations_mobilieres', libelle: 'Locations mobilières', rubrique: 'entretien' },
-  { code: 'entretien_materiel', libelle: 'Entretien et réparations du matériel', rubrique: 'entretien' },
-  { code: 'maintenance', libelle: 'Maintenance et assistance', rubrique: 'entretien' },
-  { code: 'fournitures', libelle: 'Fournitures administratives', rubrique: 'autres' },
-  { code: 'documentation', libelle: 'Documentation générale', rubrique: 'autres' },
-  { code: 'personnel_exterieur', libelle: 'Personnel extérieur', rubrique: 'autres' },
-  { code: 'transports_achats', libelle: 'Transports sur achats', rubrique: 'autres' },
-  { code: 'livraison', libelle: 'Frais de livraison (plateformes)', rubrique: 'autres' },
-  { code: 'droits_auteur', libelle: 'Droits d’auteur', rubrique: 'autres' },
-  { code: 'charges_diverses', libelle: 'Charges diverses', rubrique: 'autres' },
-  { code: 'honoraires_comptables', libelle: 'Honoraires comptables', rubrique: 'honoraires' },
-  { code: 'honoraires_social', libelle: 'Honoraires social', rubrique: 'honoraires' },
-  { code: 'honoraires_juridiques', libelle: 'Honoraires juridiques', rubrique: 'honoraires' },
-  { code: 'honoraires_divers', libelle: 'Honoraires divers', rubrique: 'honoraires' },
-  { code: 'honoraires_holding', libelle: 'Honoraires holding', rubrique: 'honoraires' },
-  { code: 'actes', libelle: 'Frais d’actes et de contentieux', rubrique: 'honoraires' },
-  { code: 'publicite_locale', libelle: 'Publicité et animation locales', rubrique: 'communication' },
-  { code: 'deplacements', libelle: 'Voyages et déplacements', rubrique: 'deplacements' },
-  { code: 'receptions', libelle: 'Missions et réceptions', rubrique: 'deplacements' },
-  { code: 'telecom', libelle: 'Frais postaux et télécom', rubrique: 'autres' },
-  { code: 'banque', libelle: 'Services bancaires', rubrique: 'banque_assurances' },
-  { code: 'assurances', libelle: 'Primes d’assurances', rubrique: 'banque_assurances' },
-  { code: 'cotisations', libelle: 'Cotisations diverses', rubrique: 'autres' },
-  { code: 'formations', libelle: 'Formations et transport', rubrique: 'autres' },
-  { code: 'cfe', libelle: 'Cotisation foncière des entreprises', rubrique: 'impots_taxes' },
-  { code: 'taxes_foncieres', libelle: 'Taxes foncières', rubrique: 'impots_taxes' },
-  { code: 'enregistrement', libelle: 'Droits d’enregistrement et timbres', rubrique: 'impots_taxes' },
-  { code: 'taxes_diverses', libelle: 'Taxes diverses', rubrique: 'impots_taxes' },
+// Grille des frais commune au réseau : les lignes de l'onglet FFBUD du prévisionnel, dans son ordre et rangées dans ses
+// blocs (lot 23, Joseph, 28/10/2026). Publicité franchise et royalties sont calculées sur le CA (paramètres réseau) ;
+// amortissements et intérêts se saisissent à part (CODES_FINANCES). racines : comptes du plan comptable de la ligne,
+// pour retrouver la ligne d'un compte du FEC (la plus longue racine l'emporte).
+export type BlocFrais = 'charges_externes' | 'impots_taxes' | 'autres_charges'
+export const BLOCS_FRAIS: { cle: BlocFrais; libelle: string; total: string }[] = [
+  { cle: 'charges_externes', libelle: 'Charges externes', total: 'Total des charges externes' },
+  { cle: 'impots_taxes', libelle: 'Impôts et taxes', total: 'Total des impôts et taxes' },
+  { cle: 'autres_charges', libelle: 'Autres charges', total: 'Total des autres charges' },
 ]
+export interface LigneGrille extends Omit<LigneFrais, 'annuel' | 'tauxCA'> { bloc: BlocFrais; racines: string[] }
+const ligne = (code: string, libelle: string, rubrique: Rubrique, bloc: BlocFrais, racines: string[]): LigneGrille => ({ code, libelle, rubrique, bloc, racines })
+const ext = (code: string, libelle: string, rubrique: Rubrique, racines: string[]) => ligne(code, libelle, rubrique, 'charges_externes', racines)
+const taxe = (code: string, libelle: string, racines: string[]) => ligne(code, libelle, 'impots_taxes', 'impots_taxes', racines)
+export const lignesFrais: LigneGrille[] = [
+  ext('energie', 'Électricité, eau, gaz', 'energies', ['6061']),
+  ext('carburant', 'Carburant', 'energies', ['60614', '60622']),
+  ext('petit_equipement', 'Entretien, petit outillage et équipement', 'entretien', ['6063']),
+  ext('vetements', 'Vêtements professionnels', 'entretien', ['60636', '6068']),
+  ext('fournitures', 'Fournitures administratives', 'autres', ['6064']),
+  ext('credit_bail', 'Redevance de crédit-bail mobilier', 'entretien', ['612']),
+  ext('loyer', 'Locations immobilières', 'immobilier', ['6132']),
+  ext('locations_mobilieres', 'Locations mobilières', 'entretien', ['6135']),
+  ext('charges_locatives', 'Charges locatives', 'immobilier', ['614']),
+  ext('entretien_immobilier', 'Entretien et réparations immobilières', 'immobilier', ['6152']),
+  ext('entretien_materiel', 'Entretien et réparations du matériel', 'entretien', ['6155', '615']),
+  ext('maintenance', 'Maintenance et assistance', 'entretien', ['6156']),
+  ext('assurances', 'Primes d’assurances', 'banque_assurances', ['616']),
+  ext('documentation', 'Documentation générale', 'autres', ['618']),
+  ext('personnel_exterieur', 'Personnel extérieur', 'autres', ['621']),
+  ext('honoraires_comptables', 'Honoraires de comptabilité', 'honoraires', ['62261']),
+  ext('honoraires_social', 'Honoraires social', 'honoraires', ['62262']),
+  ext('honoraires_divers', 'Honoraires divers', 'honoraires', ['622']),
+  ext('honoraires_juridiques', 'Honoraires juridiques', 'honoraires', ['62263']),
+  ext('honoraires_holding', 'Honoraires holding', 'honoraires', []),
+  ext('actes', 'Frais d’actes et de contentieux', 'honoraires', ['6227']),
+  ext('livraison', 'Frais de livraison (agrégateurs)', 'autres', ['6242']),
+  ext('publicite_locale', 'Publicité diverse et animation', 'communication', ['623']),
+  ext('transports_achats', 'Transports sur achats', 'autres', ['6241']),
+  ext('deplacements', 'Voyages et déplacements', 'deplacements', ['6251']),
+  ext('receptions', 'Missions et réceptions', 'deplacements', ['6256', '6257']),
+  ext('telecom', 'Frais postaux et télécom', 'autres', ['626']),
+  ext('banque', 'Services bancaires', 'banque_assurances', ['627']),
+  ext('cotisations', 'Cotisations diverses', 'autres', ['628']),
+  ext('formations', 'Formations et transport', 'autres', ['6228']),
+  taxe('formation_continue', 'Participation à la formation continue', ['6333']),
+  taxe('taxe_apprentissage', 'Taxe d’apprentissage', ['6312']),
+  taxe('cfe', 'Cotisation foncière des entreprises', ['63511']),
+  taxe('taxes_foncieres', 'Taxes foncières', ['63512']),
+  taxe('enregistrement', 'Droits d’enregistrement et timbres', ['6354']),
+  taxe('taxes_diverses', 'Taxes diverses', ['63']),
+  taxe('csg_gc', 'CSG déductible GC', []),
+  taxe('csg_ac', 'CSG déductible AC', []),
+  ligne('droits_auteur', 'Droits d’auteur', 'autres', 'autres_charges', ['6516']),
+  ligne('charges_diverses', 'Charges diverses', 'autres', 'autres_charges', ['658']),
+]
+// Lignes calculées sur le CA, à leur place dans le bloc des charges externes : publicité franchise après les
+// frais de livraison, royalties en fin de bloc (comme dans l'onglet FFBUD, « comprises dans les charges externes »)
+export const LIGNES_SUR_CA = { publicite: { libelle: 'Publicité franchise', apres: 'livraison' }, redevance: { libelle: 'Royalties', apres: 'formations' } } as const
+
+// Bloc d'une ligne enregistrée : celui de la grille, sinon d'après sa rubrique
+export function blocDe(l: Pick<LigneFrais, 'code' | 'rubrique'>): BlocFrais {
+  return lignesFrais.find((g) => g.code === l.code)?.bloc ?? (l.rubrique === 'impots_taxes' ? 'impots_taxes' : 'charges_externes')
+}

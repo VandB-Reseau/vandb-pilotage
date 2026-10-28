@@ -60,7 +60,7 @@ test('frais du magasin : lignes annuelles ou en % du CA, emprunts et amortisseme
   expect(finances).toEqual({ amortissements: 24_000, interets: 1_200, remboursementCapital: 0 })
 })
 
-test('saisie des frais : lignes de la grille, part du CA en %, lignes vidées retirées, totaux par rubrique', () => {
+test('saisie des frais : lignes de la grille, part du CA en %, lignes vidées retirées, totaux par bloc', () => {
   const avant = [
     { code: 'loyer', libelle: 'Locations immobilières', rubrique: 'immobilier', annuel: 60_000, tauxCA: null },
     { code: 'energie', libelle: 'Électricité, eau, gaz', rubrique: 'energies', annuel: null, tauxCA: 0.013 },
@@ -70,12 +70,14 @@ test('saisie des frais : lignes de la grille, part du CA en %, lignes vidées re
   let s = saisieDepuisLignes(avant)
   // Ordre de la grille du réseau : énergie, puis loyer, puis télécom
   expect(s.lignes.map((l) => [l.code, l.mode, l.valeur])).toEqual([['energie', 'taux', '1,3'], ['loyer', 'annuel', '60 000'], ['telecom', 'annuel', '1 200']])
-  expect(s.finances).toEqual({ amortissements: '', interets: '1 200', remboursementCapital: '' })
+  expect(s.finances).toEqual({ amortissements: '', interets: '1 200', interetsComptesCourants: '', agios: '', remboursementCapital: '' })
   s = ajouterLigne(s, 'charges_locatives')
   expect(lignesDisponibles(s).some((l) => l.code === 'charges_locatives')).toBe(false)
   s = { ...s, lignes: s.lignes.map((l) => (l.code === 'charges_locatives' ? { ...l, valeur: '6 000' } : l.code === 'telecom' ? { ...l, valeur: '' } : l)) }
   const t = totauxFrais(s)
-  expect(t.parRubrique.immobilier).toEqual({ annuel: 66_000, taux: 0 })
+  expect(t.parBloc.charges_externes.annuel).toBe(66_000)
+  expect(t.parBloc.charges_externes.taux).toBeCloseTo(0.013, 9)
+  expect(t.parBloc.impots_taxes).toEqual({ annuel: 0, taux: 0 })
   expect(t.annuel).toBe(66_000)
   expect(t.taux).toBeCloseTo(0.013, 9)
   const lu = lireSaisieFrais(s, avant)

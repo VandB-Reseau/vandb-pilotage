@@ -27,9 +27,9 @@ import { enregistrerFrais } from '../data/pilotage'
 import { nombre } from '../import/caisse'
 import { milliers, miseEnForme, montant, taux } from '../lib/format'
 import type { LigneFraisMagasin } from '../moteur/atterrissage'
-import { rubriqueLibelle } from '../moteur/parametres'
+import { BLOCS_FRAIS, blocDe, LIGNES_SUR_CA, lignesFrais } from '../moteur/parametres'
 import {
-  ajouterLigne, LIBELLES_FINANCES, LIGNES_COURANTES, lignesDisponibles, lireSaisieFrais, RUBRIQUES, saisieDepuisLignes, totauxFrais,
+  ajouterLigne, INTERETS, LIBELLES_FINANCES, LIGNES_COURANTES, lignesDisponibles, lireSaisieFrais, saisieDepuisLignes, totauxFrais,
   type ChampFrais, type Mode, type SaisieFrais,
 } from '../moteur/saisieFrais'
 
@@ -65,13 +65,15 @@ function ChampFraisLigne({ ligne, onChange }: { ligne: ChampFrais; onChange: (l:
   )
 }
 
-// Frais annuels d'un magasin sur la grille du réseau, regroupés par rubrique ; emprunts et amortissements à part
-export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregistrement }: {
+// Frais annuels d'un magasin sur la grille du réseau, dans les blocs de l'onglet FFBUD avec leurs sous-totaux ;
+// publicité franchise et royalties calculées sur le CA ; amortissements, intérêts et emprunts sous l'EBE
+export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregistrement, tauxSurCA }: {
   magasin: string
   lignes: LigneFraisMagasin[]
   annee: number
   peutSaisir: boolean
   apresEnregistrement: () => void
+  tauxSurCA: { publicite: number; redevance: number }
 }) {
   const [saisie, setSaisie] = useState<SaisieFrais>(() => saisieDepuisLignes(lignes))
   const [message, setMessage] = useState<{ gravite: 'success' | 'error'; texte: string; details?: string[] } | null>(null)
@@ -138,63 +140,95 @@ export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregist
     )
   }
 
-  const rubriques = RUBRIQUES.filter((r) => saisie.lignes.some((l) => l.rubrique === r))
+  const surCA = tauxSurCA.publicite + tauxSurCA.redevance
+  const blocs = BLOCS_FRAIS.filter((x) => x.cle === 'charges_externes' || saisie.lignes.some((l) => blocDe(l) === x.cle))
+  const interets = INTERETS.reduce((a, k) => a + valeurFinance(k), 0)
+  const enMontant = (annuel: number, part: number) => `${montant(annuel)}${part ? ` + ${taux(part)} du CA` : ''}`
+  const celluleVide = peutSaisir && <TableCell />
+  const ligneSurCA = (k: keyof typeof LIGNES_SUR_CA) => (
+    <TableRow key={`sur-ca-${k}`}>
+      <TableCell sx={{ pl: 3 }}>{LIGNES_SUR_CA[k].libelle}</TableCell>
+      <TableCell align="right" sx={{ whiteSpace: 'nowrap', color: 'text.secondary' }}>{taux(tauxSurCA[k])} du CA</TableCell>
+      {celluleVide}
+    </TableRow>
+  )
+  const ligneSaisie = (l: ChampFrais) => (
+    <TableRow key={l.code}>
+      <TableCell sx={{ pl: 3 }}>{l.libelle}</TableCell>
+      <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+        {peutSaisir
+          ? <ChampFraisLigne ligne={l} onChange={(x) => changer(l.code, x)} />
+          : l.mode === 'taux' ? `${l.valeur} % du CA` : montant(nombre(l.valeur) ?? 0)}
+      </TableCell>
+      {peutSaisir && (
+        <TableCell align="right" sx={{ width: 64 }}>
+          <IconButton aria-label={`Retirer ${l.libelle}`} onClick={() => setSaisie((s) => ({ ...s, lignes: s.lignes.filter((x) => x.code !== l.code) }))} {...bouton48}>
+            <DeleteOutlined />
+          </IconButton>
+        </TableCell>
+      )}
+    </TableRow>
+  )
+  const ligneFinance = (k: keyof SaisieFrais['finances']) => (
+    <TableRow key={k}>
+      <TableCell sx={{ pl: 3 }}>{LIBELLES_FINANCES[k]}</TableCell>
+      <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+        {peutSaisir
+          ? <ChampNombre libelle={LIBELLES_FINANCES[k]} valeur={saisie.finances[k]} largeur={230} unite="€ par an" onChange={(v) => setSaisie((s) => ({ ...s, finances: { ...s.finances, [k]: v } }))} />
+          : montant(valeurFinance(k))}
+      </TableCell>
+      {celluleVide}
+    </TableRow>
+  )
+  const titre = (libelle: string, valeur?: string, cle = libelle) => (
+    <TableRow key={cle}>
+      <TableCell sx={titreRubrique}>{libelle}</TableCell>
+      <TableCell align="right" sx={{ ...titreRubrique, whiteSpace: 'nowrap' }}>{valeur}</TableCell>
+      {peutSaisir && <TableCell sx={titreRubrique} />}
+    </TableRow>
+  )
+  const sousTotal = (libelle: string, valeur: string) => (
+    <TableRow key={`total-${libelle}`}>
+      <TableCell sx={{ fontWeight: 700 }}>{libelle}</TableCell>
+      <TableCell align="right" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{valeur}</TableCell>
+      {celluleVide}
+    </TableRow>
+  )
   return (
     <Stack spacing={3}>
       {alerte}
       <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap' }} component="section" aria-label="Frais en chiffres">
-        <Indicateur libelle={`Frais ${annee}`} valeur={milliers(t.annuel)} detail={t.taux ? `et ${taux(t.taux)} du CA` : `${saisie.lignes.length} lignes`} />
-        <Indicateur libelle="Emprunts" valeur={milliers(valeurFinance('interets') + valeurFinance('remboursementCapital'))} detail={`Intérêts : ${milliers(valeurFinance('interets'))}`} />
+        <Indicateur libelle={`Frais ${annee}`} valeur={milliers(t.annuel)} detail={`et ${taux(t.taux + surCA)} du CA`} />
+        <Indicateur libelle="Emprunts" valeur={milliers(interets + valeurFinance('remboursementCapital'))} detail={`Intérêts et charges assimilées : ${milliers(interets)}`} />
         <Indicateur libelle="Amortissements" valeur={milliers(valeurFinance('amortissements'))} />
       </Stack>
 
-      <Card component="section" aria-label="Frais par rubrique">
+      <Card component="section" aria-label="Frais par bloc">
         <TableContainer sx={{ maxHeight: 'none' }}>
-          <Table className="colonne-fixe" aria-label={`Frais ${annee} par rubrique`}>
+          <Table className="colonne-fixe" aria-label={`Frais ${annee} par bloc`}>
             <TableBody>
-              {rubriques.map((r) => {
-                const tot = t.parRubrique[r] ?? { annuel: 0, taux: 0 }
-                return [
-                  <TableRow key={r}>
-                    <TableCell sx={titreRubrique}>{rubriqueLibelle[r]}</TableCell>
-                    <TableCell align="right" sx={{ ...titreRubrique, whiteSpace: 'nowrap' }}>{montant(tot.annuel)}{tot.taux ? ` + ${taux(tot.taux)} du CA` : ''}</TableCell>
-                    {peutSaisir && <TableCell sx={titreRubrique} />}
-                  </TableRow>,
-                  ...saisie.lignes.filter((l) => l.rubrique === r).map((l) => (
-                    <TableRow key={l.code}>
-                      <TableCell sx={{ pl: 3 }}>{l.libelle}</TableCell>
-                      <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                        {peutSaisir
-                          ? <ChampFraisLigne ligne={l} onChange={(x) => changer(l.code, x)} />
-                          : l.mode === 'taux' ? `${l.valeur} % du CA` : montant(nombre(l.valeur) ?? 0)}
-                      </TableCell>
-                      {peutSaisir && (
-                        <TableCell align="right" sx={{ width: 64 }}>
-                          <IconButton aria-label={`Retirer ${l.libelle}`} onClick={() => setSaisie((s) => ({ ...s, lignes: s.lignes.filter((x) => x.code !== l.code) }))} {...bouton48}>
-                            <DeleteOutlined />
-                          </IconButton>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  )),
-                ]
+              {blocs.map((x) => {
+                const tot = t.parBloc[x.cle]
+                const part = tot.taux + (x.cle === 'charges_externes' ? surCA : 0)
+                const dans = saisie.lignes.filter((l) => blocDe(l) === x.cle)
+                const corps = dans.flatMap((l) => [ligneSaisie(l)])
+                if (x.cle === 'charges_externes') {
+                  // Lignes calculées à leur place dans l'ordre de l'onglet FFBUD
+                  for (const k of ['publicite', 'redevance'] as const) {
+                    const rang = lignesFrais.findIndex((g) => g.code === LIGNES_SUR_CA[k].apres)
+                    const i = dans.findIndex((l) => lignesFrais.findIndex((g) => g.code === l.code) > rang)
+                    const pos = i < 0 ? corps.length : corps.findIndex((r) => r.key === dans[i].code)
+                    corps.splice(pos, 0, ligneSurCA(k))
+                  }
+                }
+                return [titre(x.libelle, undefined, x.cle), ...corps, sousTotal(x.total, enMontant(tot.annuel, part))]
               })}
-              <TableRow>
-                <TableCell sx={titreRubrique}>Emprunts et amortissements</TableCell>
-                <TableCell sx={titreRubrique} />
-                {peutSaisir && <TableCell sx={titreRubrique} />}
-              </TableRow>
-              {(Object.keys(LIBELLES_FINANCES) as (keyof SaisieFrais['finances'])[]).map((k) => (
-                <TableRow key={k}>
-                  <TableCell sx={{ pl: 3 }}>{LIBELLES_FINANCES[k]}</TableCell>
-                  <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                    {peutSaisir
-                      ? <ChampNombre libelle={LIBELLES_FINANCES[k]} valeur={saisie.finances[k]} largeur={230} unite="€ par an" onChange={(v) => setSaisie((s) => ({ ...s, finances: { ...s.finances, [k]: v } }))} />
-                      : montant(valeurFinance(k))}
-                  </TableCell>
-                  {peutSaisir && <TableCell />}
-                </TableRow>
-              ))}
+              {titre('Sous l’excédent brut d’exploitation', undefined, 'hors-ebe')}
+              {ligneFinance('amortissements')}
+              {INTERETS.map(ligneFinance)}
+              {sousTotal('Intérêts et charges assimilées', montant(interets))}
+              {ligneFinance('remboursementCapital')}
+              {sousTotal('Total des frais prévisionnels', enMontant(t.annuel + valeurFinance('amortissements') + interets, t.taux + surCA))}
             </TableBody>
           </Table>
         </TableContainer>
@@ -205,7 +239,7 @@ export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregist
               value={null}
               inputValue={choix ?? ''}
               onInputChange={(_, v) => setChoix(v)}
-              groupBy={(l) => rubriqueLibelle[l.rubrique]}
+              groupBy={(l) => BLOCS_FRAIS.find((x) => x.cle === l.bloc)!.libelle}
               getOptionLabel={(l) => l.libelle}
               onChange={(_, l) => { if (l) { setSaisie((s) => ajouterLigne(s, l.code)); setChoix('') } }}
               openText="Ouvrir la liste" closeText="Fermer la liste" clearText="Effacer" noOptionsText="Aucune ligne"

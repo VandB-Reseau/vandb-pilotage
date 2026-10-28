@@ -115,7 +115,11 @@ export function baseDepuisReel(reel: ReelAnnees, annee: number, frais: LigneFrai
 }
 
 // ── Frais d'un magasin enregistrés ligne par ligne ; emprunts et amortissements à part
-export const CODES_FINANCES = { amortissements: 'amortissements', interets: 'interets', remboursementCapital: 'remboursement_capital' } as const
+// Sous l'EBE : dotations, intérêts et charges assimilées (emprunts, comptes courants, agios), capital remboursé
+export const CODES_FINANCES = {
+  amortissements: 'amortissements', interets: 'interets', interetsComptesCourants: 'interets_comptes_courants', agios: 'agios',
+  remboursementCapital: 'remboursement_capital',
+} as const
 export interface LigneFraisMagasin { code: string; libelle: string; rubrique: string; annuel: number | null; tauxCA: number | null }
 
 export function fraisDepuisLignes(lignes: LigneFraisMagasin[]): { frais: LigneFrais[]; finances: Finances } {
@@ -126,6 +130,10 @@ export function fraisDepuisLignes(lignes: LigneFraisMagasin[]): { frais: LigneFr
       code: l.code, libelle: l.libelle, rubrique: l.rubrique as LigneFrais['rubrique'],
       ...(l.tauxCA !== null ? { tauxCA: l.tauxCA } : { annuel: l.annuel ?? 0 }),
     })),
-    finances: { amortissements: valeur(CODES_FINANCES.amortissements), interets: valeur(CODES_FINANCES.interets), remboursementCapital: valeur(CODES_FINANCES.remboursementCapital) },
+    finances: {
+      amortissements: valeur(CODES_FINANCES.amortissements),
+      interets: valeur(CODES_FINANCES.interets) + valeur(CODES_FINANCES.interetsComptesCourants) + valeur(CODES_FINANCES.agios),
+      remboursementCapital: valeur(CODES_FINANCES.remboursementCapital),
+    },
   }
 }
