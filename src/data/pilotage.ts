@@ -148,6 +148,7 @@ async function lireParametres(annee: number): Promise<{ parametres: ParametresRe
       ...parametresParDefaut, ...v,
       impot: { ...parametresParDefaut.impot, ...v.impot },
       tvaPanier: { ...parametresParDefaut.tvaPanier, ...v.tvaPanier },
+      tresorerie: { ...parametresParDefaut.tresorerie, ...v.tresorerie },
       charges: {
         taux: { ...parametresParDefaut.charges.taux, ...v.charges?.taux },
         reduction: { ...parametresParDefaut.charges.reduction, ...v.charges?.reduction },

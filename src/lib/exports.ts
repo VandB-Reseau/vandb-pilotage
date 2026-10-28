@@ -1,5 +1,6 @@
 import type { LigneCompte } from '../moteur/compteResultat'
 import type { LigneReseau } from '../moteur/suivi'
+import type { MoisTresorerie, Tresorerie } from '../moteur/tresorerie'
 import { universLibelle, type ResultatFamille } from '../moteur/types'
 import { MOIS } from './format'
 import { cellule, colonne, type Cellule, type Feuille } from './xlsx'
@@ -10,12 +11,13 @@ import { cellule, colonne, type Cellule, type Feuille } from './xlsx'
 const aujourdhui = () => new Date().toLocaleDateString('fr-FR')
 const somme = (l: number[]) => l.reduce((a, b) => a + b, 0)
 
-export function feuillesBudget({ magasin, annee, statut, lignes, familles }: {
+export function feuillesBudget({ magasin, annee, statut, lignes, familles, tresorerie }: {
   magasin: string
   annee: number
   statut: string
   lignes: LigneCompte[]
   familles: ResultatFamille[]
+  tresorerie?: Tresorerie | null
 }): Feuille[] {
   // ── Compte de résultat : titres sur 4 lignes, puis une ligne par poste
   const debut = 4
@@ -73,7 +75,45 @@ export function feuillesBudget({ magasin, annee, statut, lignes, familles }: {
   return [
     { nom: 'Compte de résultat', lignes: compte, largeurs: [36, ...MOIS.map(() => 11), 13, 9], figer: { lignes: 4, colonnes: 1 } },
     { nom: 'Hypothèses', lignes: [...hypotheses, total], largeurs: [28, 12, 15, 11, 15, 12, 11, 15], figer: { lignes: 4, colonnes: 1 } },
+    ...(tresorerie ? [feuilleTresorerie(tresorerie, `Trésorerie ${annee} - ${magasin}`, statut)] : []),
   ]
+}
+
+// Trésorerie : sorties en négatif ; total des décaissements, variation et solde de fin de mois en formules,
+// à partir de la trésorerie au 1er janvier
+const SORTIES: [keyof MoisTresorerie, string][] = [
+  ['fournisseurs', 'Fournisseurs de marchandises'], ['frais', 'Frais, redevance et publicité'], ['personnel', 'Salaires et cotisations'],
+  ['tva', 'TVA reversée'], ['emprunts', 'Emprunts (intérêts et capital)'], ['impot', 'Impôt sur les sociétés'], ['travaux', 'Travaux'],
+]
+function feuilleTresorerie(t: Tresorerie, titre: string, statut: string): Feuille {
+  const rDebut = 4, rEnc = 5, rS0 = 6, rS1 = rS0 + SORTIES.length - 1, rDec = rS1 + 1, rFlux = rDec + 1, rFin = rFlux + 1
+  const annee = (r: number, v: number, s: 'euros' | 'eurosGras' = 'eurosGras'): Cellule => ({ v, f: `SUM(${cellule(r, 1)}:${cellule(r, 12)})`, s })
+  const sommeMois = (cle: keyof MoisTresorerie, signe = 1) => signe * t.mois.reduce((a, m) => a + m[cle], 0)
+  return {
+    nom: 'Trésorerie',
+    lignes: [
+      [{ v: titre, s: 'titre' }],
+      [{ v: `${statut} · exporté le ${aujourdhui()}`, s: 'discret' }],
+      [],
+      [{ v: 'En euros TTC', s: 'entete' }, ...[...MOIS, 'Année'].map((v) => ({ v, s: 'enteteDroite' as const }))],
+      [{ v: 'Trésorerie au 1er janvier', s: 'gras' }, { v: t.debut, s: 'eurosGras' }],
+      [{ v: 'Encaissements des ventes TTC', s: 'gras' }, ...t.mois.map((m) => ({ v: m.encaissements, s: 'euros' } as Cellule)), annee(rEnc, sommeMois('encaissements'))],
+      ...SORTIES.map(([cle, libelle], k): Cellule[] => [
+        libelle, ...t.mois.map((m) => ({ v: -m[cle], s: 'euros' } as Cellule)), annee(rS0 + k, sommeMois(cle, -1), 'euros'),
+      ]),
+      [{ v: 'Total des décaissements', s: 'gras' },
+        ...t.mois.map((m, i) => ({ v: -m.decaissements, f: `SUM(${cellule(rS0, i + 1)}:${cellule(rS1, i + 1)})`, s: 'eurosGras' } as Cellule)),
+        annee(rDec, sommeMois('decaissements', -1))],
+      [{ v: 'Variation du mois', s: 'gras' },
+        ...t.mois.map((m, i) => ({ v: m.flux, f: `${cellule(rEnc, i + 1)}+${cellule(rDec, i + 1)}`, s: 'eurosGras' } as Cellule)),
+        annee(rFlux, sommeMois('flux'))],
+      [{ v: 'Trésorerie en fin de mois', s: 'gras' },
+        ...t.mois.map((m, i) => ({ v: m.fin, f: `${i === 0 ? `$B$${rDebut + 1}` : cellule(rFin, i)}+${cellule(rFlux, i + 1)}`, s: 'eurosGras' } as Cellule)),
+        { v: t.fin, f: cellule(rFin, 12), s: 'eurosGras' }],
+    ],
+    largeurs: [34, ...MOIS.map(() => 11), 13],
+    figer: { lignes: 4, colonnes: 1 },
+  }
 }
 
 export type LigneExportReseau = LigneReseau & { coach: string; rrs: string[]; groupe: string }

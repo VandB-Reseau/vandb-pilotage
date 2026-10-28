@@ -37,6 +37,7 @@ import { ReelAnnee } from '../components/ReelAnnee'
 import { poidsValides, SaisonnaliteMagasin } from '../components/SaisonnaliteMagasin'
 import { SuiviBudget } from '../components/SuiviBudget'
 import { TravauxMagasin } from '../components/TravauxMagasin'
+import { TresorerieBudget } from '../components/TresorerieBudget'
 import { SyntheseMagasin } from '../components/SyntheseMagasin'
 import { GrilleHypotheses } from '../components/GrilleHypotheses'
 import { lignesCibles, TableauCibles } from '../components/TableauCibles'
@@ -51,6 +52,7 @@ import { classeur, nomFichier, telecharger } from '../lib/xlsx'
 import { syntheseReel } from '../moteur/reel'
 import { calculerBudget, effetTravaux } from '../moteur/budget'
 import { compteResultat } from '../moteur/compteResultat'
+import { tresorerieBudget } from '../moteur/tresorerie'
 import { ajustementsCopies, ecarts, valeurHeritee, type Cibles } from '../moteur/cibles'
 
 
@@ -130,6 +132,7 @@ export function Magasin() {
   const nbEcarts = resolu ? ecarts(resolu.provenance).length : 0
   const enregistrable = poidsValides(brouillon.poidsMois)
   // Effet des travaux : même budget sans eux
+  const tresorerie = b && resolu ? tresorerieBudget(b, resolu.hypotheses, parametres, parametres.tresorerie, brouillon.tresorerieDepart ?? 0) : null
   const sansTravaux = resolu?.hypotheses.travaux ? calculerBudget({ ...resolu.hypotheses, travaux: undefined }, parametres) : null
   // Copie : magasins dont le budget est proposé ou en discussion
   const destinations = d.magasins.filter((l) => l.magasin !== ligne.magasin && l.base && l.statut && l.statut !== 'valide')
@@ -149,7 +152,7 @@ export function Magasin() {
     if (!b || !resolu) return
     const statut = `${ligne.statut ? statutLibelle[ligne.statut] : 'Pas encore proposé'}${modifie ? ', ajustements non enregistrés' : ''}`
     telecharger(nomFichier(`Budget ${annee} - ${ligne.magasin}`),
-      classeur(feuillesBudget({ magasin: ligne.magasin, annee, statut, lignes: compteResultat(b, resolu.hypotheses, parametres), familles: b.familles })))
+      classeur(feuillesBudget({ magasin: ligne.magasin, annee, statut, lignes: compteResultat(b, resolu.hypotheses, parametres), familles: b.familles, tresorerie })))
   }
 
   const agir = async (action: () => Promise<void>, reussite: string) => {
@@ -316,6 +319,12 @@ export function Magasin() {
           )}
 
           {resolu && <CompteResultatMois lignes={compteResultat(b, resolu.hypotheses, parametres)} titre={`Compte de résultat ${annee}`} libelleTableau={`Budget ${annee} mois par mois`} />}
+          {tresorerie && (
+            <TresorerieBudget
+              key={ligne.magasin} tresorerie={tresorerie} annee={annee} depart={brouillon.tresorerieDepart} lectureSeule={!peutAjuster}
+              onDepart={(v) => setBrouillon(({ tresorerieDepart: _, ...reste }) => (v === undefined ? reste : { ...reste, tresorerieDepart: v }))}
+            />
+          )}
         </Stack>
       )}
       </>)}

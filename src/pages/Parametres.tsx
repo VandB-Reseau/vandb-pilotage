@@ -10,6 +10,8 @@ import Table from '@mui/material/Table'
 import TableBody from '@mui/material/TableBody'
 import TableCell from '@mui/material/TableCell'
 import TableRow from '@mui/material/TableRow'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import SaveOutlined from '@mui/icons-material/SaveOutlined'
 import { ChampNombre } from '../components/ChampNombre'
@@ -19,6 +21,7 @@ import { anneeBudget, chargerParametres, enregistrerParametres, type ParametresC
 import { nombre } from '../import/caisse'
 import { CATEGORIES, categorieLibelle } from '../moteur/equipe'
 import { useChargement } from '../data/useChargement'
+import type { ParametresTresorerie } from '../moteur/tresorerie'
 import { montant, taux } from '../lib/format'
 
 export function Parametres() {
@@ -30,8 +33,14 @@ export function Parametres() {
   const [puissance, setPuissance] = useState('')
   const [message, setMessage] = useState<{ gravite: 'success' | 'error'; texte: string } | null>(null)
   const [occupe, setOccupe] = useState(false)
+  // Trésorerie : délais en mois gardés en texte pendant la frappe
+  const [treso, setTreso] = useState<ParametresTresorerie | null>(null)
+  const [delais, setDelais] = useState({ fournisseurs: '', redevance: '' })
+  const [messageTreso, setMessageTreso] = useState<{ gravite: 'success' | 'error'; texte: string } | null>(null)
   useEffect(() => {
     if (!p) return
+    setTreso(p.tresorerie)
+    setDelais({ fournisseurs: String(p.tresorerie.delaiFournisseurs), redevance: String(p.tresorerie.delaiRedevance) })
     setCharges(p.charges)
     setSmic(String(p.charges.reduction.smicAnnuel).replace('.', ','))
     setPuissance(String(p.charges.reduction.puissance).replace('.', ','))
@@ -55,6 +64,27 @@ export function Parametres() {
       setOccupe(false)
     }
   }
+  const delai = (t: string) => { const n = nombre(t); return n !== null && Number.isInteger(n) && n >= 0 && n <= 3 ? n : null }
+  const delaisLus = { delaiFournisseurs: delai(delais.fournisseurs), delaiRedevance: delai(delais.redevance) }
+  const tresoValide = delaisLus.delaiFournisseurs !== null && delaisLus.delaiRedevance !== null
+  const tresoModifiee = !!p && !!treso && JSON.stringify({ ...treso, ...delaisLus }) !== JSON.stringify(p.tresorerie)
+  useSaisieEnCours(tresoModifiee)
+  const enregistrerTreso = async () => {
+    if (!p || !treso || !tresoValide) return
+    setOccupe(true)
+    setMessageTreso(null)
+    try {
+      await enregistrerParametres(annee, { ...p, tresorerie: { ...treso, delaiFournisseurs: delaisLus.delaiFournisseurs!, delaiRedevance: delaisLus.delaiRedevance! } })
+      setMessageTreso({ gravite: 'success', texte: `Paramètres de trésorerie ${annee} enregistrés.` })
+      recharger()
+    } catch {
+      setMessageTreso({ gravite: 'error', texte: 'L’enregistrement n’a pas abouti. Vérifie ta connexion, puis réessaie.' })
+    } finally {
+      setOccupe(false)
+    }
+  }
+  const tvaTreso = (k: 'tvaVentes' | 'tvaAchats' | 'tvaFrais' | 'partCotisations', v: number | undefined) => setTreso((t) => (t ? { ...t, [k]: v ?? 0 } : t))
+
   const lignes = p ? [
     { libelle: 'Redevance franchise', valeur: `${taux(p.tauxRedevance)} du CA HT` },
     { libelle: 'Publicité franchise', valeur: `${taux(p.tauxPublicite)} du CA HT` },
@@ -121,6 +151,53 @@ export function Parametres() {
                 <TableRow>
                   <TableCell>Part des charges hors réduction (formation, taxe d’apprentissage)</TableCell>
                   <TableCell align="right"><ChampTaux libelle="Part des charges hors réduction" valeur={charges.reduction.horsReduction} onChange={(v) => reduction('horsReduction', v)} /></TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </Card>
+        )}
+
+        {treso && (
+          <Card component="section" aria-label="Trésorerie">
+            <Box sx={{ p: 2, pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+              <Typography variant="h2">Trésorerie {annee}</Typography>
+              <Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe || !tresoValide || !tresoModifiee} onClick={() => void enregistrerTreso()} sx={{ minHeight: 48 }}>Enregistrer</Button>
+            </Box>
+            {messageTreso && <Box sx={{ px: 2 }}><Alert severity={messageTreso.gravite} onClose={() => setMessageTreso(null)} closeText="Fermer" slotProps={{ closeButton: { sx: { width: 48, height: 48 } } }}>{messageTreso.texte}</Alert></Box>}
+            <Table aria-label={`Paramètres de trésorerie ${annee}`}>
+              <TableBody>
+                <TableRow>
+                  <TableCell>Paiement des fournisseurs de marchandises, en mois après l’achat (1 = 30 jours fin de mois)</TableCell>
+                  <TableCell align="right"><ChampNombre libelle="Délai de paiement des fournisseurs" valeur={delais.fournisseurs} unite="mois" largeur={120} onChange={(v) => setDelais((d) => ({ ...d, fournisseurs: v }))} /></TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Paiement de la redevance et de la publicité, en mois après le CA</TableCell>
+                  <TableCell align="right"><ChampNombre libelle="Délai de paiement de la redevance" valeur={delais.redevance} unite="mois" largeur={120} onChange={(v) => setDelais((d) => ({ ...d, redevance: v }))} /></TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>TVA moyenne sur les ventes</TableCell>
+                  <TableCell align="right"><ChampTaux libelle="TVA moyenne sur les ventes" valeur={treso.tvaVentes} onChange={(v) => tvaTreso('tvaVentes', v)} /></TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>TVA sur les achats de marchandises</TableCell>
+                  <TableCell align="right"><ChampTaux libelle="TVA sur les achats de marchandises" valeur={treso.tvaAchats} onChange={(v) => tvaTreso('tvaAchats', v)} /></TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>TVA sur les frais, la redevance et les travaux (hors banque, assurances, impôts et taxes)</TableCell>
+                  <TableCell align="right"><ChampTaux libelle="TVA sur les frais" valeur={treso.tvaFrais} onChange={(v) => tvaTreso('tvaFrais', v)} /></TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Déclaration de TVA</TableCell>
+                  <TableCell align="right">
+                    <ToggleButtonGroup exclusive size="small" value={treso.tvaTrimestrielle ? 'trimestre' : 'mois'} onChange={(_, v: string | null) => v && setTreso((t) => (t ? { ...t, tvaTrimestrielle: v === 'trimestre' } : t))} aria-label="Déclaration de TVA">
+                      <ToggleButton value="mois" sx={{ minHeight: 48 }}>Chaque mois</ToggleButton>
+                      <ToggleButton value="trimestre" sx={{ minHeight: 48 }}>Chaque trimestre</ToggleButton>
+                    </ToggleButtonGroup>
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Part du coût du personnel payée le mois suivant (cotisations salariales et patronales)</TableCell>
+                  <TableCell align="right"><ChampTaux libelle="Part du coût du personnel payée le mois suivant" valeur={treso.partCotisations} onChange={(v) => tvaTreso('partCotisations', v)} /></TableCell>
                 </TableRow>
               </TableBody>
             </Table>

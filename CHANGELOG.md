@@ -5,6 +5,18 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+## Lot 10 — Trésorerie du budget (28/10/2026)
+
+- Budget d'un magasin : trésorerie mois par mois en montants TTC (encaissements, fournisseurs, frais, redevance et
+  publicité, salaires et cotisations, TVA, emprunts, acomptes d'impôt, travaux), solde de fin de mois, point bas et mois
+  à découvert. Trésorerie au 1er janvier saisie par magasin, enregistrée avec les ajustements (non copiée d'un magasin
+  à l'autre). Onglet Trésorerie dans l'export Excel, soldes en formules.
+- Liste des magasins : colonne Point bas de trésorerie, en rouge sous zéro.
+- Paramètres réseau : délais de paiement des fournisseurs et de la redevance, TVA des ventes, des achats et des frais,
+  déclaration de TVA mensuelle ou trimestrielle, part du coût du personnel payée le mois suivant. Valeurs par défaut :
+  30 jours fin de mois, TVA mensuelle, 40 % de cotisations le mois suivant, à confirmer par Joseph.
+- Pas de migration : paramètres dans `parametres_reseau.valeur`, trésorerie de départ dans les ajustements.
+
 ## Lot 9 — Export Excel, impression, filtre par Responsable Régional (28/10/2026)
 
 **Base : passer `supabase/migrations/0007_filtre_rr.sql`** (remplace la fonction de lecture de la vue réseau, aucune table).

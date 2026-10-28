@@ -1,4 +1,5 @@
 import type { ParametresCharges, Personne } from './equipe'
+import type { ParametresTresorerie } from './tresorerie'
 
 // Hypothèses et résultats du budget d'un magasin. Tous les montants sont HT, en euros ; les taux sont des fractions (0,38 = 38 %).
 
@@ -62,6 +63,7 @@ export interface ParametresReseau {
   impot: { tauxReduit: number; plafondTauxReduit: number; tauxNormal: number }
   tvaPanier: Record<'cave' | 'bar', number> // TVA moyenne pour passer d'un panier TTC à un CA HT
   charges: ParametresCharges
+  tresorerie: ParametresTresorerie
 }
 
 export interface Mois {

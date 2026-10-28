@@ -1,4 +1,5 @@
 import type { ParametresCharges } from './equipe'
+import { tresorerieParDefaut } from './tresorerie'
 import type { LigneFrais, ParametresReseau, Rubrique } from './types'
 
 // Paramètres réseau par défaut (Joseph, 26/10/2026) : redevance 2 % et publicité 1 % du CA HT, au-dessus de l'EBE.
@@ -17,6 +18,7 @@ export const parametresParDefaut: ParametresReseau = {
   impot: { tauxReduit: 0.15, plafondTauxReduit: 42500, tauxNormal: 0.25 },
   tvaPanier: { cave: 0.2, bar: 0.18 },
   charges: chargesParDefaut,
+  tresorerie: tresorerieParDefaut,
 }
 
 export const rubriqueLibelle: Record<Rubrique, string> = {

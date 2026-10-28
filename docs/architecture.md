@@ -43,7 +43,9 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
 9. Suivi : `suiviBudget` compare le réel de l'année (`moisDuReel`) au budget de la même année. Vue réseau :
    `pilotage.reel_du_compte(annee)` renvoie le réel totalisé par magasin et par mois ; `ligneReseau` y ajoute budget,
    équipe et frais de chaque magasin, `totalReseau` en fait le total pondéré.
-10. Export et impression : `feuillesBudget` et `feuilleReseau` reprennent les chiffres du moteur tels qu'à l'écran
+10. Trésorerie : `tresorerieBudget` (moteur pur) déroule le budget en encaissements et décaissements TTC avec les délais
+   de `ParametresReseau.tresorerie` ; début d'année en régime établi (décembre de l'année précédente = décembre du budget).
+11. Export et impression : `feuillesBudget` et `feuilleReseau` reprennent les chiffres du moteur tels qu'à l'écran
    (totaux et parts du CA en formules Excel) ; `classeur` écrit le .xlsx. L'impression (A4 paysage) passe par les styles
    `@media print` d'`AppShell` : classes `pas-a-l-impression` (masqué) et `impression-seule` (montré à l'impression).
 
