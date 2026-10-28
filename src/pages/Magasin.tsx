@@ -33,6 +33,7 @@ import { EquipeMagasin } from '../components/EquipeMagasin'
 import { FraisMagasin } from '../components/FraisMagasin'
 import { useGarde, useSaisieEnCours } from '../components/GardeSaisie'
 import { PastilleStatut } from '../components/PastilleStatut'
+import { ComparaisonMagasin } from '../components/ComparaisonMagasin'
 import { AlertesDuMagasin } from '../components/AlertesMagasins'
 import { SimulationMagasin } from '../components/SimulationMagasin'
 import { QuadrimestresMagasin } from '../components/QuadrimestresMagasin'
@@ -200,7 +201,10 @@ export function Magasin() {
 
       {onglet === 'synthese' && <AlertesDuMagasin magasin={ligne.magasin} />}
       {onglet === 'synthese' ? (
-        <SyntheseMagasin key={ligne.magasin} magasin={ligne.magasin} d={d} annee={anneeEnCours} parametres={donnees.parametresN} allerA={setOnglet} />
+        <>
+          <SyntheseMagasin key={ligne.magasin} magasin={ligne.magasin} d={d} annee={anneeEnCours} parametres={donnees.parametresN} allerA={setOnglet} />
+          {profil?.role !== 'franchise' && <ComparaisonMagasin key={`comparaison-${ligne.magasin}`} magasin={ligne.magasin} directeur={directeur} />}
+        </>
       ) : onglet === 'suivi' ? (
         <SuiviBudget key={ligne.magasin} magasin={ligne.magasin} annee={anneeEnCours} allerA={setOnglet} />
       ) : onglet === 'atterrissage' ? (

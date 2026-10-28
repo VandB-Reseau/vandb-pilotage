@@ -8,6 +8,8 @@ import type { Categorie, ParametresCharges, Personne } from '../moteur/equipe'
 import type { LigneReel, TicketsReel } from '../moteur/reel'
 import type { MoisReel } from '../moteur/suivi'
 import { alertesMagasin, trierAlertes, type Alerte } from '../moteur/alertes'
+import { ratiosDuBudget, ratiosDuReel, type Ratios } from '../moteur/comparaison'
+import { ligneReseau } from '../moteur/suivi'
 import { QUADRIMESTRES, type Quadrimestre, type SaisieQuadrimestre } from '../moteur/quadrimestre'
 import { tresorerieBudget } from '../moteur/tresorerie'
 import type { Hypotheses, ParametresReseau, Univers } from '../moteur/types'
@@ -405,4 +407,33 @@ export async function chargerAlertes(aujourdhui = new Date()): Promise<Alerte[]>
       tresorerieBudget: point ? { montant: point.montant, mois: point.mois, annee: aB } : null,
     }, pB.alertes)
   }))
+}
+
+// Ratios de chaque magasin du compte, pour la comparaison aux médianes : réel de l'année à date et budgets de l'an prochain
+export interface RatiosMagasin { magasin: string; groupeId: number | null; ratios: Ratios }
+export async function chargerComparaison(aujourdhui = new Date()): Promise<{ annee: number; anneeBudget: number; groupes: { id: number; nom: string }[]; reel: RatiosMagasin[]; budget: RatiosMagasin[] }> {
+  const annee = aujourdhui.getFullYear(), aB = anneeBudget(aujourdhui)
+  const [d, { parametres }, dB, { parametres: pB }, reel] = await Promise.all([
+    chargerBudgets(annee), chargerParametres(annee), chargerBudgets(aB), chargerParametres(aB), chargerReelDuCompte(annee),
+  ])
+  const p = { tauxRedevance: parametres.tauxRedevance, tauxPublicite: parametres.tauxPublicite, charges: parametres.charges, annee }
+  const douze = () => Array.from({ length: 12 }, () => ({ caHT: 0, margeHT: 0, caAvecMarge: 0, caTTC: 0, tickets: 0 }))
+  return {
+    annee, anneeBudget: aB, groupes: dB.groupes,
+    reel: d.magasins.flatMap((l) => {
+      const r = reel.magasins[l.magasin]
+      if (!r) return []
+      const h = l.statut ? hypothesesDe(l, d) : null
+      const frais = d.frais[l.magasin]
+      const ligne = ligneReseau({
+        magasin: l.magasin, n: r.n, n1: r.n1 ?? douze(), budget: h ? calculerBudget(h.hypotheses, parametres) : null,
+        equipe: d.equipes[l.magasin], frais: frais?.length ? fraisDepuisLignes(frais).frais : undefined,
+      }, p)
+      return ligne.moisRealises ? [{ magasin: l.magasin, groupeId: l.groupeId, ratios: ratiosDuReel(ligne) }] : []
+    }),
+    budget: dB.magasins.flatMap((l) => {
+      const h = l.statut ? hypothesesDe(l, dB) : null
+      return h ? [{ magasin: l.magasin, groupeId: l.groupeId, ratios: ratiosDuBudget(calculerBudget(h.hypotheses, pB), h.hypotheses) }] : []
+    }),
+  }
 }

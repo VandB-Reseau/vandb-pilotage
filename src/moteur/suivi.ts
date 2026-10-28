@@ -99,13 +99,14 @@ export interface LigneReseau {
   panierTTC: number | null
   personnelSurMarge: number | null // masse salariale de l'équipe sur la marge des mêmes mois
   ebeSurCA: number | null          // EBE estimé à date : marge − redevance, publicité, frais et équipe des mêmes mois
+  loyerSurCA: number | null        // ligne « Locations immobilières » des frais sur le CA des mêmes mois
   sommes: Sommes
 }
 // Montants derrière les pourcentages, pour totaliser le réseau ; null : non calculable pour ce magasin
 interface Sommes {
   ca: number; caN1: number | null; caBudget: number | null
   marge: number; caAvecMarge: number; margeEstimee: number | null
-  caTTC: number; tickets: number; personnel: number | null; ebe: number | null
+  caTTC: number; tickets: number; personnel: number | null; ebe: number | null; loyer: number | null
 }
 
 const pourcentages = (s: Sommes) => ({
@@ -115,6 +116,7 @@ const pourcentages = (s: Sommes) => ({
   panierTTC: s.tickets > 0 ? s.caTTC / s.tickets : null,
   personnelSurMarge: s.personnel !== null && s.margeEstimee ? s.personnel / s.margeEstimee : null,
   ebeSurCA: s.ebe !== null && s.ca ? s.ebe / s.ca : null,
+  loyerSurCA: s.loyer !== null && s.ca ? s.loyer / s.ca : null,
 })
 
 export function ligneReseau(e: EntreeReseau, p: ParametresReseauSuivi): LigneReseau {
@@ -129,13 +131,16 @@ export function ligneReseau(e: EntreeReseau, p: ParametresReseauSuivi): LigneRes
   // Panier moyen : seulement les mois où CA TTC et tickets sont connus
   const avecPanier = mois.filter((x) => x.tickets > 0 && x.caTTC > 0)
   const personnel = m && e.equipe?.length ? somme(masseSalariale(e.equipe, p.charges, p.annee).parMois.slice(0, m).map((x) => x.cout)) : null
-  const frais = m && e.frais?.length ? somme(e.frais.map((l) => (l.annuel ?? 0) * m / 12 + ca * (l.tauxCA ?? 0))) : null
+  const aDate = (l: LigneFrais) => (l.annuel ?? 0) * m / 12 + ca * (l.tauxCA ?? 0)
+  const frais = m && e.frais?.length ? somme(e.frais.map(aDate)) : null
+  const loyers = e.frais?.filter((l) => l.code === 'loyer') ?? []
   const sommes: Sommes = {
     ca, caN1: m && caN1 > 0 ? caN1 : null, caBudget: m && caBudget > 0 ? caBudget : null,
     marge, caAvecMarge, margeEstimee,
     caTTC: somme(avecPanier.map((x) => x.caTTC)), tickets: somme(avecPanier.map((x) => x.tickets)),
     personnel,
     ebe: margeEstimee !== null && personnel !== null && frais !== null ? margeEstimee - ca * (p.tauxRedevance + p.tauxPublicite) - frais - personnel : null,
+    loyer: m && loyers.length ? somme(loyers.map(aDate)) : null,
   }
   return { magasin: e.magasin, moisRealises: m, ca, ...pourcentages(sommes), sommes }
 }
@@ -150,10 +155,10 @@ export function totalReseau(lignes: LigneReseau[]): Omit<LigneReseau, 'magasin' 
     ca: t((s) => s.ca),
     caN1: avec('caN1', (s) => s.caN1!) || null, caBudget: avec('caBudget', (s) => s.caBudget!) || null,
     marge: t((s) => s.marge), caAvecMarge: t((s) => s.caAvecMarge),
-    margeEstimee: null, caTTC: t((s) => s.caTTC), tickets: t((s) => s.tickets), personnel: null, ebe: null,
+    margeEstimee: null, caTTC: t((s) => s.caTTC), tickets: t((s) => s.tickets), personnel: null, ebe: null, loyer: null,
   }
   const p = pourcentages(sommes)
-  const ratioSur = (k: 'personnel' | 'ebe', den: (s: Sommes) => number | null) => {
+  const ratioSur = (k: 'personnel' | 'ebe' | 'loyer', den: (s: Sommes) => number | null) => {
     const v = l.filter((s) => s[k] !== null && den(s))
     return v.length ? ratio(somme(v.map((s) => s[k]!)), somme(v.map((s) => den(s)!))) : null
   }
@@ -165,5 +170,6 @@ export function totalReseau(lignes: LigneReseau[]): Omit<LigneReseau, 'magasin' 
     tauxMarge: p.tauxMarge, panierTTC: p.panierTTC,
     personnelSurMarge: ratioSur('personnel', (s) => s.margeEstimee),
     ebeSurCA: ratioSur('ebe', (s) => s.ca),
+    loyerSurCA: ratioSur('loyer', (s) => s.ca),
   }
 }

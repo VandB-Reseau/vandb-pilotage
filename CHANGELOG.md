@@ -32,6 +32,15 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
   net, la trésorerie de fin d'année et son point bas, face au budget. Rien n'est enregistré.
 - Pas de migration.
 
+### Lot 15 — Face au réseau
+
+- Synthèse d'un magasin (Directeur, RR, Coach) : taux de marge, masse salariale / marge, loyer / CA, panier moyen et
+  EBE / CA face à la médiane du groupe et du réseau, avec le rang ; sur le réel à date ou sur les budgets de l'an
+  prochain. Au moins 3 magasins pour une médiane.
+- Vue Réseau : colonne Loyer / CA (aussi dans l'export Excel) et ligne de la médiane de la sélection (un filtre par
+  groupe donne la médiane du groupe).
+- Pas de migration.
+
 ## Lot 11 — Consignes dans la trésorerie (28/10/2026)
 
 - Trésorerie du budget : consignes versées aux fournisseurs avec les achats (fûts, caisses, gaz) et remboursées une

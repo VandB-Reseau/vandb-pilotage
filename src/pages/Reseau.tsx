@@ -31,9 +31,10 @@ import { ecartTaux, lienMagasin, milliers, MOIS, taux } from '../lib/format'
 import { classeur, nomFichier, telecharger } from '../lib/xlsx'
 import { fraisDepuisLignes } from '../moteur/atterrissage'
 import { calculerBudget } from '../moteur/budget'
+import { medianes, ratiosDuReel, RATIOS, type CleRatio } from '../moteur/comparaison'
 import { ligneReseau, totalReseau, type LigneReseau, type MoisReel } from '../moteur/suivi'
 
-type Cle = 'magasin' | 'moisRealises' | 'ca' | 'evolution' | 'ecartBudget' | 'tauxMarge' | 'panierTTC' | 'personnelSurMarge' | 'ebeSurCA'
+type Cle = 'magasin' | 'moisRealises' | 'ca' | 'evolution' | 'ecartBudget' | 'tauxMarge' | 'panierTTC' | 'personnelSurMarge' | 'loyerSurCA' | 'ebeSurCA'
 type Colonne = { cle: Exclude<Cle, 'magasin'>; libelle: string; texte: (v: number) => string; rouge?: (v: number) => boolean }
 
 const euros = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -45,6 +46,7 @@ const COLONNES: Colonne[] = [
   { cle: 'tauxMarge', libelle: 'Taux de marge', texte: taux },
   { cle: 'panierTTC', libelle: 'Panier moyen TTC', texte: (v) => euros.format(v) },
   { cle: 'personnelSurMarge', libelle: 'Masse salariale / marge', texte: taux },
+  { cle: 'loyerSurCA', libelle: 'Loyer / CA', texte: taux },
   { cle: 'ebeSurCA', libelle: 'EBE / CA', texte: taux, rouge: (v) => v < 0 },
 ]
 const douze = (): MoisReel[] => Array.from({ length: 12 }, () => ({ caHT: 0, margeHT: 0, caAvecMarge: 0, caTTC: 0, tickets: 0 }))
@@ -102,6 +104,8 @@ export function Reseau() {
     })
   }, [donnees, recherche, groupe, coach, rr, tri, sens])
   const total = totalReseau(visibles)
+  // Médiane de la sélection : un groupe filtré donne la médiane du groupe
+  const mediane = medianes(visibles.filter((m) => m.moisRealises > 0).map(ratiosDuReel))
   const filtre = visibles.length !== (donnees?.magasins.length ?? 0)
   const etat = { liste: visibles.map((m) => m.magasin), retour: params.toString(), depuis: { chemin: '/reseau', nom: 'Réseau' } }
   const trier = (cle: Cle) => changer({ tri: cle, sens: tri === cle ? (sens === 'asc' ? 'desc' : 'asc') : cle === 'magasin' ? 'asc' : 'desc' })
@@ -231,6 +235,15 @@ export function Reseau() {
                   {COLONNES.map((c) => (c.cle === 'moisRealises'
                     ? <TableCell key={c.cle} align="right" sx={{ whiteSpace: 'nowrap', fontWeight: 700 }}>{total.magasins} magasin{total.magasins > 1 ? 's' : ''}</TableCell>
                     : cellule(c, (total as unknown as Record<string, number | null>)[c.cle], true)))}
+                </TableRow>
+                <TableRow sx={{ '& td': { color: 'text.secondary' } }}>
+                  <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{filtre ? 'Médiane de la sélection' : 'Médiane du réseau'}</TableCell>
+                  {donnees.coachs.length > 0 && <TableCell sx={surPC} />}
+                  {donnees.rrs.length > 0 && <TableCell sx={surPC} />}
+                  {donnees.groupes.length > 0 && <TableCell sx={surPC} />}
+                  {COLONNES.map((c) => ((RATIOS as string[]).includes(c.cle)
+                    ? cellule(c, mediane[c.cle as CleRatio])
+                    : <TableCell key={c.cle} />))}
                 </TableRow>
                 {visibles.map((m) => (
                   <TableRow key={m.magasin} hover onClick={() => navigate(lienMagasin(m.magasin), { state: etat })} sx={{ cursor: 'pointer' }}>
