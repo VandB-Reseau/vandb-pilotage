@@ -1,13 +1,11 @@
 import { Fragment } from 'react'
 import Box from '@mui/material/Box'
-import IconButton from '@mui/material/IconButton'
+import Button from '@mui/material/Button'
 import Table from '@mui/material/Table'
 import TableBody from '@mui/material/TableBody'
 import TableCell from '@mui/material/TableCell'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
-import Tooltip from '@mui/material/Tooltip'
-import RestartAltOutlined from '@mui/icons-material/RestartAltOutlined'
 import { enChiffres, milliers, panier, taux } from '../lib/format'
 import { cleFamille, ecrireCible, lireCible, niveauLibelle, valeurHeritee, type Cibles, type NiveauCibles } from '../moteur/cibles'
 import { UNIVERS, universLibelle, type Budget, type ResultatFamille } from '../moteur/types'
@@ -18,6 +16,7 @@ import { ChampTaux } from './ChampTaux'
 // Marge de l'an prochain : CA × (marge visée − démarque). Cave et Bar avec leurs tickets (lot 22) : le CA de l'univers se
 // règle par l'évolution des tickets et du panier, chaque famille par sa part dans l'univers ; son évolution en découle.
 // Une valeur propre au magasin ressort (bouton pour reprendre celle du niveau au-dessus) ; sinon, d'où elle vient.
+// Lot 27 : la provenance passe sous le champ (« Réalisé », « Réseau : 3,0 % · reprendre ») pour que la grille tienne dans l'écran.
 export function GrilleHypotheses({ titre, familles, flux, annee, cibles, auDessus, valeursBase, onChange, lectureSeule }: {
   titre: string
   familles: ResultatFamille[]
@@ -35,23 +34,23 @@ export function GrilleHypotheses({ titre, familles, flux, annee, cibles, auDessu
   const cellule = (cle: string, libelle: string, quoi: string, base = valeursBase[cle]) => {
     const propre = lireCible(cibles, cle)
     const herite = valeurHeritee([...auDessus, { niveau: 'magasin', cibles: ecrireCible(cibles, cle, undefined) }], cle)
+    const source = niveauLibelle[herite?.source ?? 'base']
+    const auDessusValeur = herite?.valeur ?? base
     return (
-      <TableCell align="right" sx={{ py: 0.5 }}>
-        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-          <ChampTaux libelle={libelle} valeur={propre} heritee={herite?.valeur ?? base} desactive={lectureSeule} onChange={(v) => onChange(ecrireCible(cibles, cle, v))} />
-          <Box sx={{ width: 64, textAlign: 'left' }}>
-            {propre !== undefined && !lectureSeule ? (
-              <Tooltip title="Reprendre la valeur du niveau au-dessus">
-                <IconButton aria-label={`Reprendre la valeur du niveau au-dessus : ${quoi}`} onClick={() => onChange(ecrireCible(cibles, cle, undefined))} sx={{ width: 48, height: 48, color: 'warning.dark' }}>
-                  <RestartAltOutlined fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            ) : (
-              <Box component="span" sx={{ fontSize: '0.75rem', color: propre !== undefined ? 'warning.dark' : 'text.secondary', fontWeight: propre !== undefined ? 700 : 400 }}>
-                {niveauLibelle[propre !== undefined ? 'magasin' : herite?.source ?? 'base']}
-              </Box>
-            )}
-          </Box>
+      <TableCell align="right" sx={{ py: 0.75, verticalAlign: 'top' }}>
+        <Box sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+          <ChampTaux libelle={libelle} valeur={propre} heritee={auDessusValeur} desactive={lectureSeule} largeur={104} marque={propre !== undefined}
+            onChange={(v) => onChange(ecrireCible(cibles, cle, v))} />
+          {propre !== undefined && !lectureSeule ? (
+            <Button size="small" color="warning" onClick={() => onChange(ecrireCible(cibles, cle, undefined))} aria-label={`Reprendre la valeur du niveau au-dessus : ${quoi}`}
+              sx={{ fontSize: '0.75rem', fontWeight: 600, minHeight: { xs: 48, md: 24 }, py: 0, px: 0.5, mt: 0.25, minWidth: 0, textTransform: 'none' }}>
+              {source}{auDessusValeur !== undefined ? ` ${taux(auDessusValeur)}` : ''} · reprendre
+            </Button>
+          ) : (
+            <Box component="span" sx={{ fontSize: '0.75rem', mt: 0.25, color: propre !== undefined ? 'warning.dark' : 'text.secondary', fontWeight: propre !== undefined ? 700 : 400 }}>
+              {propre !== undefined ? 'Magasin' : source}
+            </Box>
+          )}
         </Box>
       </TableCell>
     )
@@ -66,26 +65,29 @@ export function GrilleHypotheses({ titre, familles, flux, annee, cibles, auDessu
       <TableCell>{libelle}</TableCell>
       <TableCell align="right">{milliers(t.n)}</TableCell>
       <TableCell />
-      <TableCell align="right" sx={{ pr: '82px !important' }}>{taux(t.evolution)}</TableCell>
+      <TableCell align="right">{taux(t.evolution)}</TableCell>
       <TableCell align="right">{milliers(t.b)}</TableCell>
-      <TableCell align="right" sx={{ pr: '82px !important' }}>{taux(t.visee)}</TableCell>
-      <TableCell align="right" sx={{ pr: '82px !important' }}>{taux(t.demarque)}</TableCell>
+      <TableCell align="right">{taux(t.visee)}</TableCell>
+      <TableCell align="right">{taux(t.demarque)}</TableCell>
       <TableCell align="right">{milliers(t.m)}</TableCell>
     </TableRow>
   )
   const univers = UNIVERS.filter((u) => familles.some((f) => f.univers === u))
 
   return (
-    <Table size="small" className="colonne-fixe" aria-label={titre} sx={{ '& td, & th': { px: 1.25, whiteSpace: 'nowrap' }, '& td:first-of-type, & th:first-of-type': { pl: 2.5 } }}>
+    <Table size="small" className="colonne-fixe" aria-label={titre} sx={{
+      '& td, & th': { px: 1.25, whiteSpace: 'nowrap' }, '& td:first-of-type, & th:first-of-type': { pl: 2.5 },
+      '& thead th': { whiteSpace: 'normal', verticalAlign: 'bottom', lineHeight: 1.3 }, '& thead th:not(:first-of-type)': { maxWidth: 120 },
+    }}>
       <TableHead>
         <TableRow>
           <TableCell>Famille</TableCell>
           <TableCell align="right">CA {annee - 1} attendu</TableCell>
-          <TableCell align="right" sx={{ pr: '82px !important' }}><Aide sujet="mix" />Part de l’univers</TableCell>
-          <TableCell align="right" sx={{ pr: '82px !important' }}><Aide sujet="evolution" />Évolution</TableCell>
+          <TableCell align="right"><Aide sujet="mix" />Part de l’univers</TableCell>
+          <TableCell align="right"><Aide sujet="evolution" />Évolution</TableCell>
           <TableCell align="right">CA {annee}</TableCell>
-          <TableCell align="right" sx={{ pr: '82px !important' }}><Aide sujet="marge" />Marge visée</TableCell>
-          <TableCell align="right" sx={{ pr: '82px !important' }}><Aide sujet="demarque" />Démarque</TableCell>
+          <TableCell align="right"><Aide sujet="marge" />Marge visée</TableCell>
+          <TableCell align="right"><Aide sujet="demarque" />Démarque</TableCell>
           <TableCell align="right">Marge {annee}</TableCell>
         </TableRow>
       </TableHead>
@@ -126,8 +128,8 @@ export function GrilleHypotheses({ titre, familles, flux, annee, cibles, auDessu
                     <TableCell sx={{ pl: univers.length > 1 || fl ? '36px !important' : undefined }}>{nom}</TableCell>
                     <TableCell align="right">{milliers(f.atterrissage)}</TableCell>
                     {fl ? cellule(`mix/${cle}`, `Part de la famille dans l’univers : ${nom}`, `part de ${nom}`, ratio(f.objectif, caU))
-                      : <TableCell align="right" sx={{ pr: '82px !important', color: 'text.secondary' }}>–</TableCell>}
-                    {fl ? <TableCell align="right" sx={{ pr: '82px !important' }}>{taux(ratio(f.objectif, f.atterrissage) - 1)}</TableCell>
+                      : <TableCell align="right" sx={{ color: 'text.secondary' }}>–</TableCell>}
+                    {fl ? <TableCell align="right">{taux(ratio(f.objectif, f.atterrissage) - 1)}</TableCell>
                       : cellule(`evolution/${cle}`, `Évolution du CA par famille : ${nom}`, `évolution de ${nom}`)}
                     <TableCell align="right" sx={{ fontWeight: 600 }}>{milliers(f.objectif)}</TableCell>
                     {cellule(`marge/${cle}`, `Marge visée par famille : ${nom}`, `marge visée de ${nom}`)}

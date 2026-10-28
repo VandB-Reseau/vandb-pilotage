@@ -41,12 +41,15 @@ interface Destination { chemin: string; nom: string; court?: string; icone: Reac
 // Page imprimée (budget, vue réseau) : A4 paysage, sans menus ni boutons, tableaux en entier, texte à 9 pt (12 px)
 const impression = {
   '.impression-seule': { display: 'none' },
+  // Parties du budget masquées à l'écran (lot 27) : imprimées avec la partie affichée, pour garder le budget complet sur papier
+  '.partie-cachee': { display: 'none !important' },
   '@page': { size: 'A4 landscape', margin: '10mm' },
   '@media print': {
     'body, .fond-app': { backgroundColor: '#ffffff !important' },
     '*': { printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' },
     '.pas-a-l-impression, .MuiTabs-root, .MuiAlert-root, .MuiIconButton-root, .MuiTableSortLabel-icon': { display: 'none !important' },
     '.impression-seule': { display: 'inline' },
+    '.partie-cachee': { display: 'block !important' },
     main: { marginLeft: '0 !important', padding: '0 !important', maxWidth: 'none !important' },
     '.MuiCard-root': { boxShadow: 'none !important', border: '1px solid #d6d6d6', overflow: 'visible !important' },
     '.MuiTableContainer-root': { overflow: 'visible !important' },
@@ -85,7 +88,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <GardeSaisie>
     <Box className="fond-app" sx={{ minHeight: '100dvh', bgcolor: 'background.default' }}>
       {/* Ce qu'on fait défiler jusqu'à l'écran ne se cache ni sous la barre du haut, ni sous la barre basse du téléphone */}
-      <GlobalStyles styles={{ html: { scrollPaddingTop: 80, scrollPaddingBottom: telephone && destinations.length > 1 ? 88 : 0 } }} />
+      <GlobalStyles styles={{ html: { scrollPaddingTop: 80, scrollPaddingBottom: telephone && destinations.length > 1 ? 88 : 0, '--barre-basse': telephone && destinations.length > 1 ? '72px' : '0px' } }} />
       <GlobalStyles styles={impression} />
       <AppBar position="sticky" className="pas-a-l-impression" sx={{ bgcolor: '#1d1d1b', color: '#ffffff', zIndex: (t) => t.zIndex.drawer + 1 }}>
         <Toolbar sx={{ gap: 1.5 }}>

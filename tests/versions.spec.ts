@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule, type VersionNommeeSimulee } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule, type VersionNommeeSimulee } from './supabase-simule'
 
 // Versions nommées du budget (lot 26) : enregistrer, comparer côte à côte, reprendre, retirer. Remplacent l'onglet « Et si ».
 // Données fictives : dépôt public. Écarts vérifiés à la main dans tests/moteur/explication.spec.ts.
@@ -27,7 +27,7 @@ test('le Directeur enregistre une version, la compare au budget en cours, la rep
   const ecritures = await seConnecter(page, { magasins, versionsNommees: [ambitieuse] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await expect(page.getByRole('tab', { name: /^Et si/ })).toHaveCount(0)
-  await page.getByRole('tab', { name: /^Budget/ }).click()
+  await ouvrir(page, 'Échanges et versions')
 
   const versions = page.getByRole('region', { name: 'Versions du budget' })
   const tableau = versions.getByRole('table', { name: `Versions du budget ${B}` })
@@ -63,7 +63,7 @@ test('le Directeur enregistre une version, la compare au budget en cours, la rep
 test('le Coach lit les versions sans pouvoir en enregistrer ni en retirer', async ({ page }) => {
   await seConnecter(page, { role: 'coach', magasins, versionsNommees: [ambitieuse] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: /^Budget/ }).click()
+  await ouvrir(page, 'Échanges et versions')
   const versions = page.getByRole('region', { name: 'Versions du budget' })
   await expect(versions.getByRole('columnheader', { name: /Ambitieuse/ })).toBeVisible()
   await expect(versions.getByRole('button', { name: 'Enregistrer cette version' })).toHaveCount(0)

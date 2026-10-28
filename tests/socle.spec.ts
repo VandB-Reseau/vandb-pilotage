@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { MAGASINS } from './donnees-fictives'
-import { COMPTE, seConnecter, simulerSupabase, textesTropPetits, zonesTropPetites } from './supabase-simule'
+import { ouvrir, COMPTE, seConnecter, simulerSupabase, textesTropPetits, zonesTropPetites } from './supabase-simule'
 
 test.beforeEach(async ({ page }) => {
   const erreurs: string[] = []
@@ -42,7 +42,7 @@ test('la fiche d’un magasin montre le compte de résultat et le budget mois pa
   await seConnecter(page)
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await expect(page.getByRole('heading', { level: 1, name: MAGASINS[0] })).toBeVisible()
-  await page.getByRole('tab', { name: /^Budget/ }).click()
+  await ouvrir(page, 'Résultat et trésorerie')
   const resultat = page.getByRole('table', { name: 'Budget 2027 mois par mois' })
   await expect(resultat.getByRole('row', { name: /Excédent brut d’exploitation/ })).toContainText(/54\s780\s€/)
   await expect(resultat.getByRole('row', { name: /Impôt sur les sociétés/ })).toContainText(/4\s437\s€/)

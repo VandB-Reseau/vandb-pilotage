@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import type { Hypotheses } from '../src/moteur/types'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule } from './supabase-simule'
 
 // Projection du CA (lot 24) : rythme de sortie, ancienneté, temps forts, clients gagnés ou perdus, opérations du réseau.
 // Données fictives : dépôt public. Les montants viennent du moteur, vérifié à la main dans tests/moteur/projection.spec.ts.
@@ -33,10 +33,14 @@ test('le Directeur voit le rythme de sortie, le retient au-delà de 15 % et rens
   await expect(cave).toContainText('Écart de plus de 15 % : à confirmer')
   const resultat = page.getByRole('table', { name: 'Budget 2027 mois par mois' })
   const ca = resultat.getByRole('row', { name: /^Chiffre d’affaires HT/ })
+  await ouvrir(page, 'Résultat et trésorerie')
   await expect(ca).toContainText(/600\s000\s€/)
+  await ouvrir(page, 'Hypothèses')
   await base.getByRole('button', { name: 'Retenir le rythme Cave' }).click()
   await expect(cave).toContainText('Rythme de sortie retenu')
+  await ouvrir(page, 'Résultat et trésorerie')
   await expect(ca).toContainText(/650\s000\s€/)
+  await ouvrir(page, 'Hypothèses')
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-base-ca.png`, fullPage: true })
@@ -61,7 +65,9 @@ test('sous 15 % le rythme s’applique de lui-même ; un Coach le lit sans pouvo
   const base = page.getByRole('region', { name: 'Base du CA' })
   // 66 000 / 30 % = 220 000, + 10 % : retenu ; 220 000 + 300 000 + 100 000
   await expect(base.getByRole('row', { name: /^Cave/ })).toContainText('Rythme de sortie retenu')
+  await ouvrir(page, 'Résultat et trésorerie')
   await expect(page.getByRole('table', { name: 'Budget 2027 mois par mois' }).getByRole('row', { name: /^Chiffre d’affaires HT/ })).toContainText(/620\s000\s€/)
+  await ouvrir(page, 'Hypothèses')
   await expect(base).toContainText('Année 2 en 2027')
   await expect(base.getByRole('button', { name: /rythme/i })).toHaveCount(0)
   await expect(page.getByLabel('Mois d’ouverture du magasin')).toHaveCount(0)
@@ -72,10 +78,13 @@ test('le franchisé prévoit un temps fort et un client gagné : la base perd l�
   const ecritures = await seConnecter(page, { role: 'franchise', magasins: [magasin(magasinFictif)] })
   await page.getByRole('tab', { name: /^Budget/ }).click()
   const ca = page.getByRole('table', { name: 'Budget 2027 mois par mois' }).getByRole('row', { name: /^Chiffre d’affaires HT/ })
+  await ouvrir(page, 'Résultat et trésorerie')
   await expect(ca).toContainText(/600\s000\s€/)
+  await ouvrir(page, 'Hypothèses')
   // Sans rythme mesuré, la base est l'atterrissage
   await expect(page.getByRole('region', { name: 'Base du CA' })).toContainText('Base : atterrissage 2026')
 
+  await ouvrir(page, 'Calendrier')
   await page.getByRole('button', { name: 'Prévoir un temps fort' }).click()
   const tf = page.getByRole('region', { name: 'Temps forts' })
   await tf.getByLabel('Nom du temps fort 1').fill('Oktoberfest')
@@ -84,7 +93,9 @@ test('le franchisé prévoit un temps fort et un client gagné : la base perd l�
   // Extérieur : (60 000 − 12 000) / 60 % = 80 000, plus 15 000 en juin
   await tf.getByLabel('CA 2026 : Oktoberfest').fill('12 000')
   await tf.getByLabel('CA 2027 : Oktoberfest').fill('15 000')
+  await ouvrir(page, 'Résultat et trésorerie')
   await expect(ca).toContainText(/595\s000\s€/)
+  await ouvrir(page, 'Calendrier')
   await expect(tf).toContainText(/CA 2026 retiré : 12\sk€ · CA 2027 ajouté : 15\sk€/)
   await tf.getByLabel('Extras de personnel : Oktoberfest').fill('800')
   await tf.getByLabel('Autres charges : Oktoberfest').fill('2 200')
@@ -95,14 +106,18 @@ test('le franchisé prévoit un temps fort et un client gagné : la base perd l�
   const clients = page.getByRole('region', { name: 'Clients gagnés ou perdus' })
   await clients.getByLabel('Client ou événement 1').fill('Association sportive')
   await clients.getByLabel('Montant par mois : Association sportive').fill('1 000')
+  await ouvrir(page, 'Résultat et trésorerie')
   await expect(ca).toContainText(/607\s000\s€/)
+  await ouvrir(page, 'Calendrier')
   await expect(clients).toContainText(/CA 2027 : \+12\s000\s€/)
   // En part du CA : − 10 % sur le Bar d'octobre à décembre (300 000 × 30 % × 10 %)
   await clients.getByLabel('Univers : Association sportive').selectOption('bar')
   await clients.getByLabel('Unité : Association sportive').selectOption('taux')
   await clients.getByLabel('De : Association sportive').selectOption('10')
   await clients.getByLabel('Part du CA : Association sportive').fill('-10')
+  await ouvrir(page, 'Résultat et trésorerie')
   await expect(ca).toContainText(/586\s000\s€/)
+  await ouvrir(page, 'Calendrier')
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-temps-forts.png`, fullPage: true })

@@ -5,6 +5,28 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 27 — Sprint ergonomie
+
+- Sans migration.
+- Fiche magasin en trois espaces : « Synthèse », « 2026 en cours » (Réel, Suivi du budget, Atterrissage,
+  Quadrimestres) et « Budget 2027 » (Hypothèses, Équipe, Frais, Calendrier, Résultat et trésorerie, Échanges et
+  versions). Passer d'une partie du budget à l'autre garde la saisie. Pastilles « réel en retard » et « à proposer ».
+- Budget : barre collée en bas de l'écran dès qu'un ajustement n'est pas enregistré, avec le nombre de changements et
+  l'effet sur le CA, l'EBE et la trésorerie de fin décembre (avant → après), « Annuler les changements ».
+- Hypothèses : grille qui tient dans l'écran du PC, origine de la valeur sous chaque champ et « reprendre » la valeur
+  du niveau au-dessus en un clic.
+- Liste des magasins : une ligne par magasin, colonnes triables (gardées dans l'adresse), ligne « Total de la
+  sélection » (ratios sur les sommes), colonne Alertes (nombre et la plus grave), barre EBE / CA ; colonne Groupe
+  masquée tant qu'aucun groupe n'est utilisé.
+- « À traiter » en tête de l'accueil pour le Directeur, le RR et le Coach : magasins en alerte, actions du plan en
+  retard, budgets à proposer (Directeur) ou en discussion, équipes et frais à renseigner ; repliable.
+- Compte de résultat et trésorerie : par mois, par quadrimestre ou sur l'année, en euros ou en k€ (choix gardé dans le
+  navigateur).
+- Trésorerie : barres de fin de mois (rouge sous zéro, point bas signalé), infobulle avec la plus grosse sortie du
+  mois ; détail mois par mois replié d'office pour le franchisé.
+- Synthèse : CA, marge et EBE face au budget de l'année quand il existe ; évolution sur l'an dernier seulement si
+  chacun des mêmes mois a du CA ; CA cumulé (réel, projection, budget, an dernier) ou mois par mois.
+
 ### Lot 26 — Équipe, réel, atterrissage, quadrimestres, versions du budget
 
 - **Base : `0015_versions_et_equipe.sql`** (colonnes `heures_saisie` et `enveloppe` de `equipe`, table

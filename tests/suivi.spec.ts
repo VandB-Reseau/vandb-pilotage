@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { MAGASINS } from './donnees-fictives'
-import { seConnecter, textesTropPetits, zonesTropPetites, type TicketsSimules, type VenteSimulee } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type TicketsSimules, type VenteSimulee } from './supabase-simule'
 
 // Réel face au budget sur la fiche magasin, et vue réseau. Données fictives uniquement : dépôt public.
 // Budget du magasin fictif (tests/donnees-fictives.ts) : 640 000 € de CA, 48 000 € en janvier et en février, marge 57,4 %.
@@ -32,7 +32,7 @@ test.afterEach(async ({ page }) => {
 
 test('fiche magasin : le réel face au budget, mois par mois', async ({ page, isMobile }, info) => {
   await seConnecter(page, { role: 'franchise', magasins: [{ magasin: MAGASINS[0], statut: 'valide', hypotheses: (await import('./donnees-fictives')).magasinFictif, maj_le: null }], reel, tickets })
-  await page.getByRole('tab', { name: `Suivi du budget ${N}` }).click()
+  await ouvrir(page, 'Suivi du budget')
   const cartes = page.getByRole('region', { name: 'Réel face au budget à fin février' })
   await expect(cartes).toContainText(/94\sk€/)
   await expect(cartes).toContainText(/[-−]2,1\s%\ssur le budget/)
@@ -59,7 +59,7 @@ test('fiche magasin : le réel face au budget, mois par mois', async ({ page, is
 test('fiche magasin : sans budget de l’année, le suivi le dit', async ({ page }) => {
   await seConnecter(page, { reel })
   await page.getByText(MAGASINS[2], { exact: true }).last().click()
-  await page.getByRole('tab', { name: `Suivi du budget ${N}` }).click()
+  await ouvrir(page, 'Suivi du budget')
   await expect(page.getByText(`Pas de budget ${N} à suivre`)).toBeVisible()
 })
 

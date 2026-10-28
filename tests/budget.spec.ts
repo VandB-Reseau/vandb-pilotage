@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule } from './supabase-simule'
 
 // Construire le budget : cibles du réseau et des groupes, ajustements du magasin, validation.
 // Données fictives uniquement (magasin fictif) : dépôt public.
@@ -67,8 +67,10 @@ test('le franchisé s’écarte d’une cible : le budget passe en discussion, i
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await page.getByRole('tab', { name: /^Budget/ }).click()
   const resultat = page.getByRole('table', { name: 'Budget 2027 mois par mois' })
+  await ouvrir(page, 'Résultat et trésorerie')
   // Cibles du réseau : 200 000 × 1,03 + 300 000 × 1,03 + 100 000
   await expect(resultat.getByRole('row', { name: /^Chiffre d’affaires HT/ })).toContainText(/615\s000\s€/)
+  await ouvrir(page, 'Hypothèses')
   await expect(page.getByText('aucun écart aux cibles du siège', { exact: false })).toBeVisible()
   const hypotheses = page.getByRole('table', { name: 'Hypothèses du magasin' })
   await expect(hypotheses.getByRole('row', { name: /^Tickets \(Cave\)/ })).toContainText('Réseau')
@@ -76,7 +78,9 @@ test('le franchisé s’écarte d’une cible : le budget passe en discussion, i
   await expect(hypotheses.getByRole('row', { name: /^Panier moyen TTC \(Cave\)/ })).toContainText(/24,00\s€/)
   // Panier +2 % : 200 000 × 1,03 × 1,02 = 210 120 € de Cave
   await page.getByLabel('Évolution du panier moyen : Cave').fill('2')
+  await ouvrir(page, 'Résultat et trésorerie')
   await expect(resultat.getByRole('row', { name: /^Chiffre d’affaires HT/ })).toContainText(/619\s120\s€/)
+  await ouvrir(page, 'Hypothèses')
   await expect(hypotheses.getByRole('row', { name: /^Panier moyen TTC \(Cave\)/ })).toContainText(/24,48\s€/)
   await expect(page.getByText('1 écart aux cibles du siège', { exact: false })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Valider le budget' })).toHaveCount(0)
@@ -90,6 +94,7 @@ test('le franchisé s’écarte d’une cible : le budget passe en discussion, i
   await expect(page.getByText('En discussion', { exact: true })).toBeVisible()
   // Revenir à la cible du réseau
   await page.getByRole('button', { name: 'Reprendre la valeur du niveau au-dessus : évolution du panier Cave' }).click()
+  await ouvrir(page, 'Résultat et trésorerie')
   await expect(resultat.getByRole('row', { name: /^Chiffre d’affaires HT/ })).toContainText(/615\s000\s€/)
 })
 

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { MAGASINS } from './donnees-fictives'
-import { seConnecter, textesTropPetits, zonesTropPetites, type FraisSimule, type PartSimulee, type TicketsSimules, type VenteSimulee } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type FraisSimule, type PartSimulee, type TicketsSimules, type VenteSimulee } from './supabase-simule'
 
 // Frais ligne par ligne et atterrissage de l'année en cours ; le Directeur en tire le budget de l'an prochain.
 // Données fictives uniquement : dépôt public. Mêmes chiffres que tests/moteur/atterrissage.spec.ts, vérifiés à la main.
@@ -30,7 +30,7 @@ test.afterEach(async ({ page }) => {
 test('le Coach renseigne les frais : lignes courantes, part du CA, emprunts, ligne retirée', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { role: 'coach' })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: 'Frais' }).click()
+  await ouvrir(page, 'Frais')
   await expect(page.getByText('Pas encore de frais')).toBeVisible()
   await page.getByRole('button', { name: 'Partir des lignes courantes' }).click()
 
@@ -76,7 +76,7 @@ test('une ligne de frais s’ajoute depuis la grille ; un montant illisible est 
   const autres = Array.from({ length: 1200 }, (_, i) => ({ ...loyer(`Magasin ${i}`), code: 'telecom' }))
   await seConnecter(page, { role: 'franchise', frais: [...autres, loyer(MAGASINS[0])] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: 'Frais' }).click()
+  await ouvrir(page, 'Frais')
   await expect(page.getByLabel('Locations immobilières', { exact: true })).toHaveValue('60 000')
   await page.getByLabel('Ajouter une ligne').fill('Honoraires de compt')
   await page.getByRole('option', { name: 'Honoraires de comptabilité' }).click()
@@ -103,10 +103,22 @@ test('synthèse et atterrissage : réel des mois passés, saisonnalité de l’a
   await expect(sante).toContainText(/57\sk€/)
   await expect(page.getByText('Équipe non renseignée :', { exact: false })).toBeVisible()
   await expect(page.getByText('Frais non renseignés', { exact: false })).toHaveCount(0)
-  // Au survol de décembre : projection 15 000 × 4 + 5 000 = 65 000, et 4 000 l'an dernier
-  const graphique = page.getByRole('region', { name: /Chiffre d’affaires \d+ mois par mois/ })
+  // Face au budget de l'année (lot 27) : 7,5 % de 640 000 € en janvier et en février = 96 000 €, 40 000 / 96 000 − 1 = −58,3 %
+  await expect(sante).toContainText(/58,3\s%\sface au budget/)
+  await expect(sante).toContainText(/Budget à date : 96\sk€/)
+  // Courbe cumulée d'office ; en décembre : réel 40 000, projection jusqu'à l'atterrissage 285 000, budget 640 000,
+  // an dernier 11 × 1 000 + 4 000 = 15 000
+  const graphique = page.getByRole('region', { name: /^Chiffre d’affaires \d+$/ })
   await graphique.locator('[data-mois="12"]').click()
   const bulle = page.getByRole('tooltip')
+  await expect(bulle).toContainText(/Projection\s*285\s000\s€/)
+  await expect(bulle).toContainText(/Budget \d+\s*640\s000\s€/)
+  await expect(bulle).toContainText(/Réel \d+\s*15\s000\s€/)
+  await graphique.locator('[data-mois="2"]').click()
+  await expect(bulle).toContainText(new RegExp(`Réel ${N}\\s*40\\s000\\s€`))
+  // Mois par mois : au survol de décembre, projection 15 000 × 4 + 5 000 = 65 000, et 4 000 l'an dernier
+  await graphique.getByRole('button', { name: 'Mois par mois' }).click()
+  await graphique.locator('[data-mois="12"]').click()
   await expect(bulle).toContainText('décembre')
   await expect(bulle).toContainText(/Projection\s*65\s000\s€/)
   await expect(bulle).toContainText(/4\s000\s€/)
@@ -114,7 +126,7 @@ test('synthèse et atterrissage : réel des mois passés, saisonnalité de l’a
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-synthese.png`, fullPage: true })
 
-  await page.getByRole('tab', { name: `Atterrissage ${N}` }).click()
+  await ouvrir(page, 'Atterrissage')
   await expect(page.getByRole('button', { name: /Proposer le budget/ })).toHaveCount(0)
   const tableau = page.getByRole('table', { name: `Atterrissage ${N} mois par mois` })
   await expect(tableau.getByRole('columnheader', { name: 'Févr.', exact: true })).toBeVisible()
@@ -162,7 +174,7 @@ test('le Directeur propose le budget de l’an prochain à partir de l’atterri
 test('sans réel de l’année, l’atterrissage renvoie vers le réel', async ({ page }) => {
   await seConnecter(page, { role: 'franchise' })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: `Atterrissage ${N}` }).click()
+  await ouvrir(page, 'Atterrissage')
   await expect(page.getByText(`Pas encore de réel ${N}`)).toBeVisible()
   await page.getByRole('button', { name: 'Voir le réel' }).click()
   await expect(page.getByRole('button', { name: String(N), exact: true })).toHaveAttribute('aria-pressed', 'true')
@@ -173,7 +185,7 @@ test('sans réel de l’an dernier : part de l’année réalisée saisie par un
   const reel: VenteSimulee[] = Array.from({ length: 8 }, (_, i) => ({ store_name: MAGASINS[0], mois: mois(N, i + 1), univers: 'cave', famille: 'Bière', ca_ht: 10_000, ca_ttc: 12_000, marge_ht: 3_600 }))
   const ecritures = await seConnecter(page, { role: 'franchise', reel })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: `Atterrissage ${N}` }).click()
+  await ouvrir(page, 'Atterrissage')
   const projection = page.getByRole('table', { name: `Projection ${N} par univers` })
   const cave = projection.getByRole('row', { name: /Cave/ })
   // Sans part ni réseau : la moyenne, 80 000 × 12 / 8
@@ -196,7 +208,7 @@ test('part enregistrée reprise ; vidée, la projection redevient automatique', 
   const parts: PartSimulee[] = [{ store_name: MAGASINS[0], annee: N, univers: 'cave', part: 0.626 }]
   const ecritures = await seConnecter(page, { role: 'franchise', reel, parts })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: `Atterrissage ${N}` }).click()
+  await ouvrir(page, 'Atterrissage')
   const cave = page.getByRole('table', { name: `Projection ${N} par univers` }).getByRole('row', { name: /Cave/ })
   await expect(cave).toContainText(/127\s796\s€$/)
   await expect(page.getByLabel('Part de l’année réalisée : Cave')).toHaveValue('62,6')

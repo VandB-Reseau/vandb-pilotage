@@ -21,9 +21,9 @@ import ContentCopyOutlined from '@mui/icons-material/ContentCopyOutlined'
 import FileDownloadOutlined from '@mui/icons-material/FileDownloadOutlined'
 import LockOpenOutlined from '@mui/icons-material/LockOpenOutlined'
 import PrintOutlined from '@mui/icons-material/PrintOutlined'
-import SaveOutlined from '@mui/icons-material/SaveOutlined'
 import { useAuth } from '../auth/AuthContext'
 import { AFaireFranchise } from '../components/AFaireFranchise'
+import { BarreEnregistrement } from '../components/BarreEnregistrement'
 import { EchangesBudget } from '../components/EchangesBudget'
 import { AlertesEtActions } from '../components/PlanAction'
 import { AtterrissageMagasin } from '../components/AtterrissageMagasin'
@@ -55,7 +55,7 @@ import {
   anneeBudget, changerStatut, chargerBudgets, chargerParametres, chargerReel, enregistrerAjustements, hypothesesDe, niveauxDe, statutLibelle, valeursSansCible,
 } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
-import { reelEnRetard } from '../lib/aFaire'
+import { nombreChangements, reelEnRetard } from '../lib/aFaire'
 import { feuillesBudget } from '../lib/exports'
 import { lienMagasin, milliers, taux } from '../lib/format'
 import { classeur, nomFichier, telecharger } from '../lib/xlsx'
@@ -74,6 +74,12 @@ function LibelleOnglet({ texte, manque, detail }: { texte: string; manque: boole
     </Badge>
   )
 }
+// Lot 27 : espaces de la fiche ; chaque partie (ancien onglet) appartient à un espace. « budget » : les hypothèses.
+type Espace = 'synthese' | 'annee' | 'budget'
+const PARTIES_ANNEE = ['reel', 'suivi', 'atterrissage', 'quadrimestres']
+const espaceDe = (o: string): Espace => (o === 'synthese' ? 'synthese' : PARTIES_ANNEE.includes(o) ? 'annee' : 'budget')
+type Partie = { cle: string; libelle: string; manque?: boolean; detail?: string }
+
 const visuellementCache = { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' } as const
 
 type Message = { gravite: 'success' | 'error' | 'warning'; texte: string; details?: string[] }
@@ -93,6 +99,7 @@ export function Magasin() {
   const anneeEnCours = new Date().getFullYear()
   // Synthèse d'abord : la santé du magasin en un coup d'œil
   const [onglet, setOnglet] = useState((useLocation().state as { onglet?: string } | null)?.onglet ?? 'synthese')
+  const [dernieres, setDernieres] = useState<Record<Exclude<Espace, 'synthese'>, string>>({ annee: 'reel', budget: 'budget' })
   const [anneeReel, setAnneeReel] = useState(anneeEnCours)
   const [anneeQuadri, setAnneeQuadri] = useState(anneeEnCours)
 
@@ -182,6 +189,35 @@ export function Magasin() {
   }
 
 
+  // Lot 27 : trois espaces (synthèse, année en cours, budget) découpés en parties ; on garde la dernière partie de chaque espace
+  const espace = espaceDe(onglet)
+  const aller = (o: string) => { setOnglet(o); if (espaceDe(o) !== 'synthese') setDernieres((d) => ({ ...d, [espaceDe(o)]: o })) }
+  const changerEspace = (e: Espace) => garde(() => { setBrouillon(ligne.ajustements); aller(e === 'synthese' ? 'synthese' : dernieres[e]) })
+  const reelRetard = !!reel.donnees && reelEnRetard(syntheseReel(reel.donnees.lignes, reel.donnees.tickets).moisRenseignes)
+  const partiesAnnee: Partie[] = [
+    { cle: 'reel', libelle: 'Réel', manque: reelRetard, detail: 'en retard' },
+    { cle: 'suivi', libelle: `Suivi du budget ${anneeEnCours}` },
+    { cle: 'atterrissage', libelle: `Atterrissage ${anneeEnCours}` },
+    { cle: 'quadrimestres', libelle: 'Quadrimestres' },
+  ]
+  const partiesBudget: Partie[] = [
+    { cle: 'budget', libelle: 'Hypothèses' },
+    { cle: 'equipe', libelle: 'Équipe', manque: !d.equipes[ligne.magasin]?.length, detail: 'à renseigner' },
+    { cle: 'frais', libelle: 'Frais', manque: !d.frais[ligne.magasin]?.length, detail: 'à renseigner' },
+    { cle: 'calendrier', libelle: 'Calendrier' },
+    { cle: 'resultat', libelle: 'Résultat et trésorerie' },
+    { cle: 'echanges', libelle: 'Échanges et versions' },
+  ]
+  // Budget : la partie affichée ; les autres parties du budget restent dans la page pour l'impression
+  const partie = (cle: string) => (onglet === cle ? undefined : 'partie-cachee')
+
+  // Effet des changements non enregistrés, face au budget enregistré
+  const enregistre = hypothesesDe(ligne, d, ligne.ajustements)
+  const bAvant = enregistre ? calculerBudget(enregistre.hypotheses, parametres) : null
+  const tresoAvant = bAvant && enregistre ? tresorerieBudget(bAvant, enregistre.hypotheses, parametres, parametres.tresorerie, ligne.ajustements.tresorerieDepart ?? 0) : null
+  const enregistrer = () => resolu && void agir(() => enregistrerAjustements(ligne.magasin, annee, brouillon, resolu.hypotheses),
+    directeur ? 'Ajustements enregistrés.' : 'Ajustements enregistrés : le budget est en discussion avec le siège.')
+
   return (
     <Box>
       {retour}
@@ -190,24 +226,30 @@ export function Magasin() {
         <PastilleStatut statut={ligne.statut} />
       </Box>
       <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5, mb: 2, minHeight: '1.5em' }}>
-        {onglet === 'budget' && ligne.base ? `${nbEcarts === 0 ? 'Aucun écart' : nbEcarts === 1 ? '1 écart' : `${nbEcarts} écarts`} aux cibles du siège` : ''}
-        {onglet === 'budget' && <Box component="span" className="impression-seule">{ligne.base ? ' · ' : ''}Budget {annee} · imprimé le {new Date().toLocaleDateString('fr-FR')}</Box>}
+        {espace === 'budget' && ligne.base ? `${nbEcarts === 0 ? 'Aucun écart' : nbEcarts === 1 ? '1 écart' : `${nbEcarts} écarts`} aux cibles du siège` : ''}
+        {espace === 'budget' && <Box component="span" className="impression-seule">{ligne.base ? ' · ' : ''}Budget {annee} · imprimé le {new Date().toLocaleDateString('fr-FR')}</Box>}
       </Typography>
 
-      <Tabs value={onglet} onChange={(_, v: string) => garde(() => { setOnglet(v); setBrouillon(ligne.ajustements) })} variant="scrollable" scrollButtons="auto" aria-label="Vues du magasin" sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tab value="synthese" label="Synthèse" sx={{ minHeight: 48 }} />
-        <Tab value="suivi" label={`Suivi du budget ${anneeEnCours}`} sx={{ minHeight: 48 }} />
-        <Tab value="budget" label={<LibelleOnglet texte={`Budget ${annee}`} manque={directeur && !ligne.statut} detail="à proposer" />} sx={{ minHeight: 48 }} />
-        <Tab value="atterrissage" label={`Atterrissage ${anneeEnCours}`} sx={{ minHeight: 48 }} />
-        <Tab value="reel" label={<LibelleOnglet texte="Réel" manque={!!reel.donnees && reelEnRetard(syntheseReel(reel.donnees.lignes, reel.donnees.tickets).moisRenseignes)} detail="en retard" />} sx={{ minHeight: 48 }} />
-        <Tab value="quadrimestres" label="Quadrimestres" sx={{ minHeight: 48 }} />
-        <Tab value="equipe" label={<LibelleOnglet texte="Équipe" manque={!d.equipes[ligne.magasin]?.length} detail="à renseigner" />} sx={{ minHeight: 48 }} />
-        <Tab value="frais" label={<LibelleOnglet texte="Frais" manque={!d.frais[ligne.magasin]?.length} detail="à renseigner" />} sx={{ minHeight: 48 }} />
+      <Tabs value={espace} onChange={(_, v: Espace) => changerEspace(v)} aria-label="Vues du magasin"
+        sx={{ mb: espace === 'synthese' ? 3 : 1.5, minHeight: 0, '& .MuiTabs-flexContainer': { gap: 0.5, flexWrap: 'wrap' }, '& .MuiTabs-indicator': { display: 'none' },
+          '& .MuiTab-root': { minHeight: 48, borderRadius: 2, px: 2.5, fontWeight: 700, fontSize: '0.9375rem', color: 'text.secondary', bgcolor: 'action.hover' },
+          '& .MuiTab-root.Mui-selected': { bgcolor: 'text.primary', color: 'background.paper' } }}>
+        <Tab value="synthese" label="Synthèse" />
+        <Tab value="annee" label={<LibelleOnglet texte={`${anneeEnCours} en cours`} manque={reelRetard} detail="réel en retard" />} />
+        <Tab value="budget" label={<LibelleOnglet texte={`Budget ${annee}`} manque={directeur && !ligne.statut} detail="à proposer" />} />
       </Tabs>
+      {espace !== 'synthese' && (
+        <Tabs value={onglet} onChange={(_, v: string) => (espace === 'budget' && onglet !== 'equipe' && onglet !== 'frais' ? aller(v) : garde(() => aller(v)))} variant="scrollable" scrollButtons="auto"
+          aria-label={espace === 'budget' ? `Parties du budget ${annee}` : `Parties de l’année ${anneeEnCours}`} sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+          {(espace === 'budget' ? partiesBudget : partiesAnnee).map((x) => (
+            <Tab key={x.cle} value={x.cle} label={x.manque !== undefined ? <LibelleOnglet texte={x.libelle} manque={x.manque} detail={x.detail ?? ''} /> : x.libelle} sx={{ minHeight: 48 }} />
+          ))}
+        </Tabs>
+      )}
 
       {onglet === 'synthese' && franchise && (
         <AFaireFranchise
-          key={`a-faire-${ligne.magasin}`} magasin={ligne.magasin} allerA={(o, a) => { if (a) setAnneeQuadri(a); setOnglet(o) }}
+          key={`a-faire-${ligne.magasin}`} magasin={ligne.magasin} allerA={(o, a) => { if (a) setAnneeQuadri(a); aller(o) }}
           moisRenseignes={reel.donnees ? syntheseReel(reel.donnees.lignes, reel.donnees.tickets).moisRenseignes : null}
           budget={{ annee, statut: ligne.statut }} aEquipe={!!d.equipes[ligne.magasin]?.length} aFrais={!!d.frais[ligne.magasin]?.length}
         />
@@ -215,15 +257,15 @@ export function Magasin() {
       {onglet === 'synthese' && <AlertesEtActions key={`alertes-${ligne.magasin}`} magasin={ligne.magasin} equipe={!franchise && profil?.role !== 'aucun'} />}
       {onglet === 'synthese' ? (
         <>
-          <SyntheseMagasin key={ligne.magasin} magasin={ligne.magasin} d={d} annee={anneeEnCours} parametres={donnees.parametresN} allerA={setOnglet} />
+          <SyntheseMagasin key={ligne.magasin} magasin={ligne.magasin} d={d} annee={anneeEnCours} parametres={donnees.parametresN} allerA={aller} />
           {!franchise && <ComparaisonMagasin key={`comparaison-${ligne.magasin}`} magasin={ligne.magasin} directeur={directeur} />}
         </>
       ) : onglet === 'suivi' ? (
-        <SuiviBudget key={ligne.magasin} magasin={ligne.magasin} annee={anneeEnCours} allerA={setOnglet} />
+        <SuiviBudget key={ligne.magasin} magasin={ligne.magasin} annee={anneeEnCours} allerA={aller} />
       ) : onglet === 'atterrissage' ? (
         <AtterrissageMagasin
           key={ligne.magasin} ligne={ligne} d={d} annee={anneeEnCours} anneeBudget={annee} parametres={donnees.parametresN}
-          directeur={directeur} peutSaisir={peutSaisir} allerA={setOnglet} apresProposition={recharger}
+          directeur={directeur} peutSaisir={peutSaisir} allerA={aller} apresProposition={recharger}
         />
       ) : onglet === 'reel' ? (
         <Stack spacing={2}>
@@ -239,35 +281,17 @@ export function Magasin() {
           </ToggleButtonGroup>
           <QuadrimestresMagasin key={`${ligne.magasin}-${anneeQuadri}`} magasin={ligne.magasin} annee={anneeQuadri} peutSaisir={peutSaisir} />
         </Stack>
-      ) : onglet === 'frais' ? (
-        <FraisMagasin key={ligne.magasin} magasin={ligne.magasin} lignes={d.frais[ligne.magasin] ?? []} annee={anneeEnCours} peutSaisir={peutSaisir} apresEnregistrement={recharger}
-          tauxSurCA={{ publicite: parametres.tauxPublicite, redevance: parametres.tauxRedevance }} />
-      ) : onglet === 'equipe' ? (
-        <EquipeMagasin
-          key={ligne.magasin} magasin={ligne.magasin} equipe={d.equipes[ligne.magasin] ?? []} annee={anneeEnCours} anneeBudget={annee}
-          hausse={resolu?.hypotheses.hausseSalaires ?? valeurHeritee(niveauxDe(ligne, d, brouillon), 'hausseSalaires')?.valeur ?? 0}
-          charges={donnees.parametresN.charges} chargesBudget={parametres.charges}
-          peutSaisir={peutSaisir} apresEnregistrement={recharger} caAnnee={b?.atterrissage} caBudget={b?.ca}
-        />
-      ) : (<>
+      ) : (<Stack spacing={3}>
 
       {message && (
-        <Alert severity={message.gravite} onClose={() => setMessage(null)} closeText="Fermer" slotProps={{ closeButton: { sx: { width: 48, height: 48 } } }} sx={{ mb: 3 }}>
+        <Alert severity={message.gravite} onClose={() => setMessage(null)} closeText="Fermer" slotProps={{ closeButton: { sx: { width: 48, height: 48 } } }}>
           {message.texte}
           {message.details?.length ? <Box component="ul" sx={{ m: 0, mt: 0.5, pl: 2.5 }}>{message.details.map((t) => <li key={t}>{t}</li>)}</Box> : null}
         </Alert>
       )}
 
-      {!b ? (
-        <EtatVide
-          titre={`Pas encore de budget ${annee}`}
-          texte={directeur
-            ? `Le budget ${annee} se propose à partir de l’atterrissage ${anneeEnCours} du magasin.`
-            : `Le siège n’a pas encore proposé de budget ${annee} pour ce magasin. Il apparaîtra ici dès sa proposition.`}
-          action={directeur ? <Button variant="contained" onClick={() => setOnglet('atterrissage')} sx={{ minHeight: 48 }}>Voir l’atterrissage {anneeEnCours}</Button> : undefined}
-        />
-      ) : (
-        <Stack spacing={3}>
+      {b && (
+        <>
           <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap' }} component="section" aria-label="Indicateurs clés">
             <Indicateur libelle="Chiffre d’affaires HT" valeur={milliers(b.ca)} detail={`Atterrissage de l’année en cours : ${milliers(b.atterrissage)}`} action={<DetailCalcul quoi="ca" budget={b} annee={annee} />} />
             <Indicateur libelle="Marge commerciale" valeur={taux(b.tauxMarge)} detail={milliers(b.marge)} action={<DetailCalcul quoi="marge" budget={b} annee={annee} />} />
@@ -277,13 +301,6 @@ export function Magasin() {
           </Stack>
 
           <Stack direction="row" useFlexGap spacing={1.5} className="pas-a-l-impression" sx={{ flexWrap: 'wrap' }} aria-label="Actions sur le budget">
-            {peutAjuster && modifie && (
-              <Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe || !enregistrable} sx={{ minHeight: 48 }}
-                onClick={() => resolu && void agir(() => enregistrerAjustements(ligne.magasin, annee, brouillon, resolu.hypotheses),
-                  directeur ? 'Ajustements enregistrés.' : 'Ajustements enregistrés : le budget est en discussion avec le siège.')}>
-                Enregistrer les ajustements
-              </Button>
-            )}
             {directeur && ligne.base && ligne.statut !== 'valide' && (
               <Button variant={modifie ? 'outlined' : 'contained'} color="success" startIcon={<CheckCircleOutlined />} disabled={occupe || !enregistrable} sx={{ minHeight: 48 }}
                 onClick={() => resolu && void agir(async () => {
@@ -308,84 +325,119 @@ export function Magasin() {
             <Button variant="outlined" startIcon={<FileDownloadOutlined />} onClick={exporter} sx={{ minHeight: 48 }}>Exporter en Excel</Button>
             <Button variant="outlined" startIcon={<PrintOutlined />} onClick={() => window.print()} sx={{ minHeight: 48, display: { xs: 'none', md: 'inline-flex' } }}>Imprimer</Button>
           </Stack>
+          {copie && <CopieHypotheses source={ligne.magasin} magasins={destinations.map((l) => l.magasin)} occupe={occupe} onCopier={copier} onFermer={() => setCopie(false)} />}
+        </>
+      )}
 
+      {onglet === 'equipe' ? (
+        <EquipeMagasin
+          key={ligne.magasin} magasin={ligne.magasin} equipe={d.equipes[ligne.magasin] ?? []} annee={anneeEnCours} anneeBudget={annee}
+          hausse={resolu?.hypotheses.hausseSalaires ?? valeurHeritee(niveauxDe(ligne, d, brouillon), 'hausseSalaires')?.valeur ?? 0}
+          charges={donnees.parametresN.charges} chargesBudget={parametres.charges}
+          peutSaisir={peutSaisir} apresEnregistrement={recharger} caAnnee={b?.atterrissage} caBudget={b?.ca}
+        />
+      ) : onglet === 'frais' ? (
+        <FraisMagasin key={ligne.magasin} magasin={ligne.magasin} lignes={d.frais[ligne.magasin] ?? []} annee={anneeEnCours} peutSaisir={peutSaisir} apresEnregistrement={recharger}
+          tauxSurCA={{ publicite: parametres.tauxPublicite, redevance: parametres.tauxRedevance }} />
+      ) : onglet === 'echanges' ? (
+        <>
           {profil && <EchangesBudget key={`echanges-${ligne.magasin}`} ligne={ligne} d={d} annee={annee} parametres={parametres} moi={profil} />}
-
-          {profil && ligne.base && (
+          {profil && ligne.base && b && (
             <VersionsBudget
               key={`versions-${ligne.magasin}`} ligne={ligne} d={d} annee={annee} parametres={parametres} budget={b} ajustements={brouillon}
               peutEnregistrer={directeur || profil.role === 'franchise'} peutReprendre={peutAjuster} moi={profil}
               onReprendre={(a) => { setBrouillon(a); setMessage({ gravite: 'warning', texte: 'Hypothèses de la version reprises. Enregistre les ajustements pour les garder.' }) }}
             />
           )}
-
-          {copie && <CopieHypotheses source={ligne.magasin} magasins={destinations.map((l) => l.magasin)} occupe={occupe} onCopier={copier} onFermer={() => setCopie(false)} />}
-
-          {ligne.base && resolu && b && (
-            <Card component="section" aria-label="Hypothèses du magasin">
-              <Typography variant="h2" sx={{ px: 2.5, pt: 2, pb: 1 }}>Hypothèses</Typography>
-              <TableContainer>
-                <GrilleHypotheses
-                  titre="Hypothèses du magasin" familles={b.familles} flux={b.flux} annee={annee}
-                  cibles={brouillon} auDessus={niveauxDe(ligne, d).slice(0, -1)} valeursBase={valeursSansCible(ligne.base)}
-                  onChange={setBrouillon} lectureSeule={!peutAjuster}
+        </>
+      ) : !b ? (
+        <EtatVide
+          titre={`Pas encore de budget ${annee}`}
+          texte={directeur
+            ? `Le budget ${annee} se propose à partir de l’atterrissage ${anneeEnCours} du magasin.`
+            : `Le siège n’a pas encore proposé de budget ${annee} pour ce magasin. Il apparaîtra ici dès sa proposition.`}
+          action={directeur ? <Button variant="contained" onClick={() => aller('atterrissage')} sx={{ minHeight: 48 }}>Voir l’atterrissage {anneeEnCours}</Button> : undefined}
+        />
+      ) : (
+        <>
+          <Stack spacing={3} className={partie('budget')}>
+            {ligne.base && resolu && (
+              <Card component="section" aria-label="Hypothèses du magasin">
+                <Typography variant="h2" sx={{ px: 2.5, pt: 2, pb: 1 }}>Hypothèses</Typography>
+                <TableContainer>
+                  <GrilleHypotheses
+                    titre="Hypothèses du magasin" familles={b.familles} flux={b.flux} annee={annee}
+                    cibles={brouillon} auDessus={niveauxDe(ligne, d).slice(0, -1)} valeursBase={valeursSansCible(ligne.base)}
+                    onChange={setBrouillon} lectureSeule={!peutAjuster}
+                  />
+                </TableContainer>
+                <Typography variant="h3" sx={{ px: 2.5, pt: 3, pb: 1 }}>Salaires et frais</Typography>
+                <TableContainer>
+                  <TableauCibles
+                    titre="Autres hypothèses du magasin"
+                    lignes={lignesCibles([], false, [])}
+                    niveau="magasin"
+                    cibles={brouillon}
+                    auDessus={niveauxDe(ligne, d).slice(0, -1)}
+                    valeursBase={valeursSansCible(ligne.base)}
+                    onChange={setBrouillon}
+                    lectureSeule={!peutAjuster}
+                  />
+                </TableContainer>
+              </Card>
+            )}
+            {ligne.base && (
+              <BaseCAMagasin
+                key={`base-${ligne.magasin}`}
+                magasin={ligne.magasin} budget={b} annee={annee} ouverture={d.ouvertures?.[ligne.magasin]}
+                rythme={brouillon.rythme} directeur={directeur} peutAjuster={peutAjuster} apresOuverture={recharger}
+                onRythme={(r) => setBrouillon(({ rythme: _, ...reste }) => (r ? { ...reste, rythme: r } : reste))}
+              />
+            )}
+          </Stack>
+          {ligne.base && (
+            <Stack spacing={3} className={partie('calendrier')}>
+              <SaisonnaliteMagasin budget={b} poids={brouillon.poidsMois} lectureSeule={!peutAjuster}
+                onChange={(p) => setBrouillon(({ poidsMois: _, ...reste }) => (p ? { ...reste, poidsMois: p } : reste))} />
+              {resolu && (
+                <TravauxMagasin
+                  key={`${ligne.magasin}-${!!brouillon.travaux}`}
+                  travaux={brouillon.travaux} lectureSeule={!peutAjuster}
+                  effetCA={sansTravaux ? b.ca - sansTravaux.ca : 0} dotation={effetTravaux(resolu.hypotheses.travaux).dotation}
+                  onChange={(t) => setBrouillon(({ travaux: _, ...reste }) => (t ? { ...reste, travaux: t } : reste))}
                 />
-              </TableContainer>
-              <Typography variant="h3" sx={{ px: 2.5, pt: 3, pb: 1 }}>Salaires et frais</Typography>
-              <TableContainer>
-                <TableauCibles
-                  titre="Autres hypothèses du magasin"
-                  lignes={lignesCibles([], false, [])}
-                  niveau="magasin"
-                  cibles={brouillon}
-                  auDessus={niveauxDe(ligne, d).slice(0, -1)}
-                  valeursBase={valeursSansCible(ligne.base)}
-                  onChange={setBrouillon}
-                  lectureSeule={!peutAjuster}
-                />
-              </TableContainer>
-            </Card>
+              )}
+              <TempsFortsMagasin tempsForts={brouillon.tempsForts} lectureSeule={!peutAjuster} annee={annee} budget={b}
+                onChange={(l) => setBrouillon(({ tempsForts: _, ...reste }) => (l ? { ...reste, tempsForts: l } : reste))} />
+              <AjustementsCAMagasin ajustements={brouillon.ajustementsCA} lectureSeule={!peutAjuster} annee={annee} effet={b.tempsForts?.ajustements ?? 0}
+                onChange={(l) => setBrouillon(({ ajustementsCA: _, ...reste }) => (l ? { ...reste, ajustementsCA: l } : reste))} />
+            </Stack>
           )}
-
-          {ligne.base && b && (
-            <BaseCAMagasin
-              key={`base-${ligne.magasin}`}
-              magasin={ligne.magasin} budget={b} annee={annee} ouverture={d.ouvertures?.[ligne.magasin]}
-              rythme={brouillon.rythme} directeur={directeur} peutAjuster={peutAjuster} apresOuverture={recharger}
-              onRythme={(r) => setBrouillon(({ rythme: _, ...reste }) => (r ? { ...reste, rythme: r } : reste))}
-            />
-          )}
-          {ligne.base && b && (
-            <SaisonnaliteMagasin budget={b} poids={brouillon.poidsMois} lectureSeule={!peutAjuster}
-              onChange={(p) => setBrouillon(({ poidsMois: _, ...reste }) => (p ? { ...reste, poidsMois: p } : reste))} />
-          )}
-          {ligne.base && b && resolu && (
-            <TravauxMagasin
-              key={`${ligne.magasin}-${!!brouillon.travaux}`}
-              travaux={brouillon.travaux} lectureSeule={!peutAjuster}
-              effetCA={sansTravaux ? b.ca - sansTravaux.ca : 0} dotation={effetTravaux(resolu.hypotheses.travaux).dotation}
-              onChange={(t) => setBrouillon(({ travaux: _, ...reste }) => (t ? { ...reste, travaux: t } : reste))}
-            />
-          )}
-          {ligne.base && b && (
-            <TempsFortsMagasin tempsForts={brouillon.tempsForts} lectureSeule={!peutAjuster} annee={annee} budget={b}
-              onChange={(l) => setBrouillon(({ tempsForts: _, ...reste }) => (l ? { ...reste, tempsForts: l } : reste))} />
-          )}
-          {ligne.base && b && (
-            <AjustementsCAMagasin ajustements={brouillon.ajustementsCA} lectureSeule={!peutAjuster} annee={annee} effet={b.tempsForts?.ajustements ?? 0}
-              onChange={(l) => setBrouillon(({ ajustementsCA: _, ...reste }) => (l ? { ...reste, ajustementsCA: l } : reste))} />
-          )}
-
-          {resolu && <CompteResultatMois lignes={compteResultat(b, resolu.hypotheses, parametres)} titre={`Compte de résultat ${annee}`} libelleTableau={`Budget ${annee} mois par mois`} />}
-          {tresorerie && (
-            <TresorerieBudget
-              key={ligne.magasin} tresorerie={tresorerie} annee={annee} depart={brouillon.tresorerieDepart} lectureSeule={!peutAjuster}
-              onDepart={(v) => setBrouillon(({ tresorerieDepart: _, ...reste }) => (v === undefined ? reste : { ...reste, tresorerieDepart: v }))}
-            />
-          )}
-        </Stack>
+          <Stack spacing={3} className={partie('resultat')}>
+            {resolu && <CompteResultatMois lignes={compteResultat(b, resolu.hypotheses, parametres)} titre={`Compte de résultat ${annee}`} libelleTableau={`Budget ${annee} mois par mois`} />}
+            {tresorerie && (
+              <TresorerieBudget
+                key={ligne.magasin} tresorerie={tresorerie} annee={annee} depart={brouillon.tresorerieDepart} lectureSeule={!peutAjuster} replie={franchise}
+                onDepart={(v) => setBrouillon(({ tresorerieDepart: _, ...reste }) => (v === undefined ? reste : { ...reste, tresorerieDepart: v }))}
+              />
+            )}
+          </Stack>
+        </>
       )}
-      </>)}
+
+      {espace === 'budget' && peutAjuster && modifie && b && (
+        <BarreEnregistrement
+          changements={nombreChangements(ligne.ajustements, brouillon)} occupe={occupe} desactive={!enregistrable}
+          libelle="Enregistrer les ajustements" onAnnuler={() => setBrouillon(ligne.ajustements)} onEnregistrer={enregistrer}
+          avertissement={enregistrable ? undefined : 'La saisonnalité doit faire 100 %.'}
+          effets={bAvant ? [
+            { libelle: 'CA', avant: milliers(bAvant.ca), apres: milliers(b.ca) },
+            { libelle: 'EBE', avant: milliers(bAvant.ebe), apres: milliers(b.ebe) },
+            ...(tresoAvant && tresorerie ? [{ libelle: 'Trésorerie fin décembre', avant: milliers(tresoAvant.fin), apres: milliers(tresorerie.fin) }] : []),
+          ] : []}
+        />
+      )}
+      </Stack>)}
     </Box>
   )
 }

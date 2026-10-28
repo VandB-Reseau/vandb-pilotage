@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
 import { fecFictif } from './fec-fictif'
-import { seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule, type QuadrimestreSimule, type VenteSimulee } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule, type QuadrimestreSimule, type VenteSimulee } from './supabase-simule'
 
 // Import du FEC dans les quadrimestres : FEC fictif de tests/fec-fictif.ts, montants vérifiés à la main. Dépôt public.
 
@@ -25,7 +25,7 @@ test.afterEach(async ({ page }) => {
 
 test('le franchisé importe le FEC, range le compte inconnu et retrouve marge et EBE', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { role: 'franchise', magasins: [magasin], reel })
-  await page.getByRole('tab', { name: 'Quadrimestres' }).click()
+  await ouvrir(page, 'Quadrimestres')
   await page.locator('input[type=file]').setInputFiles(fichier(N))
   const fec = page.getByRole('region', { name: 'FEC du comptable' })
   await expect(fec).toContainText('FEC du comptable : FEC_fictif.txt')
@@ -66,7 +66,7 @@ test('le franchisé importe le FEC, range le compte inconnu et retrouve marge et
 test('classement gardé au deuxième import ; fichier hors période ou illisible expliqué', async ({ page }) => {
   await seConnecter(page, { role: 'coach', magasins: [magasin], reel, correspondances: [{ store_name: MAGASINS[0], compte: '658000', rubrique: 'hors_ebe' }] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: 'Quadrimestres' }).click()
+  await ouvrir(page, 'Quadrimestres')
   const fec = page.getByRole('region', { name: 'FEC du comptable' })
   await page.locator('input[type=file]').setInputFiles(fichier(N))
   await expect(fec.getByRole('table', { name: `Montants du FEC : janvier à avril ${N}` }).getByRole('row', { name: /Charges externes/ })).toContainText(/18\s000/)
