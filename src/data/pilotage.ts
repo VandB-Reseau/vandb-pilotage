@@ -7,7 +7,9 @@ import { baseDepuisReel, fraisDepuisLignes, type LigneFraisMagasin, type ReelAnn
 import type { Categorie, ParametresCharges, Personne } from '../moteur/equipe'
 import type { LigneReel, TicketsReel } from '../moteur/reel'
 import type { MoisReel } from '../moteur/suivi'
-import type { Quadrimestre, SaisieQuadrimestre } from '../moteur/quadrimestre'
+import { alertesMagasin, trierAlertes, type Alerte } from '../moteur/alertes'
+import { QUADRIMESTRES, type Quadrimestre, type SaisieQuadrimestre } from '../moteur/quadrimestre'
+import { tresorerieBudget } from '../moteur/tresorerie'
 import type { Hypotheses, ParametresReseau, Univers } from '../moteur/types'
 
 export type Statut = 'propose' | 'en_discussion' | 'valide'
@@ -153,6 +155,7 @@ async function lireParametres(annee: number): Promise<{ parametres: ParametresRe
         ...parametresParDefaut.tresorerie, ...v.tresorerie,
         consignes: { ...parametresParDefaut.tresorerie.consignes!, ...v.tresorerie?.consignes },
       },
+      alertes: { ...parametresParDefaut.alertes, ...v.alertes },
       charges: {
         taux: { ...parametresParDefaut.charges.taux, ...v.charges?.taux },
         reduction: { ...parametresParDefaut.charges.reduction, ...v.charges?.reduction },
@@ -374,4 +377,32 @@ export async function importerQuadrimestres(lignes: { magasin: string; annee: nu
   for (let i = 0; i < lignes.length; i += 500) {
     verifier(await pilotage().from('quadrimestres').upsert(lignes.slice(i, i + 500).map((l) => ligneQuadrimestre(l.magasin, l.annee, l.quadrimestre, l.saisie))))
   }
+}
+
+// Alertes des magasins du compte : réel de l'année en cours face à son budget et à l'an dernier, trésorerie du dernier
+// quadrimestre et point bas du budget à venir. Seuils : Paramètres réseau de l'année du budget (ceux que règle le Directeur).
+export async function chargerAlertes(aujourdhui = new Date()): Promise<Alerte[]> {
+  const annee = aujourdhui.getFullYear(), aB = anneeBudget(aujourdhui)
+  const [d, { parametres }, dB, { parametres: pB }, reel, quadrimestres] = await Promise.all([
+    chargerBudgets(annee), chargerParametres(annee), chargerBudgets(aB), chargerParametres(aB), chargerReelDuCompte(annee), chargerQuadrimestres(annee),
+  ])
+  const douze = () => Array.from({ length: 12 }, () => ({ caHT: 0, margeHT: 0, caAvecMarge: 0, caTTC: 0, tickets: 0 }))
+  // Réel en retard : seulement une fois les imports de l'année commencés (sinon tous les magasins alerteraient)
+  const reelCommence = Object.values(reel.magasins).some((r) => r.n.some((m) => m.caHT > 0))
+  return trierAlertes(d.magasins.flatMap((l) => {
+    const h = l.statut ? hypothesesDe(l, d) : null
+    const lB = dB.magasins.find((x) => x.magasin === l.magasin)
+    const hB = lB?.statut ? hypothesesDe(lB, dB) : null
+    // Point bas du budget : seulement si la trésorerie de départ est saisie (partir de zéro alerterait à tort)
+    const depart = lB?.ajustements?.tresorerieDepart
+    const point = hB && depart !== undefined ? tresorerieBudget(calculerBudget(hB.hypotheses, pB), hB.hypotheses, pB, pB.tresorerie, depart).pointBas : null
+    const q = [...QUADRIMESTRES].reverse().find((x) => quadrimestres[l.magasin]?.[x]?.tresorerie != null)
+    return alertesMagasin({
+      magasin: l.magasin, n: reel.magasins[l.magasin]?.n ?? douze(), n1: reel.magasins[l.magasin]?.n1 ?? douze(),
+      budget: h ? calculerBudget(h.hypotheses, parametres) : null,
+      moisTermines: reelCommence ? aujourdhui.getMonth() : 0,
+      tresorerieReelle: q ? { montant: quadrimestres[l.magasin]![q]!.tresorerie!, quadrimestre: q } : null,
+      tresorerieBudget: point ? { montant: point.montant, mois: point.mois, annee: aB } : null,
+    }, pB.alertes)
+  }))
 }

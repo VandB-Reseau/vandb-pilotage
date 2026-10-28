@@ -56,7 +56,7 @@ test('fiche magasin : le réel face au budget, mois par mois', async ({ page, is
 
 test('fiche magasin : sans budget de l’année, le suivi le dit', async ({ page }) => {
   await seConnecter(page, { reel })
-  await page.getByText(MAGASINS[2], { exact: true }).click()
+  await page.getByText(MAGASINS[2], { exact: true }).last().click()
   await page.getByRole('tab', { name: `Suivi du budget ${N}` }).click()
   await expect(page.getByText(`Pas de budget ${N} à suivre`)).toBeVisible()
 })

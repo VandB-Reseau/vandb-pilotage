@@ -29,7 +29,7 @@ test.afterEach(async ({ page }) => {
 
 test('le Coach renseigne les frais : lignes courantes, part du CA, emprunts, ligne retirée', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { role: 'coach' })
-  await page.getByText(MAGASINS[0], { exact: true }).click()
+  await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await page.getByRole('tab', { name: 'Frais' }).click()
   await expect(page.getByText('Pas encore de frais')).toBeVisible()
   await page.getByRole('button', { name: 'Partir des lignes courantes' }).click()
@@ -70,7 +70,7 @@ test('une ligne de frais s’ajoute depuis la grille ; un montant illisible est 
   // 1 200 lignes d'autres magasins avant la sienne : la lecture se fait par pages de 1 000
   const autres = Array.from({ length: 1200 }, (_, i) => ({ ...loyer(`Magasin ${i}`), code: 'telecom' }))
   await seConnecter(page, { role: 'franchise', frais: [...autres, loyer(MAGASINS[0])] })
-  await page.getByText(MAGASINS[0], { exact: true }).click()
+  await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await page.getByRole('tab', { name: 'Frais' }).click()
   await expect(page.getByLabel('Locations immobilières', { exact: true })).toHaveValue('60 000')
   await page.getByLabel('Ajouter une ligne').fill('Honoraires compt')
@@ -84,7 +84,7 @@ test('une ligne de frais s’ajoute depuis la grille ; un montant illisible est 
 
 test('synthèse et atterrissage : réel des mois passés, saisonnalité de l’an dernier, frais du magasin', async ({ page, isMobile }, info) => {
   await seConnecter(page, { role: 'rr', reel: reelPour(MAGASINS[0]), tickets: ticketsPour(MAGASINS[0]), frais: [loyer(MAGASINS[0])] })
-  await page.getByText(MAGASINS[0], { exact: true }).click()
+  await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await expect(page.getByRole('tab', { name: 'Synthèse' })).toHaveAttribute('aria-selected', 'true')
   const sante = page.getByRole('region', { name: 'Santé du magasin à fin février' })
   // Cumul 40 000 contre 2 000 aux mêmes mois de l'an dernier ; marge 18 200 / 40 000 = 45,5 %
@@ -128,7 +128,7 @@ test('synthèse et atterrissage : réel des mois passés, saisonnalité de l’a
 
 test('le Directeur propose le budget de l’an prochain à partir de l’atterrissage', async ({ page }) => {
   const ecritures = await seConnecter(page, { reel: reelPour(MAGASINS[2]), tickets: ticketsPour(MAGASINS[2]), frais: [loyer(MAGASINS[2])] })
-  await page.getByText(MAGASINS[2], { exact: true }).click()
+  await page.getByText(MAGASINS[2], { exact: true }).last().click()
   await page.getByRole('tab', { name: /^Budget/ }).click()
   await expect(page.getByText(`Pas encore de budget ${B}`)).toBeVisible()
   await page.getByRole('button', { name: `Voir l’atterrissage ${N}` }).click()
@@ -147,7 +147,7 @@ test('le Directeur propose le budget de l’an prochain à partir de l’atterri
 
 test('sans réel de l’année, l’atterrissage renvoie vers le réel', async ({ page }) => {
   await seConnecter(page, { role: 'franchise' })
-  await page.getByText(MAGASINS[0], { exact: true }).click()
+  await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await page.getByRole('tab', { name: `Atterrissage ${N}` }).click()
   await expect(page.getByText(`Pas encore de réel ${N}`)).toBeVisible()
   await page.getByRole('button', { name: 'Voir le réel' }).click()

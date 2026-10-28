@@ -66,7 +66,7 @@ test('le Directeur copie les hypothèses vers un autre magasin, ses travaux rest
   const liste = magasins()
   liste[0].ajustements = { evolutionFamille: { 'cave/Bière': 0.05 }, travaux: { ...travaux, investissement: 99_000 } }
   const ecritures = await seConnecter(page, { magasins: liste })
-  await page.getByText(MAGASINS[0], { exact: true }).click()
+  await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await page.getByRole('tab', { name: /^Budget/ }).click()
   await page.getByRole('button', { name: 'Copier vers d’autres magasins' }).click()
   const panneau = page.getByRole('region', { name: `Copier les hypothèses de ${MAGASINS[0]}` })

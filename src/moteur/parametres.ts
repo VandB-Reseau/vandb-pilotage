@@ -1,3 +1,4 @@
+import { alertesParDefaut } from './alertes'
 import type { ParametresCharges } from './equipe'
 import { tresorerieParDefaut } from './tresorerie'
 import type { LigneFrais, ParametresReseau, Rubrique } from './types'
@@ -19,6 +20,7 @@ export const parametresParDefaut: ParametresReseau = {
   tvaPanier: { cave: 0.2, bar: 0.18 },
   charges: chargesParDefaut,
   tresorerie: tresorerieParDefaut,
+  alertes: alertesParDefaut,
 }
 
 export const rubriqueLibelle: Record<Rubrique, string> = {

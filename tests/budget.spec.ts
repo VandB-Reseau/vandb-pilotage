@@ -61,7 +61,7 @@ test('le Directeur crée un groupe, y range un magasin et lui donne ses propres 
 
 test('le franchisé s’écarte d’une cible : le budget passe en discussion, il ne valide pas', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { role: 'franchise', magasins: avecBase(), reseau })
-  await page.getByText(MAGASINS[0], { exact: true }).click()
+  await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await page.getByRole('tab', { name: /^Budget/ }).click()
   const resultat = page.getByRole('table', { name: 'Budget 2027 mois par mois' })
   // Cibles du réseau : 200 000 × 1,03 + 300 000 × 1,03 + 100 000
@@ -88,7 +88,7 @@ test('le franchisé s’écarte d’une cible : le budget passe en discussion, i
 
 test('le Directeur valide le budget, puis peut le rouvrir', async ({ page }) => {
   const ecritures = await seConnecter(page, { magasins: avecBase('en_discussion'), reseau })
-  await page.getByText(MAGASINS[0], { exact: true }).click()
+  await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await page.getByRole('tab', { name: /^Budget/ }).click()
   await page.getByRole('button', { name: 'Valider le budget' }).click()
   await expect(page.getByText('Budget 2027 validé.')).toBeVisible()
@@ -103,7 +103,7 @@ test('le Directeur valide le budget, puis peut le rouvrir', async ({ page }) => 
 
 test('un Coach lit les hypothèses sans pouvoir les modifier ; une écriture qui échoue l’explique', async ({ page }) => {
   await seConnecter(page, { role: 'coach', magasins: avecBase(), reseau })
-  await page.getByText(MAGASINS[0], { exact: true }).click()
+  await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await page.getByRole('tab', { name: /^Budget/ }).click()
   await expect(page.getByLabel('Évolution du CA par famille : Bière (Cave)')).toBeDisabled()
   await expect(page.getByRole('button', { name: /Enregistrer|Valider|Importer/ })).toHaveCount(0)
@@ -113,7 +113,7 @@ test('un Coach lit les hypothèses sans pouvoir les modifier ; une écriture qui
   await page.getByRole('button', { name: 'Mon compte' }).click()
   await page.getByRole('menuitem', { name: 'Se déconnecter' }).click()
   await seConnecter(page, { role: 'franchise', magasins: avecBase(), reseau, panneEcriture: true })
-  await page.getByText(MAGASINS[0], { exact: true }).click()
+  await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await page.getByRole('tab', { name: /^Budget/ }).click()
   await page.getByLabel('Salaires et frais : Hausse des salaires').fill('1')
   await page.getByRole('button', { name: 'Enregistrer les ajustements' }).click()

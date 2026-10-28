@@ -15,6 +15,16 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 - Imports de caisse : fichier des comptables (plusieurs magasins d'un coup, code caisse ou nom du magasin).
 - **Base : migration `0008_quadrimestres.sql` à passer.**
 
+### Lot 13 — Alertes
+
+- Accueil, vue Réseau (selon les filtres) et synthèse d'un magasin : CA cumulé sous le budget, taux de marge en baisse
+  sur l'an dernier aux mêmes mois (marge de caisse contre marge de caisse), réel en retard, trésorerie sous le seuil
+  (fin du dernier quadrimestre, ou point bas du budget à venir quand la trésorerie de départ est saisie). Les plus
+  graves d'abord, filtre par type, lien vers l'onglet concerné.
+- Paramètres réseau : seuils modifiables (5 % sous le budget, 1 point de marge, 1 mois de retard, trésorerie sous 0 €
+  par défaut). Pas d'alerte de retard tant qu'aucun réel de l'année n'est importé.
+- Pas de migration (seuils dans `parametres_reseau.valeur`).
+
 ## Lot 11 — Consignes dans la trésorerie (28/10/2026)
 
 - Trésorerie du budget : consignes versées aux fournisseurs avec les achats (fûts, caisses, gaz) et remboursées une

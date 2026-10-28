@@ -63,7 +63,7 @@ test('budget validé : trésorerie en lecture seule, départ enregistré repris,
     await expect(liste.getByRole('columnheader', { name: 'Point bas de trésorerie' })).toBeVisible()
     await expect(liste.getByRole('row').nth(1)).toContainText(k(attendu(-50_000).pointBas.montant))
   }
-  await page.getByText(MAGASINS[0], { exact: true }).first().click()
+  await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await page.getByRole('tab', { name: /^Budget/ }).click()
   await expect(page.getByLabel('Trésorerie au 1er janvier')).toBeDisabled()
   await expect(page.getByLabel('Trésorerie au 1er janvier')).toHaveValue(/[-−]50\s000/)

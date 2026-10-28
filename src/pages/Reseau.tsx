@@ -20,10 +20,11 @@ import Typography from '@mui/material/Typography'
 import FileDownloadOutlined from '@mui/icons-material/FileDownloadOutlined'
 import PrintOutlined from '@mui/icons-material/PrintOutlined'
 import SearchOutlined from '@mui/icons-material/SearchOutlined'
+import { AlertesMagasins } from '../components/AlertesMagasins'
 import { EtatVide } from '../components/EtatVide'
 import { Indicateur } from '../components/Indicateur'
 import { Panne } from '../components/Panne'
-import { chargerBudgets, chargerParametres, chargerReelDuCompte, hypothesesDe } from '../data/pilotage'
+import { chargerAlertes, chargerBudgets, chargerParametres, chargerReelDuCompte, hypothesesDe } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { feuilleReseau } from '../lib/exports'
 import { ecartTaux, lienMagasin, milliers, MOIS, taux } from '../lib/format'
@@ -55,7 +56,7 @@ const simple = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerC
 export function Reseau() {
   const annee = new Date().getFullYear()
   const { donnees, erreur, chargement, recharger } = useChargement(async () => {
-    const [d, { parametres }, reel] = await Promise.all([chargerBudgets(annee), chargerParametres(annee), chargerReelDuCompte(annee)])
+    const [d, { parametres }, reel, alertes] = await Promise.all([chargerBudgets(annee), chargerParametres(annee), chargerReelDuCompte(annee), chargerAlertes()])
     const groupes = new Map(d.groupes.map((g) => [g.id, g.nom]))
     const p = { tauxRedevance: parametres.tauxRedevance, tauxPublicite: parametres.tauxPublicite, charges: parametres.charges, annee }
     const magasins = d.magasins.map((l) => {
@@ -71,7 +72,7 @@ export function Reseau() {
       }
     })
     const trie = (l: string[]) => [...new Set(l)].sort((a, b) => a.localeCompare(b, 'fr'))
-    return { magasins, groupes: d.groupes, coachs: trie(Object.values(reel.coachs)), rrs: trie(Object.values(reel.rrs).flat()) }
+    return { magasins, alertes, groupes: d.groupes, coachs: trie(Object.values(reel.coachs)), rrs: trie(Object.values(reel.rrs).flat()) }
   }, [annee])
 
   // Filtres et tri gardés dans l'adresse : le retour depuis une fiche les retrouve
@@ -165,6 +166,10 @@ export function Reseau() {
           libelle="Masse salariale / marge" valeur={total.personnelSurMarge === null ? 'À renseigner' : taux(total.personnelSurMarge)}
           detail={total.ebeSurCA === null ? 'Équipe et frais à renseigner' : `EBE à date : ${taux(total.ebeSurCA)} du CA`}
         />
+      </Box>
+
+      <Box className="pas-a-l-impression" sx={{ mb: 4 }}>
+        <AlertesMagasins alertes={donnees.alertes.filter((a) => visibles.some((m) => m.magasin === a.magasin))} etat={etat} />
       </Box>
 
       <Stack direction="row" spacing={2} useFlexGap className="pas-a-l-impression" sx={{ mb: 2, flexWrap: 'wrap' }}>

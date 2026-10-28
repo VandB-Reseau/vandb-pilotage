@@ -33,6 +33,7 @@ import { EquipeMagasin } from '../components/EquipeMagasin'
 import { FraisMagasin } from '../components/FraisMagasin'
 import { useGarde, useSaisieEnCours } from '../components/GardeSaisie'
 import { PastilleStatut } from '../components/PastilleStatut'
+import { AlertesDuMagasin } from '../components/AlertesMagasins'
 import { QuadrimestresMagasin } from '../components/QuadrimestresMagasin'
 import { ReelAnnee } from '../components/ReelAnnee'
 import { poidsValides, SaisonnaliteMagasin } from '../components/SaisonnaliteMagasin'
@@ -83,7 +84,7 @@ export function Magasin() {
   // Budget de l'an prochain, réel de l'année en cours et de la précédente
   const anneeEnCours = new Date().getFullYear()
   // Synthèse d'abord : la santé du magasin en un coup d'œil
-  const [onglet, setOnglet] = useState('synthese')
+  const [onglet, setOnglet] = useState((useLocation().state as { onglet?: string } | null)?.onglet ?? 'synthese')
   const [anneeReel, setAnneeReel] = useState(anneeEnCours)
   const [anneeQuadri, setAnneeQuadri] = useState(anneeEnCours)
 
@@ -195,6 +196,7 @@ export function Magasin() {
         <Tab value="frais" label={<LibelleOnglet texte="Frais" manque={!d.frais[ligne.magasin]?.length} detail="à renseigner" />} sx={{ minHeight: 48 }} />
       </Tabs>
 
+      {onglet === 'synthese' && <AlertesDuMagasin magasin={ligne.magasin} />}
       {onglet === 'synthese' ? (
         <SyntheseMagasin key={ligne.magasin} magasin={ligne.magasin} d={d} annee={anneeEnCours} parametres={donnees.parametresN} allerA={setOnglet} />
       ) : onglet === 'suivi' ? (

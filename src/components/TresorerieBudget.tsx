@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Box from '@mui/material/Box'
 import Card from '@mui/material/Card'
 import Stack from '@mui/material/Stack'
@@ -40,6 +40,8 @@ export function TresorerieBudget({ tresorerie: t, annee, depart, onDepart, lectu
   lectureSeule: boolean
 }) {
   const [saisie, setSaisie] = useState(depart === undefined ? '' : enChiffres(depart))
+  // Départ changé ailleurs (ajustements chargés après l'ouverture de l'onglet, retour aux valeurs enregistrées) : le champ suit
+  useEffect(() => { setSaisie((s) => { const n = nombre(s); return (n === null ? undefined : n) === depart ? s : depart === undefined ? '' : enChiffres(depart) }) }, [depart])
   const changer = (v: string) => {
     setSaisie(v)
     const n = nombre(v)

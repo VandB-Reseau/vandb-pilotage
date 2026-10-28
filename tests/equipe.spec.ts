@@ -24,7 +24,7 @@ test.afterEach(async ({ page }) => {
 
 test('le franchisé ajoute un vendeur au SMIC : coût chargé, réduction générale et budget recalculé', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { role: 'franchise', magasins: avecBase, reseau })
-  await page.getByText(MAGASINS[0], { exact: true }).click()
+  await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await page.getByRole('tab', { name: 'Équipe' }).click()
   await expect(page.getByText('Pas encore d’équipe')).toBeVisible()
   await page.getByRole('button', { name: 'Ajouter un poste' }).click()
@@ -55,7 +55,7 @@ test('le franchisé ajoute un vendeur au SMIC : coût chargé, réduction géné
 
 test('le Directeur prévoit une prime et un départ, retire un poste ; le tableau suit', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { magasins: avecBase, reseau, equipe })
-  await page.getByText(MAGASINS[0], { exact: true }).click()
+  await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await page.getByRole('tab', { name: 'Équipe' }).click()
   const tableau = page.getByRole('table', { name: 'Postes et coût chargé' })
   // Gérant TNS : 3 000 × 12 × 1,33, sans réduction
@@ -105,7 +105,7 @@ test('le Directeur ajuste les taux de charges du réseau', async ({ page, isMobi
 
 test('un Coach complète l’équipe d’un magasin de son périmètre', async ({ page }) => {
   const ecritures = await seConnecter(page, { role: 'coach', magasins: avecBase, reseau, equipe })
-  await page.getByText(MAGASINS[0], { exact: true }).click()
+  await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await page.getByRole('tab', { name: 'Équipe' }).click()
   await page.getByRole('button', { name: 'Ajouter un poste' }).click()
   const fiche = page.getByRole('region', { name: 'Nouveau poste' })

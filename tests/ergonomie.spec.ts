@@ -25,7 +25,7 @@ test.afterEach(async ({ page }) => {
 
 test('une saisie en cours n’est jamais perdue sans confirmation', async ({ page, isMobile }, info) => {
   await seConnecter(page, { role: 'coach' })
-  await page.getByText(MAGASINS[0], { exact: true }).click()
+  await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await page.getByRole('tab', { name: /^Frais/ }).click()
   await page.getByRole('button', { name: 'Partir des lignes courantes' }).click()
   await page.getByLabel('Locations immobilières', { exact: true }).fill('48000')
@@ -46,7 +46,7 @@ test('une saisie en cours n’est jamais perdue sans confirmation', async ({ pag
   await expect(page.getByRole('heading', { level: 1, name: 'Magasins' })).toBeVisible()
 
   // Sans modification, aucune question
-  await page.getByText(MAGASINS[0], { exact: true }).click()
+  await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await page.getByRole('tab', { name: /^Équipe/ }).click()
   await expect(garde).toHaveCount(0)
 })
@@ -97,7 +97,7 @@ test('d’un magasin au suivant, dans la liste filtrée, en restant sur le même
 
 test('les onglets signalent ce qui manque', async ({ page }) => {
   await seConnecter(page, { magasins: sept, frais: [loyer(MAGASINS[0])] })
-  await page.getByText(MAGASINS[0], { exact: true }).click()
+  await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await expect(page.getByRole('tab', { name: 'Équipe (à renseigner)' })).toBeVisible()
   await expect(page.getByRole('tab', { name: 'Frais', exact: true })).toBeVisible()
   await expect(page.getByRole('tab', { name: /^Budget \d+$/ })).toBeVisible()
@@ -115,7 +115,7 @@ test('un franchisé avec un seul magasin arrive sur sa fiche', async ({ page }) 
 
 test('saisie rapide : Entrée passe au montant suivant, les milliers s’affichent', async ({ page }) => {
   await seConnecter(page, { role: 'franchise' })
-  await page.getByText(MAGASINS[0], { exact: true }).click()
+  await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await page.getByRole('tab', { name: /^Frais/ }).click()
   await page.getByRole('button', { name: 'Partir des lignes courantes' }).click()
   const loyerChamp = page.getByLabel('Locations immobilières', { exact: true })

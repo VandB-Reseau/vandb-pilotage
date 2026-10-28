@@ -21,9 +21,10 @@ import { anneeBudget, chargerParametres, enregistrerParametres, type ParametresC
 import { nombre } from '../import/caisse'
 import { CATEGORIES, categorieLibelle } from '../moteur/equipe'
 import { useChargement } from '../data/useChargement'
+import type { ParametresAlertes } from '../moteur/alertes'
 import type { ParametresTresorerie } from '../moteur/tresorerie'
 import { UNIVERS, universLibelle, type Univers } from '../moteur/types'
-import { montant, taux } from '../lib/format'
+import { enChiffres, montant, taux } from '../lib/format'
 
 const DE_L_UNIVERS: Record<Univers, string> = { cave: 'de la Cave', bar: 'du Bar', exterieur: 'de l’Extérieur' }
 
@@ -40,8 +41,14 @@ export function Parametres() {
   const [treso, setTreso] = useState<ParametresTresorerie | null>(null)
   const [delais, setDelais] = useState({ fournisseurs: '', redevance: '', ecoulement: '', remboursement: '' })
   const [messageTreso, setMessageTreso] = useState<{ gravite: 'success' | 'error'; texte: string } | null>(null)
+  // Seuils des alertes : textes pendant la frappe, sauf l'écart de CA (pourcentage)
+  const [ecartCA, setEcartCA] = useState<number | undefined>(undefined)
+  const [seuils, setSeuils] = useState({ marge: '', retard: '', tresorerie: '' })
+  const [messageAlertes, setMessageAlertes] = useState<{ gravite: 'success' | 'error'; texte: string } | null>(null)
   useEffect(() => {
     if (!p) return
+    setEcartCA(p.alertes.ecartCA)
+    setSeuils({ marge: String(Math.round(p.alertes.baisseMarge * 1000) / 10).replace('.', ','), retard: String(p.alertes.moisRetard), tresorerie: enChiffres(p.alertes.tresorerie) })
     setTreso(p.tresorerie)
     setDelais({
       fournisseurs: String(p.tresorerie.delaiFournisseurs), redevance: String(p.tresorerie.delaiRedevance),
@@ -90,6 +97,28 @@ export function Parametres() {
       recharger()
     } catch {
       setMessageTreso({ gravite: 'error', texte: 'L’enregistrement n’a pas abouti. Vérifie ta connexion, puis réessaie.' })
+    } finally {
+      setOccupe(false)
+    }
+  }
+  const margeLue = nombre(seuils.marge), retardLu = nombre(seuils.retard), tresorerieLue = nombre(seuils.tresorerie)
+  const alertesLues: ParametresAlertes | null = ecartCA !== undefined && ecartCA >= 0
+    && margeLue !== null && !Number.isNaN(margeLue) && margeLue >= 0
+    && retardLu !== null && Number.isInteger(retardLu) && retardLu >= 0 && retardLu <= 12
+    && tresorerieLue !== null && !Number.isNaN(tresorerieLue)
+    ? { ecartCA, baisseMarge: margeLue / 100, moisRetard: retardLu, tresorerie: tresorerieLue } : null
+  const alertesModifiees = !!p && seuils.retard !== '' && JSON.stringify(alertesLues) !== JSON.stringify(p.alertes)
+  useSaisieEnCours(alertesModifiees)
+  const enregistrerAlertes = async () => {
+    if (!p || !alertesLues) return
+    setOccupe(true)
+    setMessageAlertes(null)
+    try {
+      await enregistrerParametres(annee, { ...p, alertes: alertesLues })
+      setMessageAlertes({ gravite: 'success', texte: 'Seuils des alertes enregistrés.' })
+      recharger()
+    } catch {
+      setMessageAlertes({ gravite: 'error', texte: 'L’enregistrement n’a pas abouti. Vérifie ta connexion, puis réessaie.' })
     } finally {
       setOccupe(false)
     }
@@ -169,6 +198,34 @@ export function Parametres() {
             </Table>
           </Card>
         )}
+
+        <Card component="section" aria-label="Alertes">
+          <Box sx={{ p: 2, pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+            <Typography variant="h2">Alertes</Typography>
+            <Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe || !alertesLues || !alertesModifiees} onClick={() => void enregistrerAlertes()} sx={{ minHeight: 48 }}>Enregistrer</Button>
+          </Box>
+          {messageAlertes && <Box sx={{ px: 2 }}><Alert severity={messageAlertes.gravite} onClose={() => setMessageAlertes(null)} closeText="Fermer" slotProps={{ closeButton: { sx: { width: 48, height: 48 } } }}>{messageAlertes.texte}</Alert></Box>}
+          <Table aria-label="Seuils des alertes">
+            <TableBody>
+              <TableRow>
+                <TableCell>CA cumulé sous le budget des mêmes mois, de plus de</TableCell>
+                <TableCell align="right"><ChampTaux libelle="Écart de CA au budget" valeur={ecartCA} onChange={setEcartCA} /></TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell>Taux de marge sous celui de l’an dernier, mêmes mois, de plus de</TableCell>
+                <TableCell align="right"><ChampNombre libelle="Baisse du taux de marge" valeur={seuils.marge} unite="pt" largeur={120} onChange={(v) => setSeuils((x) => ({ ...x, marge: v }))} /></TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell>Mois terminés absents du réel, à partir de (0 : pas d’alerte)</TableCell>
+                <TableCell align="right"><ChampNombre libelle="Mois de réel manquants" valeur={seuils.retard} unite="mois" largeur={120} onChange={(v) => setSeuils((x) => ({ ...x, retard: v }))} /></TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell>Trésorerie sous ce montant (fin du dernier quadrimestre, point bas du budget)</TableCell>
+                <TableCell align="right"><ChampNombre libelle="Seuil de trésorerie" valeur={seuils.tresorerie} largeur={160} onChange={(v) => setSeuils((x) => ({ ...x, tresorerie: v }))} /></TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </Card>
 
         {treso && (
           <Card component="section" aria-label="Trésorerie">
