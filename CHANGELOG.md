@@ -5,6 +5,24 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 24 — Projection du CA : rythme de sortie, ancienneté, temps forts
+
+- **Base : `0014_ouvertures.sql`** (table `ouvertures`, date d'ouverture de chaque magasin, écrite par le Directeur).
+- Budget, carte « Base du CA » : pour la Cave et le Bar, rythme de sortie de l'année (4 derniers mois réalisés ÷ leur
+  poids dans la saisonnalité) face à l'atterrissage hors temps forts. Retenu d'office jusqu'à 15 % d'écart, au-delà
+  sur confirmation du Directeur, qui peut aussi garder l'atterrissage. Le Directeur y renseigne la date d'ouverture ;
+  l'ancienneté (année 1, 2, 3, 4 et plus) s'affiche. Les budgets déjà proposés n'ont pas de rythme mesuré : il apparaît
+  à la prochaine mise à jour de la proposition depuis l'atterrissage.
+- Hypothèses du réseau : hausse tarifaire (valeur par défaut du panier) et tableau « Selon l'ancienneté du magasin »
+  (tickets et panier en plus des prix, Cave et Bar), avec la médiane constatée dans le réseau à partir de 8 magasins.
+  Ordre des valeurs : magasin, groupe, ancienneté, réseau, hausse tarifaire, réalisé.
+- Budget, carte « Temps forts » (événement extérieur, soirée en magasin, opération commerciale) : CA de l'an passé
+  retiré de la base, CA du budget ajouté dans son mois, extras de personnel, autres charges, mois de paiement des achats.
+- Budget, carte « Clients gagnés ou perdus » : montant HT par mois ou part du CA de l'univers, de tel mois à tel mois.
+- Trésorerie : achats de l'Extérieur payés un mois avant la vente (réglable) ; opérations du réseau dans les
+  Paramètres réseau (mois de vente, mois de paiement, part des achats avancée). Le compte de résultat détaille le CA
+  de chaque univers mois par mois.
+
 ### Lot 23 — Frais de l'onglet FFBUD
 
 - Onglet Frais : les lignes de l'onglet FFBUD du prévisionnel, dans son ordre, en trois blocs avec leur total

@@ -61,9 +61,12 @@ test('trésorerie du magasin fictif : saisonnalité, délais et TVA ne changent 
     const t = tresorerieBudget(b, hyp, parametresParDefaut, reglages, 20_000)
     proche(t.fin - 20_000, b.tresorerieDegagee - 30_000)
   }
-  // Fournisseurs de janvier : achats de décembre
+  // Fournisseurs de janvier : achats Cave et Bar de décembre, Extérieur de février (payé un mois avant la vente, lot 24)
   const t = tresorerieBudget(b, hyp, parametresParDefaut, tresorerieParDefaut)
-  proche(t.mois[0].fournisseurs, b.mois[11].achats * 1.2)
+  const d = b.mois[11].univers!, f = b.mois[1].univers!
+  proche(t.mois[0].fournisseurs, (d.cave.achats + d.bar.achats + f.exterieur.achats) * 1.2)
+  // Sans avance, l'Extérieur de janvier se paie en janvier
+  proche(tresorerieBudget(b, hyp, parametresParDefaut, { ...tresorerieParDefaut, avanceExterieur: 0 }).mois[0].fournisseurs, (d.cave.achats + d.bar.achats + b.mois[0].univers!.exterieur.achats) * 1.2)
   proche(t.mois[6].travaux, 36_000)           // juillet, premier mois touché
 })
 

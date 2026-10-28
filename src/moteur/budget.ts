@@ -1,5 +1,6 @@
 import { masseSalariale } from './equipe'
-import { UNIVERS, type Budget, type Hypotheses, type Mois, type ParametresReseau, type ResultatFamille, type Travaux, type Univers } from './types'
+import { SEUIL_RYTHME } from './projection'
+import { UNIVERS, type Budget, type Hypotheses, type Mois, type ParametresReseau, type ResultatFamille, type RythmeSortie, type TempsFort, type Travaux, type Univers } from './types'
 
 // Moteur du budget annuel d'un magasin. Fonction pure : le même calcul sert à l'écran, au simulateur et aux tests.
 // Il corrige les biais du prévisionnel Excel 2027 (constats du 26/10/2026) :
@@ -8,6 +9,8 @@ import { UNIVERS, type Budget, type Hypotheses, type Mois, type ParametresReseau
 // - achats comptés HT dans le compte de résultat (le TTC ne concerne que la trésorerie) ;
 // - redevance et publicité en % du CA HT, au-dessus de l'EBE ;
 // - impôt sur les sociétés calculé.
+// Lot 24 : base de chaque univers hors temps forts de l'an passé, rythme de sortie pour la Cave et le Bar, temps forts et
+// ajustements datés ajoutés dans leur mois, avec leurs charges propres.
 
 const somme = (l: number[]) => l.reduce((a, b) => a + b, 0)
 const ratio = (a: number, b: number) => (b ? a / b : 0)
@@ -62,6 +65,9 @@ export function impotSocietes(resultat: number, deficit: number, p: ParametresRe
   return Math.min(base, p.plafondTauxReduit) * p.tauxReduit + Math.max(0, base - p.plafondTauxReduit) * p.tauxNormal
 }
 
+const moisValide = (m: number) => Number.isInteger(m) && m >= 1 && m <= 12
+const tempsFortsValides = (l: TempsFort[] | undefined) => (l ?? []).filter((t) => moisValide(t.mois) && UNIVERS.includes(t.univers))
+
 export function calculerBudget(h: Hypotheses, p: ParametresReseau): Budget {
   const partDefaut = partRealiseeReference(h.caMensuelReference, h.moisRealises)
   const partRealisee = Object.fromEntries(UNIVERS.map((u) => [u, h.partRealisee?.[u] || partDefaut])) as Record<Univers, number>
@@ -71,11 +77,36 @@ export function calculerBudget(h: Hypotheses, p: ParametresReseau): Budget {
   // Part de l'année réellement ouverte (fermetures, activité réduite, gain après réouverture) : s'applique à chaque famille
   const ouverture = somme(poids.map((w, i) => w * travaux.activite[i]))
 
-  // Cave et Bar avec leurs tickets : CA de l'univers = CA atterri × (1 + évolution des tickets) × (1 + évolution du panier),
-  // réparti entre les familles selon le mix visé ; sinon, famille par famille avec son évolution
   const atterries = h.familles.map((f) => ratio(f.caRealise, partRealisee[f.univers]))
+  const dansU = (u: Univers) => h.familles.map((f, i) => (f.univers === u ? i : -1)).filter((i) => i >= 0)
+  const atterriU = (u: Univers) => somme(dansU(u).map((i) => atterries[i]))
+
+  // Temps forts de l'an passé déjà réalisés : sortis du réalisé avant d'en tirer l'atterrissage, (réalisé − temps forts) / part
+  const tempsForts = tempsFortsValides(h.tempsForts)
+  const passes = (u: Univers, de = 1, a = h.moisRealises) => somme(tempsForts.filter((t) => t.univers === u && t.mois >= de && t.mois <= Math.min(a, h.moisRealises)).map((t) => Math.max(0, t.caAnPasse || 0)))
+  const horsTempsForts = Object.fromEntries(UNIVERS.map((u) => {
+    const realise = somme(dansU(u).map((i) => h.familles[i].caRealise))
+    return [u, realise > 0 ? atterriU(u) * Math.max(0, 1 - passes(u) / realise) : atterriU(u)]
+  })) as Record<Univers, number>
+
+  // Base de chaque univers, en multiple de son atterrissage : hors temps forts, ou rythme de sortie quand il est retenu
+  const facteur = Object.fromEntries(UNIVERS.map((u) => [u, atterriU(u) > 0 ? horsTempsForts[u] / atterriU(u) : 1])) as Record<Univers, number>
+  const sortie: Budget['sortie'] = {}
+  for (const u of ['cave', 'bar'] as const) {
+    const s = h.sortie?.[u]
+    if (!h.rythme || !s || !(s.poids > 0) || !(horsTempsForts[u] > 0)) continue
+    const annuel = Math.max(0, s.ca - passes(u, s.de, s.a)) / s.poids
+    const acquis = annuel / horsTempsForts[u] - 1
+    const choix = h.rythme[u] ?? 'auto'
+    const statut: RythmeSortie['statut'] = choix === 'ignore' ? 'ignore' : choix === 'applique' || Math.abs(acquis) <= SEUIL_RYTHME + 1e-9 ? 'applique' : 'a_confirmer'
+    if (statut === 'applique') facteur[u] = annuel / atterriU(u)
+    sortie[u] = { atterri: horsTempsForts[u], annuel, acquis, de: s.de, a: s.a, statut }
+  }
+
+  // Cave et Bar avec leurs tickets : CA de l'univers = base × (1 + évolution des tickets) × (1 + évolution du panier),
+  // réparti entre les familles selon le mix visé ; sinon, famille par famille avec son évolution
   const flux: Budget['flux'] = {}
-  const objectifs = h.familles.map((f, i) => atterries[i] * (1 + f.evolution) * ouverture)
+  const objectifs = h.familles.map((f, i) => atterries[i] * facteur[f.univers] * (1 + f.evolution) * ouverture)
   for (const u of ['cave', 'bar'] as const) {
     const fl = h.flux?.[u]
     if (!fl || !(fl.realise > 0)) continue
@@ -84,52 +115,88 @@ export function calculerBudget(h: Hypotheses, p: ParametresReseau): Budget {
       flux[u] = { atterrissage: ticketsAtterris, objectif: ticketsAtterris * (1 + fl.evolution), evolution: fl.evolution, panierRealiseTTC: fl.panierCibleTTC, panierObjectifTTC: fl.panierCibleTTC, evolutionPanier: 0, caAtterri: 0, ca: 0, parTickets: false }
       continue
     }
-    const dans = h.familles.map((f, i) => (f.univers === u ? i : -1)).filter((i) => i >= 0)
-    const caAtterri = somme(dans.map((i) => atterries[i]))
+    const dans = dansU(u)
+    const caAtterri = atterriU(u)
     const evolutionPanier = fl.evolutionPanier ?? 0
-    const caU = caAtterri * (1 + fl.evolution) * (1 + evolutionPanier) * ouverture
+    const caU = caAtterri * facteur[u] * (1 + fl.evolution) * (1 + evolutionPanier) * ouverture
     const parts = mix(dans.map((i) => ({ part: h.familles[i].part, poids: atterries[i] })))
     dans.forEach((i, k) => { objectifs[i] = caU * parts[k] })
     flux[u] = {
-      atterrissage: ticketsAtterris, objectif: ticketsAtterris * (1 + fl.evolution) * ouverture, evolution: fl.evolution,
+      atterrissage: ticketsAtterris, objectif: ticketsAtterris * facteur[u] * (1 + fl.evolution) * ouverture, evolution: fl.evolution,
       panierRealiseTTC: fl.panierCibleTTC, panierObjectifTTC: fl.panierCibleTTC * (1 + evolutionPanier), evolutionPanier,
       caAtterri, ca: caU, parTickets: true,
     }
   }
-  const familles: ResultatFamille[] = h.familles.map((f, i) => {
-    const objectif = objectifs[i]
-    return { ...f, atterrissage: atterries[i], objectif, margeObjectif: objectif * (f.margeCible - (f.demarque ?? 0)) }
-  })
+
+  // Temps forts du budget et ajustements datés, univers par univers et mois par mois (en plus de la saisonnalité)
+  const base = Object.fromEntries(UNIVERS.map((u) => [u, somme(dansU(u).map((i) => objectifs[i]))])) as Record<Univers, number>
+  const enMois = (u: Univers, i: number) => (ouverture > 0 ? base[u] * poids[i] * travaux.activite[i] / ouverture : 0)
+  const ajustements = (h.ajustementsCA ?? []).filter((a) => moisValide(a.de) && moisValide(a.a) && UNIVERS.includes(a.univers))
+  const ajout = Object.fromEntries(UNIVERS.map((u) => [u, poids.map((_, i) => {
+    const tf = somme(tempsForts.filter((t) => t.univers === u && t.mois === i + 1).map((t) => t.ca || 0))
+    const adj = somme(ajustements.filter((a) => a.univers === u && a.de <= i + 1 && i + 1 <= a.a).map((a) => (Number.isFinite(a.montant) ? a.montant! : (a.taux ?? 0) * enMois(u, i))))
+    return { tf, adj }
+  })])) as Record<Univers, { tf: number; adj: number }[]>
+
+  const tauxDe = (f: { margeCible: number; demarque?: number }) => f.margeCible - (f.demarque ?? 0)
+  const margeAvant = somme(h.familles.map((f, i) => objectifs[i] * tauxDe(f)))
+  const tauxAvant = ratio(margeAvant, somme(objectifs))
+  const familles: ResultatFamille[] = h.familles.map((f, i) => ({ ...f, atterrissage: atterries[i], objectif: objectifs[i], margeObjectif: 0 }))
+  for (const u of UNIVERS) {
+    const total = somme(ajout[u].map((x) => x.tf + x.adj))
+    if (!total) continue
+    const dans = dansU(u)
+    // Réparti entre les familles de l'univers comme leur CA ; un univers sans famille en reçoit une
+    if (!dans.length) {
+      familles.push({ univers: u, famille: 'Temps forts', caRealise: 0, margeRealisee: tauxAvant, evolution: 0, margeCible: tauxAvant, atterrissage: 0, objectif: total, margeObjectif: 0 })
+      continue
+    }
+    dans.forEach((i) => { familles[i].objectif += total * (base[u] > 0 ? objectifs[i] / base[u] : 1 / dans.length) })
+  }
+  for (const f of familles) f.margeObjectif = f.objectif * tauxDe(f)
+
   const atterrissage = somme(familles.map((f) => f.atterrissage))
   const ca = somme(familles.map((f) => f.objectif))
   const marge = somme(familles.map((f) => f.margeObjectif))
   const tauxMarge = ratio(marge, ca)
+  const tauxU = Object.fromEntries(UNIVERS.map((u) => {
+    const l = familles.filter((f) => f.univers === u)
+    return [u, ratio(somme(l.map((f) => f.margeObjectif)), somme(l.map((f) => f.objectif)))]
+  })) as Record<Univers, number>
   const amortissements = h.amortissements + travaux.dotation
   const g = h.personnel
   // Avec l'équipe du magasin, le personnel se calcule personne par personne
   const equipe = h.equipe?.length ? masseSalariale(h.equipe, p.charges, h.annee, h.hausseSalaires ?? 0) : null
 
-  const mois: Mois[] = poids.map((w, i) => {
-    const caMois = ouverture > 0 ? ca * w * travaux.activite[i] / ouverture : 0
-    const margeMois = caMois * tauxMarge
-    let externes = caMois * (p.tauxRedevance + p.tauxPublicite)
+  const mois: Mois[] = poids.map((_, i) => {
+    const univers = Object.fromEntries(UNIVERS.map((u) => {
+      const caU = enMois(u, i) + ajout[u][i].tf + ajout[u][i].adj
+      return [u, { ca: caU, achats: caU * (1 - tauxU[u]), achatsTempsForts: ajout[u][i].tf * (1 - tauxU[u]) }]
+    })) as NonNullable<Mois['univers']>
+    const caMois = somme(UNIVERS.map((u) => univers[u].ca))
+    const margeMois = somme(UNIVERS.map((u) => univers[u].ca * tauxU[u]))
+    const duMois = tempsForts.filter((t) => t.mois === i + 1)
+    const autresChargesTempsForts = somme(duMois.map((t) => Math.max(0, t.autresCharges || 0)))
+    let externes = caMois * (p.tauxRedevance + p.tauxPublicite) + autresChargesTempsForts
     let impots = 0
     for (const l of h.frais) {
       const montant = (l.annuel ?? 0) / 12 + caMois * (l.tauxCA ?? 0)
       if (l.rubrique === 'impots_taxes') impots += montant
       else externes += montant
     }
-    const personnel = equipe ? equipe.parMois[i].cout : (g.salairesMensuels[i] ?? 0) + g.remunerationGerance * (1 + g.tauxCotisationsGerance)
+    const personnel = (equipe ? equipe.parMois[i].cout : (g.salairesMensuels[i] ?? 0) + g.remunerationGerance * (1 + g.tauxCotisationsGerance))
+      + somme(duMois.map((t) => Math.max(0, t.extrasPersonnel || 0)))
     const ebe = margeMois - externes - impots - personnel
     const resultatExploitation = ebe - amortissements / 12
     const heures = equipe ? equipe.parMois[i].heures : g.heuresMensuelles[i] ?? 0
     return {
       ca: caMois, achats: caMois - margeMois, marge: margeMois, chargesExternes: externes, impotsTaxes: impots, personnel, ebe,
       resultatExploitation, resultatAvantImpot: resultatExploitation - h.interets / 12, productivite: heures > 0 ? caMois / heures : null,
+      univers, autresChargesTempsForts,
     }
   })
 
-  const total = (k: keyof Omit<Mois, 'productivite'>) => somme(mois.map((m) => m[k]))
+  const total = (k: keyof Omit<Mois, 'productivite' | 'univers' | 'autresChargesTempsForts'>) => somme(mois.map((m) => m[k]))
   const personnel = total('personnel')
   const ebe = total('ebe')
   const resultatAvantImpot = total('resultatAvantImpot')
@@ -145,5 +212,13 @@ export function calculerBudget(h: Hypotheses, p: ParametresReseau): Budget {
     tresorerieDegagee: capaciteAutofinancement - h.remboursementCapital,
     ratios: { personnelSurMarge: ratio(personnel, marge), personnelSurCA: ratio(personnel, ca), ebeSurCA: ratio(ebe, ca) },
     flux,
+    sortie,
+    tempsForts: {
+      retire: somme(UNIVERS.map((u) => passes(u))),
+      ajoute: somme(tempsForts.map((t) => t.ca || 0)),
+      charges: somme(tempsForts.map((t) => Math.max(0, t.extrasPersonnel || 0) + Math.max(0, t.autresCharges || 0))),
+      ajustements: somme(UNIVERS.map((u) => somme(ajout[u].map((x) => x.adj)))),
+    },
+    paiementsTempsForts: tempsForts.map((t) => ({ mois: moisValide(t.moisAchats) ? t.moisAchats - 1 : t.mois - 1, montant: (t.ca || 0) * (1 - tauxU[t.univers]), vente: t.mois - 1, univers: t.univers })),
   }
 }

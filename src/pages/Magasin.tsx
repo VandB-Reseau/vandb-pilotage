@@ -43,6 +43,9 @@ import { ReelAnnee } from '../components/ReelAnnee'
 import { poidsValides, SaisonnaliteMagasin } from '../components/SaisonnaliteMagasin'
 import { SuiviBudget } from '../components/SuiviBudget'
 import { TravauxMagasin } from '../components/TravauxMagasin'
+import { AjustementsCAMagasin } from '../components/AjustementsCAMagasin'
+import { BaseCAMagasin } from '../components/BaseCAMagasin'
+import { TempsFortsMagasin } from '../components/TempsFortsMagasin'
 import { TresorerieBudget } from '../components/TresorerieBudget'
 import { SyntheseMagasin } from '../components/SyntheseMagasin'
 import { GrilleHypotheses } from '../components/GrilleHypotheses'
@@ -323,7 +326,7 @@ export function Magasin() {
               <TableContainer>
                 <GrilleHypotheses
                   titre="Hypothèses du magasin" familles={b.familles} flux={b.flux} annee={annee}
-                  cibles={brouillon} auDessus={niveauxDe(ligne, d).slice(0, 2)} valeursBase={valeursSansCible(ligne.base)}
+                  cibles={brouillon} auDessus={niveauxDe(ligne, d).slice(0, -1)} valeursBase={valeursSansCible(ligne.base)}
                   onChange={setBrouillon} lectureSeule={!peutAjuster}
                 />
               </TableContainer>
@@ -334,7 +337,7 @@ export function Magasin() {
                   lignes={lignesCibles([], false, [])}
                   niveau="magasin"
                   cibles={brouillon}
-                  auDessus={niveauxDe(ligne, d).slice(0, 2)}
+                  auDessus={niveauxDe(ligne, d).slice(0, -1)}
                   valeursBase={valeursSansCible(ligne.base)}
                   onChange={setBrouillon}
                   lectureSeule={!peutAjuster}
@@ -343,6 +346,14 @@ export function Magasin() {
             </Card>
           )}
 
+          {ligne.base && b && (
+            <BaseCAMagasin
+              key={`base-${ligne.magasin}`}
+              magasin={ligne.magasin} budget={b} annee={annee} ouverture={d.ouvertures?.[ligne.magasin]}
+              rythme={brouillon.rythme} directeur={directeur} peutAjuster={peutAjuster} apresOuverture={recharger}
+              onRythme={(r) => setBrouillon(({ rythme: _, ...reste }) => (r ? { ...reste, rythme: r } : reste))}
+            />
+          )}
           {ligne.base && b && (
             <SaisonnaliteMagasin budget={b} poids={brouillon.poidsMois} lectureSeule={!peutAjuster}
               onChange={(p) => setBrouillon(({ poidsMois: _, ...reste }) => (p ? { ...reste, poidsMois: p } : reste))} />
@@ -354,6 +365,14 @@ export function Magasin() {
               effetCA={sansTravaux ? b.ca - sansTravaux.ca : 0} dotation={effetTravaux(resolu.hypotheses.travaux).dotation}
               onChange={(t) => setBrouillon(({ travaux: _, ...reste }) => (t ? { ...reste, travaux: t } : reste))}
             />
+          )}
+          {ligne.base && b && (
+            <TempsFortsMagasin tempsForts={brouillon.tempsForts} lectureSeule={!peutAjuster} annee={annee} budget={b}
+              onChange={(l) => setBrouillon(({ tempsForts: _, ...reste }) => (l ? { ...reste, tempsForts: l } : reste))} />
+          )}
+          {ligne.base && b && (
+            <AjustementsCAMagasin ajustements={brouillon.ajustementsCA} lectureSeule={!peutAjuster} annee={annee} effet={b.tempsForts?.ajustements ?? 0}
+              onChange={(l) => setBrouillon(({ ajustementsCA: _, ...reste }) => (l ? { ...reste, ajustementsCA: l } : reste))} />
           )}
 
           {resolu && <CompteResultatMois lignes={compteResultat(b, resolu.hypotheses, parametres)} titre={`Compte de résultat ${annee}`} libelleTableau={`Budget ${annee} mois par mois`} />}

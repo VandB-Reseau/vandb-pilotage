@@ -22,20 +22,24 @@ import SaveOutlined from '@mui/icons-material/SaveOutlined'
 import { EtatVide } from '../components/EtatVide'
 import { Panne } from '../components/Panne'
 import { lignesCibles, TableauCibles } from '../components/TableauCibles'
+import { AncienneteReseau } from '../components/AncienneteReseau'
 import {
-  anneeBudget, chargerBudgets, chargerParametres, consoliderBudgets, creerGroupe, enregistrerCiblesGroupe, enregistrerCiblesReseau, rangerMagasin,
-  supprimerGroupe,
+  anneeBudget, chargerBudgets, chargerParametres, chargerReelDuCompte, consoliderBudgets, creerGroupe, enregistrerCiblesGroupe, enregistrerCiblesReseau,
+  rangerMagasin, supprimerGroupe,
 } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { milliers, taux } from '../lib/format'
-import type { Cibles } from '../moteur/cibles'
+import { saisonnaliteMediane } from '../moteur/atterrissage'
+import { niveauxReseau, type Cibles } from '../moteur/cibles'
+import { calageMillesimes, TRANCHES, trancheMillesime, type Tranche } from '../moteur/projection'
 
 const RESEAU = 'reseau'
 
 export function Hypotheses() {
   const annee = anneeBudget()
   const { donnees, erreur, chargement, recharger } = useChargement(
-    () => Promise.all([chargerBudgets(annee), chargerParametres(annee)]).then(([d, p]) => ({ d, parametres: p.parametres })), [annee])
+    () => Promise.all([chargerBudgets(annee), chargerParametres(annee), chargerReelDuCompte(annee - 1).catch(() => null)])
+      .then(([d, p, reel]) => ({ d, parametres: p.parametres, reel })), [annee])
   const [onglet, setOnglet] = useState<string>(RESEAU)
   const [brouillons, setBrouillons] = useState<Record<string, Cibles>>({})
   const [message, setMessage] = useState<{ gravite: 'success' | 'error'; texte: string } | null>(null)
@@ -56,6 +60,18 @@ export function Hypotheses() {
   const familles = useMemo(() => donnees?.d.magasins.flatMap((l) => l.base?.familles ?? []) ?? [], [donnees])
   // Cave et Bar se règlent par les tickets dès qu'un magasin en a (lot 22)
   const parTickets = useMemo(() => (['cave', 'bar'] as const).filter((u) => donnees?.d.magasins.some((l) => (l.base?.flux?.[u]?.realise ?? 0) > 0)), [donnees])
+  // Ancienneté des magasins et constaté du réseau sur l'année en cours (lot 24)
+  const anciennete = useMemo(() => {
+    if (!donnees) return null
+    const { d, reel } = donnees
+    const parTranche = Object.fromEntries(TRANCHES.map((t) => [t, 0])) as Record<Tranche, number>
+    for (const l of d.magasins) { const t = trancheMillesime(d.ouvertures?.[l.magasin], annee); if (t) parTranche[t]++ }
+    const calage = reel ? calageMillesimes(
+      Object.entries(reel.magasins).map(([m, r]) => ({ ouverture: d.ouvertures?.[m], n: r.n, n1: r.n1 })),
+      annee - 1, saisonnaliteMediane(Object.values(reel.magasins).map((r) => r.n1.map((x) => x.caHT))),
+    ) : null
+    return { parTranche, calage }
+  }, [donnees, annee])
 
   if (chargement && !donnees) return <Box><Typography variant="h1">Hypothèses</Typography><Skeleton variant="rounded" height={240} sx={{ mt: 3 }} /></Box>
   if (erreur || !donnees) return <Box><Typography variant="h1" sx={{ mb: 3 }}>Hypothèses</Typography><Panne quoi="Les hypothèses" recharger={recharger} /></Box>
@@ -154,10 +170,16 @@ export function Hypotheses() {
               lignes={lignesCibles(familles, true, parTickets)}
               niveau={groupe ? 'groupe' : 'reseau'}
               cibles={cibles}
-              auDessus={groupe ? [{ niveau: 'reseau', cibles: d.reseau }] : []}
+              auDessus={groupe ? niveauxReseau(d.reseau, null) : niveauxReseau({ hausseTarifaire: cibles.hausseTarifaire }, null).filter((n) => n.niveau === 'tarif')}
               onChange={(c) => setBrouillons((b) => ({ ...b, [ongletValide]: c }))}
             />
           </TableContainer>
+          {!groupe && anciennete && parTickets.length > 0 && (
+            <TableContainer>
+              <AncienneteReseau cibles={cibles} calage={anciennete.calage} magasinsParTranche={anciennete.parTranche}
+                onChange={(c) => setBrouillons((b) => ({ ...b, [ongletValide]: c }))} />
+            </TableContainer>
+          )}
         </Card>
         {d.magasins.length === 0 && <EtatVide titre="Aucun magasin rattaché à ton compte" texte="Les magasins sont tenus dans l’app du réseau." />}
       </Stack>

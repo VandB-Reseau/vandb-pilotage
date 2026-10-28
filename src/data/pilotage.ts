@@ -2,7 +2,8 @@ import type { RubriqueFEC } from '../moteur/fec'
 import type { Role } from '../auth/roles'
 import { pilotage } from '../lib/supabase'
 import { calculerBudget } from '../moteur/budget'
-import { appliquerCibles, type Cibles, type NiveauCibles, type Provenance } from '../moteur/cibles'
+import { appliquerCibles, niveauxReseau, type Cibles, type NiveauCibles, type Provenance } from '../moteur/cibles'
+import { trancheMillesime, type Ouverture } from '../moteur/projection'
 import { parametresParDefaut } from '../moteur/parametres'
 import type { TicketsMois, VenteMois } from '../import/caisse'
 import { baseDepuisReel, fraisDepuisLignes, saisonnaliteMediane, type LigneFraisMagasin, type ReelAnnees, type SecoursAtterrissage } from '../moteur/atterrissage'
@@ -29,7 +30,11 @@ export interface LigneMagasin {
   majLe: string | null
 }
 export interface Groupe { id: number; nom: string; cibles: Cibles | null }
-export interface DonneesBudgets { magasins: LigneMagasin[]; reseau: Cibles | null; groupes: Groupe[]; equipes: Record<string, Personne[]>; frais: Record<string, LigneFraisMagasin[]> }
+export interface DonneesBudgets {
+  annee?: number                       // année des budgets
+  magasins: LigneMagasin[]; reseau: Cibles | null; groupes: Groupe[]; equipes: Record<string, Personne[]>; frais: Record<string, LigneFraisMagasin[]>
+  ouvertures?: Record<string, Ouverture> // date d'ouverture des magasins (lot 24)
+}
 
 // Les budgets se préparent à partir de septembre pour l'année suivante
 export function anneeBudget(aujourdhui = new Date()): number {
@@ -63,10 +68,11 @@ const objet = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 
 
 export const chargerBudgets = (annee: number): Promise<DonneesBudgets> => memo(`budgets|${annee}`, () => lireBudgets(annee))
 async function lireBudgets(annee: number): Promise<DonneesBudgets> {
-  const [{ data, error }, equipes, frais] = await Promise.all([pilotage().rpc('budgets_du_compte', { p_annee: annee }), chargerEquipes(), chargerFrais()])
+  const [{ data, error }, equipes, frais, ouvertures] = await Promise.all([pilotage().rpc('budgets_du_compte', { p_annee: annee }), chargerEquipes(), chargerFrais(), chargerOuvertures()])
   if (error || !objet(data) || !Array.isArray(data.magasins)) throw new ErreurChargement()
   const lignes = data.magasins as { magasin: string; statut: Statut | null; base: unknown; ajustements: unknown; hypotheses: unknown; maj_le: string | null; groupe_id: number | null }[]
   return {
+    annee, ouvertures,
     magasins: lignes.map((l) => ({
       magasin: l.magasin, statut: l.statut,
       base: hypothesesValides(l.base) ? l.base : null,
@@ -81,10 +87,11 @@ async function lireBudgets(annee: number): Promise<DonneesBudgets> {
   }
 }
 
-// Niveaux d'un magasin, du réseau à ses propres ajustements
+// Niveaux d'un magasin, du réseau (hausse tarifaire, réseau, ancienneté du magasin) à ses propres ajustements
 export function niveauxDe(ligne: LigneMagasin, d: DonneesBudgets, ajustements: Cibles = ligne.ajustements): NiveauCibles[] {
   const groupe = d.groupes.find((g) => g.id === ligne.groupeId)
-  return [{ niveau: 'reseau', cibles: d.reseau }, { niveau: 'groupe', cibles: groupe?.cibles }, { niveau: 'magasin', cibles: ajustements }]
+  const tranche = d.annee ? trancheMillesime(d.ouvertures?.[ligne.magasin], d.annee) : null
+  return [...niveauxReseau(d.reseau, tranche), { niveau: 'groupe', cibles: groupe?.cibles }, { niveau: 'magasin', cibles: ajustements }]
 }
 
 // Hypothèses qui font foi : figées une fois le budget validé, sinon recalculées avec les cibles du moment
@@ -474,8 +481,19 @@ export async function enregistrerPartsRealisees(magasin: string, annee: number, 
   if (lignes.length) verifier(await pilotage().from('parts_realisees').insert(lignes))
 }
 export async function chargerSecours(magasin: string, annee: number): Promise<SecoursAtterrissage> {
-  const [parts, reel] = await Promise.all([chargerPartsRealisees(annee), chargerReelDuCompte(annee)])
-  return { parts: parts[magasin] ?? {}, saisonnaliteReseau: saisonnaliteMediane(Object.values(reel.magasins).map((r) => r.n1.map((x) => x.caHT))) }
+  const [parts, reel, ouvertures] = await Promise.all([chargerPartsRealisees(annee), chargerReelDuCompte(annee), chargerOuvertures()])
+  return { parts: parts[magasin] ?? {}, saisonnaliteReseau: saisonnaliteMediane(Object.values(reel.magasins).map((r) => r.n1.map((x) => x.caHT))), ouverture: ouvertures[magasin] ?? null }
+}
+
+// Date d'ouverture des magasins (lot 24), tenue par le Directeur ; sans la table (migration pas encore passée), aucune
+export const chargerOuvertures = (): Promise<Record<string, Ouverture>> => memo('ouvertures', async () => {
+  const { data, error } = await pilotage().from('ouvertures').select('store_name, ouverture')
+  if (error || !Array.isArray(data)) return {}
+  return Object.fromEntries((data as { store_name: string; ouverture: string }[]).map((l) => [l.store_name, { annee: Number(l.ouverture.slice(0, 4)), mois: Number(l.ouverture.slice(5, 7)) }]))
+})
+export async function enregistrerOuverture(magasin: string, o: Ouverture | null) {
+  if (!o) verifier(await pilotage().from('ouvertures').delete().eq('store_name', magasin))
+  else verifier(await pilotage().from('ouvertures').upsert({ store_name: magasin, ouverture: `${o.annee}-${String(o.mois).padStart(2, '0')}-01` }))
 }
 
 // Correspondance des comptes du FEC propre au magasin (lot 19) ; sans la table (migration pas encore passée), défaut seul

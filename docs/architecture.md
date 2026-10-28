@@ -94,6 +94,13 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
    comptable de chaque ligne (`ligneFraisDuCompte` dans l'import du FEC). Publicité franchise et royalties restent
    calculées sur le CA ; intérêts sur emprunts, des comptes courants et agios s'additionnent dans les intérêts.
    La colonne `rubrique` de la table `frais` est gardée telle quelle : aucun changement de base.
+24. Projection du CA (`src/moteur/projection.ts`) : l'atterrissage mesure le rythme de sortie de la Cave et du Bar
+   (`Hypotheses.sortie`, 4 derniers mois ÷ leur poids) ; les cibles posent `rythme`, et `calculerBudget` part de ce rythme
+   s'il reste à 15 % de l'atterrissage hors temps forts (au-delà : confirmation du Directeur). L'ancienneté
+   (`trancheMillesime`, table `ouvertures`) et la hausse tarifaire sont des niveaux de cibles (`niveauxReseau`), pas des
+   multiplicateurs. Temps forts et ajustements datés (cibles du magasin) : CA de l'an passé retiré de la base, CA du
+   budget ajouté au mois, extras de personnel et autres charges, achats payés au mois saisi (`paiementsAchats`).
+   `calageMillesimes` donne la médiane du réseau par ancienneté dans l'écran Hypothèses.
 
 ## Rôles
 

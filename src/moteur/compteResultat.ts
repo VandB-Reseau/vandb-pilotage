@@ -20,11 +20,12 @@ export function compteResultat(b: Budget, h: Hypotheses, p: { tauxRedevance: num
   const ca = b.mois.map((m) => m.ca)
   const ligne = (cle: string, libelle: string, mois: number[], o: Partial<LigneCompte> = {}): LigneCompte => ({ cle, libelle, mois, total: somme(mois), ...o })
 
-  // Détail du CA par univers : objectif de chaque univers réparti comme le CA du mois (saisonnalité et travaux)
+  // Détail du CA par univers : celui du mois quand le moteur le donne (temps forts dans leur mois, lot 24), sinon
+  // l'objectif de chaque univers réparti comme le CA du mois (saisonnalité et travaux)
   const parUnivers = UNIVERS
     .map((u) => ({ u, objectif: somme(b.familles.filter((f) => f.univers === u).map((f) => f.objectif)) }))
     .filter((x) => x.objectif > 0)
-    .map((x) => ligne(`ca/${x.u}`, universLibelle[x.u], ca.map((c) => (b.ca ? x.objectif * c / b.ca : 0)), { parent: 'ca' }))
+    .map((x) => ligne(`ca/${x.u}`, universLibelle[x.u], ca.map((c, i) => b.mois[i].univers?.[x.u].ca ?? (b.ca ? x.objectif * c / b.ca : 0)), { parent: 'ca' }))
 
   const montantFrais = (l: Hypotheses['frais'][number]) => ca.map((c) => (l.annuel ?? 0) / 12 + c * (l.tauxCA ?? 0))
   // Lignes de frais dans l'ordre et les blocs de l'onglet FFBUD (lot 23) ; les autres charges restent au-dessus de l'EBE
