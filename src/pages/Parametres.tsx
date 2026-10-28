@@ -51,11 +51,15 @@ export function Parametres() {
   const [messageTreso, setMessageTreso] = useState<{ gravite: 'success' | 'error'; texte: string } | null>(null)
   // Seuils des alertes : textes pendant la frappe, sauf l'écart de CA (pourcentage)
   const [ecartCA, setEcartCA] = useState<number | undefined>(undefined)
+  const [baisseTickets, setBaisseTickets] = useState<number | undefined>(undefined)
+  const [baissePanier, setBaissePanier] = useState<number | undefined>(undefined)
   const [seuils, setSeuils] = useState({ marge: '', retard: '', tresorerie: '' })
   const [messageAlertes, setMessageAlertes] = useState<{ gravite: 'success' | 'error'; texte: string } | null>(null)
   useEffect(() => {
     if (!p) return
     setEcartCA(p.alertes.ecartCA)
+    setBaisseTickets(p.alertes.baisseTickets)
+    setBaissePanier(p.alertes.baissePanier)
     setSeuils({ marge: String(Math.round(p.alertes.baisseMarge * 1000) / 10).replace('.', ','), retard: String(p.alertes.moisRetard), tresorerie: enChiffres(p.alertes.tresorerie) })
     setTreso(p.tresorerie)
     setDelais({
@@ -115,7 +119,8 @@ export function Parametres() {
     && margeLue !== null && !Number.isNaN(margeLue) && margeLue >= 0
     && retardLu !== null && Number.isInteger(retardLu) && retardLu >= 0 && retardLu <= 12
     && tresorerieLue !== null && !Number.isNaN(tresorerieLue)
-    ? { ecartCA, baisseMarge: margeLue / 100, moisRetard: retardLu, tresorerie: tresorerieLue } : null
+    && baisseTickets !== undefined && baisseTickets >= 0 && baissePanier !== undefined && baissePanier >= 0
+    ? { ecartCA, baisseMarge: margeLue / 100, moisRetard: retardLu, tresorerie: tresorerieLue, baisseTickets, baissePanier } : null
   const alertesModifiees = !!p && seuils.retard !== '' && JSON.stringify(alertesLues) !== JSON.stringify(p.alertes)
   useSaisieEnCours(alertesModifiees)
   const enregistrerAlertes = async () => {
@@ -228,6 +233,14 @@ export function Parametres() {
               <TableRow>
                 <TableCell>Taux de marge sous celui de l’an dernier, mêmes mois, de plus de</TableCell>
                 <TableCell align="right"><ChampNombre libelle="Baisse du taux de marge" valeur={seuils.marge} unite="pt" largeur={120} onChange={(v) => setSeuils((x) => ({ ...x, marge: v }))} /></TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell>Tickets des 3 derniers mois sous ceux de l’an dernier, Cave ou Bar, de plus de</TableCell>
+                <TableCell align="right"><ChampTaux libelle="Baisse des tickets" valeur={baisseTickets} onChange={setBaisseTickets} /></TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell>Panier moyen TTC des 3 derniers mois sous celui de l’an dernier, Cave ou Bar, de plus de</TableCell>
+                <TableCell align="right"><ChampTaux libelle="Baisse du panier moyen" valeur={baissePanier} onChange={setBaissePanier} /></TableCell>
               </TableRow>
               <TableRow>
                 <TableCell>Mois terminés absents du réel, à partir de (0 : pas d’alerte)</TableCell>

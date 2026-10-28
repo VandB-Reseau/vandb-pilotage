@@ -20,6 +20,7 @@ import {
 } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { ecartPts, ecartTaux, montant, MOIS_LONGS } from '../lib/format'
+import { universLibelle } from '../moteur/types'
 import { effetAction, mesureDeAlerte, type Alerte, type Mesure, type TypeAction, type TypeAlerte } from '../moteur/alertes'
 
 const RESPONSABLES: Responsable[] = ['franchise', 'coach', 'rr', 'directeur']
@@ -33,6 +34,7 @@ export function texteMesure(type: TypeAlerte, m: Mesure): string {
   switch (type) {
     case 'ca': return `${ecartTaux(m.valeur)} face au budget${fin}`
     case 'marge': return `${ecartPts(m.valeur)} sur l’an dernier${fin}`
+    case 'tickets': case 'panier': return `${ecartTaux(m.valeur)} sur l’an dernier, 3 mois${fin}`
     case 'reel': return m.valeur === 0 ? 'Réel à jour' : m.valeur === 1 ? '1 mois manquant' : `${m.valeur} mois manquants`
     case 'tresorerie': return `${montant(m.valeur)}${fin}`
   }
@@ -166,7 +168,9 @@ function NouvelleActionForm({ magasin, alertes, depuis, occupe, valider, annuler
   annuler: () => void
 }) {
   const [choix, setChoix] = useState(depuis === 'autre' ? -1 : Math.max(0, alertes.findIndex((a) => texteAlerte(a) === texteAlerte(depuis))))
-  const [intitule, setIntitule] = useState('')
+  // Tickets et panier (lot 28) : l'action part du levier commercial, à compléter
+  const [intitule, setIntitule] = useState(depuis !== 'autre' && (depuis.type === 'tickets' || depuis.type === 'panier')
+    ? `${depuis.type === 'tickets' ? 'Fréquentation' : 'Vente additionnelle'} ${universLibelle[depuis.univers]} : ` : '')
   const [responsable, setResponsable] = useState<Responsable>('franchise')
   const [echeance, setEcheance] = useState('')
   const alerte = choix >= 0 ? alertes[choix] : null

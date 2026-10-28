@@ -133,11 +133,45 @@ test('ouvert en février de l’an passé : saisonnalité du réseau, pas celle 
   // 2025 de février à décembre, montée en charge : 2 000 puis + 1 000 par mois
   const n1Lancement = cave(Object.fromEntries(Array.from({ length: 11 }, (_, i) => [i + 2, 2_000 + 1_000 * i])))
   const n = cave(Object.fromEntries(Array.from({ length: 8 }, (_, i) => [i + 1, 15_000])))   // 120 000 de janvier à août
-  // 19 mois d'activité à fin août : plus de montée en charge ; 2025 sans janvier : réseau, 120 000 / 60 % = 200 000
+  // 19 mois d'activité à fin août : plus de montée en charge ; 2025 sans janvier : réseau, 120 000 / 60 % = 200 000.
+  // Lot 28 : le rythme de mai à août (60 000 pour 30 % du réseau) donne aussi 200 000, écart nul : il est retenu
   const r = baseDepuisReel({ n: { lignes: n, tickets: [] }, n1: { lignes: n1Lancement, tickets: [] } }, 2026, [], undefined, { saisonnaliteReseau: reseau, ouverture: { annee: 2025, mois: 2 } })!
-  expect(r.methodes.cave).toBe('reseau')
+  expect(r.methodes.cave).toBe('rythme')
   proche(r.parMois.reduce((a, x) => a + x.ca, 0), 200_000)
-  // Même magasin ouvert en janvier 2025 : 2025 complète, sa propre saisonnalité sert
+  // Même magasin ouvert en janvier 2025 : 2025 complète, sa propre saisonnalité (plate) sert, au rythme de mai à août :
+  // 60 000 pour 4/12 → 60 000 de septembre à décembre, 180 000 (et non 200 000 avec celle du réseau)
   const complet = cave(Object.fromEntries(Array.from({ length: 12 }, (_, i) => [i + 1, 10_000])))
-  expect(baseDepuisReel({ n: { lignes: n, tickets: [] }, n1: { lignes: complet, tickets: [] } }, 2026, [], undefined, { saisonnaliteReseau: reseau, ouverture: { annee: 2025, mois: 1 } })!.methodes.cave).toBe('magasin')
+  const propre = baseDepuisReel({ n: { lignes: n, tickets: [] }, n1: { lignes: complet, tickets: [] } }, 2026, [], undefined, { saisonnaliteReseau: reseau, ouverture: { annee: 2025, mois: 1 } })!
+  expect(propre.methodes.cave).toBe('rythme')
+  proche(propre.parMois.reduce((a, x) => a + x.ca, 0), 180_000)
+})
+
+test('lot 28 : les mois restants suivent le rythme des 4 derniers mois tant que l’écart reste sous 15 %', () => {
+  // 2025 complète à 10 000 par mois : saisonnalité plate du magasin
+  const plat = cave(Object.fromEntries(Array.from({ length: 12 }, (_, i) => [i + 1, 10_000])))
+  const annee = (r: NonNullable<ReturnType<typeof baseDepuisReel>>) => r.parMois.reduce((a, x) => a + x.ca, 0)
+  // 10 000 de janvier à avril, 12 000 de mai à août : 88 000. Moyenne : 88 000 / (8/12) = 132 000.
+  // Rythme : 48 000 sur mai-août (4/12) → 48 000 pour septembre-décembre (4/12), 136 000, + 3,0 % : retenu
+  const accelere = cave({ 1: 10_000, 2: 10_000, 3: 10_000, 4: 10_000, 5: 12_000, 6: 12_000, 7: 12_000, 8: 12_000 })
+  const r = baseDepuisReel({ n: { lignes: accelere, tickets: [] }, n1: { lignes: plat, tickets: [] } }, 2026)!
+  expect(r.methodes.cave).toBe('rythme')
+  expect(r.rythmes?.cave).toEqual({ de: 5, a: 8, ca: 48_000 })
+  proche(annee(r), 136_000)
+  proche(r.parMois[8].ca, 12_000)                                    // septembre au rythme de l'été
+  expect(r.ecartsRythme).toBeUndefined()
+
+  // 30 000 de mai à août : 160 000. Saisonnalité : 240 000. Rythme : 160 000 + 120 000 = 280 000, + 16,7 % : écarté
+  const bond = cave({ 1: 10_000, 2: 10_000, 3: 10_000, 4: 10_000, 5: 30_000, 6: 30_000, 7: 30_000, 8: 30_000 })
+  const b = baseDepuisReel({ n: { lignes: bond, tickets: [] }, n1: { lignes: plat, tickets: [] } }, 2026)!
+  expect(b.methodes.cave).toBe('magasin')
+  proche(annee(b), 240_000)
+  expect(b.ecartsRythme?.cave).toMatchObject({ de: 5, a: 8 })
+  proche(b.ecartsRythme!.cave!.atterrissage, 280_000)
+  proche(b.ecartsRythme!.cave!.ecart, 1 / 6)
+  proche(b.ecartsRythme!.cave!.part, 160_000 / 280_000)             // la part à saisir pour retenir le rythme
+
+  // Moins de 4 mois réalisés : pas de rythme
+  const court = baseDepuisReel({ n: { lignes: cave({ 1: 10_000, 2: 10_000, 3: 30_000 }), tickets: [] }, n1: { lignes: plat, tickets: [] } }, 2026)!
+  expect(court.methodes.cave).toBe('magasin')
+  expect(court.ecartsRythme).toBeUndefined()
 })

@@ -14,14 +14,20 @@ import CheckCircleOutline from '@mui/icons-material/CheckCircleOutlineOutlined'
 import EventBusyOutlined from '@mui/icons-material/EventBusyOutlined'
 import PercentOutlined from '@mui/icons-material/PercentOutlined'
 import TrendingDownOutlined from '@mui/icons-material/TrendingDownOutlined'
+import PeopleOutlineOutlined from '@mui/icons-material/PeopleOutlineOutlined'
+import ShoppingBasketOutlined from '@mui/icons-material/ShoppingBasketOutlined'
 import { chargerActions, type Action } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
-import { ecartPts, ecartTaux, lienMagasin, montant, MOIS_LONGS, taux } from '../lib/format'
+import { ecartPts, ecartTaux, lienMagasin, montant, MOIS_LONGS, panier as prixPanier, taux } from '../lib/format'
+import { universLibelle } from '../moteur/types'
 import { TYPES_ALERTE, type Alerte, type TypeAlerte } from '../moteur/alertes'
 
-export const typeAlerteLibelle: Record<TypeAlerte, string> = { tresorerie: 'Trésorerie basse', ca: 'CA sous le budget', marge: 'Marge en baisse', reel: 'Réel en retard' }
+export const typeAlerteLibelle: Record<TypeAlerte, string> = {
+  tresorerie: 'Trésorerie basse', ca: 'CA sous le budget', marge: 'Marge en baisse', tickets: 'Tickets en baisse', panier: 'Panier en baisse', reel: 'Réel en retard',
+}
 const ICONE: Record<TypeAlerte, React.ReactNode> = {
   tresorerie: <AccountBalanceWalletOutlined />, ca: <TrendingDownOutlined />, marge: <PercentOutlined />, reel: <EventBusyOutlined />,
+  tickets: <PeopleOutlineOutlined />, panier: <ShoppingBasketOutlined />,
 }
 const FIN_QUADRIMESTRE = { 1: 'avril', 2: 'août', 3: 'décembre' } as const
 
@@ -29,6 +35,8 @@ export function texteAlerte(a: Alerte): string {
   switch (a.type) {
     case 'ca': return `CA ${ecartTaux(a.ecart)} face au budget à fin ${MOIS_LONGS[a.mois - 1]}`
     case 'marge': return `Taux de marge de ${taux(a.taux)}, ${ecartPts(a.ecart)} sur l’an dernier à fin ${MOIS_LONGS[a.mois - 1]}`
+    case 'tickets': return `Tickets ${universLibelle[a.univers]} ${ecartTaux(a.ecart)} sur l’an dernier, de ${MOIS_LONGS[a.de - 1]} à ${MOIS_LONGS[a.mois - 1]}`
+    case 'panier': return `Panier ${universLibelle[a.univers]} de ${prixPanier(a.panier)} TTC, ${ecartTaux(a.ecart)} sur l’an dernier, de ${MOIS_LONGS[a.de - 1]} à ${MOIS_LONGS[a.mois - 1]}`
     case 'reel': return a.dernier === 0 ? 'Aucun mois de réel cette année'
       : `Réel arrêté à fin ${MOIS_LONGS[a.dernier - 1]}, ${a.manquants === 1 ? '1 mois manquant' : `${a.manquants} mois manquants`}`
     case 'tresorerie': return a.source === 'reel' ? `Trésorerie de ${montant(a.montant)} fin ${FIN_QUADRIMESTRE[a.quadrimestre]}`
@@ -36,7 +44,7 @@ export function texteAlerte(a: Alerte): string {
   }
 }
 // Onglet de la fiche où l'alerte se lit
-const ongletDe = (a: Alerte) => (a.type === 'reel' ? 'reel' : a.type === 'tresorerie' ? (a.source === 'reel' ? 'quadrimestres' : 'resultat') : 'suivi')
+const ongletDe = (a: Alerte) => (a.type === 'reel' || a.type === 'tickets' || a.type === 'panier' ? 'reel' : a.type === 'tresorerie' ? (a.source === 'reel' ? 'quadrimestres' : 'resultat') : 'suivi')
 
 const PREMIERES = 6
 

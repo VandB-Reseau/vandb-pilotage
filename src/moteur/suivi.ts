@@ -113,6 +113,7 @@ export interface LigneReseau {
   ticketsCave: number | null
   ticketsBar: number | null
   personnelSurMarge: number | null // masse salariale de l'équipe sur la marge des mêmes mois
+  caParHeure: number | null        // CA HT par heure travaillée de l'équipe, mêmes mois (lot 28)
   ebeSurCA: number | null          // EBE estimé à date : marge − redevance, publicité, frais et équipe des mêmes mois
   loyerSurCA: number | null        // ligne « Locations immobilières » des frais sur le CA des mêmes mois
   sommes: Sommes
@@ -121,7 +122,7 @@ export interface LigneReseau {
 interface Sommes {
   ca: number; caN1: number | null; caBudget: number | null
   marge: number; caAvecMarge: number; margeEstimee: number | null
-  caTTC: number; tickets: number; personnel: number | null; ebe: number | null; loyer: number | null
+  caTTC: number; tickets: number; personnel: number | null; heures: number | null; ebe: number | null; loyer: number | null
   univers: Record<UniversTickets, SommesUnivers>
 }
 // caTTC et ticketsPanier : mois où CA TTC et tickets sont connus ; tickets et ticketsN1 : tous les mois réalisés
@@ -136,6 +137,7 @@ const pourcentages = (s: Sommes) => ({
   ticketsCave: s.univers.cave.ticketsN1 > 0 && s.univers.cave.tickets > 0 ? s.univers.cave.tickets / s.univers.cave.ticketsN1 - 1 : null,
   ticketsBar: s.univers.bar.ticketsN1 > 0 && s.univers.bar.tickets > 0 ? s.univers.bar.tickets / s.univers.bar.ticketsN1 - 1 : null,
   personnelSurMarge: s.personnel !== null && s.margeEstimee ? s.personnel / s.margeEstimee : null,
+  caParHeure: s.heures ? s.ca / s.heures : null,
   ebeSurCA: s.ebe !== null && s.ca ? s.ebe / s.ca : null,
   loyerSurCA: s.loyer !== null && s.ca ? s.loyer / s.ca : null,
 })
@@ -160,7 +162,9 @@ export function ligneReseau(e: EntreeReseau, p: ParametresReseauSuivi): LigneRes
   const margeEstimee = caAvecMarge > 0 ? ca * marge / caAvecMarge : null
   // Panier moyen : seulement les mois où CA TTC et tickets sont connus
   const avecPanier = mois.filter((x) => x.tickets > 0 && x.caTTC > 0)
-  const personnel = m && e.equipe?.length ? somme(masseSalariale(e.equipe, p.charges, p.annee).parMois.slice(0, m).map((x) => x.cout)) : null
+  const equipe = m && e.equipe?.length ? masseSalariale(e.equipe, p.charges, p.annee).parMois.slice(0, m) : null
+  const personnel = equipe ? somme(equipe.map((x) => x.cout)) : null
+  const heures = equipe ? somme(equipe.map((x) => x.heures)) || null : null
   const aDate = (l: LigneFrais) => (l.annuel ?? 0) * m / 12 + ca * (l.tauxCA ?? 0)
   const frais = m && e.frais?.length ? somme(e.frais.map(aDate)) : null
   const loyers = e.frais?.filter((l) => l.code === 'loyer') ?? []
@@ -168,7 +172,7 @@ export function ligneReseau(e: EntreeReseau, p: ParametresReseauSuivi): LigneRes
     ca, caN1: m && caN1 > 0 ? caN1 : null, caBudget: m && caBudget > 0 ? caBudget : null,
     marge, caAvecMarge, margeEstimee,
     caTTC: somme(avecPanier.map((x) => x.caTTC)), tickets: somme(avecPanier.map((x) => x.tickets)),
-    personnel,
+    personnel, heures,
     ebe: margeEstimee !== null && personnel !== null && frais !== null ? margeEstimee - ca * (p.tauxRedevance + p.tauxPublicite) - frais - personnel : null,
     loyer: m && loyers.length ? somme(loyers.map(aDate)) : null,
     univers: { cave: sommesUnivers(mois, e.n1.slice(0, m), 'cave'), bar: sommesUnivers(mois, e.n1.slice(0, m), 'bar') },
@@ -186,7 +190,7 @@ export function totalReseau(lignes: LigneReseau[]): Omit<LigneReseau, 'magasin' 
     ca: t((s) => s.ca),
     caN1: avec('caN1', (s) => s.caN1!) || null, caBudget: avec('caBudget', (s) => s.caBudget!) || null,
     marge: t((s) => s.marge), caAvecMarge: t((s) => s.caAvecMarge),
-    margeEstimee: null, caTTC: t((s) => s.caTTC), tickets: t((s) => s.tickets), personnel: null, ebe: null, loyer: null,
+    margeEstimee: null, caTTC: t((s) => s.caTTC), tickets: t((s) => s.tickets), personnel: null, heures: null, ebe: null, loyer: null,
     univers: Object.fromEntries(UNIVERS_PANIER.map((u) => {
       const v = l.map((s) => s.univers[u])
       // Évolution des tickets : seulement les magasins qui ont des tickets l'an dernier
@@ -206,6 +210,8 @@ export function totalReseau(lignes: LigneReseau[]): Omit<LigneReseau, 'magasin' 
     ecartBudget: sommes.caBudget ? avec('caBudget', (s) => s.ca) / sommes.caBudget - 1 : null,
     tauxMarge: p.tauxMarge, panierCave: p.panierCave, panierBar: p.panierBar, ticketsCave: p.ticketsCave, ticketsBar: p.ticketsBar,
     personnelSurMarge: ratioSur('personnel', (s) => s.margeEstimee),
+    // CA par heure : CA des seuls magasins dont l'équipe est connue, sur leurs heures
+    caParHeure: (() => { const v = l.filter((s) => s.heures); return v.length ? somme(v.map((s) => s.ca)) / somme(v.map((s) => s.heures!)) : null })(),
     ebeSurCA: ratioSur('ebe', (s) => s.ca),
     loyerSurCA: ratioSur('loyer', (s) => s.ca),
   }
