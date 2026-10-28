@@ -95,7 +95,9 @@ export function avecEquipeEtFrais(base: Hypotheses, equipe: Personne[] | undefin
 // Atterrissage de l'année d'un magasin : réel des mois passés, projection, équipe et frais enregistrés
 export function atterrissageDe(reel: ReelAnnees, annee: number, equipe: Personne[] | undefined, frais: LigneFraisMagasin[] | undefined, parametres: ParametresReseau, secours?: SecoursAtterrissage) {
   const r = baseDepuisReel(reel, annee, [], undefined, secours)
-  return r ? { ...r, budget: calculerBudget(avecEquipeEtFrais(r.base, equipe, frais), parametres) } : null
+  if (!r) return null
+  const hypotheses = avecEquipeEtFrais(r.base, equipe, frais)
+  return { ...r, hypotheses, budget: calculerBudget(hypotheses, parametres) }
 }
 export function hypothesesDe(ligne: LigneMagasin, d: DonneesBudgets, ajustements?: Cibles): { hypotheses: Hypotheses; provenance: Provenance[] } | null {
   const base = ligne.base ? avecEquipeEtFrais(ligne.base, d.equipes[ligne.magasin], d.frais[ligne.magasin]) : null

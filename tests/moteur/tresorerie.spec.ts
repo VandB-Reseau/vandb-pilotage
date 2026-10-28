@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { calculerBudget } from '../../src/moteur/budget'
 import { parametresParDefaut } from '../../src/moteur/parametres'
-import { tresorerieBudget, tresorerieParDefaut } from '../../src/moteur/tresorerie'
+import { tresorerieBudget, tresorerieGlissante, tresorerieParDefaut, type Tresorerie } from '../../src/moteur/tresorerie'
 import type { Budget, Hypotheses } from '../../src/moteur/types'
 import { magasinFictif } from '../donnees-fictives'
 
@@ -94,4 +94,16 @@ test('consignes : payées avec les achats, remboursées deux mois après (un moi
   proche(dec.flux - sans.mois[11].flux, -900)
   proche(jan.flux - sans.mois[0].flux, 0)
   proche(fev.flux - sans.mois[1].flux, -900 + 1_800)              // vides de décembre remboursés
+})
+
+test('trésorerie glissante : réel de fin août, puis les flux de l’atterrissage', () => {
+  // Flux de 1 000 € par mois, −8 000 € en novembre ; 5 000 € en banque fin août
+  const t = { mois: Array.from({ length: 12 }, (_, i) => ({ flux: i === 10 ? -8_000 : 1_000 })) } as unknown as Tresorerie
+  const g = tresorerieGlissante(t, { montant: 5_000, mois: 7 })
+  expect(g.mois.map((m) => m.fin)).toEqual([6_000, 7_000, -1_000, 0])   // septembre à décembre
+  expect(g.pointBas).toEqual({ montant: -1_000, mois: 10 })
+  expect(g.moisNegatifs).toBe(1)
+  expect(g.fin).toBe(0)
+  // Fin décembre connue : plus rien à projeter
+  expect(tresorerieGlissante(t, { montant: 3_000, mois: 11 })).toMatchObject({ mois: [], fin: 3_000, pointBas: { montant: 3_000, mois: 11 } })
 })

@@ -97,3 +97,27 @@ test('le Directeur importe le fichier des comptables : code caisse ou nom du mag
     { store_name: MAGASINS[0], annee: 2026, quadrimestre: 2, achats: 100_000, variation_stock: null, charges_externes: null, impots_taxes: null, personnel: null, tresorerie: null },
   ])
 })
+
+test('trésorerie glissante : fin avril saisie, puis mai à décembre selon l’atterrissage', async ({ page, isMobile }, info) => {
+  const quadrimestres: QuadrimestreSimule[] = [
+    { store_name: MAGASINS[0], annee: N, quadrimestre: 1, achats: 130_000, variation_stock: 8_000, charges_externes: 30_000, impots_taxes: 3_000, personnel: 35_000, tresorerie: 25_000 },
+  ]
+  await seConnecter(page, { role: 'franchise', magasins: [magasin], reel, quadrimestres })
+  await page.getByRole('tab', { name: 'Quadrimestres' }).click()
+  const section = page.getByRole('region', { name: 'Trésorerie prévue jusqu’à décembre' })
+  await expect(section).toContainText(/Trésorerie fin avril25\sk€/)
+  const tableau = section.getByRole('table', { name: `Trésorerie prévue ${N} mois par mois` })
+  await expect(tableau.getByRole('columnheader')).toHaveText(['En euros', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.'])
+  // Chaque fin de mois = la précédente + la variation du mois
+  const lire = (t: string) => Number(t.replace(/[\s  +]/g, '').replace('−', '-').replace('€', ''))
+  const flux = (await tableau.getByRole('row').nth(1).getByRole('cell').allTextContents()).slice(1).map(lire)
+  const fins = (await tableau.getByRole('row').nth(2).getByRole('cell').allTextContents()).slice(1).map(lire)
+  expect(Math.abs(fins[0] - (25_000 + flux[0]))).toBeLessThanOrEqual(1)
+  expect(Math.abs(fins[7] - (fins[6] + flux[7]))).toBeLessThanOrEqual(1)
+  // La trésorerie saisie change : la prévision suit sans enregistrer
+  await page.getByLabel('Trésorerie en fin de période : janvier à avril').fill('35000')
+  await expect(section).toContainText(/Trésorerie fin avril35\sk€/)
+  expect(await textesTropPetits(page)).toEqual([])
+  if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
+  await section.screenshot({ path: `captures/${info.project.name}-tresorerie-glissante.png` })
+})

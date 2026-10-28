@@ -17,10 +17,11 @@ import { ChampNombre } from './ChampNombre'
 import { useSaisieEnCours } from './GardeSaisie'
 import { Indicateur } from './Indicateur'
 import { Panne } from './Panne'
-import { chargerBudgets, chargerParametres, chargerQuadrimestres, chargerReel, enregistrerQuadrimestres, hypothesesDe } from '../data/pilotage'
+import { atterrissageDe, chargerBudgets, chargerParametres, chargerQuadrimestres, chargerReel, chargerSecours, enregistrerQuadrimestres, hypothesesDe } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { nombre } from '../import/caisse'
-import { ecartMontant, ecartPts, enChiffres, milliers, taux } from '../lib/format'
+import { ecartMontant, ecartPts, enChiffres, milliers, MOIS, MOIS_LONGS, taux } from '../lib/format'
+import { tresorerieBudget, tresorerieGlissante } from '../moteur/tresorerie'
 import { calculerBudget } from '../moteur/budget'
 import { QUADRIMESTRES, quadrimestreLibelle, resultatsQuadrimestres, type Quadrimestre, type ResultatQuadrimestre, type SaisieQuadrimestre } from '../moteur/quadrimestre'
 import { moisDuReel } from '../moteur/suivi'
@@ -43,8 +44,8 @@ const vers = (saisies: Partial<Record<Quadrimestre, SaisieQuadrimestre>>): Texte
 // Résultat réel tous les 4 mois : quelques montants comptables saisis, le reste calculé (CA de la caisse, marge, EBE)
 export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: string; annee: number; peutSaisir: boolean }) {
   const { donnees, erreur, chargement, recharger } = useChargement(
-    () => Promise.all([chargerBudgets(annee), chargerParametres(annee), chargerReel(magasin, annee), chargerQuadrimestres(annee)])
-      .then(([d, p, reel, q]) => ({ d, parametres: p.parametres, reel, saisies: q[magasin] ?? {} })),
+    () => Promise.all([chargerBudgets(annee), chargerParametres(annee), chargerReel(magasin, annee), chargerQuadrimestres(annee), chargerReel(magasin, annee - 1), chargerSecours(magasin, annee)])
+      .then(([d, p, reel, q, reelN1, secours]) => ({ d, parametres: p.parametres, reel, saisies: q[magasin] ?? {}, reelN1, secours })),
     [magasin, annee])
   const [textes, setTextes] = useState<Textes>(vers({}))
   const [message, setMessage] = useState<{ gravite: 'success' | 'error'; texte: string } | null>(null)
@@ -70,6 +71,12 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
   const budget = h ? calculerBudget(h.hypotheses, donnees.parametres) : null
   const { parQuadrimestre, cumul, dernier } = resultatsQuadrimestres(moisDuReel(donnees.reel.lignes, donnees.reel.tickets), lues, budget)
   const colonnes: (ResultatQuadrimestre | null)[] = [...parQuadrimestre, cumul]
+  // Trésorerie glissante : dernière trésorerie saisie, puis les flux de l'atterrissage jusqu'à décembre
+  const qTreso = [...QUADRIMESTRES].reverse().find((q) => lues[q]?.tresorerie != null)
+  const atterri = qTreso && qTreso < 3 ? atterrissageDe({ n: donnees.reel, n1: donnees.reelN1 }, annee, donnees.d.equipes[magasin], donnees.d.frais[magasin], donnees.parametres, donnees.secours) : null
+  const glissante = atterri && qTreso
+    ? tresorerieGlissante(tresorerieBudget(atterri.budget, atterri.hypotheses, donnees.parametres, donnees.parametres.tresorerie), { montant: lues[qTreso]!.tresorerie!, mois: qTreso * 4 - 1 })
+    : null
 
   const enregistrer = async () => {
     setOccupe(true)
@@ -171,6 +178,40 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
           </Table>
         </TableContainer>
       </Card>
+
+      {glissante && (
+        <Card component="section" aria-label="Trésorerie prévue jusqu’à décembre">
+          <Box sx={{ px: 2.5, pt: 2, pb: 1 }}>
+            <Typography variant="h2">Trésorerie prévue jusqu’à décembre</Typography>
+          </Box>
+          <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap', px: 2.5, pb: 1.5 }}>
+            <Indicateur libelle={`Trésorerie fin ${MOIS_LONGS[glissante.depart.mois]}`} valeur={milliers(glissante.depart.montant)} detail="Saisie au quadrimestre" />
+            <Indicateur libelle="Point bas prévu" valeur={milliers(glissante.pointBas.montant)}
+              detail={`${MOIS_LONGS[glissante.pointBas.mois].charAt(0).toUpperCase()}${MOIS_LONGS[glissante.pointBas.mois].slice(1)}${glissante.moisNegatifs ? `, ${glissante.moisNegatifs} mois à découvert` : ''}`} />
+            <Indicateur libelle="Trésorerie fin décembre prévue" valeur={milliers(glissante.fin)} detail="Selon l’atterrissage de l’année" />
+          </Stack>
+          <TableContainer>
+            <Table size="small" aria-label={`Trésorerie prévue ${annee} mois par mois`} sx={{ '& td, & th': { whiteSpace: 'nowrap' }, '& td:first-of-type, & th:first-of-type': { pl: 2.5 } }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell><Box component="span" sx={{ fontWeight: 400 }}>En euros</Box></TableCell>
+                  {glissante.mois.map((m) => <TableCell key={m.mois} align="right">{MOIS[m.mois]}</TableCell>)}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                <TableRow>
+                  <TableCell>Variation du mois</TableCell>
+                  {glissante.mois.map((m) => <TableCell key={m.mois} align="right">{ecartMontant(m.flux)}</TableCell>)}
+                </TableRow>
+                <TableRow sx={{ '& td': { fontWeight: 700, bgcolor: 'background.default' } }}>
+                  <TableCell>Trésorerie en fin de mois</TableCell>
+                  {glissante.mois.map((m) => <TableCell key={m.mois} align="right" sx={m.fin < 0 ? { color: 'error.main' } : undefined}>{enChiffres(Math.round(m.fin))}</TableCell>)}
+                </TableRow>
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Card>
+      )}
     </Stack>
   )
 }

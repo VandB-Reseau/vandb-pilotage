@@ -13,6 +13,13 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
   (au moins 3 magasins avec leurs 12 mois), puis la moyenne des mois réalisés. Repris dans la synthèse.
 - **Base : migration `0009_parts_realisees.sql` à passer.**
 
+### Lot 17 — Trésorerie glissante
+
+- Onglet Quadrimestres : trésorerie prévue jusqu'à décembre, à partir de la dernière trésorerie saisie (fin avril ou
+  fin août) et des flux de l'atterrissage de l'année (mêmes délais et TVA que la trésorerie du budget). Point bas prévu,
+  mois à découvert, trésorerie de fin décembre ; suit la saisie sans enregistrer.
+- Pas de migration.
+
 ### Lot 12 — Quadrimestres : résultat réel tous les 4 mois
 
 - Fiche magasin, onglet Quadrimestres : six montants comptables par période (achats de marchandises, variation de

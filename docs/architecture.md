@@ -53,6 +53,8 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
 12. Quadrimestres : tous les 4 mois, le franchisé (ou l'équipe) saisit six montants comptables, ou le Directeur importe
    le fichier des comptables. `resultatsQuadrimestres` y ajoute le CA de la caisse : marge réelle = CA − (achats −
    variation de stock), écart à la marge théorique de la caisse (démarque constatée), EBE réel face au budget.
+   Trésorerie glissante : `tresorerieGlissante` part de la dernière trésorerie saisie et ajoute les flux de
+   l'atterrissage (`tresorerieBudget` appliqué à l'atterrissage) jusqu'à décembre.
 13. Alertes : `chargerAlertes` rassemble le réel de l'année (`reel_du_compte`), son budget, l'an dernier, la trésorerie
    du dernier quadrimestre et le point bas du budget à venir ; `alertesMagasin` applique les seuils des Paramètres réseau
    de l'année du budget. Affichées à l'accueil, dans la vue Réseau (selon les filtres) et en tête de la synthèse d'un
