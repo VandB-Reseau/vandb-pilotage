@@ -24,6 +24,7 @@ import FilterListOutlined from '@mui/icons-material/FilterListOutlined'
 import { useAuth } from '../auth/AuthContext'
 import { AlertesMagasins, typeAlerteLibelle } from '../components/AlertesMagasins'
 import { ATraiter } from '../components/ATraiter'
+import { CampagneBudgets } from '../components/CampagneBudgets'
 import { estDirecteur, estEquipe } from '../auth/roles'
 import { EtatVide } from '../components/EtatVide'
 import { Indicateur } from '../components/Indicateur'
@@ -37,6 +38,7 @@ import { calculerBudget } from '../moteur/budget'
 import { tresorerieBudget } from '../moteur/tresorerie'
 import { syntheseBudgets, totalBudgets } from '../moteur/sante'
 import type { Alerte } from '../moteur/alertes'
+import { campagneDe } from '../moteur/campagne'
 
 // Liste des magasins (lot 27) : une ligne par magasin, colonnes triables, alertes et EBE / CA lisibles d'un coup d'œil
 const ENTETES = [
@@ -87,7 +89,7 @@ export function Magasins() {
       ])
       const groupes = new Map(d.groupes.map((g) => [g.id, g.nom]))
       return {
-        groupes: d.groupes, alertes, actions,
+        groupes: d.groupes, alertes, actions, campagne: campagneDe(parametres, annee),
         magasins: d.magasins.map((l) => {
           const h = hypothesesDe(l, d)
           const budget = h ? calculerBudget(h.hypotheses, parametres) : null
@@ -188,6 +190,11 @@ export function Magasins() {
                 annee={annee} directeur={estDirecteur(profil)} etat={{ liste: tous.map((m) => m.magasin) }}
                 filtrer={(f) => { changer('filtre', f === 'tous' ? null : f); document.querySelector('[aria-label="Filtres"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}
               />
+            </Box>
+          )}
+          {estEquipe(profil) && (
+            <Box sx={{ mb: 3 }}>
+              <CampagneBudgets annee={annee} campagne={donnees.campagne} magasins={tous} aujourdhui={new Date().toISOString().slice(0, 10)} />
             </Box>
           )}
           {synthese && (

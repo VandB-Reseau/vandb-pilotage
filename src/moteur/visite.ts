@@ -10,7 +10,7 @@ import type { Budget } from './types'
 // - panier en baisse : euros perdus par ticket × tickets de l'année, ramené en HT, × taux de marge
 // Tickets et panier : seulement les mois où l'univers a des tickets les deux années. Cave et Bar jamais additionnés.
 
-export interface UniversVisite { tickets: number; ticketsN1: number; panier: number; panierN1: number; mois: number }
+export interface UniversVisite { tickets: number; ticketsN1: number; panier: number; panierN1: number; mois: number; evolutionTickets: number; evolutionPanier: number }
 export type SujetVisite =
   | { type: 'ca'; ecart: number; enJeu: number }                                    // ecart : −0,08 = 8 % sous le budget
   | { type: 'marge'; ecart: number; enJeu: number }                                 // ecart en points, négatif
@@ -18,7 +18,8 @@ export type SujetVisite =
 export interface FicheVisite {
   mois: number                                   // dernier mois réalisé (1 à 12), 0 : aucun
   ca: number; caBudget: number | null; caN1: number | null
-  tauxMarge: number | null; tauxMargeN1: number | null
+  ecartBudget: number | null; evolution: number | null       // −0,08 = 8 % sous le budget ; sur l'an dernier
+  tauxMarge: number | null; tauxMargeN1: number | null; ecartMarge: number | null   // ecartMarge en points
   univers: Partial<Record<UniversTickets, UniversVisite>>
   sujets: SujetVisite[]                          // trois au plus, le plus d'euros en jeu d'abord
 }
@@ -43,7 +44,8 @@ export function ficheVisite(e: { n: MoisReel[]; n1: MoisReel[]; budget: Budget |
     if (!i.length) continue
     const de = (l: MoisReel[], f: 'tickets' | 'caTTC') => somme(i.map((k) => l[k].univers![u][f]))
     const tickets = de(mois, 'tickets'), ticketsN1 = de(mois1, 'tickets')
-    univers[u] = { tickets, ticketsN1, panier: de(mois, 'caTTC') / tickets, panierN1: de(mois1, 'caTTC') / ticketsN1, mois: i.length }
+    const panier = de(mois, 'caTTC') / tickets, panierN1 = de(mois1, 'caTTC') / ticketsN1
+    univers[u] = { tickets, ticketsN1, panier, panierN1, mois: i.length, evolutionTickets: tickets / ticketsN1 - 1, evolutionPanier: panierN1 > 0 ? panier / panierN1 - 1 : 0 }
   }
 
   const sujets: SujetVisite[] = []
@@ -55,9 +57,13 @@ export function ficheVisite(e: { n: MoisReel[]; n1: MoisReel[]; budget: Budget |
     const v = univers[u]
     if (!v) continue
     const ht = 1 / (1 + tvaPanier[u])
-    if (v.tickets < v.ticketsN1) sujets.push({ type: 'tickets', univers: u, ecart: v.tickets / v.ticketsN1 - 1, enJeu: (v.ticketsN1 - v.tickets) * v.panierN1 * ht * t })
-    if (v.panier < v.panierN1) sujets.push({ type: 'panier', univers: u, ecart: v.panier / v.panierN1 - 1, enJeu: (v.panierN1 - v.panier) * v.tickets * ht * t })
+    if (v.tickets < v.ticketsN1) sujets.push({ type: 'tickets', univers: u, ecart: v.evolutionTickets, enJeu: (v.ticketsN1 - v.tickets) * v.panierN1 * ht * t })
+    if (v.panier < v.panierN1) sujets.push({ type: 'panier', univers: u, ecart: v.evolutionPanier, enJeu: (v.panierN1 - v.panier) * v.tickets * ht * t })
   }
   sujets.sort((a, b) => b.enJeu - a.enJeu)
-  return { mois: m, ca, caBudget, caN1, tauxMarge, tauxMargeN1, univers, sujets: sujets.slice(0, SUJETS_VISITE) }
+  return {
+    mois: m, ca, caBudget, caN1, ecartBudget: caBudget ? ca / caBudget - 1 : null, evolution: caN1 ? ca / caN1 - 1 : null,
+    tauxMarge, tauxMargeN1, ecartMarge: tauxMarge !== null && tauxMargeN1 !== null ? tauxMarge - tauxMargeN1 : null,
+    univers, sujets: sujets.slice(0, SUJETS_VISITE),
+  }
 }

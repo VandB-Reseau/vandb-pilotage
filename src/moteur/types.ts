@@ -1,3 +1,4 @@
+import type { Campagne } from './campagne'
 import type { ParametresCharges, Personne } from './equipe'
 import type { ParametresAlertes } from './alertes'
 import type { ParametresTresorerie } from './tresorerie'
@@ -94,6 +95,7 @@ export interface ParametresReseau {
   charges: ParametresCharges
   tresorerie: ParametresTresorerie
   alertes: ParametresAlertes
+  campagne?: Campagne     // dates de la campagne des budgets de l'année (lot 28) ; absentes : dates d'exemple
 }
 
 export interface Mois {

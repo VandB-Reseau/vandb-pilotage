@@ -10,6 +10,8 @@ export const campagneParDefaut = (annee: number): Campagne => ({
   proposition: `${annee - 1}-11-15`, retour: `${annee - 1}-12-05`, validation: `${annee - 1}-12-19`,
 })
 
+export const campagneDe = (p: { campagne?: Campagne }, annee: number): Campagne => p.campagne ?? campagneParDefaut(annee)
+
 export function enRetard(statut: StatutBudget, c: Campagne, aujourdhui: string): boolean {
   return (!statut && aujourdhui > c.proposition) || (statut !== 'valide' && aujourdhui > c.validation)
 }

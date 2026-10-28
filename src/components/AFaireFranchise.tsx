@@ -17,11 +17,15 @@ import type { Statut } from '../data/pilotage'
 import { MOIS_LONGS } from '../lib/format'
 import { QUADRIMESTRES, quadrimestreLibelle } from '../moteur/quadrimestre'
 
+const jour = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
 const tache = (t: TacheFranchise): { texte: string; action: string; onglet: string; annee?: number; icone: React.ReactNode } => {
   switch (t.type) {
     case 'reel': return { texte: `Réel de ${MOIS_LONGS[t.mois]} à saisir`, action: 'Saisir', onglet: 'reel', icone: <EventBusyOutlined /> }
     case 'quadrimestre': return { texte: `Quadrimestre ${quadrimestreLibelle[t.quadrimestre].toLowerCase()} ${t.annee} à saisir`, action: 'Saisir', onglet: 'quadrimestres', annee: t.annee, icone: <ReceiptLongOutlined /> }
-    case 'budget': return { texte: t.statut === 'propose' ? `Budget ${t.annee} proposé par le siège, à relire` : `Budget ${t.annee} en discussion`, action: 'Voir', onglet: 'budget', icone: <RequestQuoteOutlined /> }
+    case 'budget': return {
+      texte: `${t.statut === 'propose' ? `Budget ${t.annee} proposé par le siège, à relire` : `Budget ${t.annee} en discussion`}${t.avant ? ` : à valider avant le ${jour(t.avant)}` : ''}`,
+      action: 'Voir', onglet: 'budget', icone: <RequestQuoteOutlined />,
+    }
     case 'equipe': return { texte: 'Équipe à renseigner', action: 'Renseigner', onglet: 'equipe', icone: <GroupsOutlined /> }
     case 'frais': return { texte: 'Frais à renseigner', action: 'Renseigner', onglet: 'frais', icone: <AssignmentOutlined /> }
     case 'action': return {
@@ -35,7 +39,7 @@ const tache = (t: TacheFranchise): { texte: string; action: string; onglet: stri
 export function AFaireFranchise({ magasin, moisRenseignes, budget, aEquipe, aFrais, allerA }: {
   magasin: string
   moisRenseignes: number | null
-  budget: { annee: number; statut: Statut | null }
+  budget: { annee: number; statut: Statut | null; avant?: string }
   aEquipe: boolean
   aFrais: boolean
   allerA: (onglet: string, annee?: number) => void

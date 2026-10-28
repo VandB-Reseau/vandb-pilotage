@@ -49,8 +49,11 @@ test('fiche de visite : chiffres à date et les trois sujets où il y a le plus 
   proche(f.tauxMarge, 0.39)
   proche(f.tauxMargeN1, 0.4)
   // Cave : 5 700 tickets contre 6 000 ; panier (120 000 + 108 000) / 5 700 = 40 €
-  expect(f.univers.cave).toEqual({ tickets: 5_700, ticketsN1: 6_000, panier: 40, panierN1: 40, mois: 6 })
-  expect(f.univers.bar).toEqual({ tickets: 3_000, ticketsN1: 3_000, panier: 15, panierN1: 16, mois: 6 })
+  expect(f.univers.cave).toEqual({ tickets: 5_700, ticketsN1: 6_000, panier: 40, panierN1: 40, mois: 6, evolutionTickets: expect.closeTo(-0.05, 9), evolutionPanier: 0 })
+  expect(f.univers.bar).toEqual({ tickets: 3_000, ticketsN1: 3_000, panier: 15, panierN1: 16, mois: 6, evolutionTickets: 0, evolutionPanier: -0.0625 })
+  proche(f.ecartBudget, 60_000 / 66_000 - 1)
+  expect(f.evolution).toBe(0)
+  proche(f.ecartMarge, -0.01)
   // Marge en jeu, au taux de 39 % :
   //   tickets Cave : 300 tickets × 40 € TTC / 1,2 × 0,39 = 3 900
   //   CA sous le budget : 6 000 × 0,39 = 2 340
@@ -123,4 +126,10 @@ test('effet d’une saisie sur l’EBE : frais et masse salariale au-dessus de l
   expect(fraisDeLAnnee({ annuel: 12_000, taux: 0.01 }, 600_000)).toBe(18_000)
   // EBE de 60 000 € ; les frais passent de 18 000 à 21 000 € : 57 000 €
   expect(ebeApres(60_000, 18_000, 21_000)).toBe(57_000)
+})
+
+test('espace franchisé : le budget à relire porte la date de validation de la campagne', async () => {
+  const { tachesFranchise } = await import('../../src/lib/aFaire')
+  const t = tachesFranchise({ moisRenseignes: 9, quadrimestres: { 2026: [1, 2] }, budget: { annee: 2027, statut: 'propose', avant: '2026-12-19' }, aEquipe: true, aFrais: true }, new Date(2026, 9, 28))
+  expect(t).toEqual([{ type: 'budget', annee: 2027, statut: 'propose', avant: '2026-12-19' }])
 })

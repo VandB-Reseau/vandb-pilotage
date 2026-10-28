@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -7,7 +8,10 @@ import Stack from '@mui/material/Stack'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
+import FactCheckOutlined from '@mui/icons-material/FactCheckOutlined'
 import { EtatVide } from './EtatVide'
+import { FicheVisite } from './FicheVisite'
+import { LeviersCommerciaux } from './LeviersCommerciaux'
 import { GraphiqueMois } from './GraphiqueMois'
 import { Indicateur } from './Indicateur'
 import { Panne } from './Panne'
@@ -23,17 +27,20 @@ import { brand } from '../theme/theme'
 
 // Santé du magasin en un coup d'œil : cumul de l'année face au budget de l'année (lot 27) et à l'an dernier, marge,
 // masse salariale, résultat attendu ; CA cumulé ou mois par mois
-export function SyntheseMagasin({ magasin, d, annee, parametres, allerA }: {
+export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteEtActions, proposerAction }: {
   magasin: string
   d: DonneesBudgets
   annee: number
   parametres: ParametresReseau
   allerA: (onglet: string) => void
+  visiteEtActions?: boolean                     // Directeur, RR, Coach : fiche de visite (lot 28)
+  proposerAction?: (intitule: string) => void   // leviers commerciaux → plan d'action (lot 28)
 }) {
   const { donnees, erreur, chargement, recharger } = useChargement(
     () => Promise.all([chargerReel(magasin, annee), chargerReel(magasin, annee - 1), chargerSecours(magasin, annee), chargerBudgets(annee).catch(() => null)])
       .then(([n, n1, secours, budgets]) => ({ n, n1, secours, budgets })), [magasin, annee])
   const [vue, setVue] = usePreference<'cumul' | 'mois'>('synthese', 'cumul', ['cumul', 'mois'])
+  const [visite, setVisite] = useState(false)
 
   if (chargement && !donnees) return <Skeleton variant="rounded" height={320} />
   if (erreur || !donnees) return <Panne quoi={`Les chiffres réels ${annee}`} recharger={recharger} />
@@ -66,8 +73,18 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA }: {
     !frais?.length && { onglet: 'frais', texte: 'Frais non renseignés : seules la redevance et la publicité sont comptées.', action: 'Renseigner les frais' },
   ].filter((x): x is { onglet: string; texte: string; action: string } => !!x)
 
+  const n = moisDuReel(donnees.n.lignes, donnees.n.tickets)
   return (
     <Stack spacing={3}>
+      {visiteEtActions && (
+        <Box className="pas-a-l-impression" sx={{ display: 'flex', justifyContent: 'flex-end', mb: -1 }}>
+          <Button variant="outlined" startIcon={<FactCheckOutlined />} onClick={() => setVisite(true)} sx={{ minHeight: 48 }}>Fiche de visite</Button>
+          {visite && (
+            <FicheVisite ouverte fermer={() => setVisite(false)} magasin={magasin} annee={annee} n={n}
+              n1={moisDuReel(donnees.n1.lignes, donnees.n1.tickets)} budget={budgetN} tvaPanier={parametres.tvaPanier} />
+          )}
+        </Box>
+      )}
       <Box component="section" aria-label={`Santé du magasin à fin ${finMois}`} sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' } }}>
         <Indicateur
           libelle={`CA HT à fin ${finMois}`} valeur={milliers(s.caCumule)} serie={s.serieN}
@@ -130,6 +147,8 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA }: {
           />
         )}
       </Card>
+
+      <LeviersCommerciaux budget={b} annee={annee} parametres={parametres} proposerAction={proposerAction} />
     </Stack>
   )
 }

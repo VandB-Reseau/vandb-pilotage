@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -41,11 +41,20 @@ export function texteMesure(type: TypeAlerte, m: Mesure): string {
 }
 
 // En tête de la synthèse d'un magasin : ses alertes, et le plan d'action qui y répond
-export function AlertesEtActions({ magasin, equipe }: { magasin: string; equipe: boolean }) {
+// proposition : action préparée ailleurs sur la fiche (leviers commerciaux, fiche de visite, lot 28), le formulaire s'ouvre pré-rempli
+export function AlertesEtActions({ magasin, equipe, proposition }: { magasin: string; equipe: boolean; proposition?: { intitule: string; n: number } | null }) {
   const alertes = useChargement(() => chargerAlertes(), [])
   // Sans la table des actions (migration pas encore passée), pas de plan : les alertes restent
   const plan = useChargement(() => Promise.all([chargerActions(), chargerMesures()]).catch(() => null), [])
-  const [depuis, setDepuis] = useState<Alerte | 'autre' | null>(null)
+  const [depuis, setDepuisBrut] = useState<Alerte | 'autre' | null>(null)
+  const [intituleInitial, setIntituleInitial] = useState('')
+  const setDepuis = (d: Alerte | 'autre' | null) => { setIntituleInitial(''); setDepuisBrut(d) }
+  useEffect(() => {
+    if (!proposition) return
+    setIntituleInitial(proposition.intitule)
+    setDepuisBrut('autre')
+    requestAnimationFrame(() => document.getElementById('plan-action')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }, [proposition])
   const duMagasin = alertes.donnees?.filter((a) => a.magasin === magasin) ?? []
   const actions = plan.donnees?.[0].filter((a) => a.magasin === magasin)
   return (
@@ -57,13 +66,13 @@ export function AlertesEtActions({ magasin, equipe }: { magasin: string; equipe:
       )}
       {plan.donnees && actions && (
         <PlanAction magasin={magasin} equipe={equipe} alertes={duMagasin} actions={actions} mesures={plan.donnees[1][magasin] ?? {}}
-          recharger={plan.recharger} depuis={depuis} setDepuis={setDepuis} />
+          recharger={plan.recharger} depuis={depuis} setDepuis={setDepuis} intituleInitial={intituleInitial} />
       )}
     </>
   )
 }
 
-function PlanAction({ magasin, equipe, alertes, actions, mesures, recharger, depuis, setDepuis }: {
+function PlanAction({ magasin, equipe, alertes, actions, mesures, recharger, depuis, setDepuis, intituleInitial }: {
   magasin: string
   equipe: boolean
   alertes: Alerte[]
@@ -72,6 +81,7 @@ function PlanAction({ magasin, equipe, alertes, actions, mesures, recharger, dep
   recharger: () => void
   depuis: Alerte | 'autre' | null
   setDepuis: (a: Alerte | 'autre' | null) => void
+  intituleInitial: string
 }) {
   const [voirFaites, setVoirFaites] = useState(false)
   const [occupe, setOccupe] = useState(false)
@@ -135,8 +145,8 @@ function PlanAction({ magasin, equipe, alertes, actions, mesures, recharger, dep
       {probleme && <Box sx={{ px: 2.5, pb: 1 }}><Alert severity="error">{probleme}</Alert></Box>}
       {equipe && depuis !== null && (
         <NouvelleActionForm
-          key={depuis === 'autre' ? 'autre' : `${depuis.type}-${texteAlerte(depuis)}`}
-          magasin={magasin} alertes={alertes} depuis={depuis} occupe={occupe}
+          key={depuis === 'autre' ? `autre-${intituleInitial}` : `${depuis.type}-${texteAlerte(depuis)}`}
+          magasin={magasin} alertes={alertes} depuis={depuis} occupe={occupe} intituleInitial={intituleInitial}
           valider={(a) => void agir(async () => { await creerAction(a); setDepuis(null) })}
           annuler={() => setDepuis(null)}
         />
@@ -159,7 +169,8 @@ function PlanAction({ magasin, equipe, alertes, actions, mesures, recharger, dep
   )
 }
 
-function NouvelleActionForm({ magasin, alertes, depuis, occupe, valider, annuler }: {
+function NouvelleActionForm({ magasin, alertes, depuis, occupe, valider, annuler, intituleInitial }: {
+  intituleInitial: string
   magasin: string
   alertes: Alerte[]
   depuis: Alerte | 'autre'
@@ -170,7 +181,7 @@ function NouvelleActionForm({ magasin, alertes, depuis, occupe, valider, annuler
   const [choix, setChoix] = useState(depuis === 'autre' ? -1 : Math.max(0, alertes.findIndex((a) => texteAlerte(a) === texteAlerte(depuis))))
   // Tickets et panier (lot 28) : l'action part du levier commercial, à compléter
   const [intitule, setIntitule] = useState(depuis !== 'autre' && (depuis.type === 'tickets' || depuis.type === 'panier')
-    ? `${depuis.type === 'tickets' ? 'Fréquentation' : 'Vente additionnelle'} ${universLibelle[depuis.univers]} : ` : '')
+    ? `${depuis.type === 'tickets' ? 'Fréquentation' : 'Vente additionnelle'} ${universLibelle[depuis.univers]} : ` : intituleInitial)
   const [responsable, setResponsable] = useState<Responsable>('franchise')
   const [echeance, setEcheance] = useState('')
   const alerte = choix >= 0 ? alertes[choix] : null

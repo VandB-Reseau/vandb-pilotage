@@ -61,6 +61,7 @@ import { lienMagasin, milliers, taux } from '../lib/format'
 import { classeur, nomFichier, telecharger } from '../lib/xlsx'
 import { syntheseReel } from '../moteur/reel'
 import { calculerBudget, effetTravaux } from '../moteur/budget'
+import { campagneDe } from '../moteur/campagne'
 import { compteResultat } from '../moteur/compteResultat'
 import { tresorerieBudget } from '../moteur/tresorerie'
 import { ajustementsCopies, ecarts, valeurHeritee, type Cibles } from '../moteur/cibles'
@@ -95,6 +96,8 @@ export function Magasin() {
   const [message, setMessage] = useState<Message | null>(null)
   const [occupe, setOccupe] = useState(false)
   const [copie, setCopie] = useState(false)
+  // Action préparée depuis les leviers commerciaux de la synthèse (lot 28) : le plan d'action s'ouvre pré-rempli
+  const [proposition, setProposition] = useState<{ intitule: string; n: number } | null>(null)
   // Budget de l'an prochain, réel de l'année en cours et de la précédente
   const anneeEnCours = new Date().getFullYear()
   // Synthèse d'abord : la santé du magasin en un coup d'œil
@@ -251,13 +254,14 @@ export function Magasin() {
         <AFaireFranchise
           key={`a-faire-${ligne.magasin}`} magasin={ligne.magasin} allerA={(o, a) => { if (a) setAnneeQuadri(a); aller(o) }}
           moisRenseignes={reel.donnees ? syntheseReel(reel.donnees.lignes, reel.donnees.tickets).moisRenseignes : null}
-          budget={{ annee, statut: ligne.statut }} aEquipe={!!d.equipes[ligne.magasin]?.length} aFrais={!!d.frais[ligne.magasin]?.length}
+          budget={{ annee, statut: ligne.statut, avant: campagneDe(parametres, annee).validation }} aEquipe={!!d.equipes[ligne.magasin]?.length} aFrais={!!d.frais[ligne.magasin]?.length}
         />
       )}
-      {onglet === 'synthese' && <AlertesEtActions key={`alertes-${ligne.magasin}`} magasin={ligne.magasin} equipe={!franchise && profil?.role !== 'aucun'} />}
+      {onglet === 'synthese' && <AlertesEtActions key={`alertes-${ligne.magasin}`} magasin={ligne.magasin} equipe={!franchise && profil?.role !== 'aucun'} proposition={proposition} />}
       {onglet === 'synthese' ? (
         <>
-          <SyntheseMagasin key={ligne.magasin} magasin={ligne.magasin} d={d} annee={anneeEnCours} parametres={donnees.parametresN} allerA={aller} />
+          <SyntheseMagasin key={ligne.magasin} magasin={ligne.magasin} d={d} annee={anneeEnCours} parametres={donnees.parametresN} allerA={aller}
+            visiteEtActions={!franchise && profil?.role !== 'aucun'} proposerAction={!franchise && profil?.role !== 'aucun' ? (intitule) => setProposition({ intitule, n: Date.now() }) : undefined} />
           {!franchise && <ComparaisonMagasin key={`comparaison-${ligne.magasin}`} magasin={ligne.magasin} directeur={directeur} />}
         </>
       ) : onglet === 'suivi' ? (

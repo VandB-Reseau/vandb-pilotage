@@ -29,6 +29,7 @@ import { nombre } from '../import/caisse'
 import { CATEGORIES, categorieLibelle } from '../moteur/equipe'
 import { useChargement } from '../data/useChargement'
 import type { ParametresAlertes } from '../moteur/alertes'
+import { campagneDe, type Campagne } from '../moteur/campagne'
 import type { OperationReseau, ParametresTresorerie } from '../moteur/tresorerie'
 import { UNIVERS, universLibelle, type Univers } from '../moteur/types'
 import { enChiffres, montant, MOIS_LONGS, taux } from '../lib/format'
@@ -55,9 +56,13 @@ export function Parametres() {
   const [baissePanier, setBaissePanier] = useState<number | undefined>(undefined)
   const [seuils, setSeuils] = useState({ marge: '', retard: '', tresorerie: '' })
   const [messageAlertes, setMessageAlertes] = useState<{ gravite: 'success' | 'error'; texte: string } | null>(null)
+  // Campagne des budgets (lot 28) : trois dates
+  const [campagne, setCampagne] = useState<Campagne | null>(null)
+  const [messageCampagne, setMessageCampagne] = useState<{ gravite: 'success' | 'error'; texte: string } | null>(null)
   useEffect(() => {
     if (!p) return
     setEcartCA(p.alertes.ecartCA)
+    setCampagne(campagneDe(p, annee))
     setBaisseTickets(p.alertes.baisseTickets)
     setBaissePanier(p.alertes.baissePanier)
     setSeuils({ marge: String(Math.round(p.alertes.baisseMarge * 1000) / 10).replace('.', ','), retard: String(p.alertes.moisRetard), tresorerie: enChiffres(p.alertes.tresorerie) })
@@ -123,6 +128,23 @@ export function Parametres() {
     ? { ecartCA, baisseMarge: margeLue / 100, moisRetard: retardLu, tresorerie: tresorerieLue, baisseTickets, baissePanier } : null
   const alertesModifiees = !!p && seuils.retard !== '' && JSON.stringify(alertesLues) !== JSON.stringify(p.alertes)
   useSaisieEnCours(alertesModifiees)
+  const campagneValide = !!campagne && !!campagne.proposition && campagne.proposition <= campagne.retour && campagne.retour <= campagne.validation
+  const campagneModifiee = !!p && !!campagne && JSON.stringify(campagne) !== JSON.stringify(campagneDe(p, annee))
+  useSaisieEnCours(campagneModifiee)
+  const enregistrerCampagne = async () => {
+    if (!p || !campagne || !campagneValide) return
+    setOccupe(true)
+    setMessageCampagne(null)
+    try {
+      await enregistrerParametres(annee, { ...p, campagne })
+      setMessageCampagne({ gravite: 'success', texte: `Dates de la campagne des budgets ${annee} enregistrées.` })
+      recharger()
+    } catch {
+      setMessageCampagne({ gravite: 'error', texte: 'L’enregistrement n’a pas abouti. Vérifie ta connexion, puis réessaie.' })
+    } finally {
+      setOccupe(false)
+    }
+  }
   const enregistrerAlertes = async () => {
     if (!p || !alertesLues) return
     setOccupe(true)
@@ -253,6 +275,34 @@ export function Parametres() {
             </TableBody>
           </Table>
         </Card>
+
+        {campagne && (
+          <Card component="section" aria-label="Campagne des budgets">
+            <Box sx={{ p: 2, pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+              <Typography variant="h2">Campagne des budgets {annee}</Typography>
+              <Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe || !campagneValide || !campagneModifiee} onClick={() => void enregistrerCampagne()} sx={{ minHeight: 48 }}>Enregistrer</Button>
+            </Box>
+            {messageCampagne && <Box sx={{ px: 2 }}><Alert severity={messageCampagne.gravite} onClose={() => setMessageCampagne(null)} closeText="Fermer" slotProps={{ closeButton: { sx: { width: 48, height: 48 } } }}>{messageCampagne.texte}</Alert></Box>}
+            {!campagneValide && <Box sx={{ px: 2 }}><Alert severity="warning">Les trois dates se suivent : proposition, puis retour des franchisés, puis validation.</Alert></Box>}
+            <Table aria-label={`Dates de la campagne des budgets ${annee}`}>
+              <TableBody>
+                {([
+                  ['proposition', 'Budgets proposés par le siège avant le'],
+                  ['retour', 'Retour des franchisés avant le'],
+                  ['validation', 'Budgets validés avant le'],
+                ] as const).map(([cle, libelle]) => (
+                  <TableRow key={cle}>
+                    <TableCell>{libelle}</TableCell>
+                    <TableCell align="right">
+                      <TextField type="date" size="small" value={campagne[cle]} onChange={(e) => setCampagne((c) => (c ? { ...c, [cle]: e.target.value } : c))}
+                        slotProps={{ htmlInput: { 'aria-label': libelle } }} sx={{ width: 190, '& input': { height: 48, boxSizing: 'border-box', py: 0 } }} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        )}
 
         {treso && (
           <Card component="section" aria-label="Trésorerie">
