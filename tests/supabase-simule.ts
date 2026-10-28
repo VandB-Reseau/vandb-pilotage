@@ -46,6 +46,7 @@ export interface OptionsSimulation {
   messages?: MessageSimule[]
   actions?: ActionSimulee[]
   versions?: VersionSimulee[]
+  ouvertures?: { store_name: string; ouverture: string }[]
   panne?: boolean
   panneEcriture?: boolean
 }
@@ -76,6 +77,7 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
   let messages = structuredClone(options.messages ?? [])
   const versions = structuredClone(options.versions ?? [])
   let actions = structuredClone(options.actions ?? [])
+  let ouvertures = structuredClone(options.ouvertures ?? [])
   // Auteur posé par la base, comme le déclencheur de 0011
   const nomDuRole: Record<string, string | null> = { directeur: null, coach: 'Coach Nord', rr: 'RR Nord', franchise: 'Franchise Test' }
   let parametres = options.parametres === null ? null : options.parametres ?? { tauxRedevance: 0.02, tauxPublicite: 0.01 }
@@ -222,6 +224,10 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
           actions.push({ ...c, id: Math.max(0, ...actions.map((a) => a.id)) + 1, statut: 'a_faire', cree_par_role: options.role ?? 'directeur', cree_par_nom: nomDuRole[options.role ?? 'directeur'] ?? null, cree_le: new Date().toISOString(), faite_le: null })
         }
       }
+      if (table === 'ouvertures') {
+        if (req.method() === 'DELETE') { const retirer = new Set(filtrer(ouvertures, url.searchParams)); ouvertures = ouvertures.filter((l) => !retirer.has(l)) }
+        else { const c = corps as { store_name: string; ouverture: string }; ouvertures = [...ouvertures.filter((x) => x.store_name !== c.store_name), c] }
+      }
       if (table === 'parametres_reseau') parametres = (corps as { valeur: Record<string, unknown> }).valeur
       if (table === 'groupe_magasins' && m) m.groupe_id = req.method() === 'DELETE' ? null : (corps as { groupe_id: number }).groupe_id
       return route.fulfill({ status: 204, body: '' })
@@ -237,6 +243,7 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
     if (table === 'actions') return route.fulfill({ json: page(filtrer(actions, url.searchParams)) })
     if (table === 'echanges_budget') return route.fulfill({ json: filtrer(messages, url.searchParams).sort((a, b) => a.cree_le.localeCompare(b.cree_le)) })
     if (table === 'versions_budget') return route.fulfill({ json: filtrer(versions, url.searchParams).sort((a, b) => b.cree_le.localeCompare(a.cree_le)) })
+    if (table === 'ouvertures') return route.fulfill({ json: ouvertures })
     if (table === 'codes_caisse') return route.fulfill({ json: [...codes].sort((a, b) => a.code.localeCompare(b.code)) })
     if (url.pathname === '/rest/v1/parametres_reseau') {
       const lignes = parametres === null ? [] : [{ valeur: parametres }]

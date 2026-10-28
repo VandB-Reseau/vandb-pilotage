@@ -4,7 +4,7 @@ Même base Supabase que l'app réseau. Le pilotage n'écrit que dans le schéma 
 fonctions (`mon_role()`, `est_directeur()`, `magasins_visibles()`, `mes_magasins()`, `json_sur()`) et ses tables `perimetre_equipe`
 et `app_config` (lue seulement : fiche des Responsables Régionaux, clé `drs_data`).
 
-Mis à jour le 28/10/2026 (migration `0013`).
+Mis à jour le 28/10/2026 (migration `0014`).
 
 ## Principes
 
@@ -18,7 +18,7 @@ Mis à jour le 28/10/2026 (migration `0013`).
 
 | Table | Contenu | Clé | Lecture | Écriture |
 | --- | --- | --- | --- | --- |
-| `parametres_reseau` | Paramètres de l'année : `valeur` jsonb (`tauxRedevance`, `tauxPublicite`, `impot`, `tvaPanier`, `charges` : taux de charges patronales par catégorie et paramètres de la réduction générale ; `tresorerie` : délais de paiement en mois, TVA des ventes, des achats et des frais, `tvaTrimestrielle`, `partCotisations`, `consignes` : part des achats par univers, `ecoulement` et `remboursement` en mois ; `alertes` : seuils `ecartCA`, `baisseMarge` en points, `moisRetard`, `tresorerie` en euros) | `annee` | Comptes ouverts | Directeur |
+| `parametres_reseau` | Paramètres de l'année : `valeur` jsonb (`tauxRedevance`, `tauxPublicite`, `impot`, `tvaPanier`, `charges` : taux de charges patronales par catégorie et paramètres de la réduction générale ; `tresorerie` : délais de paiement en mois, TVA des ventes, des achats et des frais, `tvaTrimestrielle`, `partCotisations`, `consignes` : part des achats par univers, `ecoulement` et `remboursement` en mois, `avanceExterieur` (mois d'avance des achats Extérieur sur la vente), `operations` (`[{nom, mois, moisPaiement, part}]` : opérations du réseau dont une part des achats Cave et Bar du mois est payée à un autre mois) ; `alertes` : seuils `ecartCA`, `baisseMarge` en points, `moisRetard`, `tresorerie` en euros) | `annee` | Comptes ouverts | Directeur |
 | `budgets` | Budget d'un magasin pour une année : `statut` (`propose`, `en_discussion`, `valide`), `base` (réalisé importé du prévisionnel), `ajustements` (écarts du magasin aux cibles, format `Cibles`, dont saisonnalité, travaux et `tresorerieDepart`), `proposition` (base proposée par le siège), `hypotheses` (hypothèses calculées au dernier enregistrement, figées à la validation), `valide_le` | `store_name`, `annee` | Magasins du compte | Création et suppression : Directeur. Modification : Directeur, franchisé sur ses magasins |
 | `reel_mensuel` | Réel par mois (1er du mois), univers (`cave`, `bar`, `exterieur`) et famille : `ca_ht`, `ca_ttc`, `marge_ht` (marge théorique de la caisse), `maj_par`. La colonne `tickets` de `0001` n'est plus utilisée (voir `reel_tickets`) | `store_name`, `mois`, `univers`, `famille` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
 | `reel_tickets` | Tickets par mois et univers (un ticket ne se compte pas par famille) : `tickets`, `maj_par` | `store_name`, `mois`, `univers` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
@@ -31,6 +31,7 @@ Mis à jour le 28/10/2026 (migration `0013`).
 | `echanges_budget` | Message sur le budget d'un magasin : `sujet` (`general`, `ca`, `marge`, `personnel`, `frais`, `travaux`, `tresorerie`), `texte` (2 000 caractères au plus), `auteur`, `auteur_role`, `auteur_nom` et `cree_le` posés par la base (0011) | `id` ; index `store_name`, `annee`, `cree_le` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins ; retrait par l'auteur seul |
 | `versions_budget` | Version du budget à sa création et à chaque changement de statut, de base ou d'ajustements : `statut`, `base`, `ajustements`, auteur, rôle, nom, date (0011) | `id` ; index `store_name`, `annee`, `cree_le` | Magasins du compte | Déclencheur `versions_budget_trace` seul |
 | `actions` | Action du plan d'un magasin : `type_alerte` (`ca`, `marge`, `reel`, `tresorerie`, `autre`), `intitule`, `responsable` (`franchise`, `coach`, `rr`, `directeur`), `echeance`, `statut` (`a_faire`, `faite`, `abandonnee`), `annee`, `depart` et `mois_depart` (mesure de l'alerte le jour de l'action), auteur et dates posés par la base (0012) | `id` ; index `store_name`, `statut` | Magasins du compte | Directeur partout ; RR et Coach sur leurs magasins ; le franchisé ne change que le statut |
+| `ouvertures` | Date d'ouverture d'un magasin, le 1er du mois : `ouverture`, `maj_le`, `maj_par`. Donne son ancienneté (année 1, 2, 3, 4 et plus) et écarte le rythme de sortie des 2 mois qui suivent l'ouverture (0014) | `store_name` | Magasins du compte | Directeur |
 | `groupes` | Groupes libres de magasins (centre-ville, zone commerciale…) : `nom` | `id` | Équipe | Directeur |
 | `groupe_magasins` | Groupe d'un magasin (un au plus) | `store_name` | Équipe | Directeur |
 | `cibles_reseau` | Cibles du réseau pour l'année : `valeur` (format `Cibles`) | `annee` | Équipe | Directeur |
@@ -69,6 +70,10 @@ par univers (facultative), familles (univers, famille, CA réalisé, marge réal
 Bar, personnel (salaires mensuels, gérance, heures), lignes de frais (grille de `src/moteur/parametres.ts`),
 amortissements, intérêts, capital remboursé, déficit reportable ; facultatifs : `poidsMois` (saisonnalité du magasin,
 12 parts) et `travaux` (`activite` des 12 mois de 0 à 1, `gain` après réouverture, `investissement`, `dureeAmortissement` en années).
+Lot 24, facultatifs : `sortie` (par univers `cave`, `bar` : `ca` HT des 4 derniers mois réalisés, leur `poids` dans la
+saisonnalité, mois `de` et `a`), `rythme` (par univers : `auto`, `applique`, `ignore` ; absent, le rythme de sortie ne
+s'applique pas, c'est le cas de l'atterrissage), `tempsForts` et `ajustementsCA` (voir les cibles). Un budget proposé avant
+le lot 24 n'a pas de `sortie` : il garde son calcul jusqu'à sa prochaine proposition.
 
 ## Format des charges (`parametres_reseau.valeur.charges`)
 
@@ -82,5 +87,11 @@ enregistrés dans `frais` remplacent ceux de la base du budget tant qu'il n'est 
 
 Objet `Cibles` de `src/moteur/cibles.ts`, chaque clé facultative : `evolutionUnivers` (par univers), `evolutionFamille`,
 `margeFamille` et `demarqueFamille` (par famille, clé `univers/famille`, par exemple `cave/Bière`), `hausseSalaires`, `inflationFrais`,
-`evolutionFlux` (`cave`, `bar`) ; au niveau du magasin seulement, `poidsMois` (12 parts, total 100 %) et `travaux`. Une clé absente reprend le niveau au-dessus : magasin, puis groupe, puis réseau, puis le
+`evolutionFlux` (`cave`, `bar`) ; au niveau du magasin seulement, `poidsMois` (12 parts, total 100 %) et `travaux`.
+Lot 24 : au réseau seulement, `hausseTarifaire` (défaut du panier) et `millesimes` (par ancienneté `1` à `4` :
+`evolutionFlux` et `evolutionPanier` par univers, le panier en plus de la hausse tarifaire) ; au magasin seulement,
+`rythme` (`applique` ou `ignore` par univers), `tempsForts` (`[{nom, type (exterieur, soiree, operation), mois, univers,
+caAnPasse, ca, extrasPersonnel, autresCharges, moisAchats}]`, mois de 1 à 12, montants HT) et `ajustementsCA`
+(`[{libelle, univers, de, a, montant (€ HT par mois) ou taux (part du CA de l'univers)}]`). Ordre des niveaux : magasin,
+groupe, ancienneté du magasin, réseau, hausse tarifaire, réalisé. Une clé absente reprend le niveau au-dessus : magasin, puis groupe, puis réseau, puis le
 réalisé du magasin (évolution nulle, marge réalisée, démarque nulle). Lot 8 : ces clés vivent dans le JSON existant, sans migration.

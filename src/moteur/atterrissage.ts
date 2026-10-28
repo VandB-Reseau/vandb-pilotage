@@ -1,3 +1,4 @@
+import { MOIS_SORTIE, type Ouverture } from './projection'
 import { syntheseReel, type LigneReel, type TicketsReel } from './reel'
 import { UNIVERS, type Hypotheses, type LigneFrais, type Univers } from './types'
 
@@ -10,6 +11,8 @@ import { UNIVERS, type Hypotheses, type LigneFrais, type Univers } from './types
 //   3. saisonnalité médiane du réseau l'année précédente (magasins qui ont leurs 12 mois) ;
 //   4. moyenne des mois réalisés.
 // - Marge : taux réalisé de la famille, appliqué aux mois projetés.
+// - Rythme de sortie (lot 24) : CA de la Cave et du Bar sur les 4 derniers mois réalisés et leur poids dans la saisonnalité
+//   (celle du magasin s'il a deux ans pleins, sinon celle du réseau). Pas de rythme dans les 2 mois qui suivent une ouverture.
 // La base renvoyée passe ensuite par calculerBudget : évolution nulle pour l'atterrissage, cibles pour le budget.
 
 export interface Finances { amortissements: number; interets: number; remboursementCapital: number }
@@ -27,6 +30,7 @@ export type MethodeAtterrissage = 'saisie' | 'magasin' | 'reseau' | 'moyenne'
 export interface SecoursAtterrissage {
   parts?: Partial<Record<Univers, number>>   // part de l'année réalisée à fin du dernier mois, saisie par univers
   saisonnaliteReseau?: number[] | null       // 12 poids (total 1), médiane du réseau l'année précédente
+  ouverture?: Ouverture | null               // date d'ouverture du magasin, si connue
 }
 
 const somme = (l: number[]) => l.reduce((a, b) => a + b, 0)
@@ -90,9 +94,28 @@ export function baseDepuisReel(reel: ReelAnnees, annee: number, frais: LigneFrai
     if (t > 0) flux[u] = { realise: t, evolution: 0, panierCibleTTC: ttc / t }
   }
 
+  // Rythme de sortie de la Cave et du Bar sur les derniers mois réalisés
+  const sortie: Hypotheses['sortie'] = {}
+  const o = secours.ouverture
+  const de = m - MOIS_SORTIE + 1
+  // Saisonnalité du magasin seulement avec deux ans pleins d'activité au 1er janvier (sinon déformée par la montée en charge)
+  const deuxAns = !o || o.annee * 12 + o.mois <= (annee - 2) * 12 + 1
+  const lancement = !!o && o.annee * 12 + o.mois + 2 > annee * 12 + de
+  if (de >= 1 && !lancement) {
+    for (const u of ['cave', 'bar'] as const) {
+      const ref = methodes[u] === 'magasin' && deuxAns ? n1Univers[u] : reseau
+      const total = ref ? somme(ref) : 0
+      const ca = somme(s.familles.filter((f) => f.univers === u).map((f) => somme(f.parMois.slice(de - 1, m))))
+      if (!ref || total <= 0 || ca <= 0) continue
+      const poids = somme(ref.slice(de - 1, m)) / total
+      if (poids > 0) sortie[u] = { ca, poids, de, a: m }
+    }
+  }
+
   return {
     base: {
       annee, moisRealises: m, caMensuelReference: caMois, partRealisee,
+      ...(Object.keys(sortie).length ? { sortie } : {}),
       familles: s.familles.map((f) => {
         const ca = somme(f.parMois.slice(0, m))
         const taux = f.caHT ? f.margeHT / f.caHT : 0

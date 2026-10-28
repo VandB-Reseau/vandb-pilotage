@@ -55,7 +55,31 @@ export interface Hypotheses {
   hausseSalaires?: number             // indexation appliquée aux salaires de l'équipe
   poidsMois?: number[]                // saisonnalité propre au magasin (12 parts) ; sinon celle du CA de référence
   travaux?: Travaux
+  // Lot 24 : rythme de sortie de l'année en cours (posé par l'atterrissage), choix de l'appliquer (posé par les cibles :
+  // absent pour l'atterrissage lui-même), temps forts et ajustements datés du CA
+  sortie?: Partial<Record<UniversTickets, Sortie>>
+  rythme?: Partial<Record<UniversTickets, ChoixRythme>>
+  tempsForts?: TempsFort[]
+  ajustementsCA?: AjustementCA[]
 }
+
+export type UniversTickets = 'cave' | 'bar'
+
+// CA HT des derniers mois réalisés de l'univers (mois de début et de fin, 1 à 12) et leur poids dans la saisonnalité
+export interface Sortie { ca: number; poids: number; de: number; a: number }
+// auto : appliqué si l'écart à l'atterrissage reste dans le seuil ; applique : confirmé par le Directeur ; ignore : atterrissage gardé
+export type ChoixRythme = 'auto' | 'applique' | 'ignore'
+
+// Temps fort du magasin (lot 24, Joseph 28/10/2026) : événement extérieur, soirée en magasin ou opération commerciale propre.
+// Le CA de l'an passé sort de la base, celui du budget entre dans son mois ; ses charges propres et le mois où ses achats
+// sont payés sont sur la ligne. Mois de 1 à 12, montants HT.
+export type TypeTempsFort = 'exterieur' | 'soiree' | 'operation'
+export interface TempsFort {
+  nom: string; type: TypeTempsFort; mois: number; univers: Univers
+  caAnPasse: number; ca: number; extrasPersonnel: number; autresCharges: number; moisAchats: number
+}
+// Client gagné ou perdu, concurrent, horaires : montant HT par mois, ou part du CA de l'univers, de tel mois à tel mois
+export interface AjustementCA { libelle: string; univers: Univers; de: number; a: number; montant?: number; taux?: number }
 
 // Travaux de l'année budgétée : activité de chaque mois (1 normal, 0 fermé), gain de CA après la réouverture,
 // investissement amorti à partir de la réouverture
@@ -83,6 +107,8 @@ export interface Mois {
   resultatExploitation: number
   resultatAvantImpot: number
   productivite: number | null // CA par heure travaillée
+  univers?: Record<Univers, { ca: number; achats: number; achatsTempsForts: number }> // détail du mois (lot 24)
+  autresChargesTempsForts?: number
 }
 
 export interface ResultatFamille extends Famille { atterrissage: number; objectif: number; margeObjectif: number }
@@ -113,6 +139,14 @@ export interface Budget {
   ratios: { personnelSurMarge: number; personnelSurCA: number; ebeSurCA: number }
   // Par univers piloté : tickets atterris et visés, panier TTC réalisé et visé, CA atterri et visé
   flux: Partial<Record<'cave' | 'bar', FluxBudget>>
+  sortie?: Partial<Record<UniversTickets, RythmeSortie>>
+  tempsForts?: { retire: number; ajoute: number; charges: number; ajustements: number }
+  paiementsTempsForts?: { mois: number; vente: number; univers: Univers; montant: number }[] // achats HT, mois de 0 à 11
+}
+// Base du CA d'un univers : atterrissage hors temps forts passés, rythme de sortie annualisé, écart et ce qui est retenu
+export interface RythmeSortie {
+  atterri: number; annuel: number; acquis: number; de: number; a: number
+  statut: 'applique' | 'a_confirmer' | 'ignore'
 }
 export interface FluxBudget {
   atterrissage: number; objectif: number; evolution: number

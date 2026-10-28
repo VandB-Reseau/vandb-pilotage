@@ -9,23 +9,31 @@ import Skeleton from '@mui/material/Skeleton'
 import Table from '@mui/material/Table'
 import TableBody from '@mui/material/TableBody'
 import TableCell from '@mui/material/TableCell'
+import TableContainer from '@mui/material/TableContainer'
+import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
+import TextField from '@mui/material/TextField'
+import IconButton from '@mui/material/IconButton'
+import AddOutlined from '@mui/icons-material/AddOutlined'
+import DeleteOutlined from '@mui/icons-material/DeleteOutlined'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import SaveOutlined from '@mui/icons-material/SaveOutlined'
 import { ChampNombre } from '../components/ChampNombre'
 import { ChampTaux } from '../components/ChampTaux'
+import { ChoixListe } from '../components/ChoixListe'
 import { Panne } from '../components/Panne'
 import { anneeBudget, chargerParametres, enregistrerParametres, type ParametresCharges } from '../data/pilotage'
 import { nombre } from '../import/caisse'
 import { CATEGORIES, categorieLibelle } from '../moteur/equipe'
 import { useChargement } from '../data/useChargement'
 import type { ParametresAlertes } from '../moteur/alertes'
-import type { ParametresTresorerie } from '../moteur/tresorerie'
+import type { OperationReseau, ParametresTresorerie } from '../moteur/tresorerie'
 import { UNIVERS, universLibelle, type Univers } from '../moteur/types'
-import { enChiffres, montant, taux } from '../lib/format'
+import { enChiffres, montant, MOIS_LONGS, taux } from '../lib/format'
 
+const MOIS_OPTIONS = MOIS_LONGS.map((m, i) => ({ valeur: i + 1, libelle: m.charAt(0).toUpperCase() + m.slice(1) }))
 const DE_L_UNIVERS: Record<Univers, string> = { cave: 'de la Cave', bar: 'du Bar', exterieur: 'de l’Extérieur' }
 
 export function Parametres() {
@@ -39,7 +47,7 @@ export function Parametres() {
   const [occupe, setOccupe] = useState(false)
   // Trésorerie : délais en mois gardés en texte pendant la frappe
   const [treso, setTreso] = useState<ParametresTresorerie | null>(null)
-  const [delais, setDelais] = useState({ fournisseurs: '', redevance: '', ecoulement: '', remboursement: '' })
+  const [delais, setDelais] = useState({ fournisseurs: '', redevance: '', ecoulement: '', remboursement: '', exterieur: '' })
   const [messageTreso, setMessageTreso] = useState<{ gravite: 'success' | 'error'; texte: string } | null>(null)
   // Seuils des alertes : textes pendant la frappe, sauf l'écart de CA (pourcentage)
   const [ecartCA, setEcartCA] = useState<number | undefined>(undefined)
@@ -53,6 +61,7 @@ export function Parametres() {
     setDelais({
       fournisseurs: String(p.tresorerie.delaiFournisseurs), redevance: String(p.tresorerie.delaiRedevance),
       ecoulement: String(p.tresorerie.consignes?.ecoulement ?? 0), remboursement: String(p.tresorerie.consignes?.remboursement ?? 0),
+      exterieur: String(p.tresorerie.avanceExterieur ?? 0),
     })
     setCharges(p.charges)
     setSmic(String(p.charges.reduction.smicAnnuel).replace('.', ','))
@@ -78,11 +87,11 @@ export function Parametres() {
     }
   }
   const delai = (t: string, max = 3) => { const n = nombre(t); return n !== null && Number.isInteger(n) && n >= 0 && n <= max ? n : null }
-  const delaisLus = { delaiFournisseurs: delai(delais.fournisseurs), delaiRedevance: delai(delais.redevance) }
+  const delaisLus = { delaiFournisseurs: delai(delais.fournisseurs), delaiRedevance: delai(delais.redevance), avanceExterieur: delai(delais.exterieur) }
   const delaisConsignes = { ecoulement: delai(delais.ecoulement, 6), remboursement: delai(delais.remboursement, 6) }
   const tresoValide = Object.values({ ...delaisLus, ...delaisConsignes }).every((v) => v !== null)
   const tresoLue = (t: ParametresTresorerie): ParametresTresorerie => ({
-    ...t, delaiFournisseurs: delaisLus.delaiFournisseurs ?? 0, delaiRedevance: delaisLus.delaiRedevance ?? 0,
+    ...t, delaiFournisseurs: delaisLus.delaiFournisseurs ?? 0, delaiRedevance: delaisLus.delaiRedevance ?? 0, avanceExterieur: delaisLus.avanceExterieur ?? 0,
     consignes: t.consignes && { ...t.consignes, ecoulement: delaisConsignes.ecoulement ?? 0, remboursement: delaisConsignes.remboursement ?? 0 },
   })
   const tresoModifiee = !!p && !!treso && JSON.stringify(tresoLue(treso)) !== JSON.stringify(p.tresorerie)
@@ -125,6 +134,11 @@ export function Parametres() {
   }
   const consigne = (u: Univers, v: number | undefined) =>
     setTreso((t) => (t?.consignes ? { ...t, consignes: { ...t.consignes, achats: { ...t.consignes.achats, [u]: v ?? 0 } } } : t))
+  const operation = (i: number, o: Partial<OperationReseau> | null) => setTreso((t) => {
+    if (!t) return t
+    const l = t.operations ?? []
+    return { ...t, operations: o ? l.map((x, j) => (j === i ? { ...x, ...o } : x)) : l.filter((_, j) => j !== i) }
+  })
   const tvaTreso = (k: 'tvaVentes' | 'tvaAchats' | 'tvaFrais' | 'partCotisations', v: number | undefined) => setTreso((t) => (t ? { ...t, [k]: v ?? 0 } : t))
 
   const lignes = p ? [
@@ -285,8 +299,53 @@ export function Parametres() {
                     <TableCell align="right"><ChampNombre libelle="Délai de remboursement des consignes" valeur={delais.remboursement} unite="mois" largeur={120} onChange={(v) => setDelais((d) => ({ ...d, remboursement: v }))} /></TableCell>
                   </TableRow>
                 </>)}
+                <TableRow>
+                  <TableCell>Achats de l’Extérieur (fûts, tireuses) payés avant la vente, en mois</TableCell>
+                  <TableCell align="right"><ChampNombre libelle="Avance des achats de l’Extérieur" valeur={delais.exterieur} unite="mois" largeur={120} onChange={(v) => setDelais((d) => ({ ...d, exterieur: v }))} /></TableCell>
+                </TableRow>
               </TableBody>
             </Table>
+            <Typography variant="h3" sx={{ px: 2, pt: 3, pb: 1 }}>Opérations du réseau</Typography>
+            {(treso.operations ?? []).length > 0 && (
+              <TableContainer>
+                <Table size="small" aria-label="Opérations du réseau" sx={{ '& td, & th': { px: 1, whiteSpace: 'nowrap' }, '& td:first-of-type, & th:first-of-type': { pl: 2 } }}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Opération</TableCell>
+                      <TableCell>Mois de vente</TableCell>
+                      <TableCell>Achats payés en</TableCell>
+                      <TableCell align="right">Part des achats du mois payée à l’avance</TableCell>
+                      <TableCell />
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {(treso.operations ?? []).map((o, i) => {
+                      const nom = o.nom.trim() || `opération ${i + 1}`
+                      return (
+                        <TableRow key={i}>
+                          <TableCell>
+                            <TextField size="small" value={o.nom} placeholder="Foire aux vins" onChange={(e) => operation(i, { nom: e.target.value })}
+                              slotProps={{ htmlInput: { 'aria-label': `Nom de l’opération ${i + 1}`, maxLength: 60 } }} sx={{ width: 200, '& input': { height: 48, boxSizing: 'border-box', py: 0 } }} />
+                          </TableCell>
+                          <TableCell><ChoixListe libelle={`Mois de vente : ${nom}`} valeur={o.mois} options={MOIS_OPTIONS} largeur={140} onChange={(v) => operation(i, { mois: v })} /></TableCell>
+                          <TableCell><ChoixListe libelle={`Achats payés en : ${nom}`} valeur={o.moisPaiement} options={MOIS_OPTIONS} largeur={140} onChange={(v) => operation(i, { moisPaiement: v })} /></TableCell>
+                          <TableCell align="right"><ChampTaux libelle={`Part des achats payée à l’avance : ${nom}`} valeur={o.part} onChange={(v) => operation(i, { part: Math.min(1, Math.max(0, v ?? 0)) })} /></TableCell>
+                          <TableCell>
+                            <IconButton aria-label={`Retirer ${nom}`} onClick={() => operation(i, null)} sx={{ width: 48, height: 48 }}><DeleteOutlined /></IconButton>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+            <Box sx={{ px: 2, py: 1.5 }}>
+              <Button startIcon={<AddOutlined />} sx={{ minHeight: 48 }}
+                onClick={() => setTreso((t) => (t ? { ...t, operations: [...(t.operations ?? []), { nom: '', mois: 9, moisPaiement: 8, part: 0.3 }] } : t))}>
+                Ajouter une opération
+              </Button>
+            </Box>
           </Card>
         )}
         </Stack>

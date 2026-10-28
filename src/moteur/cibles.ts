@@ -1,11 +1,14 @@
-import { universLibelle, type Famille, type Hypotheses, type Travaux, type Univers } from './types'
+import type { Tranche } from './projection'
+import { universLibelle, type AjustementCA, type ChoixRythme, type Famille, type Hypotheses, type TempsFort, type Travaux, type Univers, type UniversTickets } from './types'
 
 // Hypothèses du budget par niveaux : le siège fixe des cibles pour le réseau, éventuellement pour un groupe de magasins,
 // et le magasin peut s'en écarter. Chaque valeur vient du niveau le plus proche du magasin qui la renseigne :
 // magasin, puis groupe, puis réseau, puis la base du magasin (son propre réalisé). Fonction pure, testée.
+// Lot 24 : sous le groupe, les valeurs du réseau propres à l'ancienneté du magasin ; sous le réseau, la hausse tarifaire
+// (valeur par défaut du panier).
 
-export type Niveau = 'reseau' | 'groupe' | 'magasin'
-export const niveauLibelle: Record<Niveau | 'base', string> = { reseau: 'Réseau', groupe: 'Groupe', magasin: 'Magasin', base: 'Réalisé' }
+export type Niveau = 'tarif' | 'reseau' | 'millesime' | 'groupe' | 'magasin'
+export const niveauLibelle: Record<Niveau | 'base', string> = { tarif: 'Tarif', reseau: 'Réseau', millesime: 'Ancienneté', groupe: 'Groupe', magasin: 'Magasin', base: 'Réalisé' }
 
 // Clé d'une famille : son univers et son nom (une même famille peut exister en Cave et au Bar)
 export const cleFamille = (f: Pick<Famille, 'univers' | 'famille'>) => `${f.univers}/${f.famille}`
@@ -23,6 +26,29 @@ export interface Cibles {
   poidsMois?: number[]                                // magasin seulement : sa saisonnalité
   travaux?: Travaux                                   // magasin seulement : ses travaux de l'année
   tresorerieDepart?: number                           // magasin seulement : trésorerie au 1er janvier
+  // Lot 24
+  hausseTarifaire?: number                            // réseau seulement : hausse des prix, défaut du panier
+  millesimes?: Partial<Record<Tranche, ValeursMillesime>> // réseau seulement : tickets et panier selon l'ancienneté
+  rythme?: Partial<Record<UniversTickets, ChoixRythme>>   // magasin seulement : rythme de sortie confirmé ou écarté
+  tempsForts?: TempsFort[]                            // magasin seulement
+  ajustementsCA?: AjustementCA[]                      // magasin seulement : clients gagnés ou perdus, concurrent, horaires
+}
+// Panier selon l'ancienneté : en plus de la hausse tarifaire
+export interface ValeursMillesime { evolutionFlux?: Partial<Record<UniversTickets, number>>; evolutionPanier?: Partial<Record<UniversTickets, number>> }
+
+// Niveaux du réseau pour un magasin d'une ancienneté donnée : hausse tarifaire, réseau, puis valeurs de son ancienneté
+export function niveauxReseau(reseau: Cibles | null | undefined, tranche: Tranche | null): NiveauCibles[] {
+  const tarif = reseau?.hausseTarifaire
+  const niveaux: NiveauCibles[] = []
+  if (defini(tarif)) niveaux.push({ niveau: 'tarif', cibles: { evolutionPanier: { cave: tarif, bar: tarif } } })
+  niveaux.push({ niveau: 'reseau', cibles: reseau })
+  const m = tranche ? reseau?.millesimes?.[tranche] : undefined
+  if (m) {
+    const panier: Partial<Record<UniversTickets, number>> = {}
+    for (const u of ['cave', 'bar'] as const) { const v = m.evolutionPanier?.[u]; if (defini(v)) panier[u] = (tarif ?? 0) + v }
+    niveaux.push({ niveau: 'millesime', cibles: { evolutionFlux: m.evolutionFlux, evolutionPanier: panier } })
+  }
+  return niveaux
 }
 
 export interface Provenance { cle: string; libelle: string; valeur: number; source: Niveau | 'base' }
@@ -99,10 +125,15 @@ export function appliquerCibles(base: Hypotheses, niveaux: NiveauCibles[]): { hy
     }
   }
 
-  // Saisonnalité et travaux : propres au magasin, repris tels quels du niveau le plus proche qui les renseigne
-  const propre = <K extends 'poidsMois' | 'travaux'>(k: K) => [...niveaux].reverse().find((n) => n.cibles?.[k])
+  // Saisonnalité, travaux, temps forts et ajustements datés : propres au magasin, repris tels quels du niveau le plus proche
+  const propre = <K extends 'poidsMois' | 'travaux' | 'tempsForts' | 'ajustementsCA' | 'rythme'>(k: K) => [...niveaux].reverse().find((n) => n.cibles?.[k])
   const poids = propre('poidsMois')
   const travaux = propre('travaux')
+  const tempsForts = propre('tempsForts')?.cibles?.tempsForts
+  const ajustementsCA = propre('ajustementsCA')?.cibles?.ajustementsCA
+  // Rythme de sortie : proposé dès que l'atterrissage l'a mesuré (choix du magasin, sinon automatique)
+  const choix = propre('rythme')?.cibles?.rythme
+  const rythme = base.sortie ? Object.fromEntries((['cave', 'bar'] as const).filter((u) => base.sortie?.[u]).map((u) => [u, choix?.[u] ?? 'auto'])) : undefined
   if (poids) provenance.push({ cle: 'poidsMois', libelle: 'Saisonnalité du magasin', valeur: 1, source: poids.niveau })
   if (travaux) provenance.push({ cle: 'travaux', libelle: 'Travaux', valeur: 1, source: travaux.niveau })
 
@@ -114,6 +145,9 @@ export function appliquerCibles(base: Hypotheses, niveaux: NiveauCibles[]): { hy
       caParTickets: true,
       ...(poids ? { poidsMois: poids.cibles!.poidsMois } : {}),
       ...(travaux ? { travaux: travaux.cibles!.travaux } : {}),
+      ...(rythme ? { rythme } : {}),
+      ...(tempsForts?.length ? { tempsForts } : {}),
+      ...(ajustementsCA?.length ? { ajustementsCA } : {}),
       // Avec l'équipe, la hausse s'applique au brut de chacun (la réduction générale en dépend) ; sinon aux salaires chargés
       ...(base.equipe?.length ? { hausseSalaires: tauxHausse } : {}),
       personnel: base.equipe?.length ? base.personnel : { ...base.personnel, salairesMensuels: base.personnel.salairesMensuels.map((s) => s * (1 + tauxHausse)) },
@@ -175,13 +209,11 @@ export function valeurHeritee(niveauxAuDessus: NiveauCibles[], cle: string): { v
   return resoudre(niveauxAuDessus, (c) => lireCible(c, cle) ?? (type === 'evolution' ? lireCible(c, `univers/${univers}`) : undefined))
 }
 
-// Ajustements d'un magasin repris sur un autre : tout sauf les travaux et la trésorerie de départ, propres à chaque
-// magasin (ceux du magasin visé restent)
+// Ajustements d'un magasin repris sur un autre : tout sauf ce qui est propre à chaque magasin (travaux, trésorerie de
+// départ, rythme de sortie, temps forts, clients gagnés ou perdus), dont ceux du magasin visé restent
+const PROPRES = ['travaux', 'tresorerieDepart', 'rythme', 'tempsForts', 'ajustementsCA'] as const
 export function ajustementsCopies(source: Cibles, cible: Cibles): Cibles {
-  const { travaux: _, tresorerieDepart: __, ...copie } = structuredClone(source)
-  return {
-    ...copie,
-    ...(cible.travaux ? { travaux: cible.travaux } : {}),
-    ...(cible.tresorerieDepart !== undefined ? { tresorerieDepart: cible.tresorerieDepart } : {}),
-  }
+  const copie = structuredClone(source)
+  for (const k of PROPRES) delete copie[k]
+  return { ...copie, ...Object.fromEntries(PROPRES.filter((k) => cible[k] !== undefined).map((k) => [k, cible[k]])) }
 }
