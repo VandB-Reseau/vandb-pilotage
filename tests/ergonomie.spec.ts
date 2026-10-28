@@ -55,7 +55,7 @@ test('l’accueil filtre les magasins, la recherche ignore les accents, le retou
   await seConnecter(page, { magasins: sept, frais: [loyer(MAGASINS[0]), loyer('Port-Navalo')], equipe: [vendeur(1, MAGASINS[0])] })
   const filtres = page.getByRole('group', { name: 'Filtres' })
   const tableau = page.getByRole('table', { name: /Budgets .* par magasin/ })
-  const cartes = page.locator('main').getByRole('heading', { level: 2 }).filter({ hasNotText: 'À traiter' })
+  const cartes = page.locator('main').getByRole('heading', { level: 2 }).filter({ hasNotText: 'À traiter' }).filter({ hasNotText: 'Campagne des budgets' })
   const lignes = isMobile ? cartes : tableau.getByRole('row').filter({ has: page.getByRole('link') })
   await expect(filtres.getByRole('button', { name: 'Tous · 7' })).toHaveAttribute('aria-pressed', 'true')
   await expect(filtres.getByRole('button', { name: 'Sans budget · 5' })).toBeVisible()

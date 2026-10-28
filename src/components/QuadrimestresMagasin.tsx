@@ -12,8 +12,8 @@ import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import Typography from '@mui/material/Typography'
-import SaveOutlined from '@mui/icons-material/SaveOutlined'
 import UploadFileOutlined from '@mui/icons-material/UploadFileOutlined'
+import { BarreEnregistrement } from './BarreEnregistrement'
 import { ChampNombre } from './ChampNombre'
 import { useSaisieEnCours } from './GardeSaisie'
 import { ImportFEC, type FichierFEC } from './ImportFEC'
@@ -21,6 +21,7 @@ import { Indicateur } from './Indicateur'
 import { Panne } from './Panne'
 import { atterrissageDe, chargerBudgets, chargerParametres, chargerQuadrimestres, chargerReel, chargerSecours, enregistrerQuadrimestres, hypothesesDe } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
+import { nombreChangements } from '../lib/aFaire'
 import { nombre } from '../import/caisse'
 import { lireFEC, texteDuFEC } from '../import/fec'
 import { ecartMontant, ecartPts, ecartTaux, enChiffres, milliers, montant, MOIS, MOIS_LONGS, taux } from '../lib/format'
@@ -81,6 +82,17 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
   const comparaison = cumul ? comparaisonPeriode(cumul, memePeriode(moisCumul, moisDuReel(donnees.reelN1.lignes, donnees.reelN1.tickets), donnees.saisiesN1)) : null
   const caCaisse = Object.fromEntries(QUADRIMESTRES.map((q) => [q, moisDuQuadrimestre(q).reduce((a, m) => a + (moisCaisse[m]?.caHT ?? 0), 0)])) as Record<Quadrimestre, number>
   const colonnes: (ResultatQuadrimestre | null)[] = [...parQuadrimestre, cumul]
+  // Barre d'enregistrement (lot 28) : EBE et trésorerie du cumul enregistré, puis avec la saisie
+  const avant = resultatsQuadrimestres(moisCaisse, donnees.saisies, budget)
+  const finDe = (q: Quadrimestre | null) => (q ? quadrimestreLibelle[q].split(' à ')[1] : '')
+  const effets = [
+    ...(avant.cumul?.ebe != null || cumul?.ebe != null ? [{
+      libelle: `EBE réel à fin ${finDe(dernier)}`, avant: avant.cumul?.ebe == null ? '–' : milliers(avant.cumul.ebe), apres: cumul?.ebe == null ? '–' : milliers(cumul.ebe),
+    }] : []),
+    ...(avant.cumul?.tresorerie != null || cumul?.tresorerie != null ? [{
+      libelle: 'Trésorerie', avant: avant.cumul?.tresorerie == null ? '–' : milliers(avant.cumul.tresorerie), apres: cumul?.tresorerie == null ? '–' : milliers(cumul.tresorerie),
+    }] : []),
+  ]
   // Trésorerie glissante : dernière trésorerie saisie, puis les flux de l'atterrissage jusqu'à décembre
   const qTreso = [...QUADRIMESTRES].reverse().find((q) => lues[q]?.tresorerie != null)
   const atterri = qTreso && qTreso < 3 ? atterrissageDe({ n: donnees.reel, n1: donnees.reelN1 }, annee, donnees.d.equipes[magasin], donnees.d.frais[magasin], donnees.parametres, donnees.secours) : null
@@ -175,11 +187,6 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
               <input ref={entreeFEC} type="file" accept=".txt,.csv,.fec,text/plain" hidden aria-label="FEC du comptable"
                 onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void lireFichierFEC(f) }} />
             </>
-          )}
-          {peutSaisir && modifie && (
-            <Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe || !lisible || negatif} onClick={() => void enregistrer()} sx={{ minHeight: 48 }}>
-              Enregistrer les quadrimestres
-            </Button>
           )}
         </Box>
         {message && <Box sx={{ px: 2.5, pb: 1 }}><Alert severity={message.gravite} onClose={() => setMessage(null)} closeText="Fermer" slotProps={{ closeButton: { sx: { width: 48, height: 48 } } }}>{message.texte}</Alert></Box>}
@@ -288,6 +295,14 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
             </Table>
           </TableContainer>
         </Card>
+      )}
+      {peutSaisir && modifie && (
+        <BarreEnregistrement
+          changements={nombreChangements(vers(donnees.saisies), textes)} occupe={occupe} desactive={!lisible || negatif}
+          libelle="Enregistrer les quadrimestres" effets={effets}
+          avertissement={!lisible ? 'Un montant est illisible.' : undefined}
+          onAnnuler={() => { setTextes(vers(donnees.saisies)); setMessage(null) }} onEnregistrer={() => void enregistrer()}
+        />
       )}
     </Stack>
   )

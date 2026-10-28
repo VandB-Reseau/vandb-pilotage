@@ -41,13 +41,13 @@ export function reelEnRetard(moisRenseignes: number, aujourdhui = new Date()): b
 export type TacheFranchise =
   | { type: 'reel'; mois: number }                                  // dernier mois terminé à saisir (0 à 11)
   | { type: 'quadrimestre'; annee: number; quadrimestre: 1 | 2 | 3 }
-  | { type: 'budget'; annee: number; statut: 'propose' | 'en_discussion' }
+  | { type: 'budget'; annee: number; statut: 'propose' | 'en_discussion'; avant?: string }   // avant : date de validation de la campagne (lot 28)
   | { type: 'equipe' } | { type: 'frais' }
   | { type: 'action'; intitule: string; echeance: string | null }  // action du plan confiée au franchisé
 export function tachesFranchise(e: {
   moisRenseignes: number                                            // mois de réel de l'année en cours
   quadrimestres: Record<number, (1 | 2 | 3)[]>                      // quadrimestres saisis, par année
-  budget: { annee: number; statut: Statut | null }
+  budget: { annee: number; statut: Statut | null; avant?: string }
   aEquipe: boolean
   aFrais: boolean
   actions?: { intitule: string; echeance: string | null }[]
@@ -60,7 +60,7 @@ export function tachesFranchise(e: {
   if (m < 4 && !saisi(n - 1, 3)) t.push({ type: 'quadrimestre', annee: n - 1, quadrimestre: 3 })
   if (m >= 4 && !saisi(n, 1)) t.push({ type: 'quadrimestre', annee: n, quadrimestre: 1 })
   if (m >= 8 && !saisi(n, 2)) t.push({ type: 'quadrimestre', annee: n, quadrimestre: 2 })
-  if (e.budget.statut === 'propose' || e.budget.statut === 'en_discussion') t.push({ type: 'budget', annee: e.budget.annee, statut: e.budget.statut })
+  if (e.budget.statut === 'propose' || e.budget.statut === 'en_discussion') t.push({ type: 'budget', annee: e.budget.annee, statut: e.budget.statut, ...(e.budget.avant ? { avant: e.budget.avant } : {}) })
   if (!e.aEquipe) t.push({ type: 'equipe' })
   if (!e.aFrais) t.push({ type: 'frais' })
   // Actions du plan, la plus proche échéance d'abord

@@ -44,6 +44,8 @@ const impression = {
   // Parties du budget masquées à l'écran (lot 27) : imprimées avec la partie affichée, pour garder le budget complet sur papier
   '.partie-cachee': { display: 'none !important' },
   '@page': { size: 'A4 landscape', margin: '10mm' },
+  // Fiche de visite (lot 28) : A4 portrait, seule sur la page imprimée
+  '@page fiche': { size: 'A4 portrait', margin: '12mm' },
   '@media print': {
     'body, .fond-app': { backgroundColor: '#ffffff !important' },
     '*': { printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' },
@@ -61,6 +63,12 @@ const impression = {
     'input::placeholder': { color: 'inherit !important', opacity: '1 !important' },
     tr: { breakInside: 'avoid' },
     'section, .MuiCard-root': { breakInside: 'auto' },
+    'body.fiche-seule #root': { display: 'none !important' },
+    'body.fiche-seule .fiche-visite': { position: 'static !important' },
+    'body.fiche-seule .fiche-visite .MuiBackdrop-root': { display: 'none !important' },
+    'body.fiche-seule .fiche-visite .MuiDialog-container': { display: 'block !important', height: 'auto !important' },
+    'body.fiche-seule .fiche-visite .MuiDialog-paper': { page: 'fiche', margin: '0 !important', maxWidth: 'none !important', maxHeight: 'none !important', boxShadow: 'none !important', overflow: 'visible !important' },
+    'body.fiche-seule .fiche-visite .MuiDialogContent-root': { overflow: 'visible !important', padding: '0 !important' },
   },
 } as const
 

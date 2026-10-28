@@ -11,6 +11,9 @@ import { UNIVERS, type Hypotheses, type LigneFrais, type Univers } from './types
 //   3. saisonnalité de l'univers dans le magasin l'année précédente, si elle est complète ;
 //   4. saisonnalité médiane du réseau l'année précédente (magasins qui ont leurs 12 mois), depuis le mois d'ouverture ;
 //   5. moyenne des mois réalisés, depuis le mois d'ouverture.
+//   Lot 28 : pour 3 à 5, avec 4 mois pleins réalisés, les mois restants suivent le rythme des 4 derniers mois ramené à la
+//   même saisonnalité, tant que l'année ne s'écarte pas de plus de 15 % de la méthode d'origine ; au-delà, la méthode
+//   d'origine est gardée et l'écart est signalé (ecartsRythme) : on retient le rythme en saisissant sa part de l'année.
 // - Marge : taux réalisé de la famille, appliqué aux mois projetés.
 // - Rythme de sortie (lot 24) : CA de la Cave et du Bar sur les 4 derniers mois réalisés et leur poids dans la saisonnalité
 //   (celle du magasin s'il a deux ans pleins, sinon celle du réseau). Pas de rythme dans les 2 mois qui suivent une ouverture.
@@ -23,7 +26,9 @@ export interface BaseDepuisReel {
   moisRealises: number
   methode: 'saisonnalite' | 'moyenne'                 // saisonnalité : au moins un univers ne projette pas sur la moyenne
   methodes: Record<Univers, MethodeAtterrissage>
-  rythmes?: Partial<Record<Univers, { de: number; a: number; ca: number }>>  // magasin jeune : mois (1 à 12) et CA du rythme
+  rythmes?: Partial<Record<Univers, { de: number; a: number; ca: number }>>  // rythme retenu : mois (1 à 12) et CA du rythme
+  // Rythme écarté (plus de 15 % d'écart à la méthode d'origine) : l'année qu'il donnerait et la part à saisir pour le retenir
+  ecartsRythme?: Partial<Record<Univers, { de: number; a: number; atterrissage: number; ecart: number; part: number }>>
   debut: number                                       // premier mois compté (1 à 12) : celui de l'ouverture dans l'année
   realise: number                                     // CA HT de janvier à la fin du dernier mois réalisé
   parMois: { ca: number; projete: boolean }[]
@@ -31,6 +36,7 @@ export interface BaseDepuisReel {
 
 export type MethodeAtterrissage = 'saisie' | 'rythme' | 'magasin' | 'reseau' | 'moyenne'
 export const JEUNE_MAGASIN = 18   // mois d'activité en dessous desquels le magasin monte encore en charge
+export const ECART_RYTHME = 0.15  // au-delà, le rythme des derniers mois n'est pas retenu sans confirmation (lot 28)
 export interface SecoursAtterrissage {
   parts?: Partial<Record<Univers, number>>   // part de l'année réalisée à fin du dernier mois, saisie par univers
   saisonnaliteReseau?: number[] | null       // 12 poids (total 1), médiane du réseau l'année précédente
@@ -77,6 +83,8 @@ export function baseDepuisReel(reel: ReelAnnees, annee: number, frais: LigneFrai
   const partRealisee: Partial<Record<Univers, number>> = {}
   const poids = {} as Record<Univers, number[]>
   const rythmes: BaseDepuisReel['rythmes'] = {}
+  const ecartsRythme: BaseDepuisReel['ecartsRythme'] = {}
+  const saisonMagasin = {} as Record<Univers, boolean>   // saisonnalité du magasin l'an dernier, avant le rythme du lot 28
   const sur = (w: number[], de: number, a: number) => somme(w.slice(de, a + 1))
   for (const u of UNIVERS) {
     const ref = n1Univers[u]
@@ -95,6 +103,20 @@ export function baseDepuisReel(reel: ReelAnnees, annee: number, frais: LigneFrai
       methodes[u] = 'reseau'; partRealisee[u] = sur(reseau, debut, m - 1) / sur(reseau, debut, 11); poids[u] = reseau
     } else {
       methodes[u] = 'moyenne'; partRealisee[u] = (m - debut) / (12 - debut); poids[u] = egal
+    }
+    saisonMagasin[u] = methodes[u] === 'magasin'
+    // Lot 28 : rythme des 4 derniers mois pleins, ramené à la saisonnalité de la méthode retenue
+    const pw = poids[u]
+    if (methodes[u] !== 'saisie' && methodes[u] !== 'rythme' && m < 12 && fenetre.a - fenetre.de + 1 === MOIS_SORTIE
+      && ytd > 0 && dansFenetre > 0 && sur(pw, fenetre.de, fenetre.a) > 0) {
+      const anneeRythme = ytd + dansFenetre * sur(pw, m, 11) / sur(pw, fenetre.de, fenetre.a)
+      const ecart = anneeRythme / (ytd / partRealisee[u]!) - 1
+      if (Math.abs(ecart) <= ECART_RYTHME) {
+        methodes[u] = 'rythme'; partRealisee[u] = ytd / anneeRythme
+        rythmes[u] = { de: fenetre.de + 1, a: fenetre.a + 1, ca: dansFenetre }
+      } else {
+        ecartsRythme[u] = { de: fenetre.de + 1, a: fenetre.a + 1, atterrissage: anneeRythme, ecart, part: ytd / anneeRythme }
+      }
     }
   }
 
@@ -125,7 +147,7 @@ export function baseDepuisReel(reel: ReelAnnees, annee: number, frais: LigneFrai
   const lancement = !!o && o.annee * 12 + o.mois + 2 > annee * 12 + de
   if (de >= 1 && !lancement) {
     for (const u of ['cave', 'bar'] as const) {
-      const ref = methodes[u] === 'magasin' && deuxAns ? n1Univers[u] : reseau
+      const ref = saisonMagasin[u] && deuxAns ? n1Univers[u] : reseau
       const total = ref ? somme(ref) : 0
       const ca = somme(s.familles.filter((f) => f.univers === u).map((f) => somme(f.parMois.slice(de - 1, m))))
       if (!ref || total <= 0 || ca <= 0) continue
@@ -155,6 +177,7 @@ export function baseDepuisReel(reel: ReelAnnees, annee: number, frais: LigneFrai
     methode: UNIVERS.some((u) => methodes[u] !== 'moyenne') ? 'saisonnalite' : 'moyenne',
     methodes,
     ...(Object.keys(rythmes).length ? { rythmes } : {}),
+    ...(Object.keys(ecartsRythme).length ? { ecartsRythme } : {}),
     debut: debut + 1,
     realise: somme(s.parMois.slice(0, m).map((x) => x.caHT)),
     parMois: caMois.map((ca, i) => ({ ca, projete: i >= m })),

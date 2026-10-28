@@ -9,7 +9,7 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
 
 | Dossier | Contenu |
 | --- | --- |
-| `src/moteur/` | Moteur de calcul pur : `types.ts` (hypothèses, résultats), `budget.ts` (calcul), `cibles.ts` (hypothèses par niveaux réseau, groupe, magasin), `parametres.ts` (paramètres par défaut, grille des frais), `reel.ts` (synthèse du réel d'une année, familles de la caisse), `saisieReel.ts` (saisie d'un mois à la main), `equipe.ts` (masse salariale chargée personne par personne, réduction générale), `saisieEquipe.ts` (fiche d'un poste), `atterrissage.ts` (atterrissage de l'année depuis le réel, base du budget suivant, frais du magasin), `saisieFrais.ts` (saisie des frais), `compteResultat.ts` (compte de résultat sur 12 mois, rubriques et détail), `sante.ts` (santé d'un magasin depuis le réel, synthèse des budgets), `suivi.ts` (réel face au budget, indicateurs du réseau à date), `tresorerie.ts` (trésorerie du budget mois par mois), `quadrimestre.ts` (marge réelle et EBE depuis les chiffres comptables de chaque quadrimestre), `alertes.ts` (alertes des magasins et leurs seuils), `explication.ts` (« D'où vient ce chiffre ? »), `versions.ts` (versions du budget côte à côte), `comparaison.ts` (médianes, rangs, ratios du réel et des budgets), `periodes.ts` (mois, quadrimestres, année) |
+| `src/moteur/` | Moteur de calcul pur : `types.ts` (hypothèses, résultats), `budget.ts` (calcul), `cibles.ts` (hypothèses par niveaux réseau, groupe, magasin), `parametres.ts` (paramètres par défaut, grille des frais), `reel.ts` (synthèse du réel d'une année, familles de la caisse), `saisieReel.ts` (saisie d'un mois à la main), `equipe.ts` (masse salariale chargée personne par personne, réduction générale), `saisieEquipe.ts` (fiche d'un poste), `atterrissage.ts` (atterrissage de l'année depuis le réel, base du budget suivant, frais du magasin), `saisieFrais.ts` (saisie des frais), `compteResultat.ts` (compte de résultat sur 12 mois, rubriques et détail), `sante.ts` (santé d'un magasin depuis le réel, synthèse des budgets), `suivi.ts` (réel face au budget, indicateurs du réseau à date), `tresorerie.ts` (trésorerie du budget mois par mois), `quadrimestre.ts` (marge réelle et EBE depuis les chiffres comptables de chaque quadrimestre), `alertes.ts` (alertes des magasins et leurs seuils), `explication.ts` (« D'où vient ce chiffre ? »), `versions.ts` (versions du budget côte à côte), `comparaison.ts` (médianes, rangs, ratios du réel et des budgets), `periodes.ts` (mois, quadrimestres, année), `visite.ts` (fiche de visite), `leviers.ts` (leviers commerciaux), `campagne.ts` (campagne des budgets), `effets.ts` (effet d'une saisie sur l'EBE) |
 | `src/import/` | Lecture des fichiers mensuels de la DSI (`caisse.ts` : ventes, tickets, quadrimestres des comptables, aperçu avant import ; format dans [import-caisse.md](import-caisse.md)) |
 | `src/data/` | Lecture de la base (`pilotage.ts`, lectures gardées une minute et lues par pages de 1 000 lignes), chargement avec nouvelle tentative (`useChargement.ts`) |
 | `src/lib/` | Classeur Excel écrit sans bibliothèque (`xlsx.ts`), contenu des exports du budget et de la vue réseau (`exports.ts`), mise en forme (`format.ts`), filtres de l'accueil et réel en retard (`aFaire.ts`), Entrée vers le montant suivant (`champSuivant.ts`) |
@@ -118,6 +118,16 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
    de mois, `plusGrosseSortie`). Synthèse face au budget de l'année et CA cumulé (`cumul`, `cumulApres`). Liste des
    magasins triable avec ligne Total (`totalBudgets`), alertes par magasin ; « À traiter » (`aTraiter`, `ATraiter`)
    pour le Directeur, le RR et le Coach.
+28. Lot 28 : les mois restants de l'atterrissage suivent le rythme des 4 derniers mois quand il s'écarte de moins de
+   15 % de la méthode d'avant (`ECART_RYTHME`), sinon l'écart s'affiche et « Retenir le rythme » le saisit en part de
+   l'année réalisée. Alertes tickets et panier, Cave et Bar séparés, sur 3 mois face à l'an dernier (`alertes.ts`).
+   `src/moteur/visite.ts` : fiche de visite (`FicheVisite`, imprimée seule en A4 portrait, `@page fiche`), trois
+   sujets classés par la marge en jeu. `src/moteur/leviers.ts` : leviers commerciaux sur un an (`LeviersCommerciaux`,
+   rien d'enregistré ; « En faire une action » ouvre le plan d'action pré-rempli). `src/moteur/campagne.ts` : dates
+   de la campagne des budgets (`parametres_reseau.valeur.campagne`), retard et avancement par RR et par Coach
+   (`CampagneBudgets` sur la liste des magasins). CA par heure travaillée (`caParHeure`) dans la vue Réseau et la
+   comparaison. `src/moteur/effets.ts` : effet d'une saisie d'équipe ou de frais sur l'EBE, montré par
+   `BarreEnregistrement` dans Équipe, Frais et Quadrimestres.
 
 ## Rôles
 

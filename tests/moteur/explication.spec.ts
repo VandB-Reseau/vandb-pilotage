@@ -97,12 +97,12 @@ test('atterrissage : réalisé depuis l’ouverture, puis rythme du jeune magasi
   expect(resume(e)).toEqual([{ titre: 'Cave', etapes: [['Réalisé de mars à août', 75_000], ['Septembre à décembre, au rythme de mai à août', 155_000]] }])
   proche(e.groupes[0].etapes[1].montant, 80_000)
   proche(e.total, 155_000)
-  // Magasin ancien sans 2025 : 120 000 de janvier à août ÷ 60 % (saisonnalité du réseau) = 200 000
-  const ancien = baseDepuisReel({ n: { lignes: cave(Object.fromEntries(Array.from({ length: 8 }, (_, i) => [i + 1, 15_000]))), tickets: [] }, n1: { lignes: [], tickets: [] } },
+  // Magasin ancien sans 2025, 3 mois réalisés (pas de rythme du lot 28) : 45 000 ÷ 22,5 % (saisonnalité du réseau) = 200 000
+  const ancien = baseDepuisReel({ n: { lignes: cave({ 1: 15_000, 2: 15_000, 3: 15_000 }), tickets: [] }, n1: { lignes: [], tickets: [] } },
     2026, [], undefined, { saisonnaliteReseau: reseau })!
   const a = expliquerAtterrissage(ancien)
-  expect(resume(a)).toEqual([{ titre: 'Cave', etapes: [['Réalisé de janvier à août', 120_000], ['Part de l’année réalisée (saisonnalité médiane du réseau)', 200_000]] }])
-  proche(a.groupes[0].etapes[1].diviseur, 0.6)
+  expect(resume(a)).toEqual([{ titre: 'Cave', etapes: [['Réalisé de janvier à mars', 45_000], ['Part de l’année réalisée (saisonnalité médiane du réseau)', 200_000]] }])
+  proche(a.groupes[0].etapes[1].diviseur, 0.225)
 })
 
 test('versions côte à côte : chiffres clés et écart au budget en cours', () => {

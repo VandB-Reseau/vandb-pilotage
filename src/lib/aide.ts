@@ -98,6 +98,17 @@ export const AIDE = {
     remplir: 'Enregistre le budget tel qu’il est, change des hypothèses, puis enregistre une autre version. « Reprendre » remet les hypothèses d’une version dans le budget en cours, sans l’enregistrer.',
     calcul: 'Chaque version se recalcule avec les cibles du siège d’aujourd’hui, et avec l’équipe et les frais du jour où elle a été enregistrée. Les écarts sont donnés face au budget en cours.',
   },
+  leviers: {
+    titre: 'Leviers commerciaux',
+    quoi: 'Ce que rapporteraient sur un an plus de clients, un panier plus fort ou un mix mieux margé, Cave et Bar séparés.',
+    remplir: 'Tickets en pourcentage, panier en euros TTC par ticket, mix en points de taux de marge. Rien n’est enregistré : « En faire une action » met le levier au plan d’action.',
+    calcul: 'CA de l’univers × (1 + tickets) × (1 + euros de panier ÷ panier TTC) ; marge au taux de l’univers plus les points de mix ; redevance et publicité suivent le CA, l’équipe et les frais ne bougent pas.',
+  },
+  ficheVisite: {
+    titre: 'Fiche de visite',
+    quoi: 'Une page A4 à imprimer avant la visite : les chiffres à date, les alertes, le plan d’action et les trois sujets à aborder.',
+    calcul: 'Les sujets sont classés par la marge en jeu depuis le 1er janvier : CA manquant face au budget, points de marge perdus, tickets perdus au panier de l’an dernier, euros de panier perdus sur les tickets de l’année.',
+  },
 } satisfies Record<string, TexteAide>
 
 export type SujetAide = keyof typeof AIDE

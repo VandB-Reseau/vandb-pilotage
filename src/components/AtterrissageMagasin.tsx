@@ -11,7 +11,7 @@ import { EtatVide } from './EtatVide'
 import { Panne } from './Panne'
 import { avecEquipeEtFrais, chargerReel, chargerSecours, enregistrerPartsRealisees, niveauxDe, proposerBudget, type DonneesBudgets, type LigneMagasin, type PartsRealisees } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
-import { milliers, MOIS_LONGS, montant, taux } from '../lib/format'
+import { ecartTaux, milliers, MOIS_LONGS, montant, taux } from '../lib/format'
 import { compteResultat } from '../moteur/compteResultat'
 import { baseDepuisReel, type MethodeAtterrissage } from '../moteur/atterrissage'
 import { calculerBudget } from '../moteur/budget'
@@ -31,7 +31,7 @@ import { Indicateur } from './Indicateur'
 // Atterrissage de l'année en cours : réel des mois passés, projection des mois restants, équipe et frais du magasin.
 // Le Directeur en tire la proposition du budget de l'an prochain.
 const METHODE: Record<MethodeAtterrissage, string> = {
-  saisie: 'Part saisie', rythme: 'Rythme des derniers mois (magasin de moins de 18 mois)', magasin: 'Saisonnalité du magasin l’an dernier', reseau: 'Saisonnalité médiane du réseau', moyenne: 'Moyenne des mois réalisés',
+  saisie: 'Part saisie', rythme: 'Rythme des 4 derniers mois', magasin: 'Saisonnalité du magasin l’an dernier', reseau: 'Saisonnalité médiane du réseau', moyenne: 'Moyenne des mois réalisés',
 }
 
 export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, directeur, peutSaisir, allerA, apresProposition }: {
@@ -162,7 +162,22 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
               <TableRow key={u}>
                 <TableCell>{universLibelle[u]}</TableCell>
                 <TableCell align="right">{montant(realiseDe(u))}</TableCell>
-                <TableCell>{METHODE[r.methodes[u]]}</TableCell>
+                <TableCell sx={{ whiteSpace: 'normal' }}>
+                  {METHODE[r.methodes[u]]}
+                  {/* Lot 28 : rythme écarté au-delà de 15 % d'écart ; le retenir, c'est saisir sa part de l'année */}
+                  {r.methodes[u] !== 'saisie' && auto?.ecartsRythme?.[u] && (() => {
+                    const e = auto.ecartsRythme[u]!
+                    return (
+                      <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 1.5, color: 'warning.dark', fontSize: '0.875rem' }}>
+                        <span>{`Au rythme de ${MOIS_LONGS[e.de - 1]} à ${MOIS_LONGS[e.a - 1]} : ${milliers(e.atterrissage)} (${ecartTaux(e.ecart)}), écart de plus de 15 % à confirmer`}</span>
+                        {peutSaisir && (
+                          <Button size="small" onClick={() => setParts({ ...vues, [u]: e.part })} sx={{ minHeight: 48 }}
+                            aria-label={`Retenir le rythme : ${universLibelle[u]}`}>Retenir le rythme</Button>
+                        )}
+                      </Box>
+                    )
+                  })()}
+                </TableCell>
                 <TableCell align="right">
                   {peutSaisir
                     ? <ChampTaux libelle={`Part de l’année réalisée : ${universLibelle[u]}`} valeur={vues[u]} heritee={auto?.base.partRealisee?.[u]}

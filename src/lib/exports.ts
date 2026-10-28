@@ -164,6 +164,7 @@ export function feuilleReseau({ annee, selection, lignes, total, avec }: {
     { titre: 'Panier Bar TTC', largeur: 11, valeur: (l) => n(l.panierBar, 'euros2') },
     { titre: 'Tickets Bar sur l’an dernier', largeur: 12, valeur: (l) => n(l.ticketsBar, 'pct') },
     { titre: 'Masse salariale / marge', largeur: 12, valeur: (l) => n(l.personnelSurMarge, 'pct') },
+    { titre: 'CA par heure travaillée', largeur: 12, valeur: (l) => n(l.caParHeure, 'euros2') },
     { titre: 'Loyer / CA', largeur: 10, valeur: (l) => n(l.loyerSurCA, 'pct') },
     { titre: 'EBE / CA', largeur: 10, valeur: (l) => n(l.ebeSurCA, 'pct') },
   ]
@@ -177,7 +178,7 @@ export function feuilleReseau({ annee, selection, lignes, total, avec }: {
     { v: `${total.magasins} magasin${total.magasins > 1 ? 's' : ''}`, s: 'gras' },
     lignes.length ? { v: total.ca, f: `SUM(${cellule(debut, cCA)}:${cellule(debut + lignes.length - 1, cCA)})`, s: 'eurosGras' } : { v: total.ca, s: 'eurosGras' },
     gras(n(total.evolution, 'pct')), gras(n(total.ecartBudget, 'pct')), gras(n(total.tauxMarge, 'pct')),
-    gras(n(total.panierCave, 'euros2')), gras(n(total.ticketsCave, 'pct')), gras(n(total.panierBar, 'euros2')), gras(n(total.ticketsBar, 'pct')), gras(n(total.personnelSurMarge, 'pct')), gras(n(total.loyerSurCA, 'pct')), gras(n(total.ebeSurCA, 'pct')),
+    gras(n(total.panierCave, 'euros2')), gras(n(total.ticketsCave, 'pct')), gras(n(total.panierBar, 'euros2')), gras(n(total.ticketsBar, 'pct')), gras(n(total.personnelSurMarge, 'pct')), gras(n(total.caParHeure, 'euros2')), gras(n(total.loyerSurCA, 'pct')), gras(n(total.ebeSurCA, 'pct')),
   ]
   return {
     nom: `Réseau ${annee}`,

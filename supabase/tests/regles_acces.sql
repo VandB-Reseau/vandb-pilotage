@@ -42,7 +42,7 @@ INSERT INTO pilotage.reel_mensuel (store_name, mois, univers, famille, ca_ht) VA
 SELECT pg_temp.attendre('Directeur : tous les magasins', (SELECT cardinality(pilotage.mes_magasins())), 3);
 SELECT pg_temp.attendre('Directeur : tous les budgets', (SELECT count(*) FROM pilotage.budgets), 3);
 SELECT pg_temp.attendre('Directeur : tableau des magasins', (SELECT jsonb_array_length(pilotage.magasins_du_compte(2027))), 3);
-SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 15);
+SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 16);
 -- Frais : le Directeur saisit partout
 INSERT INTO pilotage.frais (store_name, code, libelle, rubrique, annuel) VALUES ('Lille', 'loyer', 'Locations immobilières', 'immobilier', 60000), ('Nice', 'loyer', 'Locations immobilières', 'immobilier', 40000);
 SELECT pg_temp.attendre('Directeur : tous les frais', (SELECT count(*) FROM pilotage.frais), 2);
@@ -109,6 +109,7 @@ INSERT INTO pilotage.actions (store_name, type_alerte, intitule, responsable, an
   ('Lille', 'ca', 'Relancer la vente additionnelle en caisse', 'franchise', 2026, -0.08, 8, 'franchise'),
   ('Nice', 'marge', 'Revoir les prix du fût', 'coach', 2026, -0.015, 8, NULL);
 SELECT pg_temp.attendre('Directeur : crée les actions, auteur posé par la base', (SELECT count(*) FROM pilotage.actions WHERE cree_par_role = 'directeur'), 2);
+SELECT pg_temp.attendre('Actions : type d''alerte inconnu refusé (0016 ajoute tickets et panier)', pg_temp.refuse('INSERT INTO pilotage.actions (store_name, type_alerte, intitule, responsable, annee) VALUES (''Lille'', ''meteo'', ''x'', ''franchise'', 2026)'), 1);
 SELECT pg_temp.attendre('Actions : responsable inconnu refusé', pg_temp.refuse('INSERT INTO pilotage.actions (store_name, type_alerte, intitule, responsable, annee) VALUES (''Lille'', ''ca'', ''x'', ''voisin'', 2026)'), 1);
 SELECT pg_temp.attendre('Directeur : tous les groupes avec leurs cibles', (SELECT jsonb_array_length(pilotage.budgets_du_compte(2027)->'groupes')), 2);
 SELECT pg_temp.attendre('Directeur : budgets du compte', (SELECT jsonb_array_length(pilotage.budgets_du_compte(2027)->'magasins')), 3);
