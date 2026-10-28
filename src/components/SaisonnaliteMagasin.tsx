@@ -13,6 +13,7 @@ import RestartAltOutlined from '@mui/icons-material/RestartAltOutlined'
 import { enChiffres, milliers, MOIS, taux } from '../lib/format'
 import type { Budget } from '../moteur/types'
 import { ChampTaux } from './ChampTaux'
+import { Aide } from './Aide'
 
 export const totalPoids = (p: number[] | undefined) => (p ?? []).reduce((a, b) => a + b, 0)
 // Une saisonnalité saisie doit faire 100 % (au millième près) pour être enregistrée
@@ -29,7 +30,7 @@ export function SaisonnaliteMagasin({ budget, poids, onChange, lectureSeule }: {
   return (
     <Card component="section" aria-label="Saisonnalité">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2.5, pt: 2, pb: 1 }}>
-        <Typography variant="h2" sx={{ flex: 1 }}>Saisonnalité</Typography>
+        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}><Typography variant="h2">Saisonnalité</Typography><Aide sujet="saisonnalite" /></Box>
         <Typography variant="body2" color={poids ? 'warning.dark' : 'text.secondary'} sx={{ fontWeight: poids ? 700 : 400 }}>
           {poids ? 'Propre au magasin' : 'CA de référence'}
         </Typography>

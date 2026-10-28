@@ -68,16 +68,16 @@ test('l’accueil filtre les magasins, la recherche ignore les accents, le retou
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-accueil-filtres.png`, fullPage: true })
 
-  await page.getByLabel('Rechercher un magasin').fill('val d azur')
+  await page.getByLabel('Filtrer la liste des magasins').fill('val d azur')
   await expect(lignes).toHaveCount(0)
-  await page.getByLabel('Rechercher un magasin').fill('azur')
+  await page.getByLabel('Filtrer la liste des magasins').fill('azur')
   await expect(lignes).toHaveCount(1)
   await page.getByText('Val-d’Azur', { exact: true }).click()
   await page.locator('main').getByRole('link', { name: 'Magasins' }).click()
-  await expect(page.getByLabel('Rechercher un magasin')).toHaveValue('azur')
+  await expect(page.getByLabel('Filtrer la liste des magasins')).toHaveValue('azur')
   await expect(filtres.getByRole('button', { name: 'Frais à renseigner · 5' })).toHaveAttribute('aria-pressed', 'true')
 
-  await page.getByLabel('Rechercher un magasin').fill('zzz')
+  await page.getByLabel('Filtrer la liste des magasins').fill('zzz')
   await expect(page.getByText('Aucun magasin ne correspond')).toBeVisible()
 })
 

@@ -18,6 +18,7 @@ import { milliers, MOIS_LONGS } from '../lib/format'
 import { UNIVERS, universLibelle, type Budget, type TempsFort, type TypeTempsFort, type Univers } from '../moteur/types'
 import { ChampMontant } from './ChampMontant'
 import { ChoixListe } from './ChoixListe'
+import { Aide } from './Aide'
 
 export const typeLibelle: Record<TypeTempsFort, string> = { exterieur: 'Événement extérieur', soiree: 'Soirée en magasin', operation: 'Opération commerciale' }
 const universDuType: Record<TypeTempsFort, Univers> = { exterieur: 'exterieur', soiree: 'bar', operation: 'cave' }
@@ -48,7 +49,7 @@ export function TempsFortsMagasin({ tempsForts, onChange, lectureSeule, annee, b
   return (
     <Card component="section" aria-label="Temps forts">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2.5, pt: 2, pb: 1 }}>
-        <Typography variant="h2" sx={{ flex: 1 }}>Temps forts</Typography>
+        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}><Typography variant="h2">Temps forts</Typography><Aide sujet="tempsForts" /></Box>
         {tf && (
           <Typography variant="body2" color="text.secondary">
             CA {annee - 1} retiré : {milliers(tf.retire)} · CA {annee} ajouté : {milliers(tf.ajoute)} · Charges : {milliers(tf.charges)}

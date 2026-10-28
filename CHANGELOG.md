@@ -5,6 +5,19 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 25 — Prise en main : recherche, aide, calcul détaillé
+
+- Recherche d'un magasin dans la barre du haut, sur tous les écrans : sans accent ni tiret, les 5 derniers magasins
+  consultés en tête, Ctrl+K (⌘K sur Mac) sur PC, icône loupe en plein écran sur téléphone. Absente pour un seul
+  magasin. Le champ des listes Magasins et Réseau devient « Filtrer la liste ».
+- Icône d'aide sur chaque hypothèse (tickets, panier, part de la famille, évolution, marge visée, démarque, salaires,
+  frais) et sur les cartes du budget (base du CA, temps forts, clients gagnés ou perdus, saisonnalité, travaux,
+  trésorerie) : ce que c'est, comment le remplir, comment c'est calculé. Textes réunis dans `src/lib/aide.ts`.
+- « D'où vient ce chiffre ? » sous le CA, la marge et l'EBE du budget : le calcul étape par étape avec les chiffres
+  du magasin (CA attendu, temps forts retirés, rythme, tickets, panier, travaux, temps forts, ajustements ; marge
+  visée et démarque par univers ; charges jusqu'à l'EBE).
+- Sans migration.
+
 ### Lot 24 — Projection du CA : rythme de sortie, ancienneté, temps forts
 
 - **Base : `0014_ouvertures.sql`** (table `ouvertures`, date d'ouverture de chaque magasin, écrite par le Directeur).

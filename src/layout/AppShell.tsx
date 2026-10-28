@@ -28,6 +28,7 @@ import TrendingUpOutlined from '@mui/icons-material/TrendingUpOutlined'
 import LeaderboardOutlined from '@mui/icons-material/LeaderboardOutlined'
 import { GardeSaisie } from '../components/GardeSaisie'
 import { Logo } from '../components/Logo'
+import { RechercheMagasin } from '../components/RechercheMagasin'
 import { useAuth } from '../auth/AuthContext'
 import { estDirecteur, estEquipe, roleLibelle } from '../auth/roles'
 import { installerChampSuivant } from '../lib/champSuivant'
@@ -92,7 +93,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Logo size={18} />
             <Typography variant="h3" component="span" sx={{ fontSize: '1.125rem' }}>Pilotage</Typography>
           </Box>
-          <Box sx={{ flex: 1 }} />
+          <Box sx={{ flex: 1, display: 'flex', justifyContent: telephone ? 'flex-end' : 'flex-start', pl: telephone ? 0 : `${LARGEUR_MENU - 160}px` }}>
+            {profil && profil.role !== 'aucun' && <RechercheMagasin telephone={telephone} />}
+          </Box>
           <IconButton color="inherit" aria-label="Mon compte" onClick={(e) => setMenuCompte(e.currentTarget)} sx={{ width: 48, height: 48 }}>
             <AccountCircleOutlined />
           </IconButton>

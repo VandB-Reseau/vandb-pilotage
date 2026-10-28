@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import Box from '@mui/material/Box'
 import Card from '@mui/material/Card'
 import Typography from '@mui/material/Typography'
@@ -6,12 +7,13 @@ import ArrowUpwardOutlined from '@mui/icons-material/ArrowUpwardOutlined'
 import { Courbe } from './Courbe'
 
 // Carte de chiffre clé : libellé discret, valeur en grand, écart coloré (vert si favorable, rouge sinon), courbe facultative
-export function Indicateur({ libelle, valeur, detail, ecart, serie }: {
+export function Indicateur({ libelle, valeur, detail, ecart, serie, action }: {
   libelle: string
   valeur: string
   detail?: string
   ecart?: { texte: string; hausse: boolean; favorable: boolean }
   serie?: (number | null)[]
+  action?: ReactNode
 }) {
   return (
     <Card sx={{ p: 2.5, flex: '1 1 200px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -27,6 +29,7 @@ export function Indicateur({ libelle, valeur, detail, ecart, serie }: {
       </Box>
       {detail && <Typography variant="caption" color="text.secondary">{detail}</Typography>}
       {serie && <Box sx={{ mt: 'auto', pt: 1 }}><Courbe valeurs={serie} /></Box>}
+      {action}
     </Card>
   )
 }

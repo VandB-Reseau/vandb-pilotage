@@ -11,6 +11,7 @@ import RestartAltOutlined from '@mui/icons-material/RestartAltOutlined'
 import { enChiffres, milliers, panier, taux } from '../lib/format'
 import { cleFamille, ecrireCible, lireCible, niveauLibelle, valeurHeritee, type Cibles, type NiveauCibles } from '../moteur/cibles'
 import { UNIVERS, universLibelle, type Budget, type ResultatFamille } from '../moteur/types'
+import { Aide } from './Aide'
 import { ChampTaux } from './ChampTaux'
 
 // Hypothèses du budget famille par famille, saisies dans la cellule : le CA et la marge de l'an prochain suivent à chaque frappe.
@@ -80,11 +81,11 @@ export function GrilleHypotheses({ titre, familles, flux, annee, cibles, auDessu
         <TableRow>
           <TableCell>Famille</TableCell>
           <TableCell align="right">CA {annee - 1} attendu</TableCell>
-          <TableCell align="right" sx={{ pr: '82px !important' }}>Part de l’univers</TableCell>
-          <TableCell align="right" sx={{ pr: '82px !important' }}>Évolution</TableCell>
+          <TableCell align="right" sx={{ pr: '82px !important' }}><Aide sujet="mix" />Part de l’univers</TableCell>
+          <TableCell align="right" sx={{ pr: '82px !important' }}><Aide sujet="evolution" />Évolution</TableCell>
           <TableCell align="right">CA {annee}</TableCell>
-          <TableCell align="right" sx={{ pr: '82px !important' }}>Marge visée</TableCell>
-          <TableCell align="right" sx={{ pr: '82px !important' }}>Démarque</TableCell>
+          <TableCell align="right" sx={{ pr: '82px !important' }}><Aide sujet="marge" />Marge visée</TableCell>
+          <TableCell align="right" sx={{ pr: '82px !important' }}><Aide sujet="demarque" />Démarque</TableCell>
           <TableCell align="right">Marge {annee}</TableCell>
         </TableRow>
       </TableHead>
@@ -100,7 +101,7 @@ export function GrilleHypotheses({ titre, familles, flux, annee, cibles, auDessu
               {fl && (
                 <>
                   <TableRow>
-                    <TableCell sx={{ pl: '36px !important' }}>Tickets ({nomU})</TableCell>
+                    <TableCell sx={{ pl: '36px !important' }}>Tickets ({nomU})<Aide sujet="tickets" /></TableCell>
                     <TableCell align="right">{enChiffres(Math.round(fl.atterrissage))}</TableCell>
                     <TableCell />
                     {cellule(`flux/${u}`, `Évolution du nombre de tickets : ${nomU}`, `évolution des tickets ${nomU}`)}
@@ -108,7 +109,7 @@ export function GrilleHypotheses({ titre, familles, flux, annee, cibles, auDessu
                     <TableCell colSpan={3} />
                   </TableRow>
                   <TableRow>
-                    <TableCell sx={{ pl: '36px !important' }}>Panier moyen TTC ({nomU})</TableCell>
+                    <TableCell sx={{ pl: '36px !important' }}>Panier moyen TTC ({nomU})<Aide sujet="panier" /></TableCell>
                     <TableCell align="right">{panier(fl.panierRealiseTTC)}</TableCell>
                     <TableCell />
                     {cellule(`panier/${u}`, `Évolution du panier moyen : ${nomU}`, `évolution du panier ${nomU}`)}

@@ -9,6 +9,8 @@ import Tooltip from '@mui/material/Tooltip'
 import RestartAltOutlined from '@mui/icons-material/RestartAltOutlined'
 import { cleFamille, ecrireCible, lireCible, valeurHeritee, type Cibles, type Niveau, type NiveauCibles } from '../moteur/cibles'
 import { UNIVERS, universLibelle, type Famille, type Univers } from '../moteur/types'
+import { sujetDeCle } from '../lib/aide'
+import { Aide } from './Aide'
 import { ChampTaux } from './ChampTaux'
 import { SourceCible } from './SourceCible'
 
@@ -65,7 +67,10 @@ export function TableauCibles({ titre, lignes, niveau, cibles, auDessus, valeurs
         {sections.map((s) => (
           <Fragment key={s}>
             <TableRow>
-              <TableCell colSpan={3} sx={{ fontWeight: 700, bgcolor: 'background.default' }}>{s}</TableCell>
+              <TableCell colSpan={3} sx={{ fontWeight: 700, bgcolor: 'background.default' }}>
+                {s}
+                {(() => { const sujet = sujetDeCle(lignes.find((l) => l.section === s)!.cle); return sujet && <Aide sujet={sujet} /> })()}
+              </TableCell>
             </TableRow>
             {lignes.filter((l) => l.section === s).map((l) => {
               const propre = lireCible(cibles, l.cle)

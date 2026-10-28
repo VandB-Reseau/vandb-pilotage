@@ -59,7 +59,7 @@ test('fiche magasin : ses alertes en tête de la synthèse ; vue Réseau filtré
   await page.getByRole('link', { name: /Réseau/ }).first().click()
   const reseau = page.getByRole('region', { name: 'Alertes' })
   await expect(reseau.getByRole('heading')).toHaveText(`${nbAlertes} alertes`)
-  await page.getByLabel('Rechercher un magasin').fill('Saint')
+  await page.getByLabel('Filtrer la liste des magasins').fill('Saint')
   await expect(reseau.getByRole('heading')).toHaveText(M >= 1 ? '2 alertes' : '1 alerte')
 })
 

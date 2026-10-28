@@ -19,7 +19,7 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import FileDownloadOutlined from '@mui/icons-material/FileDownloadOutlined'
 import PrintOutlined from '@mui/icons-material/PrintOutlined'
-import SearchOutlined from '@mui/icons-material/SearchOutlined'
+import FilterListOutlined from '@mui/icons-material/FilterListOutlined'
 import { AlertesMagasins } from '../components/AlertesMagasins'
 import { EtatVide } from '../components/EtatVide'
 import { Indicateur } from '../components/Indicateur'
@@ -181,8 +181,8 @@ export function Reseau() {
 
       <Stack direction="row" spacing={2} useFlexGap className="pas-a-l-impression" sx={{ mb: 2, flexWrap: 'wrap' }}>
         <TextField
-          size="small" value={recherche} onChange={(e) => changer({ q: e.target.value })} placeholder="Rechercher un magasin"
-          slotProps={{ htmlInput: { 'aria-label': 'Rechercher un magasin' }, input: { startAdornment: <InputAdornment position="start"><SearchOutlined /></InputAdornment> } }}
+          size="small" value={recherche} onChange={(e) => changer({ q: e.target.value })} placeholder="Filtrer la liste"
+          slotProps={{ htmlInput: { 'aria-label': 'Filtrer la liste des magasins' }, input: { startAdornment: <InputAdornment position="start"><FilterListOutlined /></InputAdornment> } }}
           sx={{ width: { xs: '100%', sm: 300 }, '& input': { height: 48, boxSizing: 'border-box', py: 0 } }}
         />
         {donnees.groupes.length > 0 && (
