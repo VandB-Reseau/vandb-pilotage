@@ -24,6 +24,7 @@ import PrintOutlined from '@mui/icons-material/PrintOutlined'
 import SaveOutlined from '@mui/icons-material/SaveOutlined'
 import { useAuth } from '../auth/AuthContext'
 import { AFaireFranchise } from '../components/AFaireFranchise'
+import { EchangesBudget } from '../components/EchangesBudget'
 import { AtterrissageMagasin } from '../components/AtterrissageMagasin'
 import { CompteResultatMois } from '../components/CompteResultatMois'
 import { CopieHypotheses } from '../components/CopieHypotheses'
@@ -310,6 +311,8 @@ export function Magasin() {
             <Button variant="outlined" startIcon={<FileDownloadOutlined />} onClick={exporter} sx={{ minHeight: 48 }}>Exporter en Excel</Button>
             <Button variant="outlined" startIcon={<PrintOutlined />} onClick={() => window.print()} sx={{ minHeight: 48, display: { xs: 'none', md: 'inline-flex' } }}>Imprimer</Button>
           </Stack>
+
+          {profil && <EchangesBudget key={`echanges-${ligne.magasin}`} ligne={ligne} d={d} annee={annee} parametres={parametres} moi={profil} />}
 
           {copie && <CopieHypotheses source={ligne.magasin} magasins={destinations.map((l) => l.magasin)} occupe={occupe} onCopier={copier} onFermer={() => setCopie(false)} />}
 

@@ -4,7 +4,7 @@ Même base Supabase que l'app réseau. Le pilotage n'écrit que dans le schéma 
 fonctions (`mon_role()`, `est_directeur()`, `magasins_visibles()`, `mes_magasins()`, `json_sur()`) et ses tables `perimetre_equipe`
 et `app_config` (lue seulement : fiche des Responsables Régionaux, clé `drs_data`).
 
-Mis à jour le 28/10/2026 (migration `0010`).
+Mis à jour le 28/10/2026 (migration `0011`).
 
 ## Principes
 
@@ -28,6 +28,8 @@ Mis à jour le 28/10/2026 (migration `0010`).
 | `quadrimestres` | Chiffres comptables d'un magasin tous les 4 mois (1 : janvier à avril, 2 : mai à août, 3 : septembre à décembre), saisis ou importés : `achats` de marchandises, `variation_stock` (stock de fin − stock de début), `charges_externes` (redevance et publicité comprises), `impots_taxes`, `personnel`, `tresorerie` en fin de période, `maj_le`, `maj_par`. Achats et charges positifs. Le CA vient de la caisse ; marge réelle et EBE sont calculés par l'app (0008) | `store_name`, `annee`, `quadrimestre` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
 | `parts_realisees` | Part de l'année réalisée à fin du dernier mois, saisie par univers (`cave`, `bar`, `exterieur`) pour l'atterrissage d'un magasin sans réel de l'an dernier : `part` (0 à 1), `maj_le`, `maj_par`. Pas de ligne : calcul automatique (0009) | `store_name`, `annee`, `univers` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
 | `correspondances_fec` | Rubrique d'un compte de charges du FEC propre au magasin (`achats`, `variation_stock`, `charges_externes`, `impots_taxes`, `personnel`, `hors_ebe`), quand son cabinet le range autrement que les racines du plan comptable : `maj_le`, `maj_par`. Pas de ligne : correspondance par défaut. Le FEC n'est pas enregistré (0010) | `store_name`, `compte` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
+| `echanges_budget` | Message sur le budget d'un magasin : `sujet` (`general`, `ca`, `marge`, `personnel`, `frais`, `travaux`, `tresorerie`), `texte` (2 000 caractères au plus), `auteur`, `auteur_role`, `auteur_nom` et `cree_le` posés par la base (0011) | `id` ; index `store_name`, `annee`, `cree_le` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins ; retrait par l'auteur seul |
+| `versions_budget` | Version du budget à sa création et à chaque changement de statut, de base ou d'ajustements : `statut`, `base`, `ajustements`, auteur, rôle, nom, date (0011) | `id` ; index `store_name`, `annee`, `cree_le` | Magasins du compte | Déclencheur `versions_budget_trace` seul |
 | `groupes` | Groupes libres de magasins (centre-ville, zone commerciale…) : `nom` | `id` | Équipe | Directeur |
 | `groupe_magasins` | Groupe d'un magasin (un au plus) | `store_name` | Équipe | Directeur |
 | `cibles_reseau` | Cibles du réseau pour l'année : `valeur` (format `Cibles`) | `annee` | Équipe | Directeur |

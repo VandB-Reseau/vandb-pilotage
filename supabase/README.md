@@ -14,6 +14,7 @@ une migration par changement, numérotée dans l'ordre où elle s'applique. Cart
 | `0008_quadrimestres` | Table `quadrimestres` : achats, variation de stock, charges externes, impôts et taxes, personnel et trésorerie tous les 4 mois, saisis par le Directeur, le RR, le Coach et le franchisé sur leurs magasins | 28/10/2026 |
 | `0009_parts_realisees` | Table `parts_realisees` : part de l'année réalisée saisie par univers pour l'atterrissage sans réel de l'an dernier, saisie par le Directeur, le RR, le Coach et le franchisé sur leurs magasins | 28/10/2026 |
 | `0010_correspondances_fec` | Table `correspondances_fec` : rubrique choisie pour un compte du FEC quand le cabinet du magasin le range autrement que le plan comptable, gardée pour les imports suivants ; Directeur, RR, Coach et franchisé sur leurs magasins | 28/10/2026 |
+| `0011_echanges_budget` | Tables `echanges_budget` (messages par sujet sur le budget d'un magasin, auteur posé par la base, retiré par son auteur seul) et `versions_budget` (une version à chaque changement de statut, de base ou d'ajustements, écrite par un déclencheur) ; fonction `mon_nom()` | 28/10/2026 |
 | `0006_suivi_reseau` | Fonction `reel_du_compte` : réel de tous les magasins du compte totalisé par mois, pour la vue réseau ; aucune table ni règle d'accès nouvelle | 27/10/2026 |
 
 ## Passer une migration

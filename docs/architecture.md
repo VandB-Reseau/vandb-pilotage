@@ -77,6 +77,8 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
 19. FEC : `lireFEC` (`src/import/fec.ts`) lit le fichier dans le navigateur ; `syntheseFEC` (`src/moteur/fec.ts`) range
    chaque compte de charges sur les racines du plan comptable, applique les exceptions du magasin
    (`correspondances_fec`) et rend les six montants du quadrimestre, repris dans la saisie avant enregistrement.
+20. Échanges sur le budget : onglet Budget, messages par sujet (`echanges_budget`) et historique des versions
+   (`versions_budget`, écrit par la base). Le CA et l'EBE de chaque version sont recalculés avec les cibles du moment.
 
 ## Rôles
 

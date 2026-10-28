@@ -1,4 +1,5 @@
 import type { RubriqueFEC } from '../moteur/fec'
+import type { Role } from '../auth/roles'
 import { pilotage } from '../lib/supabase'
 import { calculerBudget } from '../moteur/budget'
 import { appliquerCibles, type Cibles, type NiveauCibles, type Provenance } from '../moteur/cibles'
@@ -475,4 +476,33 @@ export async function enregistrerCorrespondancesFEC(magasin: string, comptesVus:
   if (comptesVus.length) verifier(await pilotage().from('correspondances_fec').delete().eq('store_name', magasin).in('compte', comptesVus))
   const lignes = Object.entries(exceptions).map(([compte, r]) => ({ store_name: magasin, compte, rubrique: RUBRIQUE_BASE[r] }))
   if (lignes.length) verifier(await pilotage().from('correspondances_fec').insert(lignes))
+}
+
+// Échanges sur le budget et versions (lot 20) : auteur, rôle et nom posés par la base
+export type SujetEchange = 'general' | 'ca' | 'marge' | 'personnel' | 'frais' | 'travaux' | 'tresorerie'
+export const SUJETS: SujetEchange[] = ['general', 'ca', 'marge', 'personnel', 'frais', 'travaux', 'tresorerie']
+export const sujetLibelle: Record<SujetEchange, string> = {
+  general: 'Général', ca: 'Chiffre d’affaires', marge: 'Marge', personnel: 'Personnel', frais: 'Frais', travaux: 'Travaux', tresorerie: 'Trésorerie',
+}
+export interface MessageBudget { id: number; sujet: SujetEchange; texte: string; auteur: string | null; auteurRole: Role | null; auteurNom: string | null; creeLe: string }
+export interface VersionBudget { id: number; statut: Statut; base: Hypotheses | null; ajustements: Cibles; auteurRole: Role | null; auteurNom: string | null; creeLe: string }
+export async function chargerEchanges(magasin: string, annee: number): Promise<{ messages: MessageBudget[]; versions: VersionBudget[] }> {
+  const [m, v] = await Promise.all([
+    pilotage().from('echanges_budget').select('id, sujet, texte, auteur, auteur_role, auteur_nom, cree_le').eq('store_name', magasin).eq('annee', annee).order('cree_le'),
+    pilotage().from('versions_budget').select('id, statut, base, ajustements, auteur_role, auteur_nom, cree_le').eq('store_name', magasin).eq('annee', annee).order('cree_le', { ascending: false }),
+  ])
+  if (m.error || v.error) throw m.error ?? v.error
+  type Brut = { id: number; auteur_role: Role | null; auteur_nom: string | null; cree_le: string }
+  return {
+    messages: (m.data as (Brut & { sujet: SujetEchange; texte: string; auteur: string | null })[]).map((x) => ({ id: x.id, sujet: x.sujet, texte: x.texte, auteur: x.auteur, auteurRole: x.auteur_role, auteurNom: x.auteur_nom, creeLe: x.cree_le })),
+    versions: (v.data as (Brut & { statut: Statut; base: unknown; ajustements: Cibles | null })[]).map((x) => ({
+      id: x.id, statut: x.statut, base: hypothesesValides(x.base) ? x.base : null, ajustements: x.ajustements ?? {}, auteurRole: x.auteur_role, auteurNom: x.auteur_nom, creeLe: x.cree_le,
+    })),
+  }
+}
+export async function envoyerMessage(magasin: string, annee: number, sujet: SujetEchange, texte: string) {
+  verifier(await pilotage().from('echanges_budget').insert({ store_name: magasin, annee, sujet, texte: texte.trim() }))
+}
+export async function retirerMessage(id: number) {
+  verifier(await pilotage().from('echanges_budget').delete().eq('id', id))
 }

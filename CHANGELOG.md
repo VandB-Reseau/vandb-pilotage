@@ -5,6 +5,14 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 20 — Échanges sur le budget
+
+- Onglet Budget : messages entre le siège, le RR, le Coach et le franchisé, par sujet (général, CA, marge, personnel,
+  frais, travaux, trésorerie) ; chacun retire ses propres messages. Historique du budget : une version à chaque
+  proposition, ajustement, validation ou réouverture, avec qui, quand, le CA, l'EBE et l'écart d'EBE à la version
+  précédente (recalculés avec les cibles du moment).
+- **Base : migration `0011_echanges_budget.sql` à passer.**
+
 ### Lot 19 — Import du FEC
 
 - Onglet Quadrimestres : « Importer le FEC » du comptable. Montants du quadrimestre calculés sur les racines du plan
