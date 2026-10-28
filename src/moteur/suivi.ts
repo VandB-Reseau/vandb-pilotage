@@ -6,11 +6,16 @@ import type { Budget, LigneFrais } from './types'
 // La marge réelle ne compte que là où la caisse la donne : un mois dont une famille n'a pas de marge n'a pas d'écart de marge,
 // et le taux de marge se calcule sur le CA des familles dont la marge est connue.
 
-export interface MoisReel { caHT: number; margeHT: number; caAvecMarge: number; caTTC: number; tickets: number }
+export interface MoisReel {
+  caHT: number; margeHT: number; caAvecMarge: number; caTTC: number; tickets: number
+  univers?: Record<UniversTickets, { caTTC: number; tickets: number }> // Cave et Bar séparés (lot 22)
+}
+export type UniversTickets = 'cave' | 'bar'
+export const UNIVERS_PANIER: UniversTickets[] = ['cave', 'bar']
 
 const somme = (l: number[]) => l.reduce((a, b) => a + b, 0)
 const ratio = (a: number, b: number) => (b ? a / b : 0)
-const vide = (): MoisReel => ({ caHT: 0, margeHT: 0, caAvecMarge: 0, caTTC: 0, tickets: 0 })
+const vide = (): MoisReel => ({ caHT: 0, margeHT: 0, caAvecMarge: 0, caTTC: 0, tickets: 0, univers: { cave: { caTTC: 0, tickets: 0 }, bar: { caTTC: 0, tickets: 0 } } })
 
 // Lignes de la caisse d'un magasin ramenées à 12 mois
 export function moisDuReel(lignes: LigneReel[], tickets: TicketsReel[]): MoisReel[] {
@@ -20,9 +25,15 @@ export function moisDuReel(lignes: LigneReel[], tickets: TicketsReel[]): MoisRee
     if (!m) continue
     m.caHT += l.caHT
     m.caTTC += l.caTTC ?? 0
+    if (l.univers === 'cave' || l.univers === 'bar') m.univers![l.univers].caTTC += l.caTTC ?? 0
     if (l.margeHT !== null) { m.margeHT += l.margeHT; m.caAvecMarge += l.caHT }
   }
-  for (const t of tickets) if (mois[t.mois - 1]) mois[t.mois - 1].tickets += t.tickets
+  for (const t of tickets) {
+    const m = mois[t.mois - 1]
+    if (!m) continue
+    m.tickets += t.tickets
+    if (t.univers === 'cave' || t.univers === 'bar') m.univers![t.univers].tickets += t.tickets
+  }
   return mois
 }
 
@@ -96,7 +107,11 @@ export interface LigneReseau {
   evolution: number | null       // sur les mêmes mois de l'an dernier
   ecartBudget: number | null     // CA réel / CA budgété des mêmes mois − 1
   tauxMarge: number | null
-  panierTTC: number | null
+  // Cave et Bar séparés (lot 22) : panier TTC et évolution des tickets sur les mêmes mois de l'an dernier
+  panierCave: number | null
+  panierBar: number | null
+  ticketsCave: number | null
+  ticketsBar: number | null
   personnelSurMarge: number | null // masse salariale de l'équipe sur la marge des mêmes mois
   ebeSurCA: number | null          // EBE estimé à date : marge − redevance, publicité, frais et équipe des mêmes mois
   loyerSurCA: number | null        // ligne « Locations immobilières » des frais sur le CA des mêmes mois
@@ -107,17 +122,32 @@ interface Sommes {
   ca: number; caN1: number | null; caBudget: number | null
   marge: number; caAvecMarge: number; margeEstimee: number | null
   caTTC: number; tickets: number; personnel: number | null; ebe: number | null; loyer: number | null
+  univers: Record<UniversTickets, SommesUnivers>
 }
+// caTTC et ticketsPanier : mois où CA TTC et tickets sont connus ; tickets et ticketsN1 : tous les mois réalisés
+interface SommesUnivers { caTTC: number; ticketsPanier: number; tickets: number; ticketsN1: number }
 
 const pourcentages = (s: Sommes) => ({
   evolution: s.caN1 ? s.ca / s.caN1 - 1 : null,
   ecartBudget: s.caBudget ? s.ca / s.caBudget - 1 : null,
   tauxMarge: s.caAvecMarge > 0 ? s.marge / s.caAvecMarge : null,
-  panierTTC: s.tickets > 0 ? s.caTTC / s.tickets : null,
+  panierCave: s.univers.cave.ticketsPanier > 0 ? s.univers.cave.caTTC / s.univers.cave.ticketsPanier : null,
+  panierBar: s.univers.bar.ticketsPanier > 0 ? s.univers.bar.caTTC / s.univers.bar.ticketsPanier : null,
+  ticketsCave: s.univers.cave.ticketsN1 > 0 && s.univers.cave.tickets > 0 ? s.univers.cave.tickets / s.univers.cave.ticketsN1 - 1 : null,
+  ticketsBar: s.univers.bar.ticketsN1 > 0 && s.univers.bar.tickets > 0 ? s.univers.bar.tickets / s.univers.bar.ticketsN1 - 1 : null,
   personnelSurMarge: s.personnel !== null && s.margeEstimee ? s.personnel / s.margeEstimee : null,
   ebeSurCA: s.ebe !== null && s.ca ? s.ebe / s.ca : null,
   loyerSurCA: s.loyer !== null && s.ca ? s.loyer / s.ca : null,
 })
+
+function sommesUnivers(n: MoisReel[], n1: MoisReel[], u: UniversTickets): SommesUnivers {
+  const de = (x: MoisReel) => x.univers?.[u] ?? { caTTC: 0, tickets: 0 }
+  const avec = n.map(de).filter((x) => x.tickets > 0 && x.caTTC > 0)
+  return {
+    caTTC: somme(avec.map((x) => x.caTTC)), ticketsPanier: somme(avec.map((x) => x.tickets)),
+    tickets: somme(n.map((x) => de(x).tickets)), ticketsN1: somme(n1.map((x) => de(x).tickets)),
+  }
+}
 
 export function ligneReseau(e: EntreeReseau, p: ParametresReseauSuivi): LigneReseau {
   const m = dernierMois(e.n)
@@ -141,6 +171,7 @@ export function ligneReseau(e: EntreeReseau, p: ParametresReseauSuivi): LigneRes
     personnel,
     ebe: margeEstimee !== null && personnel !== null && frais !== null ? margeEstimee - ca * (p.tauxRedevance + p.tauxPublicite) - frais - personnel : null,
     loyer: m && loyers.length ? somme(loyers.map(aDate)) : null,
+    univers: { cave: sommesUnivers(mois, e.n1.slice(0, m), 'cave'), bar: sommesUnivers(mois, e.n1.slice(0, m), 'bar') },
   }
   return { magasin: e.magasin, moisRealises: m, ca, ...pourcentages(sommes), sommes }
 }
@@ -156,6 +187,12 @@ export function totalReseau(lignes: LigneReseau[]): Omit<LigneReseau, 'magasin' 
     caN1: avec('caN1', (s) => s.caN1!) || null, caBudget: avec('caBudget', (s) => s.caBudget!) || null,
     marge: t((s) => s.marge), caAvecMarge: t((s) => s.caAvecMarge),
     margeEstimee: null, caTTC: t((s) => s.caTTC), tickets: t((s) => s.tickets), personnel: null, ebe: null, loyer: null,
+    univers: Object.fromEntries(UNIVERS_PANIER.map((u) => {
+      const v = l.map((s) => s.univers[u])
+      // Évolution des tickets : seulement les magasins qui ont des tickets l'an dernier
+      const avecN1 = v.filter((x) => x.ticketsN1 > 0)
+      return [u, { caTTC: somme(v.map((x) => x.caTTC)), ticketsPanier: somme(v.map((x) => x.ticketsPanier)), tickets: somme(avecN1.map((x) => x.tickets)), ticketsN1: somme(avecN1.map((x) => x.ticketsN1)) }]
+    })) as Record<UniversTickets, SommesUnivers>,
   }
   const p = pourcentages(sommes)
   const ratioSur = (k: 'personnel' | 'ebe' | 'loyer', den: (s: Sommes) => number | null) => {
@@ -167,7 +204,7 @@ export function totalReseau(lignes: LigneReseau[]): Omit<LigneReseau, 'magasin' 
     // Évolution et écart au budget : rapportés au CA des seuls magasins qui ont un an dernier ou un budget
     evolution: sommes.caN1 ? avec('caN1', (s) => s.ca) / sommes.caN1 - 1 : null,
     ecartBudget: sommes.caBudget ? avec('caBudget', (s) => s.ca) / sommes.caBudget - 1 : null,
-    tauxMarge: p.tauxMarge, panierTTC: p.panierTTC,
+    tauxMarge: p.tauxMarge, panierCave: p.panierCave, panierBar: p.panierBar, ticketsCave: p.ticketsCave, ticketsBar: p.ticketsBar,
     personnelSurMarge: ratioSur('personnel', (s) => s.margeEstimee),
     ebeSurCA: ratioSur('ebe', (s) => s.ca),
     loyerSurCA: ratioSur('loyer', (s) => s.ca),

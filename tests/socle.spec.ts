@@ -52,7 +52,7 @@ test('la fiche d’un magasin montre le compte de résultat et le budget mois pa
   await expect(resultat.getByRole('row', { name: /^Locations immobilières/ })).toHaveCount(0)
   await page.getByRole('button', { name: 'Charges externes : détailler' }).click()
   await expect(resultat.getByRole('row', { name: /^Locations immobilières/ })).toContainText(/5\s000/)
-  await expect(resultat.getByRole('row', { name: /^Redevance/ })).toBeVisible()
+  await expect(resultat.getByRole('row', { name: /^Royalties/ })).toBeVisible()
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-fiche.png`, fullPage: true })

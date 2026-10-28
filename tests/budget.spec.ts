@@ -5,7 +5,8 @@ import { seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule } f
 // Construire le budget : cibles du réseau et des groupes, ajustements du magasin, validation.
 // Données fictives uniquement (magasin fictif) : dépôt public.
 
-const reseau = { evolutionUnivers: { cave: 0.03, bar: 0.03, exterieur: 0 }, hausseSalaires: 0.02, inflationFrais: 0.02, margeFamille: { 'bar/Fût': 0.75 } }
+// Cave pilotée par ses tickets (magasin fictif) : sa cible est l'évolution des tickets ; le Bar, sans tickets, par univers
+const reseau = { evolutionFlux: { cave: 0.03 }, evolutionUnivers: { bar: 0.03, exterieur: 0 }, hausseSalaires: 0.02, inflationFrais: 0.02, margeFamille: { 'bar/Fût': 0.75 } }
 const avecBase = (statut: MagasinSimule['statut'] = 'propose'): MagasinSimule[] => [
   { magasin: MAGASINS[0], statut, hypotheses: magasinFictif, base: magasinFictif, ajustements: {}, maj_le: '2026-10-20T09:30:00Z' },
 ]
@@ -26,13 +27,15 @@ test('le Directeur fixe les cibles du réseau et voit leur effet sur le total', 
   // Sans cible : CA = atterrissage du magasin fictif, 600 000
   const effet = page.getByRole('region', { name: 'Effet des hypothèses' })
   await expect(effet).toContainText(/600\sk€/)
-  await page.getByLabel('Évolution du CA par univers : Cave').fill('5')
+  await expect(page.getByLabel('Évolution du CA par univers : Cave')).toHaveCount(0)
+  await expect(page.getByLabel('Part de la famille dans son univers : Bière (Cave)')).toBeVisible()
+  await page.getByLabel('Évolution du nombre de tickets : Cave').fill('5')
   // 200 000 × 1,05 + 300 000 + 100 000
   await expect(effet).toContainText(/610\sk€/)
   await page.getByLabel('Salaires et frais : Hausse des salaires').fill('2,5')
   await page.getByRole('button', { name: 'Enregistrer' }).click()
   await expect(page.getByText('Cibles enregistrées.')).toBeVisible()
-  expect(ecritures.find((e) => e.table === 'cibles_reseau')?.corps).toEqual({ annee: 2027, valeur: { evolutionUnivers: { cave: 0.05 }, hausseSalaires: 0.025 } })
+  expect(ecritures.find((e) => e.table === 'cibles_reseau')?.corps).toEqual({ annee: 2027, valeur: { evolutionFlux: { cave: 0.05 }, hausseSalaires: 0.025 } })
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-hypotheses.png`, fullPage: true })
@@ -68,9 +71,13 @@ test('le franchisé s’écarte d’une cible : le budget passe en discussion, i
   await expect(resultat.getByRole('row', { name: /^Chiffre d’affaires HT/ })).toContainText(/615\s000\s€/)
   await expect(page.getByText('aucun écart aux cibles du siège', { exact: false })).toBeVisible()
   const hypotheses = page.getByRole('table', { name: 'Hypothèses du magasin' })
-  await expect(hypotheses.getByRole('row', { name: /Bière \(Cave\)/ }).first()).toContainText('Réseau')
-  await page.getByLabel('Évolution du CA par famille : Bière (Cave)').fill('5')
-  await expect(resultat.getByRole('row', { name: /^Chiffre d’affaires HT/ })).toContainText(/619\s000\s€/)
+  await expect(hypotheses.getByRole('row', { name: /^Tickets \(Cave\)/ })).toContainText('Réseau')
+  await expect(hypotheses.getByRole('row', { name: /^Tickets \(Cave\)/ })).toContainText(/10\s300/)   // 10 000 attendus sur l'année × 1,03
+  await expect(hypotheses.getByRole('row', { name: /^Panier moyen TTC \(Cave\)/ })).toContainText(/24,00\s€/)
+  // Panier +2 % : 200 000 × 1,03 × 1,02 = 210 120 € de Cave
+  await page.getByLabel('Évolution du panier moyen : Cave').fill('2')
+  await expect(resultat.getByRole('row', { name: /^Chiffre d’affaires HT/ })).toContainText(/619\s120\s€/)
+  await expect(hypotheses.getByRole('row', { name: /^Panier moyen TTC \(Cave\)/ })).toContainText(/24,48\s€/)
   await expect(page.getByText('1 écart aux cibles du siège', { exact: false })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Valider le budget' })).toHaveCount(0)
   expect(await textesTropPetits(page)).toEqual([])
@@ -79,10 +86,10 @@ test('le franchisé s’écarte d’une cible : le budget passe en discussion, i
   await page.getByRole('button', { name: 'Enregistrer les ajustements' }).click()
   await expect(page.getByText('Ajustements enregistrés : le budget est en discussion avec le siège.')).toBeVisible()
   const envoi = ecritures.find((e) => e.table === 'budgets' && e.methode === 'PATCH')?.corps as { ajustements: unknown }
-  expect(envoi.ajustements).toEqual({ evolutionFamille: { 'cave/Bière': 0.05 } })
+  expect(envoi.ajustements).toEqual({ evolutionPanier: { cave: 0.02 } })
   await expect(page.getByText('En discussion', { exact: true })).toBeVisible()
   // Revenir à la cible du réseau
-  await page.getByRole('button', { name: 'Reprendre la valeur du niveau au-dessus : évolution de Bière (Cave)' }).click()
+  await page.getByRole('button', { name: 'Reprendre la valeur du niveau au-dessus : évolution du panier Cave' }).click()
   await expect(resultat.getByRole('row', { name: /^Chiffre d’affaires HT/ })).toContainText(/615\s000\s€/)
 })
 
@@ -92,11 +99,12 @@ test('le Directeur valide le budget, puis peut le rouvrir', async ({ page }) => 
   await page.getByRole('tab', { name: /^Budget/ }).click()
   await page.getByRole('button', { name: 'Valider le budget' }).click()
   await expect(page.getByText('Budget 2027 validé.')).toBeVisible()
-  const envoi = ecritures.find((e) => e.table === 'budgets' && e.methode === 'PATCH')?.corps as { statut: string; hypotheses: { familles: { evolution: number }[] } }
+  const envoi = ecritures.find((e) => e.table === 'budgets' && e.methode === 'PATCH')?.corps as { statut: string; hypotheses: { familles: { evolution: number }[]; flux: { cave: { evolution: number } } } }
   expect(envoi.statut).toBe('valide')
-  // Les hypothèses figées sont celles des cibles du moment
-  expect(envoi.hypotheses.familles.map((f) => f.evolution)).toEqual([0.03, 0.03, 0])
-  await expect(page.getByLabel('Évolution du CA par famille : Bière (Cave)')).toBeDisabled()
+  // Les hypothèses figées sont celles des cibles du moment : tickets de la Cave, CA du Bar
+  expect(envoi.hypotheses.familles.map((f) => f.evolution)).toEqual([0, 0.03, 0])
+  expect(envoi.hypotheses.flux.cave.evolution).toBe(0.03)
+  await expect(page.getByLabel('Part de la famille dans l’univers : Bière (Cave)')).toBeDisabled()
   await page.getByRole('button', { name: 'Rouvrir la discussion' }).click()
   await expect(page.getByText('Budget rouvert : il est de nouveau en discussion.')).toBeVisible()
 })
@@ -105,7 +113,7 @@ test('un Coach lit les hypothèses sans pouvoir les modifier ; une écriture qui
   await seConnecter(page, { role: 'coach', magasins: avecBase(), reseau })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await page.getByRole('tab', { name: /^Budget/ }).click()
-  await expect(page.getByLabel('Évolution du CA par famille : Bière (Cave)')).toBeDisabled()
+  await expect(page.getByLabel('Évolution du nombre de tickets : Cave')).toBeDisabled()
   await expect(page.getByRole('button', { name: /Enregistrer|Valider|Importer/ })).toHaveCount(0)
   await expect(page.getByRole('link', { name: /Hypothèses/ })).toHaveCount(0)
 

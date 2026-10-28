@@ -1,7 +1,7 @@
 import { nombre } from '../import/caisse'
 import { enChiffres } from '../lib/format'
 import { CODES_FINANCES, type LigneFraisMagasin } from './atterrissage'
-import { lignesFrais, rubriqueLibelle } from './parametres'
+import { blocDe, lignesFrais, type BlocFrais } from './parametres'
 import type { Rubrique } from './types'
 
 // Saisie des frais d'un magasin : une ligne de la grille du réseau, par an (€) ou en part du CA (%), en texte jusqu'à l'enregistrement
@@ -9,10 +9,11 @@ export type Mode = 'annuel' | 'taux'
 export interface ChampFrais { code: string; libelle: string; rubrique: Rubrique; mode: Mode; valeur: string }
 export interface SaisieFrais { lignes: ChampFrais[]; finances: Record<keyof typeof CODES_FINANCES, string> }
 
-export const RUBRIQUES = Object.keys(rubriqueLibelle) as Rubrique[]
 export const LIBELLES_FINANCES: Record<keyof typeof CODES_FINANCES, string> = {
-  amortissements: 'Dotations aux amortissements', interets: 'Intérêts d’emprunts', remboursementCapital: 'Capital d’emprunts remboursé',
+  amortissements: 'Dotations aux amortissements', interets: 'Intérêts sur emprunts', interetsComptesCourants: 'Intérêts des comptes courants',
+  agios: 'Agios', remboursementCapital: 'Capital d’emprunts remboursé',
 }
+export const INTERETS: (keyof typeof CODES_FINANCES)[] = ['interets', 'interetsComptesCourants', 'agios']
 // Lignes que presque tous les magasins ont : point de départ d'une saisie
 export const LIGNES_COURANTES = ['loyer', 'charges_locatives', 'energie', 'honoraires_comptables', 'assurances', 'banque', 'telecom', 'cfe']
 
@@ -27,7 +28,7 @@ export function saisieDepuisLignes(lignes: LigneFraisMagasin[]): SaisieFrais {
       code: l.code, libelle: l.libelle, rubrique: l.rubrique as Rubrique,
       mode: l.tauxCA !== null ? 'taux' : 'annuel', valeur: l.tauxCA !== null ? enTexte(l.tauxCA * 100) : enTexte(l.annuel ?? 0),
     })),
-    finances: { amortissements: fin(CODES_FINANCES.amortissements), interets: fin(CODES_FINANCES.interets), remboursementCapital: fin(CODES_FINANCES.remboursementCapital) },
+    finances: Object.fromEntries(Object.entries(CODES_FINANCES).map(([k, code]) => [k, fin(code)])) as SaisieFrais['finances'],
   }
 }
 
@@ -61,14 +62,15 @@ export function lireSaisieFrais(s: SaisieFrais, avant: LigneFraisMagasin[]): { l
   return { lignes, retirees: avant.map((l) => l.code).filter((c) => !gardes.has(c)), erreurs }
 }
 
-export function totauxFrais(s: SaisieFrais): { parRubrique: Record<string, { annuel: number; taux: number }>; annuel: number; taux: number } {
-  const parRubrique: Record<string, { annuel: number; taux: number }> = {}
+// Totaux par bloc de l'onglet FFBUD (charges externes, impôts et taxes, autres charges) : montants annuels et parts du CA
+export function totauxFrais(s: SaisieFrais): { parBloc: Record<BlocFrais, { annuel: number; taux: number }>; annuel: number; taux: number } {
+  const parBloc: Record<BlocFrais, { annuel: number; taux: number }> = { charges_externes: { annuel: 0, taux: 0 }, impots_taxes: { annuel: 0, taux: 0 }, autres_charges: { annuel: 0, taux: 0 } }
   let annuel = 0, taux = 0
   for (const l of s.lignes) {
     const v = nombre(l.valeur)
     if (v === null || Number.isNaN(v)) continue
-    const r = (parRubrique[l.rubrique] ??= { annuel: 0, taux: 0 })
+    const r = parBloc[blocDe(l)]
     if (l.mode === 'annuel') { r.annuel += v; annuel += v } else { r.taux += v / 100; taux += v / 100 }
   }
-  return { parRubrique, annuel, taux }
+  return { parBloc, annuel, taux }
 }

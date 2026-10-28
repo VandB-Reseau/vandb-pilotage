@@ -5,6 +5,31 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 23 — Frais de l'onglet FFBUD
+
+- Onglet Frais : les lignes de l'onglet FFBUD du prévisionnel, dans son ordre, en trois blocs avec leur total
+  (charges externes, impôts et taxes, autres charges), puis sous l'EBE : dotations aux amortissements, intérêts et
+  charges assimilées (emprunts, comptes courants, agios) et capital remboursé, et le total des frais prévisionnels.
+  Publicité franchise et royalties apparaissent à leur place, calculées sur le CA. Nouvelles lignes : participation à
+  la formation continue, taxe d'apprentissage, CSG déductible GC et AC, intérêts des comptes courants, agios.
+- Compte de résultat : « Autres charges » (droits d'auteur, charges diverses) sur sa ligne, au-dessus de l'EBE ;
+  « Royalties » et « Publicité franchise » dans les charges externes.
+- Import du FEC : chaque compte de charges indique sa ligne de frais.
+- Sans migration.
+
+### Lot 22 — Cave et Bar séparés, tickets, panier et mix comme leviers du budget
+
+- Budget : le CA de la Cave et celui du Bar se construisent chacun par CA attendu × (1 + évolution des tickets) ×
+  (1 + évolution du panier moyen). Les familles d'un univers s'y répartissent par leur part (réglable : les parts
+  fixées restent, les autres se partagent le reste comme cette année). Le compte de résultat reste celui du magasin :
+  marge et démarque par famille, achats et charges inchangés. La grille d'hypothèses montre les tickets et le panier
+  de chaque univers, réalisés et visés ; cibles du réseau et des groupes : tickets, panier et parts des familles.
+- Les anciennes évolutions de CA par univers ou par famille ne s'appliquent plus à la Cave et au Bar d'un magasin
+  qui a ses tickets : à ressaisir en tickets et panier. Les budgets enregistrés avant restent calculés comme alors.
+- Réel, vue Réseau, médianes et export Excel : tickets, panier TTC et évolution des tickets sur l'an dernier pour la
+  Cave et pour le Bar, jamais additionnés.
+- **Base : migration `0013_cave_bar_separes.sql` à passer.** Sans elle, la vue Réseau n'affiche pas les paniers.
+
 ### Lot 21 — Plan d'action relié aux alertes
 
 - Synthèse du magasin : « Agir » sur une alerte (Directeur, RR, Coach) ajoute une action au plan : quoi, qui

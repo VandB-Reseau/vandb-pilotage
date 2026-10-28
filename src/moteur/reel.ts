@@ -39,6 +39,23 @@ export interface SyntheseReel {
   tickets: number
   panierTTC: number | null
   moisRenseignes: number // dernier mois avec du CA (0 : aucun)
+  // Cave et Bar séparés (lot 22) : deux clientèles, deux paniers ; on ne les additionne pas pour piloter
+  parUnivers: Record<'cave' | 'bar', SyntheseUnivers>
+}
+export interface SyntheseUnivers {
+  tickets: number
+  caTTC: number
+  panierTTC: number | null
+  parMois: { tickets: number; caTTC: number; panierTTC: number | null }[]
+}
+
+// Tickets et panier TTC d'un univers sur les mois donnés (1 à 12) ; le panier ne compte que les mois où CA TTC et
+// tickets sont connus
+export function cumulUnivers(u: SyntheseUnivers, jusquA = 12): { tickets: number; panierTTC: number | null } {
+  const mois = u.parMois.slice(0, jusquA)
+  const avec = mois.filter((m) => m.panierTTC !== null)
+  const t = avec.reduce((a, m) => a + m.tickets, 0)
+  return { tickets: mois.reduce((a, m) => a + m.tickets, 0), panierTTC: t ? avec.reduce((a, m) => a + m.caTTC, 0) / t : null }
 }
 
 const ratio = (a: number, b: number) => (b ? a / b : 0)
@@ -60,6 +77,14 @@ export function syntheseReel(lignes: LigneReel[], tickets: TicketsReel[]): Synth
     familles.set(cle, f)
   }
   for (const t of tickets) if (parMois[t.mois - 1]) parMois[t.mois - 1].tickets += t.tickets
+  const univers = (u: 'cave' | 'bar'): SyntheseUnivers => {
+    const pm = Array.from({ length: 12 }, () => ({ tickets: 0, caTTC: 0, panierTTC: null as number | null }))
+    for (const l of lignes) if (l.univers === u && pm[l.mois - 1]) pm[l.mois - 1].caTTC += l.caTTC ?? 0
+    for (const t of tickets) if (t.univers === u && pm[t.mois - 1]) pm[t.mois - 1].tickets += t.tickets
+    for (const m of pm) m.panierTTC = m.tickets > 0 && m.caTTC > 0 ? m.caTTC / m.tickets : null
+    const r = { tickets: 0, caTTC: pm.reduce((a, m) => a + m.caTTC, 0), panierTTC: null, parMois: pm }
+    return { ...r, ...cumulUnivers(r) }
+  }
   // Panier moyen TTC : seulement les mois où CA TTC et tickets sont connus
   for (const m of parMois) m.panierTTC = m.tickets > 0 && m.caTTC > 0 ? m.caTTC / m.tickets : null
 
@@ -76,5 +101,6 @@ export function syntheseReel(lignes: LigneReel[], tickets: TicketsReel[]): Synth
     tickets: parMois.reduce((a, m) => a + m.tickets, 0),
     panierTTC: ticketsPanier ? avecPanier.reduce((a, m) => a + m.caTTC, 0) / ticketsPanier : null,
     moisRenseignes: dernier?.mois ?? 0,
+    parUnivers: { cave: univers('cave'), bar: univers('bar') },
   }
 }

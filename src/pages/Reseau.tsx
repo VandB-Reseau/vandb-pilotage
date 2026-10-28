@@ -34,7 +34,7 @@ import { calculerBudget } from '../moteur/budget'
 import { medianes, ratiosDuReel, RATIOS, type CleRatio } from '../moteur/comparaison'
 import { ligneReseau, totalReseau, type LigneReseau, type MoisReel } from '../moteur/suivi'
 
-type Cle = 'magasin' | 'moisRealises' | 'ca' | 'evolution' | 'ecartBudget' | 'tauxMarge' | 'panierTTC' | 'personnelSurMarge' | 'loyerSurCA' | 'ebeSurCA'
+type Cle = 'magasin' | 'moisRealises' | 'ca' | 'evolution' | 'ecartBudget' | 'tauxMarge' | 'panierCave' | 'ticketsCave' | 'panierBar' | 'ticketsBar' | 'personnelSurMarge' | 'loyerSurCA' | 'ebeSurCA'
 type Colonne = { cle: Exclude<Cle, 'magasin'>; libelle: string; texte: (v: number) => string; rouge?: (v: number) => boolean }
 
 const euros = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -44,7 +44,10 @@ const COLONNES: Colonne[] = [
   { cle: 'evolution', libelle: 'Évolution sur l’an dernier', texte: ecartTaux, rouge: (v) => v < 0 },
   { cle: 'ecartBudget', libelle: 'Écart au budget', texte: ecartTaux, rouge: (v) => v < 0 },
   { cle: 'tauxMarge', libelle: 'Taux de marge', texte: taux },
-  { cle: 'panierTTC', libelle: 'Panier moyen TTC', texte: (v) => euros.format(v) },
+  { cle: 'panierCave', libelle: 'Panier Cave TTC', texte: (v) => euros.format(v) },
+  { cle: 'ticketsCave', libelle: 'Tickets Cave sur l’an dernier', texte: ecartTaux, rouge: (v) => v < 0 },
+  { cle: 'panierBar', libelle: 'Panier Bar TTC', texte: (v) => euros.format(v) },
+  { cle: 'ticketsBar', libelle: 'Tickets Bar sur l’an dernier', texte: ecartTaux, rouge: (v) => v < 0 },
   { cle: 'personnelSurMarge', libelle: 'Masse salariale / marge', texte: taux },
   { cle: 'loyerSurCA', libelle: 'Loyer / CA', texte: taux },
   { cle: 'ebeSurCA', libelle: 'EBE / CA', texte: taux, rouge: (v) => v < 0 },
@@ -165,7 +168,7 @@ export function Reseau() {
           libelle="Écart au budget" valeur={total.ecartBudget === null ? 'Pas de budget' : ecartTaux(total.ecartBudget)}
           detail={avecBudget ? `${sousBudget} magasin${sousBudget > 1 ? 's' : ''} sous le budget sur ${avecBudget}` : `Aucun budget ${annee} dans l’app`}
         />
-        <Indicateur libelle="Taux de marge" valeur={total.tauxMarge === null ? 'Non connu' : taux(total.tauxMarge)} detail={total.panierTTC === null ? undefined : `Panier moyen : ${euros.format(total.panierTTC)} TTC`} />
+        <Indicateur libelle="Taux de marge" valeur={total.tauxMarge === null ? 'Non connu' : taux(total.tauxMarge)} detail={[total.panierCave === null ? '' : `Panier Cave ${euros.format(total.panierCave)}`, total.panierBar === null ? '' : `Bar ${euros.format(total.panierBar)}`].filter(Boolean).join(' · ') || undefined} />
         <Indicateur
           libelle="Masse salariale / marge" valeur={total.personnelSurMarge === null ? 'À renseigner' : taux(total.personnelSurMarge)}
           detail={total.ebeSurCA === null ? 'Équipe et frais à renseigner' : `EBE à date : ${taux(total.ebeSurCA)} du CA`}

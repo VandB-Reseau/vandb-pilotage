@@ -38,11 +38,16 @@ test('le Coach renseigne les frais : lignes courantes, part du CA, emprunts, lig
   await page.getByLabel('Unité : Électricité, eau, gaz').click()
   await page.getByRole('option', { name: '% du CA' }).click()
   await page.getByLabel('Électricité, eau, gaz', { exact: true }).fill('1,3')
-  await page.getByLabel('Intérêts d’emprunts').fill('1200')
+  await page.getByLabel('Intérêts sur emprunts').fill('1200')
   await page.getByRole('button', { name: 'Retirer Cotisation foncière des entreprises' }).click()
   const chiffres = page.getByRole('region', { name: 'Frais en chiffres' })
   await expect(chiffres).toContainText(/60\sk€/)
-  await expect(chiffres).toContainText(/1,3\s%\sdu CA/)
+  await expect(chiffres).toContainText(/4,3\s%\sdu CA/)              // énergie 1,3 % + publicité franchise 1 % + royalties 2 %
+  // Blocs de l'onglet FFBUD avec leurs sous-totaux ; publicité franchise et royalties calculées sur le CA
+  const blocs = page.getByRole('table', { name: /^Frais \d{4} par bloc$/ })
+  await expect(blocs.getByRole('row', { name: /^Royalties/ })).toContainText(/2,0\s%\sdu CA/)
+  await expect(blocs.getByRole('row', { name: /^Total des charges externes/ })).toContainText(/60\s000\s€ \+ 4,3\s%\sdu CA/)
+  await expect(blocs.getByRole('row', { name: /^Intérêts et charges assimilées/ })).toContainText(/1\s200\s€/)
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-frais.png`, fullPage: true })
@@ -54,7 +59,7 @@ test('le Coach renseigne les frais : lignes courantes, part du CA, emprunts, lig
   expect(envoi).toEqual([
     { store_name: MAGASINS[0], code: 'energie', libelle: 'Électricité, eau, gaz', rubrique: 'energies', annuel: null, taux_ca: 0.013 },
     { store_name: MAGASINS[0], code: 'loyer', libelle: 'Locations immobilières', rubrique: 'immobilier', annuel: 60_000, taux_ca: null },
-    { store_name: MAGASINS[0], code: 'interets', libelle: 'Intérêts d’emprunts', rubrique: 'hors_exploitation', annuel: 1_200, taux_ca: null },
+    { store_name: MAGASINS[0], code: 'interets', libelle: 'Intérêts sur emprunts', rubrique: 'hors_exploitation', annuel: 1_200, taux_ca: null },
   ])
   await expect(page.getByRole('button', { name: 'Enregistrer les frais' })).toHaveCount(0)
 
@@ -73,13 +78,13 @@ test('une ligne de frais s’ajoute depuis la grille ; un montant illisible est 
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await page.getByRole('tab', { name: 'Frais' }).click()
   await expect(page.getByLabel('Locations immobilières', { exact: true })).toHaveValue('60 000')
-  await page.getByLabel('Ajouter une ligne').fill('Honoraires compt')
-  await page.getByRole('option', { name: 'Honoraires comptables' }).click()
-  await page.getByLabel('Honoraires comptables', { exact: true }).fill('six mille')
+  await page.getByLabel('Ajouter une ligne').fill('Honoraires de compt')
+  await page.getByRole('option', { name: 'Honoraires de comptabilité' }).click()
+  await page.getByLabel('Honoraires de comptabilité', { exact: true }).fill('six mille')
   await page.getByRole('button', { name: 'Enregistrer les frais' }).click()
-  await expect(page.getByText('Honoraires comptables : montant illisible.')).toBeVisible()
+  await expect(page.getByText('Honoraires de comptabilité : montant illisible.')).toBeVisible()
   await page.getByRole('button', { name: 'Annuler les modifications' }).click()
-  await expect(page.getByLabel('Honoraires comptables', { exact: true })).toHaveCount(0)
+  await expect(page.getByLabel('Honoraires de comptabilité', { exact: true })).toHaveCount(0)
 })
 
 test('synthèse et atterrissage : réel des mois passés, saisonnalité de l’an dernier, frais du magasin', async ({ page, isMobile }, info) => {

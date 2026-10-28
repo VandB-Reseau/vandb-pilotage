@@ -16,6 +16,7 @@ une migration par changement, numérotée dans l'ordre où elle s'applique. Cart
 | `0010_correspondances_fec` | Table `correspondances_fec` : rubrique choisie pour un compte du FEC quand le cabinet du magasin le range autrement que le plan comptable, gardée pour les imports suivants ; Directeur, RR, Coach et franchisé sur leurs magasins | 28/10/2026 |
 | `0011_echanges_budget` | Tables `echanges_budget` (messages par sujet sur le budget d'un magasin, auteur posé par la base, retiré par son auteur seul) et `versions_budget` (une version à chaque changement de statut, de base ou d'ajustements, écrite par un déclencheur) ; fonction `mon_nom()` | 28/10/2026 |
 | `0012_actions` | Table `actions` : plan d'action relié aux alertes (type, action, responsable, échéance, statut, mesure de départ) ; Directeur partout, RR et Coach sur leurs magasins, franchisé en lecture qui ne change que le statut | 28/10/2026 |
+| `0013_cave_bar_separes` | `reel_du_compte` donne aussi le CA TTC et les tickets de la Cave et du Bar séparés, pour leurs paniers dans la vue réseau ; aucune table ni règle d'accès nouvelle | 28/10/2026 |
 | `0006_suivi_reseau` | Fonction `reel_du_compte` : réel de tous les magasins du compte totalisé par mois, pour la vue réseau ; aucune table ni règle d'accès nouvelle | 27/10/2026 |
 
 ## Passer une migration

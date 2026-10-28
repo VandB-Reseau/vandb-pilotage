@@ -1,3 +1,4 @@
+import { LIGNES_SUR_CA, lignesFrais } from './parametres'
 import { moisDuQuadrimestre, type Quadrimestre, type SaisieQuadrimestre } from './quadrimestre'
 
 // FEC du comptable (fichier des écritures comptables, lot 19, 28/10/2026) ramené aux montants d'un quadrimestre.
@@ -93,6 +94,18 @@ export function syntheseFEC(ecritures: EcritureFEC[], annee: number, q: Quadrime
     caFEC: arrondi(caFEC),
     stockPasse,
   }
+}
+
+// Ligne de frais de l'onglet FFBUD d'un compte de charges (lot 23) : la plus longue racine l'emporte ; null hors des
+// frais (achats, stock, personnel) ou compte inconnu. Les cabinets détaillent plus ou moins : c'est un repère, pas une saisie.
+const RACINES_FRAIS: [string, string][] = ([
+  ...lignesFrais.flatMap((g) => g.racines.map((r): [string, string] => [r, g.libelle])),
+  ['651', LIGNES_SUR_CA.redevance.libelle], ['681', 'Dotations aux amortissements'],
+  ['6611', 'Intérêts sur emprunts'], ['6615', 'Intérêts des comptes courants'], ['6616', 'Agios'],
+] as [string, string][]).sort((a, b) => b[0].length - a[0].length)
+export function ligneFraisDuCompte(compte: string): string | null {
+  if (!estCharge(compte) || /^(60[1-3]|607|64)/.test(compte)) return null
+  return RACINES_FRAIS.find(([r]) => compte.startsWith(r))?.[1] ?? null
 }
 
 // Exceptions à garder : seulement les comptes rangés autrement que par défaut

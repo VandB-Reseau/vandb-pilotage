@@ -80,11 +80,13 @@ test('le franchisé lit le réel de son magasin et saisit le mois suivant', asyn
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await page.getByRole('tab', { name: /^Réel/ }).click()
   const chiffres = page.getByRole('region', { name: `Réel ${N} en chiffres` })
-  // 40 000 de CA, 18 200 de marge (45,5 %), panier de janvier 24 000 TTC / 1 000 tickets
+  // 40 000 de CA, 18 200 de marge (45,5 %) ; Cave et Bar séparés : 12 000 TTC / 600 tickets, 12 000 / 400
   await expect(chiffres).toContainText(/40\sk€/)
   await expect(chiffres).toContainText('De janvier à fin février')
   await expect(chiffres).toContainText(/45,5\s%/)
-  await expect(chiffres).toContainText(/24,00\s€/)
+  await expect(chiffres).toContainText(/Panier Cave TTC\s*20,00\s€/)
+  await expect(chiffres).toContainText(/Panier Bar TTC\s*30,00\s€/)
+  await expect(chiffres).toContainText(/Tickets Cave\s*600/)
   const tableau = page.getByRole('table', { name: `Réel ${N} par famille et par mois` })
   await expect(tableau.getByRole('row', { name: /Bière \(Cave\)/ })).toContainText(/30\s000\s€/)
   await expect(tableau.getByRole('row', { name: /Bière \(Cave\)/ })).toContainText(/75,0\s%/)

@@ -1,7 +1,7 @@
 import type { LigneCompte } from '../moteur/compteResultat'
 import type { LigneReseau } from '../moteur/suivi'
 import type { MoisTresorerie, Tresorerie } from '../moteur/tresorerie'
-import { universLibelle, type ResultatFamille } from '../moteur/types'
+import { universLibelle, type Budget, type ResultatFamille } from '../moteur/types'
 import { MOIS } from './format'
 import { cellule, colonne, type Cellule, type Feuille } from './xlsx'
 
@@ -11,12 +11,13 @@ import { cellule, colonne, type Cellule, type Feuille } from './xlsx'
 const aujourdhui = () => new Date().toLocaleDateString('fr-FR')
 const somme = (l: number[]) => l.reduce((a, b) => a + b, 0)
 
-export function feuillesBudget({ magasin, annee, statut, lignes, familles, tresorerie }: {
+export function feuillesBudget({ magasin, annee, statut, lignes, familles, flux = {}, tresorerie }: {
   magasin: string
   annee: number
   statut: string
   lignes: LigneCompte[]
   familles: ResultatFamille[]
+  flux?: Budget['flux']
   tresorerie?: Tresorerie | null
 }): Feuille[] {
   // ── Compte de résultat : titres sur 4 lignes, puis une ligne par poste
@@ -56,7 +57,7 @@ export function feuillesBudget({ magasin, annee, statut, lignes, familles, treso
       const r = p0 + i
       return [
         f.famille, universLibelle[f.univers],
-        { v: f.atterrissage, s: 'euros' }, { v: f.evolution, s: 'pct' }, { v: f.objectif, s: 'euros' },
+        { v: f.atterrissage, s: 'euros' }, { v: f.atterrissage ? f.objectif / f.atterrissage - 1 : 0, s: 'pct' }, { v: f.objectif, s: 'euros' },
         { v: f.margeCible, s: 'pct' }, { v: f.demarque ?? 0, s: 'pct' },
         { v: f.margeObjectif, f: `${cellule(r, 4)}*(${cellule(r, 5)}-${cellule(r, 6)})`, s: 'euros' },
       ]
@@ -71,10 +72,23 @@ export function feuillesBudget({ magasin, annee, statut, lignes, familles, treso
     { v: tCA ? dem / tCA : 0, f: `IF(${cellule(pt, 4)}=0,0,SUMPRODUCT(${plageCorps(4)},${plageCorps(6)})/${cellule(pt, 4)})`, s: 'pctGras' },
     { v: tM, f: `SUM(${plageCorps(7)})`, s: 'eurosGras' },
   ] : []
+  // Cave et Bar pilotés par les tickets : fréquentation et panier moyen
+  const pilotes = (['cave', 'bar'] as const).filter((u) => flux[u]?.parTickets)
+  const tickets: Cellule[][] = pilotes.length ? [
+    [],
+    ['Univers', '', `Tickets ${annee - 1} attendus`, 'Évolution', `Tickets ${annee}`, `Panier ${annee - 1} TTC`, 'Évolution', `Panier ${annee} TTC`].map((v, i) => ({ v, s: i < 2 ? 'entete' as const : 'enteteDroite' as const })),
+    ...pilotes.map((u): Cellule[] => {
+      const f = flux[u]!
+      return [
+        universLibelle[u], null, Math.round(f.atterrissage), { v: f.atterrissage ? f.objectif / f.atterrissage - 1 : 0, s: 'pct' }, Math.round(f.objectif),
+        { v: f.panierRealiseTTC, s: 'euros2' }, { v: f.evolutionPanier, s: 'pct' }, { v: f.panierObjectifTTC, s: 'euros2' },
+      ]
+    }),
+  ] : []
 
   return [
     { nom: 'Compte de résultat', lignes: compte, largeurs: [36, ...MOIS.map(() => 11), 13, 9], figer: { lignes: 4, colonnes: 1 } },
-    { nom: 'Hypothèses', lignes: [...hypotheses, total], largeurs: [28, 12, 15, 11, 15, 12, 11, 15], figer: { lignes: 4, colonnes: 1 } },
+    { nom: 'Hypothèses', lignes: [...hypotheses, total, ...tickets], largeurs: [28, 12, 15, 11, 15, 12, 11, 15], figer: { lignes: 4, colonnes: 1 } },
     ...(tresorerie ? [feuilleTresorerie(tresorerie, `Trésorerie ${annee} - ${magasin}`, statut)] : []),
   ]
 }
@@ -145,7 +159,10 @@ export function feuilleReseau({ annee, selection, lignes, total, avec }: {
     { titre: 'Évolution sur l’an dernier', largeur: 13, valeur: (l) => n(l.evolution, 'pct') },
     { titre: 'Écart au budget', largeur: 11, valeur: (l) => n(l.ecartBudget, 'pct') },
     { titre: 'Taux de marge', largeur: 10, valeur: (l) => n(l.tauxMarge, 'pct') },
-    { titre: 'Panier moyen TTC', largeur: 11, valeur: (l) => n(l.panierTTC, 'euros2') },
+    { titre: 'Panier Cave TTC', largeur: 11, valeur: (l) => n(l.panierCave, 'euros2') },
+    { titre: 'Tickets Cave sur l’an dernier', largeur: 12, valeur: (l) => n(l.ticketsCave, 'pct') },
+    { titre: 'Panier Bar TTC', largeur: 11, valeur: (l) => n(l.panierBar, 'euros2') },
+    { titre: 'Tickets Bar sur l’an dernier', largeur: 12, valeur: (l) => n(l.ticketsBar, 'pct') },
     { titre: 'Masse salariale / marge', largeur: 12, valeur: (l) => n(l.personnelSurMarge, 'pct') },
     { titre: 'Loyer / CA', largeur: 10, valeur: (l) => n(l.loyerSurCA, 'pct') },
     { titre: 'EBE / CA', largeur: 10, valeur: (l) => n(l.ebeSurCA, 'pct') },
@@ -160,7 +177,7 @@ export function feuilleReseau({ annee, selection, lignes, total, avec }: {
     { v: `${total.magasins} magasin${total.magasins > 1 ? 's' : ''}`, s: 'gras' },
     lignes.length ? { v: total.ca, f: `SUM(${cellule(debut, cCA)}:${cellule(debut + lignes.length - 1, cCA)})`, s: 'eurosGras' } : { v: total.ca, s: 'eurosGras' },
     gras(n(total.evolution, 'pct')), gras(n(total.ecartBudget, 'pct')), gras(n(total.tauxMarge, 'pct')),
-    gras(n(total.panierTTC, 'euros2')), gras(n(total.personnelSurMarge, 'pct')), gras(n(total.loyerSurCA, 'pct')), gras(n(total.ebeSurCA, 'pct')),
+    gras(n(total.panierCave, 'euros2')), gras(n(total.ticketsCave, 'pct')), gras(n(total.panierBar, 'euros2')), gras(n(total.ticketsBar, 'pct')), gras(n(total.personnelSurMarge, 'pct')), gras(n(total.loyerSurCA, 'pct')), gras(n(total.ebeSurCA, 'pct')),
   ]
   return {
     nom: `Réseau ${annee}`,

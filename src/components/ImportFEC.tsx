@@ -16,7 +16,7 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import { chargerCorrespondancesFEC, enregistrerCorrespondancesFEC } from '../data/pilotage'
 import { enChiffres, taux } from '../lib/format'
-import { exceptionsDe, quadrimestresCouverts, RUBRIQUES_FEC, rubriqueFECLibelle, syntheseFEC, type CompteFEC, type EcritureFEC, type RubriqueFEC } from '../moteur/fec'
+import { exceptionsDe, ligneFraisDuCompte, quadrimestresCouverts, RUBRIQUES_FEC, rubriqueFECLibelle, syntheseFEC, type CompteFEC, type EcritureFEC, type RubriqueFEC } from '../moteur/fec'
 import { quadrimestreLibelle, type Quadrimestre, type SaisieQuadrimestre } from '../moteur/quadrimestre'
 
 export interface FichierFEC { nom: string; ecritures: EcritureFEC[]; erreurs: string[] }
@@ -94,6 +94,7 @@ export function ImportFEC({ magasin, annee, fichier, caCaisse, libelles, peutGar
             <TableCell>Libellé</TableCell>
             <TableCell align="right">Montant</TableCell>
             <TableCell>Rubrique</TableCell>
+            <TableCell>Ligne de frais</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -103,6 +104,7 @@ export function ImportFEC({ magasin, annee, fichier, caCaisse, libelles, peutGar
               <TableCell sx={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.libelle}</TableCell>
               <TableCell align="right">{enChiffres(Math.round(c.montant))}</TableCell>
               <TableCell sx={{ py: 0.5 }}>{ranger(c)}</TableCell>
+              <TableCell sx={{ color: 'text.secondary' }}>{ligneFraisDuCompte(c.compte) ?? '–'}</TableCell>
             </TableRow>
           ))}
         </TableBody>

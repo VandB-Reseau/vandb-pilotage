@@ -1,4 +1,4 @@
-import { rubriqueLibelle } from './parametres'
+import { blocDe, LIGNES_SUR_CA, lignesFrais, rubriqueLibelle } from './parametres'
 import { UNIVERS, universLibelle, type Budget, type Hypotheses } from './types'
 
 // Compte de résultat sur 12 mois, ligne par ligne, prêt à afficher : rubriques dépliables (détail par univers ou par ligne de frais).
@@ -27,8 +27,13 @@ export function compteResultat(b: Budget, h: Hypotheses, p: { tauxRedevance: num
     .map((x) => ligne(`ca/${x.u}`, universLibelle[x.u], ca.map((c) => (b.ca ? x.objectif * c / b.ca : 0)), { parent: 'ca' }))
 
   const montantFrais = (l: Hypotheses['frais'][number]) => ca.map((c) => (l.annuel ?? 0) / 12 + c * (l.tauxCA ?? 0))
-  const externes = h.frais.filter((l) => l.rubrique !== 'impots_taxes')
-  const impots = h.frais.filter((l) => l.rubrique === 'impots_taxes')
+  // Lignes de frais dans l'ordre et les blocs de l'onglet FFBUD (lot 23) ; les autres charges restent au-dessus de l'EBE
+  const rang = (code: string) => { const i = lignesFrais.findIndex((g) => g.code === code); return i < 0 ? 999 : i }
+  const dansBloc = (b: ReturnType<typeof blocDe>) => h.frais.filter((l) => blocDe(l) === b).sort((x, y) => rang(x.code) - rang(y.code))
+  const externes = dansBloc('charges_externes')
+  const impots = dansBloc('impots_taxes')
+  const autres = dansBloc('autres_charges')
+  const totalAutres = autres.reduce((t, l) => t.map((v, i) => v + montantFrais(l)[i]), Array(12).fill(0) as number[])
   const detailFrais = (l: Hypotheses['frais'][number], parent: string) =>
     ligne(`${parent}/${l.code}`, l.libelle || rubriqueLibelle[l.rubrique], negatif(montantFrais(l)), { parent })
 
@@ -41,17 +46,18 @@ export function compteResultat(b: Budget, h: Hypotheses, p: { tauxRedevance: num
     ...(parUnivers.length > 1 ? parUnivers : []),
     ligne('achats', 'Achats consommés HT', negatif(b.mois.map((m) => m.achats))),
     ligne('marge', 'Marge commerciale', b.mois.map((m) => m.marge), { fort: true }),
-    ligne('externes', 'Charges externes', negatif(b.mois.map((m) => m.chargesExternes))),
-    ligne('externes/redevance', 'Redevance', negatif(ca.map((c) => c * p.tauxRedevance)), { parent: 'externes' }),
-    ligne('externes/publicite', 'Publicité', negatif(ca.map((c) => c * p.tauxPublicite)), { parent: 'externes' }),
+    ligne('externes', 'Charges externes', negatif(b.mois.map((m, i) => m.chargesExternes - totalAutres[i]))),
     ...externes.map((l) => detailFrais(l, 'externes')),
+    ligne('externes/publicite', LIGNES_SUR_CA.publicite.libelle, negatif(ca.map((c) => c * p.tauxPublicite)), { parent: 'externes' }),
+    ligne('externes/redevance', LIGNES_SUR_CA.redevance.libelle, negatif(ca.map((c) => c * p.tauxRedevance)), { parent: 'externes' }),
     ligne('impots', 'Impôts et taxes', negatif(b.mois.map((m) => m.impotsTaxes))),
     ...impots.map((l) => detailFrais(l, 'impots')),
+    ...(autres.length ? [ligne('autres', 'Autres charges', negatif(totalAutres)), ...autres.map((l) => detailFrais(l, 'autres'))] : []),
     ligne('personnel', 'Frais de personnel', negatif(b.mois.map((m) => m.personnel))),
     ligne('ebe', 'Excédent brut d’exploitation', b.mois.map((m) => m.ebe), { fort: true }),
     ligne('amortissements', 'Dotations aux amortissements', amort),
     ligne('exploitation', 'Résultat d’exploitation', b.mois.map((m) => m.resultatExploitation), { fort: true }),
-    ligne('interets', 'Intérêts d’emprunts', interets),
+    ligne('interets', 'Intérêts et charges assimilées', interets),
     ligne('avant_impot', 'Résultat avant impôt', b.mois.map((m) => m.resultatAvantImpot)),
     annuel('impot', 'Impôt sur les sociétés', -b.impot),
     annuel('net', 'Résultat net', b.resultatNet, { fort: true }),

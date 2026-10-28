@@ -83,6 +83,17 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
    (`mesureDeAlerte`). `mesuresMagasin` recalcule la même mesure sans seuil, `effetAction` dit si elle s'améliore.
    Les listes d'alertes signalent celles qui ont une action en cours ; les actions confiées au franchisé vont dans son
    « À faire ».
+22. Cave et Bar séparés : dans `calculerBudget`, un univers Cave ou Bar qui a des tickets se construit par
+   CA atterri × (1 + évolution des tickets) × (1 + évolution du panier), réparti entre ses familles par `mix` (parts
+   visées gardées, le reste au prorata du CA atterri). Cibles `evolutionPanier` et `mixFamille` ; l'évolution du CA
+   d'une famille ne sert plus qu'aux univers sans tickets. Le compte de résultat reste celui du magasin. Réel :
+   `syntheseReel().parUnivers`, `MoisReel.univers` (rempli par `reel_du_compte`, script 0013) ; vue Réseau, médianes
+   et export avec un panier et une évolution des tickets par univers.
+23. Frais : `lignesFrais` (`src/moteur/parametres.ts`) reprend les lignes de l'onglet FFBUD dans son ordre, rangées par
+   bloc (`BLOCS_FRAIS` : charges externes, impôts et taxes, autres charges ; `blocDe`), avec les racines du plan
+   comptable de chaque ligne (`ligneFraisDuCompte` dans l'import du FEC). Publicité franchise et royalties restent
+   calculées sur le CA ; intérêts sur emprunts, des comptes courants et agios s'additionnent dans les intérêts.
+   La colonne `rubrique` de la table `frais` est gardée telle quelle : aucun changement de base.
 
 ## Rôles
 

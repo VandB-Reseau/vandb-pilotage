@@ -5,7 +5,7 @@ import { parametresParDefaut } from '../../src/moteur/parametres'
 import { magasinFictif } from '../donnees-fictives'
 
 // Médianes et rangs sur des magasins fictifs : chaque résultat se vérifie à la main.
-const r = (personnelSurMarge: number | null, ebeSurCA: number | null): Ratios => ({ tauxMarge: null, personnelSurMarge, loyerSurCA: null, panierTTC: null, ebeSurCA })
+const r = (personnelSurMarge: number | null, ebeSurCA: number | null): Ratios => ({ tauxMarge: null, personnelSurMarge, loyerSurCA: null, panierCave: null, panierBar: null, ebeSurCA })
 
 test('médiane : valeur du milieu, moyenne des deux du milieu, valeurs absentes ignorées', () => {
   expect(mediane([3, 1, 2])).toBe(2)
@@ -28,6 +28,7 @@ test('ratios du budget du magasin fictif', () => {
   expect(x.tauxMarge).toBeCloseTo(367_300 / 640_000, 10)          // 57,4 %
   expect(x.personnelSurMarge).toBeCloseTo(216_000 / 367_300, 10)  // 58,8 %
   expect(x.loyerSurCA).toBeCloseTo(60_000 / 640_000, 10)          // 9,4 %
-  expect(x.panierTTC).toBe(24)                                    // seule la Cave a un panier visé
+  expect(x.panierCave).toBe(24)                                   // panier réalisé de la Cave, sans évolution visée
+  expect(x.panierBar).toBeNull()                                  // pas de tickets au Bar
   expect(x.ebeSurCA).toBeCloseTo(54_780 / 640_000, 10)            // 8,6 %
 })

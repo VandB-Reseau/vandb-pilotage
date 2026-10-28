@@ -8,35 +8,36 @@ import TableRow from '@mui/material/TableRow'
 import Tooltip from '@mui/material/Tooltip'
 import RestartAltOutlined from '@mui/icons-material/RestartAltOutlined'
 import { cleFamille, ecrireCible, lireCible, valeurHeritee, type Cibles, type Niveau, type NiveauCibles } from '../moteur/cibles'
-import { UNIVERS, universLibelle, type Famille } from '../moteur/types'
+import { UNIVERS, universLibelle, type Famille, type Univers } from '../moteur/types'
 import { ChampTaux } from './ChampTaux'
 import { SourceCible } from './SourceCible'
 
 export interface LigneCible { cle: string; libelle: string; section: string }
 
-// Hypothèses réglables, rangées par section ; l'évolution par univers ne se règle qu'au réseau et au groupe
+// Hypothèses réglables, rangées par section ; l'évolution par univers ne se règle qu'au réseau et au groupe.
+// Cave et Bar (lot 22) : CA par l'évolution des tickets et du panier, familles par leur part dans l'univers.
+// L'évolution du CA d'une famille Cave ou Bar ne vaut que pour un magasin sans tickets : elle n'est plus proposée.
 export function lignesCibles(familles: Pick<Famille, 'univers' | 'famille'>[], avecUnivers: boolean, flux: ('cave' | 'bar')[] = ['cave', 'bar']): LigneCible[] {
   const lignes: LigneCible[] = []
-  if (avecUnivers) for (const u of UNIVERS) lignes.push({ cle: `univers/${u}`, libelle: universLibelle[u], section: 'Évolution du CA par univers' })
-  const vues = new Set<string>()
+  const parTickets = (u: Univers) => (flux as Univers[]).includes(u)
+  const nomDe = (cle: string) => { const [u, ...n] = cle.split('/'); return `${n.join('/')} (${universLibelle[u as Univers]})` }
+  for (const u of flux) lignes.push({ cle: `flux/${u}`, libelle: universLibelle[u], section: 'Évolution du nombre de tickets' })
+  for (const u of flux) lignes.push({ cle: `panier/${u}`, libelle: universLibelle[u], section: 'Évolution du panier moyen' })
+  if (avecUnivers) for (const u of UNIVERS.filter((x) => !parTickets(x))) lignes.push({ cle: `univers/${u}`, libelle: universLibelle[u], section: 'Évolution du CA par univers' })
+  const vues: string[] = []
   for (const f of [...familles].sort((a, b) => UNIVERS.indexOf(a.univers) - UNIVERS.indexOf(b.univers) || a.famille.localeCompare(b.famille, 'fr'))) {
     const cle = cleFamille(f)
-    if (vues.has(cle)) continue
-    vues.add(cle)
-    const nom = `${f.famille} (${universLibelle[f.univers]})`
-    lignes.push({ cle: `evolution/${cle}`, libelle: nom, section: 'Évolution du CA par famille' })
+    if (!vues.includes(cle)) vues.push(cle)
   }
   for (const cle of vues) {
-    const [u, ...n] = cle.split('/')
-    lignes.push({ cle: `marge/${cle}`, libelle: `${n.join('/')} (${universLibelle[u as Famille['univers']]})`, section: 'Marge visée par famille' })
+    const u = cle.split('/')[0] as Univers
+    if (parTickets(u)) lignes.push({ cle: `mix/${cle}`, libelle: nomDe(cle), section: 'Part de la famille dans son univers' })
   }
-  for (const cle of vues) {
-    const [u, ...n] = cle.split('/')
-    lignes.push({ cle: `demarque/${cle}`, libelle: `${n.join('/')} (${universLibelle[u as Famille['univers']]})`, section: 'Démarque par famille' })
-  }
+  for (const cle of vues) if (!parTickets(cle.split('/')[0] as Univers)) lignes.push({ cle: `evolution/${cle}`, libelle: nomDe(cle), section: 'Évolution du CA par famille' })
+  for (const cle of vues) lignes.push({ cle: `marge/${cle}`, libelle: nomDe(cle), section: 'Marge visée par famille' })
+  for (const cle of vues) lignes.push({ cle: `demarque/${cle}`, libelle: nomDe(cle), section: 'Démarque par famille' })
   lignes.push({ cle: 'hausseSalaires', libelle: 'Hausse des salaires', section: 'Salaires et frais' })
   lignes.push({ cle: 'inflationFrais', libelle: 'Inflation des frais', section: 'Salaires et frais' })
-  for (const u of flux) lignes.push({ cle: `flux/${u}`, libelle: universLibelle[u], section: 'Évolution du nombre de tickets' })
   return lignes
 }
 

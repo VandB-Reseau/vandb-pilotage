@@ -9,21 +9,25 @@ const proche = (valeur: number, attendu: number) => expect(valeur).toBeCloseTo(a
 
 const reseau: NiveauCibles = { niveau: 'reseau', cibles: { evolutionUnivers: { cave: 0.03, bar: 0.03, exterieur: 0 }, hausseSalaires: 0.02, inflationFrais: 0.02, margeFamille: { 'bar/Fût': 0.75 } } }
 const groupe: NiveauCibles = { niveau: 'groupe', cibles: { evolutionUnivers: { bar: 0.08 } } }
-const magasin: NiveauCibles = { niveau: 'magasin', cibles: { evolutionFamille: { 'cave/Bière': 0.05 } } }
+// La Cave du magasin fictif a ses tickets : son CA se pilote par les tickets et le panier, pas par l'évolution des familles
+const magasin: NiveauCibles = { niveau: 'magasin', cibles: { evolutionFlux: { cave: 0.05 } } }
 
 test('chaque valeur vient du niveau le plus proche du magasin qui la renseigne', () => {
   const { hypotheses: h, provenance } = appliquerCibles(magasinFictif, [reseau, groupe, magasin])
   const [biere, fut, evenements] = h.familles
-  proche(biere.evolution, 0.05)      // magasin
+  proche(h.flux!.cave!.evolution, 0.05) // magasin
+  proche(biere.evolution, 0)         // Cave pilotée par les tickets : l'évolution des familles ne joue plus
   proche(fut.evolution, 0.08)        // groupe, prime sur le réseau
   proche(evenements.evolution, 0)    // réseau
   proche(fut.margeCible, 0.75)       // réseau
   proche(biere.margeCible, 0.36)     // aucune cible : la marge réalisée du magasin
   const source = (cle: string) => provenance.find((p) => p.cle === cle)?.source
-  expect(source('evolution/cave/Bière')).toBe('magasin')
+  expect(source('flux/cave')).toBe('magasin')
+  expect(source('evolution/cave/Bière')).toBeUndefined()
+  expect(source('mix/cave/Bière')).toBe('base')
   expect(source('evolution/bar/Fût')).toBe('groupe')
   expect(source('marge/cave/Bière')).toBe('base')
-  expect(ecarts(provenance).map((p) => p.libelle)).toEqual(['Évolution du CA Bière (Cave)'])
+  expect(ecarts(provenance).map((p) => p.libelle)).toEqual(['Évolution du nombre de tickets Cave'])
 })
 
 test('hausse des salaires et inflation des frais annuels ; les frais en % du CA suivent le CA', () => {
@@ -46,7 +50,7 @@ test('sans aucune cible, le budget reconduit le réalisé du magasin à l’iden
 test('un budget complet par niveaux : CA et EBE vérifiés à la main', () => {
   const { hypotheses: h } = appliquerCibles(magasinFictif, [reseau, groupe, magasin])
   const b = calculerBudget(h, parametresParDefaut)
-  // CA : 200 000 × 1,05 + 300 000 × 1,08 + 100 000 = 210 000 + 324 000 + 100 000
+  // CA : Cave 200 000 × 1,05 (tickets) + Bar 300 000 × 1,08 + Extérieur 100 000 = 210 000 + 324 000 + 100 000
   proche(b.ca, 634_000)
   // Marge : 210 000 × 36 % + 324 000 × 75 % + 100 000 × 40 % = 75 600 + 243 000 + 40 000
   proche(b.marge, 358_600)

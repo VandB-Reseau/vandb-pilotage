@@ -160,7 +160,7 @@ export function Magasin() {
     if (!b || !resolu) return
     const statut = `${ligne.statut ? statutLibelle[ligne.statut] : 'Pas encore proposé'}${modifie ? ', ajustements non enregistrés' : ''}`
     telecharger(nomFichier(`Budget ${annee} - ${ligne.magasin}`),
-      classeur(feuillesBudget({ magasin: ligne.magasin, annee, statut, lignes: compteResultat(b, resolu.hypotheses, parametres), familles: b.familles, tresorerie })))
+      classeur(feuillesBudget({ magasin: ligne.magasin, annee, statut, lignes: compteResultat(b, resolu.hypotheses, parametres), familles: b.familles, flux: b.flux, tresorerie })))
   }
 
   const agir = async (action: () => Promise<void>, reussite: string) => {
@@ -244,7 +244,8 @@ export function Magasin() {
             action={directeur ? <Button variant="contained" onClick={() => setOnglet('atterrissage')} sx={{ minHeight: 48 }}>Proposer le budget</Button> : undefined} />
         )
       ) : onglet === 'frais' ? (
-        <FraisMagasin key={ligne.magasin} magasin={ligne.magasin} lignes={d.frais[ligne.magasin] ?? []} annee={anneeEnCours} peutSaisir={peutSaisir} apresEnregistrement={recharger} />
+        <FraisMagasin key={ligne.magasin} magasin={ligne.magasin} lignes={d.frais[ligne.magasin] ?? []} annee={anneeEnCours} peutSaisir={peutSaisir} apresEnregistrement={recharger}
+          tauxSurCA={{ publicite: parametres.tauxPublicite, redevance: parametres.tauxRedevance }} />
       ) : onglet === 'equipe' ? (
         <EquipeMagasin
           key={ligne.magasin} magasin={ligne.magasin} equipe={d.equipes[ligne.magasin] ?? []} annee={anneeEnCours} anneeBudget={annee}
@@ -321,16 +322,16 @@ export function Magasin() {
               <Typography variant="h2" sx={{ px: 2.5, pt: 2, pb: 1 }}>Hypothèses</Typography>
               <TableContainer>
                 <GrilleHypotheses
-                  titre="Hypothèses du magasin" familles={b.familles} annee={annee}
+                  titre="Hypothèses du magasin" familles={b.familles} flux={b.flux} annee={annee}
                   cibles={brouillon} auDessus={niveauxDe(ligne, d).slice(0, 2)} valeursBase={valeursSansCible(ligne.base)}
                   onChange={setBrouillon} lectureSeule={!peutAjuster}
                 />
               </TableContainer>
-              <Typography variant="h3" sx={{ px: 2.5, pt: 3, pb: 1 }}>Salaires, frais et tickets</Typography>
+              <Typography variant="h3" sx={{ px: 2.5, pt: 3, pb: 1 }}>Salaires et frais</Typography>
               <TableContainer>
                 <TableauCibles
                   titre="Autres hypothèses du magasin"
-                  lignes={lignesCibles(ligne.base.familles, false, (['cave', 'bar'] as const).filter((u) => ligne.base?.flux?.[u])).filter((l) => !/par famille$/.test(l.section))}
+                  lignes={lignesCibles([], false, [])}
                   niveau="magasin"
                   cibles={brouillon}
                   auDessus={niveauxDe(ligne, d).slice(0, 2)}
