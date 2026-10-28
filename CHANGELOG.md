@@ -5,6 +5,14 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 19 — Import du FEC
+
+- Onglet Quadrimestres : « Importer le FEC » du comptable. Montants du quadrimestre calculés sur les racines du plan
+  comptable (achats, variation de stock, charges externes, impôts et taxes, personnel, trésorerie), comptes inconnus à
+  ranger une fois par magasin, contrôle du CA face à la caisse, alerte si aucun stock n'est passé sur la période.
+  Le fichier n'est pas enregistré ; les montants sont repris dans la saisie avant d'enregistrer.
+- **Base : migration `0010_correspondances_fec.sql` à passer.** Sans elle, l'import marche, sans garder le classement.
+
 ### Lot 18 — Espace franchisé
 
 - Synthèse du magasin, pour le franchisé : liste « À faire » (réel du dernier mois terminé, quadrimestre fini à saisir,

@@ -1,3 +1,4 @@
+import type { RubriqueFEC } from '../moteur/fec'
 import { pilotage } from '../lib/supabase'
 import { calculerBudget } from '../moteur/budget'
 import { appliquerCibles, type Cibles, type NiveauCibles, type Provenance } from '../moteur/cibles'
@@ -457,4 +458,21 @@ export async function enregistrerPartsRealisees(magasin: string, annee: number, 
 export async function chargerSecours(magasin: string, annee: number): Promise<SecoursAtterrissage> {
   const [parts, reel] = await Promise.all([chargerPartsRealisees(annee), chargerReelDuCompte(annee)])
   return { parts: parts[magasin] ?? {}, saisonnaliteReseau: saisonnaliteMediane(Object.values(reel.magasins).map((r) => r.n1.map((x) => x.caHT))) }
+}
+
+// Correspondance des comptes du FEC propre au magasin (lot 19) ; sans la table (migration pas encore passée), défaut seul
+const RUBRIQUE_BASE: Record<RubriqueFEC, string> = {
+  achats: 'achats', variationStock: 'variation_stock', chargesExternes: 'charges_externes', impotsTaxes: 'impots_taxes', personnel: 'personnel', horsEBE: 'hors_ebe',
+}
+const RUBRIQUE_APP = Object.fromEntries(Object.entries(RUBRIQUE_BASE).map(([a, b]) => [b, a])) as Record<string, RubriqueFEC>
+export async function chargerCorrespondancesFEC(magasin: string): Promise<Record<string, RubriqueFEC>> {
+  const { data, error } = await pilotage().from('correspondances_fec').select('compte, rubrique').eq('store_name', magasin)
+  if (error || !data) return {}
+  return Object.fromEntries((data as { compte: string; rubrique: string }[]).filter((l) => RUBRIQUE_APP[l.rubrique]).map((l) => [l.compte, RUBRIQUE_APP[l.rubrique]]))
+}
+// Comptes vus dans l'import : ceux revenus au défaut sont retirés, les exceptions remplacées
+export async function enregistrerCorrespondancesFEC(magasin: string, comptesVus: string[], exceptions: Record<string, RubriqueFEC>) {
+  if (comptesVus.length) verifier(await pilotage().from('correspondances_fec').delete().eq('store_name', magasin).in('compte', comptesVus))
+  const lignes = Object.entries(exceptions).map(([compte, r]) => ({ store_name: magasin, compte, rubrique: RUBRIQUE_BASE[r] }))
+  if (lignes.length) verifier(await pilotage().from('correspondances_fec').insert(lignes))
 }

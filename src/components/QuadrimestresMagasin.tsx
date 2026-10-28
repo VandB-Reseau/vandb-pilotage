@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -13,17 +13,20 @@ import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import Typography from '@mui/material/Typography'
 import SaveOutlined from '@mui/icons-material/SaveOutlined'
+import UploadFileOutlined from '@mui/icons-material/UploadFileOutlined'
 import { ChampNombre } from './ChampNombre'
 import { useSaisieEnCours } from './GardeSaisie'
+import { ImportFEC, type FichierFEC } from './ImportFEC'
 import { Indicateur } from './Indicateur'
 import { Panne } from './Panne'
 import { atterrissageDe, chargerBudgets, chargerParametres, chargerQuadrimestres, chargerReel, chargerSecours, enregistrerQuadrimestres, hypothesesDe } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { nombre } from '../import/caisse'
+import { lireFEC, texteDuFEC } from '../import/fec'
 import { ecartMontant, ecartPts, enChiffres, milliers, MOIS, MOIS_LONGS, taux } from '../lib/format'
 import { tresorerieBudget, tresorerieGlissante } from '../moteur/tresorerie'
 import { calculerBudget } from '../moteur/budget'
-import { QUADRIMESTRES, quadrimestreLibelle, resultatsQuadrimestres, type Quadrimestre, type ResultatQuadrimestre, type SaisieQuadrimestre } from '../moteur/quadrimestre'
+import { moisDuQuadrimestre, QUADRIMESTRES, quadrimestreLibelle, resultatsQuadrimestres, type Quadrimestre, type ResultatQuadrimestre, type SaisieQuadrimestre } from '../moteur/quadrimestre'
 import { moisDuReel } from '../moteur/suivi'
 
 type Champ = keyof SaisieQuadrimestre
@@ -48,7 +51,9 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
       .then(([d, p, reel, q, reelN1, secours]) => ({ d, parametres: p.parametres, reel, saisies: q[magasin] ?? {}, reelN1, secours })),
     [magasin, annee])
   const [textes, setTextes] = useState<Textes>(vers({}))
-  const [message, setMessage] = useState<{ gravite: 'success' | 'error'; texte: string } | null>(null)
+  const [message, setMessage] = useState<{ gravite: 'success' | 'error' | 'warning'; texte: string } | null>(null)
+  const [fec, setFec] = useState<FichierFEC | null>(null)
+  const entreeFEC = useRef<HTMLInputElement>(null)
   const [occupe, setOccupe] = useState(false)
   useEffect(() => { if (donnees) setTextes(vers(donnees.saisies)) }, [donnees])
 
@@ -69,7 +74,9 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
   const ligne = donnees.d.magasins.find((l) => l.magasin === magasin)
   const h = ligne?.statut ? hypothesesDe(ligne, donnees.d) : null
   const budget = h ? calculerBudget(h.hypotheses, donnees.parametres) : null
-  const { parQuadrimestre, cumul, dernier } = resultatsQuadrimestres(moisDuReel(donnees.reel.lignes, donnees.reel.tickets), lues, budget)
+  const moisCaisse = moisDuReel(donnees.reel.lignes, donnees.reel.tickets)
+  const { parQuadrimestre, cumul, dernier } = resultatsQuadrimestres(moisCaisse, lues, budget)
+  const caCaisse = Object.fromEntries(QUADRIMESTRES.map((q) => [q, moisDuQuadrimestre(q).reduce((a, m) => a + (moisCaisse[m]?.caHT ?? 0), 0)])) as Record<Quadrimestre, number>
   const colonnes: (ResultatQuadrimestre | null)[] = [...parQuadrimestre, cumul]
   // Trésorerie glissante : dernière trésorerie saisie, puis les flux de l'atterrissage jusqu'à décembre
   const qTreso = [...QUADRIMESTRES].reverse().find((q) => lues[q]?.tresorerie != null)
@@ -77,6 +84,23 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
   const glissante = atterri && qTreso
     ? tresorerieGlissante(tresorerieBudget(atterri.budget, atterri.hypotheses, donnees.parametres, donnees.parametres.tresorerie), { montant: lues[qTreso]!.tresorerie!, mois: qTreso * 4 - 1 })
     : null
+
+  const lireFichierFEC = async (f: File) => {
+    setMessage(null)
+    try {
+      const l = lireFEC(texteDuFEC(await f.arrayBuffer()))
+      setFec({ nom: f.name, ecritures: l.ecritures, erreurs: l.erreurs })
+    } catch {
+      setFec({ nom: f.name, ecritures: [], erreurs: ['Ce fichier n’a pas les colonnes d’un FEC (CompteNum, EcritureDate, Debit et Credit). Demande au cabinet l’export FEC du magasin.'] })
+    }
+  }
+  const reprendreFEC = (q: Quadrimestre, m: SaisieQuadrimestre, avertissement: string | null) => {
+    setTextes((t) => ({ ...t, [q]: Object.fromEntries(CHAMPS.map((c) => [c, m[c] === null ? t[q][c] : enChiffres(m[c]!)])) as Record<Champ, string> }))
+    setFec(null)
+    setMessage(avertissement
+      ? { gravite: 'warning', texte: `Montants du FEC repris : ${quadrimestreLibelle[q].toLowerCase()}. ${avertissement}` }
+      : { gravite: 'success', texte: `Montants du FEC repris : ${quadrimestreLibelle[q].toLowerCase()}.` })
+  }
 
   const enregistrer = async () => {
     setOccupe(true)
@@ -140,6 +164,15 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
       <Card component="section" aria-label={`Quadrimestres ${annee}`}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2.5, pt: 2, pb: 1 }}>
           <Typography variant="h2" sx={{ flex: 1 }}>Quadrimestres {annee}</Typography>
+          {peutSaisir && (
+            <>
+              <Button variant="outlined" startIcon={<UploadFileOutlined />} disabled={occupe} onClick={() => entreeFEC.current?.click()} sx={{ minHeight: 48 }}>
+                Importer le FEC
+              </Button>
+              <input ref={entreeFEC} type="file" accept=".txt,.csv,.fec,text/plain" hidden aria-label="FEC du comptable"
+                onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void lireFichierFEC(f) }} />
+            </>
+          )}
           {peutSaisir && modifie && (
             <Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe || !lisible || negatif} onClick={() => void enregistrer()} sx={{ minHeight: 48 }}>
               Enregistrer les quadrimestres
@@ -147,6 +180,10 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
           )}
         </Box>
         {message && <Box sx={{ px: 2.5, pb: 1 }}><Alert severity={message.gravite} onClose={() => setMessage(null)} closeText="Fermer" slotProps={{ closeButton: { sx: { width: 48, height: 48 } } }}>{message.texte}</Alert></Box>}
+        {fec && (
+          <ImportFEC key={fec.nom} magasin={magasin} annee={annee} fichier={fec} caCaisse={caCaisse} libelles={LIBELLES} peutGarder={peutSaisir}
+            reprendre={reprendreFEC} fermer={() => setFec(null)} />
+        )}
         {negatif && <Box sx={{ px: 2.5, pb: 1 }}><Alert severity="warning">Les achats et les charges se saisissent en positif.</Alert></Box>}
         <TableContainer>
           <Table size="small" className="colonne-fixe" aria-label={`Résultat réel ${annee} par quadrimestre`} sx={{ '& td, & th': { px: 1.25, whiteSpace: 'nowrap' }, '& td:first-of-type, & th:first-of-type': { pl: 2.5, minWidth: 240 } }}>

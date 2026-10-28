@@ -74,6 +74,9 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
 18. Espace franchisé : en tête de la synthèse, `tachesFranchise` (`src/lib/aFaire.ts`) liste ce qu'il a à faire selon
    la date (réel du dernier mois, quadrimestre fini, budget proposé ou en discussion, équipe, frais) ; chaque ligne
    ouvre l'onglet. La comparaison aux autres magasins ne lui est pas montrée.
+19. FEC : `lireFEC` (`src/import/fec.ts`) lit le fichier dans le navigateur ; `syntheseFEC` (`src/moteur/fec.ts`) range
+   chaque compte de charges sur les racines du plan comptable, applique les exceptions du magasin
+   (`correspondances_fec`) et rend les six montants du quadrimestre, repris dans la saisie avant enregistrement.
 
 ## Rôles
 
