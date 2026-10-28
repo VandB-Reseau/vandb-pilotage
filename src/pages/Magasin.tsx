@@ -334,11 +334,12 @@ export function Magasin() {
           key={ligne.magasin} magasin={ligne.magasin} equipe={d.equipes[ligne.magasin] ?? []} annee={anneeEnCours} anneeBudget={annee}
           hausse={resolu?.hypotheses.hausseSalaires ?? valeurHeritee(niveauxDe(ligne, d, brouillon), 'hausseSalaires')?.valeur ?? 0}
           charges={donnees.parametresN.charges} chargesBudget={parametres.charges}
-          peutSaisir={peutSaisir} apresEnregistrement={recharger} caAnnee={b?.atterrissage} caBudget={b?.ca}
+          peutSaisir={peutSaisir} apresEnregistrement={recharger} caAnnee={b?.atterrissage} caBudget={b?.ca} ebeBudget={b?.ebe}
         />
       ) : onglet === 'frais' ? (
         <FraisMagasin key={ligne.magasin} magasin={ligne.magasin} lignes={d.frais[ligne.magasin] ?? []} annee={anneeEnCours} peutSaisir={peutSaisir} apresEnregistrement={recharger}
-          tauxSurCA={{ publicite: parametres.tauxPublicite, redevance: parametres.tauxRedevance }} />
+          tauxSurCA={{ publicite: parametres.tauxPublicite, redevance: parametres.tauxRedevance }}
+          budget={b ? { annee, ca: b.ca, ebe: b.ebe } : undefined} />
       ) : onglet === 'echanges' ? (
         <>
           {profil && <EchangesBudget key={`echanges-${ligne.magasin}`} ligne={ligne} d={d} annee={annee} parametres={parametres} moi={profil} />}

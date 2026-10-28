@@ -83,7 +83,7 @@ test('une ligne de frais s’ajoute depuis la grille ; un montant illisible est 
   await page.getByLabel('Honoraires de comptabilité', { exact: true }).fill('six mille')
   await page.getByRole('button', { name: 'Enregistrer les frais' }).click()
   await expect(page.getByText('Honoraires de comptabilité : montant illisible.')).toBeVisible()
-  await page.getByRole('button', { name: 'Annuler les modifications' }).click()
+  await page.getByRole('button', { name: 'Annuler les changements' }).click()
   await expect(page.getByLabel('Honoraires de comptabilité', { exact: true })).toHaveCount(0)
 })
 
@@ -188,8 +188,8 @@ test('sans réel de l’an dernier : part de l’année réalisée saisie par un
   await ouvrir(page, 'Atterrissage')
   const projection = page.getByRole('table', { name: `Projection ${N} par univers` })
   const cave = projection.getByRole('row', { name: /Cave/ })
-  // Sans part ni réseau : la moyenne, 80 000 × 12 / 8
-  await expect(cave).toContainText('Moyenne des mois réalisés')
+  // Sans part ni réseau : la moyenne, 80 000 × 12 / 8 ; mois réguliers, le rythme des 4 derniers mois donne le même chiffre (lot 28)
+  await expect(cave).toContainText('Rythme des 4 derniers mois')
   await expect(cave).toContainText(/120\s000\s€$/)
   await page.getByLabel('Part de l’année réalisée : Cave').fill('62,6')
   // 80 000 / 0,626 = 127 795,53

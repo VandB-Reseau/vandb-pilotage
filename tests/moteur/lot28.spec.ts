@@ -116,3 +116,11 @@ test('campagne des budgets : retard après la date de proposition ou de validati
     { nom: '', magasins: 1, aProposer: 0, proposes: 1, enDiscussion: 0, valides: 0, enRetard: 1 },
   ])
 })
+
+test('effet d’une saisie sur l’EBE : frais et masse salariale au-dessus de l’EBE', async () => {
+  const { ebeApres, fraisDeLAnnee } = await import('../../src/moteur/effets')
+  // 12 000 € par an et 1 % de 600 000 € de CA : 18 000 €
+  expect(fraisDeLAnnee({ annuel: 12_000, taux: 0.01 }, 600_000)).toBe(18_000)
+  // EBE de 60 000 € ; les frais passent de 18 000 à 21 000 € : 57 000 €
+  expect(ebeApres(60_000, 18_000, 21_000)).toBe(57_000)
+})

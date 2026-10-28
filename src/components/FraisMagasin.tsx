@@ -15,17 +15,18 @@ import TableCell from '@mui/material/TableCell'
 import TableContainer from '@mui/material/TableContainer'
 import TableRow from '@mui/material/TableRow'
 import TextField from '@mui/material/TextField'
-import Typography from '@mui/material/Typography'
 import DeleteOutlined from '@mui/icons-material/DeleteOutlined'
 import PlaylistAddOutlined from '@mui/icons-material/PlaylistAddOutlined'
-import SaveOutlined from '@mui/icons-material/SaveOutlined'
+import { BarreEnregistrement } from './BarreEnregistrement'
 import { ChampNombre } from './ChampNombre'
 import { EtatVide } from './EtatVide'
 import { useSaisieEnCours } from './GardeSaisie'
 import { Indicateur } from './Indicateur'
 import { enregistrerFrais } from '../data/pilotage'
 import { nombre } from '../import/caisse'
+import { nombreChangements } from '../lib/aFaire'
 import { milliers, miseEnForme, montant, taux } from '../lib/format'
+import { ebeApres, fraisDeLAnnee } from '../moteur/effets'
 import type { LigneFraisMagasin } from '../moteur/atterrissage'
 import { BLOCS_FRAIS, blocDe, LIGNES_SUR_CA, lignesFrais } from '../moteur/parametres'
 import {
@@ -67,13 +68,14 @@ function ChampFraisLigne({ ligne, onChange }: { ligne: ChampFrais; onChange: (l:
 
 // Frais annuels d'un magasin sur la grille du réseau, dans les blocs de l'onglet FFBUD avec leurs sous-totaux ;
 // publicité franchise et royalties calculées sur le CA ; amortissements, intérêts et emprunts sous l'EBE
-export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregistrement, tauxSurCA }: {
+export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregistrement, tauxSurCA, budget }: {
   magasin: string
   lignes: LigneFraisMagasin[]
   annee: number
   peutSaisir: boolean
   apresEnregistrement: () => void
   tauxSurCA: { publicite: number; redevance: number }
+  budget?: { annee: number; ca: number; ebe: number }  // budget du magasin, pour l'effet de la saisie sur l'EBE (lot 28)
 }) {
   const [saisie, setSaisie] = useState<SaisieFrais>(() => saisieDepuisLignes(lignes))
   const [message, setMessage] = useState<{ gravite: 'success' | 'error'; texte: string; details?: string[] } | null>(null)
@@ -108,12 +110,18 @@ export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregist
     }
   }
 
+  // Barre d'enregistrement du budget (lot 28) : frais au-dessus de l'EBE, l'EBE du budget bouge d'autant
+  const t0 = totauxFrais(initiale)
+  const avant = budget ? fraisDeLAnnee(t0, budget.ca) : 0, apres = budget ? fraisDeLAnnee(t, budget.ca) : 0
   const actions = peutSaisir && modifie && (
-    <Box sx={{ position: 'sticky', bottom: 0, zIndex: 2, py: 1.5, bgcolor: 'background.default', display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center', borderTop: 1, borderColor: 'divider' }}>
-      <Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe} onClick={() => void enregistrer()} sx={{ minHeight: 48 }}>Enregistrer les frais</Button>
-      <Button disabled={occupe} onClick={() => { setSaisie(initiale); setMessage(null) }} sx={{ minHeight: 48 }}>Annuler les modifications</Button>
-      <Typography variant="body2" color="text.secondary">Modifications non enregistrées</Typography>
-    </Box>
+    <BarreEnregistrement
+      changements={nombreChangements(initiale, saisie)} occupe={occupe} libelle="Enregistrer les frais"
+      onAnnuler={() => { setSaisie(initiale); setMessage(null) }} onEnregistrer={() => void enregistrer()}
+      effets={budget ? [
+        { libelle: `Frais ${budget.annee}`, avant: milliers(avant), apres: milliers(apres) },
+        { libelle: `EBE ${budget.annee}`, avant: milliers(budget.ebe), apres: milliers(ebeApres(budget.ebe, avant, apres)) },
+      ] : [{ libelle: `Frais ${annee}`, avant: milliers(t0.annuel), apres: milliers(t.annuel) }]}
+    />
   )
   const alerte = message && (
     <Alert severity={message.gravite} onClose={() => setMessage(null)} closeText="Fermer" slotProps={{ closeButton: { sx: { width: 48, height: 48 } } }}>

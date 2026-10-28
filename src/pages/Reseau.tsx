@@ -34,7 +34,7 @@ import { calculerBudget } from '../moteur/budget'
 import { medianes, ratiosDuReel, RATIOS, type CleRatio } from '../moteur/comparaison'
 import { ligneReseau, totalReseau, type LigneReseau, type MoisReel } from '../moteur/suivi'
 
-type Cle = 'magasin' | 'moisRealises' | 'ca' | 'evolution' | 'ecartBudget' | 'tauxMarge' | 'panierCave' | 'ticketsCave' | 'panierBar' | 'ticketsBar' | 'personnelSurMarge' | 'loyerSurCA' | 'ebeSurCA'
+type Cle = 'magasin' | 'moisRealises' | 'ca' | 'evolution' | 'ecartBudget' | 'tauxMarge' | 'panierCave' | 'ticketsCave' | 'panierBar' | 'ticketsBar' | 'personnelSurMarge' | 'caParHeure' | 'loyerSurCA' | 'ebeSurCA'
 type Colonne = { cle: Exclude<Cle, 'magasin'>; libelle: string; texte: (v: number) => string; rouge?: (v: number) => boolean }
 
 const euros = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -49,6 +49,7 @@ const COLONNES: Colonne[] = [
   { cle: 'panierBar', libelle: 'Panier Bar TTC', texte: (v) => euros.format(v) },
   { cle: 'ticketsBar', libelle: 'Tickets Bar sur l’an dernier', texte: ecartTaux, rouge: (v) => v < 0 },
   { cle: 'personnelSurMarge', libelle: 'Masse salariale / marge', texte: taux },
+  { cle: 'caParHeure', libelle: 'CA par heure travaillée', texte: (v) => euros.format(v) },
   { cle: 'loyerSurCA', libelle: 'Loyer / CA', texte: taux },
   { cle: 'ebeSurCA', libelle: 'EBE / CA', texte: taux, rouge: (v) => v < 0 },
 ]

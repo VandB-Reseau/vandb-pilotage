@@ -25,12 +25,15 @@ import DeleteOutlined from '@mui/icons-material/DeleteOutlined'
 import EditOutlined from '@mui/icons-material/EditOutlined'
 import PersonAddAltOutlined from '@mui/icons-material/PersonAddAltOutlined'
 import RedeemOutlined from '@mui/icons-material/RedeemOutlined'
+import { BarreEnregistrement } from './BarreEnregistrement'
 import { ChampNombre } from './ChampNombre'
 import { EtatVide } from './EtatVide'
 import { useSaisieEnCours } from './GardeSaisie'
 import { Indicateur } from './Indicateur'
 import { enregistrerPersonne, supprimerPersonne } from '../data/pilotage'
+import { nombreChangements } from '../lib/aFaire'
 import { milliers, montant, MOIS_LONGS, taux } from '../lib/format'
+import { ebeApres } from '../moteur/effets'
 import { CATEGORIES, categorieLibelle, masseSalariale, SEMAINES_PAR_MOIS, type ParametresCharges, type Personne } from '../moteur/equipe'
 import { champsDepuisPersonne, lirePersonne, nouvellePersonne, nouvellesPrimesEquipe, type ChampsPersonne } from '../moteur/saisieEquipe'
 import { nombre } from '../import/caisse'
@@ -60,7 +63,7 @@ function presence(p: Personne): string {
 const parHeure = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
 const heuresDe = (p: Personne) => (p.enveloppe ? '–' : p.heuresSaisie === 'mois' ? `${heures.format(p.heuresHebdo * SEMAINES_PAR_MOIS)} h par mois` : `${heures.format(p.heuresHebdo)} h par semaine`)
 
-export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, charges, chargesBudget, peutSaisir, apresEnregistrement, caAnnee, caBudget }: {
+export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, charges, chargesBudget, peutSaisir, apresEnregistrement, caAnnee, caBudget, ebeBudget }: {
   magasin: string
   equipe: Personne[]
   annee: number
@@ -72,6 +75,7 @@ export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, cha
   apresEnregistrement: () => void
   caAnnee?: number     // CA HT atterri de l'année en cours, pour la productivité
   caBudget?: number    // CA HT du budget
+  ebeBudget?: number   // EBE du budget, pour l'effet de la saisie (lot 28)
 }) {
   const [fiche, setFiche] = useState<ChampsPersonne | null>(null)
   const [erreurs, setErreurs] = useState<string[]>([])
@@ -79,7 +83,8 @@ export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, cha
   const [message, setMessage] = useState<{ gravite: 'success' | 'error'; texte: string } | null>(null)
   const [occupe, setOccupe] = useState(false)
   const [initiale, setInitiale] = useState('')
-  useSaisieEnCours(!!fiche && JSON.stringify(fiche) !== initiale)
+  const ficheModifiee = !!fiche && JSON.stringify(fiche) !== initiale
+  useSaisieEnCours(ficheModifiee)
 
   const n = masseSalariale(equipe, charges, annee)
   const n1 = masseSalariale(equipe, chargesBudget, anneeBudget, hausse)
@@ -180,9 +185,9 @@ export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, cha
             </Box>
           </Stack>
         </Box>
+        {/* Enregistrer : dans la barre du bas, avec l'effet sur la masse salariale et l'EBE (lot 28) */}
         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <Button onClick={() => setFiche(null)} disabled={occupe} sx={{ minHeight: 48 }}>Annuler</Button>
-          <Button variant="contained" onClick={() => void enregistrer()} disabled={occupe} sx={{ minHeight: 48 }}>Enregistrer</Button>
+          <Button onClick={() => setFiche(null)} disabled={occupe} sx={{ minHeight: 48 }}>{ficheModifiee ? 'Fermer sans enregistrer' : 'Fermer'}</Button>
         </Box>
       </Stack>
     </Box>
@@ -207,6 +212,21 @@ export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, cha
   const heuresAn = (m: ReturnType<typeof masseSalariale>) => m.parMois.reduce((a, x) => a + x.heures, 0)
   const productivite = (ca: number | undefined, m: ReturnType<typeof masseSalariale>) => (ca && heuresAn(m) > 0 ? ca / heuresAn(m) : null)
   const prodN = productivite(caAnnee, n), prodN1 = productivite(caBudget, n1)
+  // Effet de la fiche en cours sur l'année du budget : le poste modifié remplace l'ancien, un nouveau s'ajoute
+  const apercu = fiche ? lirePersonne(fiche).personne : null
+  const apres = apercu ? masseSalariale([...equipe.filter((p) => !apercu.id || p.id !== apercu.id), apercu], chargesBudget, anneeBudget, hausse) : null
+  // Un nouveau poste est un changement en soi : la barre est là dès l'ouverture de sa fiche
+  const barre = peutSaisir && fiche && (ficheModifiee || !fiche.id) && (
+    <BarreEnregistrement
+      changements={Math.max(fiche.id ? 0 : 1, nombreChangements(JSON.parse(initiale), fiche))} occupe={occupe}
+      libelle={fiche.enveloppe ? 'Enregistrer les primes' : 'Enregistrer le poste'}
+      onAnnuler={() => setFiche(null)} onEnregistrer={() => void enregistrer()}
+      effets={apres ? [
+        { libelle: `Masse salariale ${anneeBudget}`, avant: milliers(n1.cout), apres: milliers(apres.cout) },
+        ...(ebeBudget !== undefined ? [{ libelle: `EBE ${anneeBudget}`, avant: milliers(ebeBudget), apres: milliers(ebeApres(ebeBudget, n1.cout, apres.cout)) }] : []),
+      ] : []}
+    />
+  )
 
   return (
     <Stack spacing={3}>
@@ -291,6 +311,8 @@ export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, cha
           </Card>
         </>
       )}
+
+      {barre}
 
       <Dialog open={!!aRetirer} onClose={() => setARetirer(null)}>
         <DialogTitle>Retirer {aRetirer?.poste} de l’équipe ?</DialogTitle>

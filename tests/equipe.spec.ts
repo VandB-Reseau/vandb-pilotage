@@ -30,7 +30,7 @@ test('le franchisé ajoute un vendeur au SMIC : coût chargé, réduction géné
   await page.getByRole('button', { name: 'Ajouter un poste' }).click()
   const fiche = page.getByRole('region', { name: 'Nouveau poste' })
   await expect(fiche.getByLabel('Poste')).toHaveValue('Vendeur 1')
-  await fiche.getByRole('button', { name: 'Enregistrer' }).click()
+  await page.getByRole('region', { name: 'Changements non enregistrés' }).getByRole('button', { name: /^Enregistrer (le poste|les primes)$/ }).click()
   await expect(fiche.getByText('Le salaire brut mensuel est à renseigner.')).toBeVisible()
   await fiche.getByLabel('Brut mensuel').fill('1823,03')
   await fiche.getByRole('button', { name: 'Prime' }).click()
@@ -38,7 +38,7 @@ test('le franchisé ajoute un vendeur au SMIC : coût chargé, réduction géné
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-fiche-poste.png` })
-  await fiche.getByRole('button', { name: 'Enregistrer' }).click()
+  await page.getByRole('region', { name: 'Changements non enregistrés' }).getByRole('button', { name: /^Enregistrer (le poste|les primes)$/ }).click()
   await expect(page.getByText('Vendeur 1 enregistré dans l’équipe.')).toBeVisible()
   expect(ecritures.find((e) => e.table === 'equipe')?.corps).toEqual({
     store_name: MAGASINS[0], poste: 'Vendeur 1', categorie: 'employe', heures_hebdo: 35, heures_saisie: 'semaine', enveloppe: false, brut_mensuel: 1823.03, primes: [], entree: null, sortie: null,
@@ -71,7 +71,7 @@ test('le Directeur prévoit une prime et un départ, retire un poste ; le tablea
   await fiche.getByLabel('Montant de la prime 1').fill('500')
   await fiche.getByLabel('Départ').click()
   await page.getByRole('option', { name: `juin ${N + 1}` }).click()
-  await fiche.getByRole('button', { name: 'Enregistrer' }).click()
+  await page.getByRole('region', { name: 'Changements non enregistrés' }).getByRole('button', { name: /^Enregistrer (le poste|les primes)$/ }).click()
   await expect(page.getByText('Vendeur 1 enregistré dans l’équipe.')).toBeVisible()
   const envoi = ecritures.find((e) => e.table === 'equipe' && e.methode === 'PATCH')
   expect(envoi?.filtre).toContain('id=eq.1')
@@ -114,7 +114,7 @@ test('un Coach complète l’équipe d’un magasin de son périmètre', async (
   await fiche.getByLabel('Brut mensuel').fill('1 250')
   await fiche.getByLabel('Arrivée').click()
   await page.getByRole('option', { name: `mars ${N + 1}` }).click()
-  await fiche.getByRole('button', { name: 'Enregistrer' }).click()
+  await page.getByRole('region', { name: 'Changements non enregistrés' }).getByRole('button', { name: /^Enregistrer (le poste|les primes)$/ }).click()
   await expect(page.getByText('Vendeur 2 enregistré dans l’équipe.')).toBeVisible()
   expect(ecritures.find((e) => e.table === 'equipe' && e.methode === 'POST')?.corps).toMatchObject({ heures_hebdo: 24, brut_mensuel: 1250, entree: `${N + 1}-03-01` })
   // Arrivée l'an prochain : rien cette année
@@ -134,13 +134,13 @@ test('primes d’équipe sans salarié, heures saisies au mois, productivité pa
   const fiche = page.getByRole('region', { name: 'Primes d’équipe' })
   await expect(fiche.getByLabel('Heures par semaine')).toHaveCount(0)
   await expect(fiche.getByLabel('Brut mensuel')).toHaveCount(0)
-  await fiche.getByRole('button', { name: 'Enregistrer' }).click()
+  await page.getByRole('region', { name: 'Changements non enregistrés' }).getByRole('button', { name: /^Enregistrer (le poste|les primes)$/ }).click()
   await expect(fiche.getByText('Le montant d’au moins une prime est à renseigner.')).toBeVisible()
   await fiche.getByLabel('Montant de la prime 1').fill('1000')
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-primes-equipe.png` })
-  await fiche.getByRole('button', { name: 'Enregistrer' }).click()
+  await page.getByRole('region', { name: 'Changements non enregistrés' }).getByRole('button', { name: /^Enregistrer (le poste|les primes)$/ }).click()
   await expect(page.getByText('Primes d’équipe : primes enregistrées dans l’équipe.')).toBeVisible()
   expect(ecritures.find((e) => e.table === 'equipe' && e.methode === 'POST')?.corps).toMatchObject({
     poste: 'Primes d’équipe', heures_hebdo: 0, brut_mensuel: 0, enveloppe: true, primes: [{ mois: 12, montant: 1000 }],
@@ -157,7 +157,7 @@ test('primes d’équipe sans salarié, heures saisies au mois, productivité pa
   await vendeur.getByRole('button', { name: 'Par mois' }).click()
   await expect(vendeur.getByLabel('Heures par mois')).toHaveValue(/^151,(6|7)/)
   await vendeur.getByLabel('Heures par mois').fill('130')
-  await vendeur.getByRole('button', { name: 'Enregistrer' }).click()
+  await page.getByRole('region', { name: 'Changements non enregistrés' }).getByRole('button', { name: /^Enregistrer (le poste|les primes)$/ }).click()
   await expect(page.getByText('Vendeur 1 enregistré dans l’équipe.')).toBeVisible()
   const envoi = ecritures.find((e) => e.table === 'equipe' && e.methode === 'PATCH')?.corps as { heures_hebdo: number; heures_saisie: string }
   expect(envoi.heures_saisie).toBe('mois')
