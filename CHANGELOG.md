@@ -5,6 +5,23 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 28 — Terrain et commerce
+
+- **Base : migration `0016_alertes_commerciales.sql` à passer** avant de créer une action sur une alerte tickets ou panier.
+- Alertes tickets et panier moyen, Cave et Bar séparés, sur les 3 derniers mois face à l'an dernier (seuils proposés :
+  5 % et 3 %, modifiables dans Paramètres réseau) ; « Agir » pré-remplit l'action avec le levier.
+- Fiche de visite du Coach : une page A4 à imprimer depuis la synthèse (chiffres à date, trois sujets classés par la
+  marge en jeu, alertes, plan d'action, zone de notes).
+- Atterrissage : les mois restants suivent le rythme des 4 derniers mois quand il s'écarte de moins de 15 % ; au-delà,
+  l'écart s'affiche et « Retenir le rythme » le reprend. Les budgets validés ne bougent pas.
+- Leviers commerciaux chiffrés sur la synthèse : tickets, panier, mix ; effet sur un an sur le CA, la marge et l'EBE ;
+  rien n'est enregistré, « En faire une action » ouvre le plan d'action.
+- Campagne des budgets : trois dates dans Paramètres réseau (dates d'exemple : 15 novembre, 5 et 19 décembre),
+  avancement par Responsable Régional et par Coach sur la liste des magasins, date de validation dans « À faire » du franchisé.
+- CA par heure travaillée dans la vue Réseau (avec la médiane), l'export Excel et la comparaison (avec le rang).
+- Barre d'enregistrement avec l'effet avant → après sur Équipe (masse salariale, EBE), Frais (frais, EBE) et
+  Quadrimestres (EBE réel, trésorerie).
+
 ### Lot 27 — Sprint ergonomie
 
 - Sans migration.

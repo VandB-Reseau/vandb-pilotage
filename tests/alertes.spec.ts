@@ -77,7 +77,7 @@ test('paramètres réseau : le Directeur règle les seuils, les alertes suivent'
   await enregistrer.click()
   await expect(page.getByText('Seuils des alertes enregistrés.')).toBeVisible()
   const envoi = ecritures.find((e) => e.table === 'parametres_reseau')?.corps as { valeur: { alertes: unknown } }
-  expect(envoi.valeur.alertes).toEqual({ ecartCA: 0.05, baisseMarge: 0.05, moisRetard: 0, tresorerie: -5_000 })
+  expect(envoi.valeur.alertes).toEqual({ ecartCA: 0.05, baisseMarge: 0.05, moisRetard: 0, tresorerie: -5_000, baisseTickets: 0.05, baissePanier: 0.03 })
 
   // Il ne reste que le CA sous le budget
   await page.getByRole('link', { name: /Magasins/ }).first().click()

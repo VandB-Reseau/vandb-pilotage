@@ -4,7 +4,7 @@ Même base Supabase que l'app réseau. Le pilotage n'écrit que dans le schéma 
 fonctions (`mon_role()`, `est_directeur()`, `magasins_visibles()`, `mes_magasins()`, `json_sur()`) et ses tables `perimetre_equipe`
 et `app_config` (lue seulement : fiche des Responsables Régionaux, clé `drs_data`).
 
-Mis à jour le 28/10/2026 (migration `0015`).
+Mis à jour le 28/10/2026 (migration `0016`).
 
 ## Principes
 
@@ -31,7 +31,7 @@ Mis à jour le 28/10/2026 (migration `0015`).
 | `echanges_budget` | Message sur le budget d'un magasin : `sujet` (`general`, `ca`, `marge`, `personnel`, `frais`, `travaux`, `tresorerie`), `texte` (2 000 caractères au plus), `auteur`, `auteur_role`, `auteur_nom` et `cree_le` posés par la base (0011) | `id` ; index `store_name`, `annee`, `cree_le` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins ; retrait par l'auteur seul |
 | `versions_budget` | Version du budget à sa création et à chaque changement de statut, de base ou d'ajustements : `statut`, `base`, `ajustements`, auteur, rôle, nom, date (0011) | `id` ; index `store_name`, `annee`, `cree_le` | Magasins du compte | Déclencheur `versions_budget_trace` seul |
 | `versions_nommees` | Version du budget enregistrée sous un nom pour comparer : `nom` (1 à 80 caractères), `base` (hypothèses avec l'équipe et les frais du jour), `ajustements`, auteur, rôle, nom et date posés par le déclencheur `versions_nommees_auteur` (0015) | `id` ; index `store_name`, `annee` | Magasins du compte | Ajout : Directeur, franchisé sur ses magasins ; retrait : Directeur ou auteur |
-| `actions` | Action du plan d'un magasin : `type_alerte` (`ca`, `marge`, `reel`, `tresorerie`, `autre`), `intitule`, `responsable` (`franchise`, `coach`, `rr`, `directeur`), `echeance`, `statut` (`a_faire`, `faite`, `abandonnee`), `annee`, `depart` et `mois_depart` (mesure de l'alerte le jour de l'action), auteur et dates posés par la base (0012) | `id` ; index `store_name`, `statut` | Magasins du compte | Directeur partout ; RR et Coach sur leurs magasins ; le franchisé ne change que le statut |
+| `actions` | Action du plan d'un magasin : `type_alerte` (`ca`, `marge`, `reel`, `tresorerie`, `autre` ; `tickets` et `panier` depuis 0016), `intitule`, `responsable` (`franchise`, `coach`, `rr`, `directeur`), `echeance`, `statut` (`a_faire`, `faite`, `abandonnee`), `annee`, `depart` et `mois_depart` (mesure de l'alerte le jour de l'action), auteur et dates posés par la base (0012) | `id` ; index `store_name`, `statut` | Magasins du compte | Directeur partout ; RR et Coach sur leurs magasins ; le franchisé ne change que le statut |
 | `ouvertures` | Date d'ouverture d'un magasin, le 1er du mois : `ouverture`, `maj_le`, `maj_par`. Donne son ancienneté (année 1, 2, 3, 4 et plus) et écarte le rythme de sortie des 2 mois qui suivent l'ouverture (0014) | `store_name` | Magasins du compte | Directeur |
 | `groupes` | Groupes libres de magasins (centre-ville, zone commerciale…) : `nom` | `id` | Équipe | Directeur |
 | `groupe_magasins` | Groupe d'un magasin (un au plus) | `store_name` | Équipe | Directeur |
