@@ -4,7 +4,7 @@ Même base Supabase que l'app réseau. Le pilotage n'écrit que dans le schéma 
 fonctions (`mon_role()`, `est_directeur()`, `magasins_visibles()`, `mes_magasins()`, `json_sur()`) et ses tables `perimetre_equipe`
 et `app_config` (lue seulement : fiche des Responsables Régionaux, clé `drs_data`).
 
-Mis à jour le 28/10/2026 (migration `0011`).
+Mis à jour le 28/10/2026 (migration `0012`).
 
 ## Principes
 
@@ -30,6 +30,7 @@ Mis à jour le 28/10/2026 (migration `0011`).
 | `correspondances_fec` | Rubrique d'un compte de charges du FEC propre au magasin (`achats`, `variation_stock`, `charges_externes`, `impots_taxes`, `personnel`, `hors_ebe`), quand son cabinet le range autrement que les racines du plan comptable : `maj_le`, `maj_par`. Pas de ligne : correspondance par défaut. Le FEC n'est pas enregistré (0010) | `store_name`, `compte` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
 | `echanges_budget` | Message sur le budget d'un magasin : `sujet` (`general`, `ca`, `marge`, `personnel`, `frais`, `travaux`, `tresorerie`), `texte` (2 000 caractères au plus), `auteur`, `auteur_role`, `auteur_nom` et `cree_le` posés par la base (0011) | `id` ; index `store_name`, `annee`, `cree_le` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins ; retrait par l'auteur seul |
 | `versions_budget` | Version du budget à sa création et à chaque changement de statut, de base ou d'ajustements : `statut`, `base`, `ajustements`, auteur, rôle, nom, date (0011) | `id` ; index `store_name`, `annee`, `cree_le` | Magasins du compte | Déclencheur `versions_budget_trace` seul |
+| `actions` | Action du plan d'un magasin : `type_alerte` (`ca`, `marge`, `reel`, `tresorerie`, `autre`), `intitule`, `responsable` (`franchise`, `coach`, `rr`, `directeur`), `echeance`, `statut` (`a_faire`, `faite`, `abandonnee`), `annee`, `depart` et `mois_depart` (mesure de l'alerte le jour de l'action), auteur et dates posés par la base (0012) | `id` ; index `store_name`, `statut` | Magasins du compte | Directeur partout ; RR et Coach sur leurs magasins ; le franchisé ne change que le statut |
 | `groupes` | Groupes libres de magasins (centre-ville, zone commerciale…) : `nom` | `id` | Équipe | Directeur |
 | `groupe_magasins` | Groupe d'un magasin (un au plus) | `store_name` | Équipe | Directeur |
 | `cibles_reseau` | Cibles du réseau pour l'année : `valeur` (format `Cibles`) | `annee` | Équipe | Directeur |

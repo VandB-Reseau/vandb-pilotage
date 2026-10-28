@@ -3,6 +3,7 @@ import { Link as RouterLink } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
+import Chip from '@mui/material/Chip'
 import Link from '@mui/material/Link'
 import Stack from '@mui/material/Stack'
 import ToggleButton from '@mui/material/ToggleButton'
@@ -13,7 +14,7 @@ import CheckCircleOutline from '@mui/icons-material/CheckCircleOutlineOutlined'
 import EventBusyOutlined from '@mui/icons-material/EventBusyOutlined'
 import PercentOutlined from '@mui/icons-material/PercentOutlined'
 import TrendingDownOutlined from '@mui/icons-material/TrendingDownOutlined'
-import { chargerAlertes } from '../data/pilotage'
+import { chargerActions, type Action } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { ecartPts, ecartTaux, lienMagasin, montant, MOIS_LONGS, taux } from '../lib/format'
 import { TYPES_ALERTE, type Alerte, type TypeAlerte } from '../moteur/alertes'
@@ -40,14 +41,20 @@ const ongletDe = (a: Alerte) => (a.type === 'reel' ? 'reel' : a.type === 'tresor
 const PREMIERES = 6
 
 // Alertes des magasins : filtre par type, les plus graves d'abord. Sur une fiche magasin (unMagasin), sans nom ni filtre.
-export function AlertesMagasins({ alertes, etat, unMagasin, siVide = true }: {
+export function AlertesMagasins({ alertes, etat, unMagasin, siVide = true, agir, actions: fournies }: {
   alertes: Alerte[]
   etat?: object
   unMagasin?: boolean
   siVide?: boolean   // affiche « Aucune alerte » quand la liste est vide
+  agir?: (a: Alerte) => void   // fiche magasin, pour l'équipe : rattacher une action à l'alerte
+  actions?: Action[]            // fiche magasin : déjà chargées, tenues à jour par le plan
 }) {
   const [type, setType] = useState<TypeAlerte | null>(null)
   const [tout, setTout] = useState(false)
+  // Alertes qui ont déjà une action en cours (sans la table des actions, aucune)
+  const chargees = useChargement(() => (fournies ? Promise.resolve([]) : chargerActions().catch(() => [])), [!!fournies])
+  const actions = fournies ?? chargees.donnees
+  const suivie = (a: Alerte) => !!actions?.some((x) => x.magasin === a.magasin && x.type === a.type && x.statut === 'a_faire')
   if (!alertes.length) {
     if (!siVide) return null
     return (
@@ -83,7 +90,11 @@ export function AlertesMagasins({ alertes, etat, unMagasin, siVide = true }: {
                 </Link>
               )}
               <Typography component="span">{texteAlerte(a)}</Typography>
+              {suivie(a) && <Chip size="small" label="Action en cours" color="primary" variant="outlined" />}
             </Box>
+            {agir && (
+              <Button onClick={() => agir(a)} sx={{ minHeight: 48 }} aria-label={`Agir : ${texteAlerte(a)}`}>Agir</Button>
+            )}
           </Box>
         ))}
       </Stack>
@@ -96,11 +107,4 @@ export function AlertesMagasins({ alertes, etat, unMagasin, siVide = true }: {
       )}
     </Card>
   )
-}
-
-// En tête de la fiche d'un magasin : ses alertes seulement, rien s'il n'y en a pas
-export function AlertesDuMagasin({ magasin }: { magasin: string }) {
-  const { donnees } = useChargement(() => chargerAlertes(), [])
-  const alertes = donnees?.filter((a) => a.magasin === magasin) ?? []
-  return alertes.length ? <Box sx={{ mb: 3 }}><AlertesMagasins alertes={alertes} unMagasin siVide={false} /></Box> : null
 }

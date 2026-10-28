@@ -42,7 +42,7 @@ INSERT INTO pilotage.reel_mensuel (store_name, mois, univers, famille, ca_ht) VA
 SELECT pg_temp.attendre('Directeur : tous les magasins', (SELECT cardinality(pilotage.mes_magasins())), 3);
 SELECT pg_temp.attendre('Directeur : tous les budgets', (SELECT count(*) FROM pilotage.budgets), 3);
 SELECT pg_temp.attendre('Directeur : tableau des magasins', (SELECT jsonb_array_length(pilotage.magasins_du_compte(2027))), 3);
-SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 11);
+SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 12);
 -- Frais : le Directeur saisit partout
 INSERT INTO pilotage.frais (store_name, code, libelle, rubrique, annuel) VALUES ('Lille', 'loyer', 'Locations immobilières', 'immobilier', 60000), ('Nice', 'loyer', 'Locations immobilières', 'immobilier', 40000);
 SELECT pg_temp.attendre('Directeur : tous les frais', (SELECT count(*) FROM pilotage.frais), 2);
@@ -103,6 +103,11 @@ INSERT INTO pilotage.echanges_budget (store_name, annee, sujet, texte, auteur_ro
 SELECT pg_temp.attendre('Directeur : rôle posé par la base, pas par l''app', (SELECT count(*) FROM pilotage.echanges_budget WHERE auteur_role = 'directeur' AND auteur_nom IS NULL), 2);
 SELECT pg_temp.attendre('Échanges : sujet inconnu refusé', pg_temp.refuse('INSERT INTO pilotage.echanges_budget (store_name, annee, sujet, texte) VALUES (''Lille'', 2027, ''autre'', ''x'')'), 1);
 SELECT pg_temp.attendre('Échanges : message vide refusé', pg_temp.refuse('INSERT INTO pilotage.echanges_budget (store_name, annee, texte) VALUES (''Lille'', 2027, ''  '')'), 1);
+INSERT INTO pilotage.actions (store_name, type_alerte, intitule, responsable, annee, depart, mois_depart, cree_par_role) VALUES
+  ('Lille', 'ca', 'Relancer la vente additionnelle en caisse', 'franchise', 2026, -0.08, 8, 'franchise'),
+  ('Nice', 'marge', 'Revoir les prix du fût', 'coach', 2026, -0.015, 8, NULL);
+SELECT pg_temp.attendre('Directeur : crée les actions, auteur posé par la base', (SELECT count(*) FROM pilotage.actions WHERE cree_par_role = 'directeur'), 2);
+SELECT pg_temp.attendre('Actions : responsable inconnu refusé', pg_temp.refuse('INSERT INTO pilotage.actions (store_name, type_alerte, intitule, responsable, annee) VALUES (''Lille'', ''ca'', ''x'', ''voisin'', 2026)'), 1);
 SELECT pg_temp.attendre('Directeur : tous les groupes avec leurs cibles', (SELECT jsonb_array_length(pilotage.budgets_du_compte(2027)->'groupes')), 2);
 SELECT pg_temp.attendre('Directeur : budgets du compte', (SELECT jsonb_array_length(pilotage.budgets_du_compte(2027)->'magasins')), 3);
 WITH m AS (UPDATE pilotage.parametres_reseau SET valeur = valeur WHERE annee = 2027 RETURNING 1)
@@ -118,6 +123,11 @@ SELECT pg_temp.attendre('Coach : son nom sur son message', (SELECT count(*) FROM
 SELECT pg_temp.attendre('Coach : pas de message hors de ses magasins', pg_temp.refuse('INSERT INTO pilotage.echanges_budget (store_name, annee, texte) VALUES (''Nice'', 2027, ''x'')'), 1);
 WITH m AS (DELETE FROM pilotage.echanges_budget WHERE auteur_role = 'directeur' RETURNING 1)
 SELECT pg_temp.attendre('Coach : ne retire pas le message d''un autre', (SELECT count(*) FROM m), 0);
+SELECT pg_temp.attendre('Coach : actions de ses magasins seulement', (SELECT count(*) FROM pilotage.actions WHERE store_name <> 'Lille'), 0);
+INSERT INTO pilotage.actions (store_name, type_alerte, intitule, responsable, annee) VALUES ('Lille', 'reel', 'Saisir le réel de septembre', 'franchise', 2026);
+SELECT pg_temp.attendre('Coach : pas d''action hors de ses magasins', pg_temp.refuse('INSERT INTO pilotage.actions (store_name, type_alerte, intitule, responsable, annee) VALUES (''Nice'', ''ca'', ''x'', ''coach'', 2026)'), 1);
+WITH m AS (UPDATE pilotage.actions SET echeance = '2026-11-15' WHERE store_name = 'Lille' RETURNING 1)
+SELECT pg_temp.attendre('Coach : modifie les actions de ses magasins', (SELECT count(*) FROM m), 2);
 SELECT pg_temp.attendre('Coach : réel de ses magasins seulement', (SELECT count(*) FROM pilotage.reel_mensuel WHERE store_name <> 'Lille'), 0);
 SELECT pg_temp.attendre('Coach : tableau limité à ses magasins', (SELECT jsonb_array_length(pilotage.magasins_du_compte(2027))), 1);
 SELECT pg_temp.attendre('Coach : lit les paramètres', (SELECT count(*) FROM pilotage.parametres_reseau), 1);
@@ -232,6 +242,13 @@ INSERT INTO pilotage.echanges_budget (store_name, annee, sujet, texte) VALUES ('
 WITH m AS (DELETE FROM pilotage.echanges_budget WHERE auteur_role = 'franchise' RETURNING 1)
 SELECT pg_temp.attendre('Franchisé : retire son propre message', (SELECT count(*) FROM m), 1);
 SELECT pg_temp.attendre('Franchisé : pas de message sur un autre magasin', pg_temp.refuse('INSERT INTO pilotage.echanges_budget (store_name, annee, texte) VALUES (''Nice'', 2027, ''x'')'), 1);
+SELECT pg_temp.attendre('Franchisé : actions de son magasin seulement', (SELECT count(*) FROM pilotage.actions WHERE store_name <> 'Lille'), 0);
+WITH m AS (UPDATE pilotage.actions SET statut = 'faite' WHERE store_name = 'Lille' AND type_alerte = 'reel' RETURNING faite_le)
+SELECT pg_temp.attendre('Franchisé : marque son action faite, datée par la base', (SELECT count(*) FROM m WHERE faite_le IS NOT NULL), 1);
+SELECT pg_temp.attendre('Franchisé : ne change pas l''intitulé d''une action', pg_temp.refuse('UPDATE pilotage.actions SET intitule = ''Rien'' WHERE store_name = ''Lille'''), 1);
+SELECT pg_temp.attendre('Franchisé : ne crée pas d''action', pg_temp.refuse('INSERT INTO pilotage.actions (store_name, type_alerte, intitule, responsable, annee) VALUES (''Lille'', ''ca'', ''x'', ''franchise'', 2026)'), 1);
+WITH m AS (DELETE FROM pilotage.actions RETURNING 1)
+SELECT pg_temp.attendre('Franchisé : ne retire pas d''action', (SELECT count(*) FROM m), 0);
 SELECT pg_temp.attendre('Franchisé : ne crée pas de groupe', pg_temp.refuse('INSERT INTO pilotage.groupes (nom) VALUES (''Pirate'')'), 1);
 
 -- ── Directeur : valide ; le budget validé est figé pour le franchisé
@@ -253,6 +270,7 @@ SELECT pg_temp.attendre('Sans rôle : aucune part réalisée', (SELECT count(*) 
 SELECT pg_temp.attendre('Sans rôle : aucune correspondance du FEC', (SELECT count(*) FROM pilotage.correspondances_fec), 0);
 SELECT pg_temp.attendre('Sans rôle : aucun quadrimestre', (SELECT count(*) FROM pilotage.quadrimestres), 0);
 SELECT pg_temp.attendre('Sans rôle : aucun échange ni version', (SELECT count(*) FROM pilotage.echanges_budget) + (SELECT count(*) FROM pilotage.versions_budget), 0);
+SELECT pg_temp.attendre('Sans rôle : aucune action', (SELECT count(*) FROM pilotage.actions), 0);
 SELECT pg_temp.attendre('Sans rôle : n''écrit pas de message', pg_temp.refuse('INSERT INTO pilotage.echanges_budget (store_name, annee, texte) VALUES (''Lille'', 2027, ''x'')'), 1);
 SELECT pg_temp.attendre('Sans rôle : ne saisit pas de quadrimestre', pg_temp.refuse('INSERT INTO pilotage.quadrimestres (store_name, annee, quadrimestre) VALUES (''Lille'', 2026, 3)'), 1);
 SELECT pg_temp.attendre('Sans rôle : aucune équipe', (SELECT count(*) FROM pilotage.equipe), 0);
@@ -273,6 +291,7 @@ SELECT pg_temp.attendre('Visiteur : aucun accès aux correspondances du FEC', pg
 SELECT pg_temp.attendre('Visiteur : aucun accès aux quadrimestres', pg_temp.refuse('SELECT count(*) FROM pilotage.quadrimestres'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès aux échanges', pg_temp.refuse('SELECT count(*) FROM pilotage.echanges_budget'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès aux versions', pg_temp.refuse('SELECT count(*) FROM pilotage.versions_budget'), 1);
+SELECT pg_temp.attendre('Visiteur : aucun accès aux actions', pg_temp.refuse('SELECT count(*) FROM pilotage.actions'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès à l''équipe', pg_temp.refuse('SELECT count(*) FROM pilotage.equipe'), 1);
 SELECT pg_temp.attendre('Visiteur : pas de réel du compte', pg_temp.refuse('SELECT pilotage.reel_du_compte(2026)'), 1);
 SELECT pg_temp.attendre('Visiteur : pas d''import de réel', pg_temp.refuse('SELECT pilotage.remplacer_reel(''[]'', ''[]'')'), 1);

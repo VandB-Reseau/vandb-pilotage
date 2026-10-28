@@ -72,3 +72,36 @@ const poids = (a: Alerte) => (a.type === 'ca' || a.type === 'marge' ? a.ecart : 
 export function trierAlertes(l: Alerte[]): Alerte[] {
   return [...l].sort((a, b) => RANG[a.type] - RANG[b.type] || poids(a) - poids(b) || a.magasin.localeCompare(b.magasin, 'fr'))
 }
+
+// Plan d'action (lot 21) : une action rattachée à une alerte garde la mesure du jour où elle est prise ; la mesure
+// d'aujourd'hui, calculée de la même façon sans seuil, en montre l'effet sur les mois suivants.
+export type TypeAction = TypeAlerte | 'autre'
+export interface Mesure { valeur: number; mois: number | null } // ca : écart au budget ; marge : points sur l'an dernier ; reel : mois manquants ; tresorerie : montant
+export const plusHautMieuxAction: Record<TypeAlerte, boolean> = { ca: true, marge: true, tresorerie: true, reel: false }
+
+export function mesuresMagasin(e: EntreeAlertes): Partial<Record<TypeAlerte, Mesure>> {
+  const toutes = alertesMagasin(e, { ecartCA: -Infinity, baisseMarge: -Infinity, moisRetard: 1, tresorerie: Infinity })
+  const r: Partial<Record<TypeAlerte, Mesure>> = {}
+  for (const a of toutes) {
+    if (a.type === 'ca' || a.type === 'marge') r[a.type] = { valeur: a.ecart, mois: a.mois }
+    else if (a.type === 'reel') r.reel = { valeur: a.manquants, mois: a.dernier || null }
+    else if (!r.tresorerie) r.tresorerie = { valeur: a.montant, mois: a.source === 'reel' ? a.quadrimestre * 4 : null } // le réel d'abord
+  }
+  if (!r.reel && e.moisTermines > 0) r.reel = { valeur: 0, mois: dernierMois(e.n) || null }
+  return r
+}
+
+// Mesure de départ d'une alerte, pour l'action qu'on y rattache
+export function mesureDeAlerte(a: Alerte): Mesure {
+  switch (a.type) {
+    case 'ca': case 'marge': return { valeur: a.ecart, mois: a.mois }
+    case 'reel': return { valeur: a.manquants, mois: a.dernier || null }
+    case 'tresorerie': return { valeur: a.montant, mois: a.source === 'reel' ? a.quadrimestre * 4 : null }
+  }
+}
+
+// Effet : différence d'aujourd'hui au départ, et si elle va dans le bon sens
+export function effetAction(type: TypeAlerte, depart: number, aujourdhui: number): { ecart: number; favorable: boolean | null } {
+  const ecart = aujourdhui - depart
+  return { ecart, favorable: Math.abs(ecart) < 1e-9 ? null : (ecart > 0) === plusHautMieuxAction[type] }
+}

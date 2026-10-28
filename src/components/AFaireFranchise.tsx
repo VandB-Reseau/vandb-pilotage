@@ -9,7 +9,8 @@ import EventBusyOutlined from '@mui/icons-material/EventBusyOutlined'
 import GroupsOutlined from '@mui/icons-material/GroupsOutlined'
 import ReceiptLongOutlined from '@mui/icons-material/ReceiptLongOutlined'
 import RequestQuoteOutlined from '@mui/icons-material/RequestQuoteOutlined'
-import { chargerQuadrimestres } from '../data/pilotage'
+import TaskAltOutlined from '@mui/icons-material/TaskAltOutlined'
+import { chargerActions, chargerQuadrimestres } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { tachesFranchise, type TacheFranchise } from '../lib/aFaire'
 import type { Statut } from '../data/pilotage'
@@ -23,6 +24,10 @@ const tache = (t: TacheFranchise): { texte: string; action: string; onglet: stri
     case 'budget': return { texte: t.statut === 'propose' ? `Budget ${t.annee} proposé par le siège, à relire` : `Budget ${t.annee} en discussion`, action: 'Voir', onglet: 'budget', icone: <RequestQuoteOutlined /> }
     case 'equipe': return { texte: 'Équipe à renseigner', action: 'Renseigner', onglet: 'equipe', icone: <GroupsOutlined /> }
     case 'frais': return { texte: 'Frais à renseigner', action: 'Renseigner', onglet: 'frais', icone: <AssignmentOutlined /> }
+    case 'action': return {
+      texte: `Plan d’action : ${t.intitule}${t.echeance ? `, pour le ${new Date(`${t.echeance}T12:00:00`).toLocaleDateString('fr-FR')}` : ''}`,
+      action: 'Voir', onglet: 'plan', icone: <TaskAltOutlined />,
+    }
   }
 }
 
@@ -36,10 +41,11 @@ export function AFaireFranchise({ magasin, moisRenseignes, budget, aEquipe, aFra
   allerA: (onglet: string, annee?: number) => void
 }) {
   const n = new Date().getFullYear()
-  const { donnees } = useChargement(() => Promise.all([chargerQuadrimestres(n), chargerQuadrimestres(n - 1)]), [n])
+  const { donnees } = useChargement(() => Promise.all([chargerQuadrimestres(n), chargerQuadrimestres(n - 1), chargerActions().catch(() => [])]), [n])
   if (!donnees || moisRenseignes === null) return null
-  const saisis = (q: (typeof donnees)[number]) => QUADRIMESTRES.filter((x) => q[magasin]?.[x])
-  const taches = tachesFranchise({ moisRenseignes, quadrimestres: { [n]: saisis(donnees[0]), [n - 1]: saisis(donnees[1]) }, budget, aEquipe, aFrais })
+  const saisis = (q: (typeof donnees)[0]) => QUADRIMESTRES.filter((x) => q[magasin]?.[x])
+  const actions = donnees[2].filter((a) => a.magasin === magasin && a.responsable === 'franchise' && a.statut === 'a_faire').map((a) => ({ intitule: a.intitule, echeance: a.echeance }))
+  const taches = tachesFranchise({ moisRenseignes, quadrimestres: { [n]: saisis(donnees[0]), [n - 1]: saisis(donnees[1]) }, budget, aEquipe, aFrais, actions })
 
   return (
     <Card component="section" aria-label="À faire" sx={{ mb: 3 }}>
@@ -58,7 +64,7 @@ export function AFaireFranchise({ magasin, moisRenseignes, budget, aEquipe, aFra
                 <Box component="li" key={`${t.type}-${x.texte}`} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 0.5, minHeight: 56, borderTop: 1, borderColor: 'divider' }}>
                   <Box sx={{ color: 'primary.main', display: 'flex' }} aria-hidden>{x.icone}</Box>
                   <Typography sx={{ flex: 1 }}>{x.texte}</Typography>
-                  <Button variant="outlined" onClick={() => allerA(x.onglet, x.annee)} sx={{ minHeight: 48 }} aria-label={`${x.action} : ${x.texte}`}>{x.action}</Button>
+                  <Button variant="outlined" onClick={() => (x.onglet === 'plan' ? document.getElementById('plan-action')?.scrollIntoView({ behavior: 'smooth' }) : allerA(x.onglet, x.annee))} sx={{ minHeight: 48 }} aria-label={`${x.action} : ${x.texte}`}>{x.action}</Button>
                 </Box>
               )
             })}

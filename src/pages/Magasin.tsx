@@ -25,6 +25,7 @@ import SaveOutlined from '@mui/icons-material/SaveOutlined'
 import { useAuth } from '../auth/AuthContext'
 import { AFaireFranchise } from '../components/AFaireFranchise'
 import { EchangesBudget } from '../components/EchangesBudget'
+import { AlertesEtActions } from '../components/PlanAction'
 import { AtterrissageMagasin } from '../components/AtterrissageMagasin'
 import { CompteResultatMois } from '../components/CompteResultatMois'
 import { CopieHypotheses } from '../components/CopieHypotheses'
@@ -36,7 +37,6 @@ import { FraisMagasin } from '../components/FraisMagasin'
 import { useGarde, useSaisieEnCours } from '../components/GardeSaisie'
 import { PastilleStatut } from '../components/PastilleStatut'
 import { ComparaisonMagasin } from '../components/ComparaisonMagasin'
-import { AlertesDuMagasin } from '../components/AlertesMagasins'
 import { SimulationMagasin } from '../components/SimulationMagasin'
 import { QuadrimestresMagasin } from '../components/QuadrimestresMagasin'
 import { ReelAnnee } from '../components/ReelAnnee'
@@ -209,7 +209,7 @@ export function Magasin() {
           budget={{ annee, statut: ligne.statut }} aEquipe={!!d.equipes[ligne.magasin]?.length} aFrais={!!d.frais[ligne.magasin]?.length}
         />
       )}
-      {onglet === 'synthese' && <AlertesDuMagasin magasin={ligne.magasin} />}
+      {onglet === 'synthese' && <AlertesEtActions key={`alertes-${ligne.magasin}`} magasin={ligne.magasin} equipe={!franchise && profil?.role !== 'aucun'} />}
       {onglet === 'synthese' ? (
         <>
           <SyntheseMagasin key={ligne.magasin} magasin={ligne.magasin} d={d} annee={anneeEnCours} parametres={donnees.parametresN} allerA={setOnglet} />

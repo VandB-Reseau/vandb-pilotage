@@ -79,6 +79,10 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
    (`correspondances_fec`) et rend les six montants du quadrimestre, repris dans la saisie avant enregistrement.
 20. Échanges sur le budget : onglet Budget, messages par sujet (`echanges_budget`) et historique des versions
    (`versions_budget`, écrit par la base). Le CA et l'EBE de chaque version sont recalculés avec les cibles du moment.
+21. Plan d'action : sur la synthèse, « Agir » sur une alerte crée une action (`actions`) avec la mesure du jour
+   (`mesureDeAlerte`). `mesuresMagasin` recalcule la même mesure sans seuil, `effetAction` dit si elle s'améliore.
+   Les listes d'alertes signalent celles qui ont une action en cours ; les actions confiées au franchisé vont dans son
+   « À faire ».
 
 ## Rôles
 
