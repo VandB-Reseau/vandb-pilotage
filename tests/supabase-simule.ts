@@ -15,6 +15,13 @@ export interface MagasinSimule {
 }
 export type QuadrimestreSimule = { store_name: string; annee: number; quadrimestre: number; achats: number | null; variation_stock: number | null; charges_externes: number | null; impots_taxes: number | null; personnel: number | null; tresorerie: number | null }
 export type PartSimulee = { store_name: string; annee: number; univers: string; part: number }
+export type MessageSimule = { id: number; store_name: string; annee: number; sujet: string; texte: string; auteur: string | null; auteur_role: string | null; auteur_nom: string | null; cree_le: string }
+export type VersionSimulee = { id: number; store_name: string; annee: number; statut: string; base: unknown; ajustements: Record<string, unknown>; auteur_role: string | null; auteur_nom: string | null; cree_le: string }
+export type ActionSimulee = {
+  id: number; store_name: string; type_alerte: string; intitule: string; responsable: string; echeance: string | null; statut: string
+  annee: number; depart: number | null; mois_depart: number | null; cree_par_role: string | null; cree_par_nom: string | null; cree_le: string; faite_le: string | null
+}
+export type CorrespondanceSimulee = { store_name: string; compte: string; rubrique: string }
 export interface VenteSimulee { store_name: string; mois: string; univers: string; famille: string; ca_ht: number; ca_ttc: number | null; marge_ht: number | null }
 export interface TicketsSimules { store_name: string; mois: string; univers: string; tickets: number }
 export interface PersonneSimulee { id: number; store_name: string; poste: string; categorie: string; heures_hebdo: number; brut_mensuel: number; primes: { mois: number; montant: number }[]; entree: string | null; sortie: string | null }
@@ -35,6 +42,10 @@ export interface OptionsSimulation {
   rrs?: Record<string, string[]>
   quadrimestres?: QuadrimestreSimule[]
   parts?: PartSimulee[]
+  correspondances?: CorrespondanceSimulee[]
+  messages?: MessageSimule[]
+  actions?: ActionSimulee[]
+  versions?: VersionSimulee[]
   panne?: boolean
   panneEcriture?: boolean
 }
@@ -61,6 +72,12 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
   let frais = structuredClone(options.frais ?? [])
   let quadrimestres = structuredClone(options.quadrimestres ?? [])
   let parts = structuredClone(options.parts ?? [])
+  let correspondances = structuredClone(options.correspondances ?? [])
+  let messages = structuredClone(options.messages ?? [])
+  const versions = structuredClone(options.versions ?? [])
+  let actions = structuredClone(options.actions ?? [])
+  // Auteur posé par la base, comme le déclencheur de 0011
+  const nomDuRole: Record<string, string | null> = { directeur: null, coach: 'Coach Nord', rr: 'RR Nord', franchise: 'Franchise Test' }
   let parametres = options.parametres === null ? null : options.parametres ?? { tauxRedevance: 0.02, tauxPublicite: 0.01 }
   // Filtres PostgREST utilisés par l'app : eq, gte, lte, in
   const filtrer = <T extends Record<string, unknown>>(lignes: T[], params: URLSearchParams) => lignes.filter((l) => [...params.entries()].every(([k, v]) => {
@@ -176,6 +193,28 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
         if (req.method() === 'DELETE') { const retirer = new Set(filtrer(parts, url.searchParams)); parts = parts.filter((l) => !retirer.has(l)) }
         else parts = [...parts, ...([] as PartSimulee[]).concat(corps as PartSimulee)]
       }
+      if (table === 'correspondances_fec') {
+        if (req.method() === 'DELETE') { const retirer = new Set(filtrer(correspondances, url.searchParams)); correspondances = correspondances.filter((l) => !retirer.has(l)) }
+        else correspondances = [...correspondances, ...([] as CorrespondanceSimulee[]).concat(corps as CorrespondanceSimulee)]
+      }
+      if (table === 'echanges_budget') {
+        if (req.method() === 'DELETE') { const retirer = new Set(filtrer(messages, url.searchParams)); messages = messages.filter((l) => !retirer.has(l)) }
+        else {
+          const c = corps as { store_name: string; annee: number; sujet: string; texte: string }
+          messages.push({ ...c, id: Math.max(0, ...messages.map((x) => x.id)) + 1, auteur: '00000000-0000-0000-0000-000000000001', auteur_role: options.role ?? 'directeur', auteur_nom: nomDuRole[options.role ?? 'directeur'] ?? null, cree_le: new Date().toISOString() })
+        }
+      }
+      if (table === 'actions') {
+        const id = Number(url.searchParams.get('id')?.replace(/^eq\./, ''))
+        if (req.method() === 'DELETE') actions = actions.filter((a) => a.id !== id)
+        else if (req.method() === 'PATCH') {
+          const c = corps as { statut: string }
+          actions = actions.map((a) => (a.id === id ? { ...a, ...c, faite_le: c.statut === 'faite' ? new Date().toISOString() : null } : a))
+        } else {
+          const c = corps as Omit<ActionSimulee, 'id' | 'statut' | 'cree_par_role' | 'cree_par_nom' | 'cree_le' | 'faite_le'>
+          actions.push({ ...c, id: Math.max(0, ...actions.map((a) => a.id)) + 1, statut: 'a_faire', cree_par_role: options.role ?? 'directeur', cree_par_nom: nomDuRole[options.role ?? 'directeur'] ?? null, cree_le: new Date().toISOString(), faite_le: null })
+        }
+      }
       if (table === 'parametres_reseau') parametres = (corps as { valeur: Record<string, unknown> }).valeur
       if (table === 'groupe_magasins' && m) m.groupe_id = req.method() === 'DELETE' ? null : (corps as { groupe_id: number }).groupe_id
       return route.fulfill({ status: 204, body: '' })
@@ -187,6 +226,10 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
     if (table === 'frais') return route.fulfill({ json: page(frais) })
     if (table === 'quadrimestres') return route.fulfill({ json: page(filtrer(quadrimestres, url.searchParams)) })
     if (table === 'parts_realisees') return route.fulfill({ json: page(filtrer(parts, url.searchParams)) })
+    if (table === 'correspondances_fec') return route.fulfill({ json: filtrer(correspondances, url.searchParams) })
+    if (table === 'actions') return route.fulfill({ json: page(filtrer(actions, url.searchParams)) })
+    if (table === 'echanges_budget') return route.fulfill({ json: filtrer(messages, url.searchParams).sort((a, b) => a.cree_le.localeCompare(b.cree_le)) })
+    if (table === 'versions_budget') return route.fulfill({ json: filtrer(versions, url.searchParams).sort((a, b) => b.cree_le.localeCompare(a.cree_le)) })
     if (table === 'codes_caisse') return route.fulfill({ json: [...codes].sort((a, b) => a.code.localeCompare(b.code)) })
     if (url.pathname === '/rest/v1/parametres_reseau') {
       const lignes = parametres === null ? [] : [{ valeur: parametres }]

@@ -69,6 +69,27 @@ code_magasin;annee;quadrimestre;achats;variation_stock;charges_externes;impots_t
 0101;2027;1;130000;8000;30000;3000;35000;25000
 ```
 
+## FEC du comptable (fiche magasin, onglet Quadrimestres)
+
+Export standard des logiciels comptables (article A47 A-1 du livre des procédures fiscales) : une écriture par ligne,
+champs séparés par une tabulation ou une barre verticale, encodage UTF-8 ou Windows. Colonnes lues : `CompteNum`,
+`CompteLib`, `EcritureDate` (AAAAMMJJ), `Debit` et `Credit`, ou `Montant` et `Sens`. Le fichier est lu dans le
+navigateur et n'est pas enregistré : seuls les six montants du quadrimestre sont repris dans la saisie.
+
+| Montant | Comptes (racines du plan comptable général) |
+| --- | --- |
+| Achats de marchandises | 601, 602, 607, 6081, 6082, 6087, 6091, 6092, 6097 |
+| Variation de stock (fin − début) | 603, signe inversé ; vide si aucun stock n'est passé sur la période |
+| Charges externes | 604, 605, 606, 608, 609 (autres), 61, 62 (intérim 621 compris), 651 (redevance) |
+| Impôts et taxes | 63 |
+| Personnel | 64 (gérant non salarié 644 et 646 compris) |
+| Hors EBE | 66, 67, 68, 69 |
+| À ranger par le magasin | 65 hors 651 ; le choix est gardé pour les imports suivants (`correspondances_fec`) |
+| Trésorerie de fin de période | Solde des comptes 51 et 53 à la dernière date du quadrimestre, à-nouveaux compris |
+
+Un quadrimestre est proposé si le fichier commence au plus tard le premier jour et a des écritures le dernier mois.
+Le CA du FEC (comptes 70) est comparé au CA de la caisse ; au-delà de 2 % d'écart, une alerte s'affiche.
+
 ## Contrôles à l'import
 
 Une ligne illisible (date, univers, montant) est écartée et citée avec son numéro ; le reste du fichier s'importe. Un

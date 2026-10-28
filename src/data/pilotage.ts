@@ -1,3 +1,5 @@
+import type { RubriqueFEC } from '../moteur/fec'
+import type { Role } from '../auth/roles'
 import { pilotage } from '../lib/supabase'
 import { calculerBudget } from '../moteur/budget'
 import { appliquerCibles, type Cibles, type NiveauCibles, type Provenance } from '../moteur/cibles'
@@ -7,7 +9,7 @@ import { baseDepuisReel, fraisDepuisLignes, saisonnaliteMediane, type LigneFrais
 import type { Categorie, ParametresCharges, Personne } from '../moteur/equipe'
 import type { LigneReel, TicketsReel } from '../moteur/reel'
 import type { MoisReel } from '../moteur/suivi'
-import { alertesMagasin, trierAlertes, type Alerte } from '../moteur/alertes'
+import { alertesMagasin, mesuresMagasin, trierAlertes, type Alerte, type EntreeAlertes, type Mesure, type TypeAction, type TypeAlerte } from '../moteur/alertes'
 import { ratiosDuBudget, ratiosDuReel, type Ratios } from '../moteur/comparaison'
 import { ligneReseau } from '../moteur/suivi'
 import { QUADRIMESTRES, type Quadrimestre, type SaisieQuadrimestre } from '../moteur/quadrimestre'
@@ -385,7 +387,8 @@ export async function importerQuadrimestres(lignes: { magasin: string; annee: nu
 
 // Alertes des magasins du compte : réel de l'année en cours face à son budget et à l'an dernier, trésorerie du dernier
 // quadrimestre et point bas du budget à venir. Seuils : Paramètres réseau de l'année du budget (ceux que règle le Directeur).
-export async function chargerAlertes(aujourdhui = new Date()): Promise<Alerte[]> {
+// Entrées des alertes de chaque magasin du compte, et les seuils du Directeur
+async function entreesAlertes(aujourdhui: Date): Promise<{ entrees: EntreeAlertes[]; seuils: ParametresReseau['alertes'] }> {
   const annee = aujourdhui.getFullYear(), aB = anneeBudget(aujourdhui)
   const [d, { parametres }, dB, { parametres: pB }, reel, quadrimestres] = await Promise.all([
     chargerBudgets(annee), chargerParametres(annee), chargerBudgets(aB), chargerParametres(aB), chargerReelDuCompte(annee), chargerQuadrimestres(annee),
@@ -393,7 +396,7 @@ export async function chargerAlertes(aujourdhui = new Date()): Promise<Alerte[]>
   const douze = () => Array.from({ length: 12 }, () => ({ caHT: 0, margeHT: 0, caAvecMarge: 0, caTTC: 0, tickets: 0 }))
   // Réel en retard : seulement une fois les imports de l'année commencés (sinon tous les magasins alerteraient)
   const reelCommence = Object.values(reel.magasins).some((r) => r.n.some((m) => m.caHT > 0))
-  return trierAlertes(d.magasins.flatMap((l) => {
+  const entrees = d.magasins.map((l): EntreeAlertes => {
     const h = l.statut ? hypothesesDe(l, d) : null
     const lB = dB.magasins.find((x) => x.magasin === l.magasin)
     const hB = lB?.statut ? hypothesesDe(lB, dB) : null
@@ -401,14 +404,24 @@ export async function chargerAlertes(aujourdhui = new Date()): Promise<Alerte[]>
     const depart = lB?.ajustements?.tresorerieDepart
     const point = hB && depart !== undefined ? tresorerieBudget(calculerBudget(hB.hypotheses, pB), hB.hypotheses, pB, pB.tresorerie, depart).pointBas : null
     const q = [...QUADRIMESTRES].reverse().find((x) => quadrimestres[l.magasin]?.[x]?.tresorerie != null)
-    return alertesMagasin({
+    return {
       magasin: l.magasin, n: reel.magasins[l.magasin]?.n ?? douze(), n1: reel.magasins[l.magasin]?.n1 ?? douze(),
       budget: h ? calculerBudget(h.hypotheses, parametres) : null,
       moisTermines: reelCommence ? aujourdhui.getMonth() : 0,
       tresorerieReelle: q ? { montant: quadrimestres[l.magasin]![q]!.tresorerie!, quadrimestre: q } : null,
       tresorerieBudget: point ? { montant: point.montant, mois: point.mois, annee: aB } : null,
-    }, pB.alertes)
-  }))
+    }
+  })
+  return { entrees, seuils: pB.alertes }
+}
+export async function chargerAlertes(aujourdhui = new Date()): Promise<Alerte[]> {
+  const { entrees, seuils } = await entreesAlertes(aujourdhui)
+  return trierAlertes(entrees.flatMap((e) => alertesMagasin(e, seuils)))
+}
+// Mesures d'aujourd'hui de chaque magasin, sans seuil : l'effet des actions
+export async function chargerMesures(aujourdhui = new Date()): Promise<Record<string, Partial<Record<TypeAlerte, Mesure>>>> {
+  const { entrees } = await entreesAlertes(aujourdhui)
+  return Object.fromEntries(entrees.map((e) => [e.magasin, mesuresMagasin(e)]))
 }
 
 // Ratios de chaque magasin du compte, pour la comparaison aux médianes : réel de l'année à date et budgets de l'an prochain
@@ -457,4 +470,82 @@ export async function enregistrerPartsRealisees(magasin: string, annee: number, 
 export async function chargerSecours(magasin: string, annee: number): Promise<SecoursAtterrissage> {
   const [parts, reel] = await Promise.all([chargerPartsRealisees(annee), chargerReelDuCompte(annee)])
   return { parts: parts[magasin] ?? {}, saisonnaliteReseau: saisonnaliteMediane(Object.values(reel.magasins).map((r) => r.n1.map((x) => x.caHT))) }
+}
+
+// Correspondance des comptes du FEC propre au magasin (lot 19) ; sans la table (migration pas encore passée), défaut seul
+const RUBRIQUE_BASE: Record<RubriqueFEC, string> = {
+  achats: 'achats', variationStock: 'variation_stock', chargesExternes: 'charges_externes', impotsTaxes: 'impots_taxes', personnel: 'personnel', horsEBE: 'hors_ebe',
+}
+const RUBRIQUE_APP = Object.fromEntries(Object.entries(RUBRIQUE_BASE).map(([a, b]) => [b, a])) as Record<string, RubriqueFEC>
+export async function chargerCorrespondancesFEC(magasin: string): Promise<Record<string, RubriqueFEC>> {
+  const { data, error } = await pilotage().from('correspondances_fec').select('compte, rubrique').eq('store_name', magasin)
+  if (error || !data) return {}
+  return Object.fromEntries((data as { compte: string; rubrique: string }[]).filter((l) => RUBRIQUE_APP[l.rubrique]).map((l) => [l.compte, RUBRIQUE_APP[l.rubrique]]))
+}
+// Comptes vus dans l'import : ceux revenus au défaut sont retirés, les exceptions remplacées
+export async function enregistrerCorrespondancesFEC(magasin: string, comptesVus: string[], exceptions: Record<string, RubriqueFEC>) {
+  if (comptesVus.length) verifier(await pilotage().from('correspondances_fec').delete().eq('store_name', magasin).in('compte', comptesVus))
+  const lignes = Object.entries(exceptions).map(([compte, r]) => ({ store_name: magasin, compte, rubrique: RUBRIQUE_BASE[r] }))
+  if (lignes.length) verifier(await pilotage().from('correspondances_fec').insert(lignes))
+}
+
+// Échanges sur le budget et versions (lot 20) : auteur, rôle et nom posés par la base
+export type SujetEchange = 'general' | 'ca' | 'marge' | 'personnel' | 'frais' | 'travaux' | 'tresorerie'
+export const SUJETS: SujetEchange[] = ['general', 'ca', 'marge', 'personnel', 'frais', 'travaux', 'tresorerie']
+export const sujetLibelle: Record<SujetEchange, string> = {
+  general: 'Général', ca: 'Chiffre d’affaires', marge: 'Marge', personnel: 'Personnel', frais: 'Frais', travaux: 'Travaux', tresorerie: 'Trésorerie',
+}
+export interface MessageBudget { id: number; sujet: SujetEchange; texte: string; auteur: string | null; auteurRole: Role | null; auteurNom: string | null; creeLe: string }
+export interface VersionBudget { id: number; statut: Statut; base: Hypotheses | null; ajustements: Cibles; auteurRole: Role | null; auteurNom: string | null; creeLe: string }
+export async function chargerEchanges(magasin: string, annee: number): Promise<{ messages: MessageBudget[]; versions: VersionBudget[] }> {
+  const [m, v] = await Promise.all([
+    pilotage().from('echanges_budget').select('id, sujet, texte, auteur, auteur_role, auteur_nom, cree_le').eq('store_name', magasin).eq('annee', annee).order('cree_le'),
+    pilotage().from('versions_budget').select('id, statut, base, ajustements, auteur_role, auteur_nom, cree_le').eq('store_name', magasin).eq('annee', annee).order('cree_le', { ascending: false }),
+  ])
+  if (m.error || v.error) throw m.error ?? v.error
+  type Brut = { id: number; auteur_role: Role | null; auteur_nom: string | null; cree_le: string }
+  return {
+    messages: (m.data as (Brut & { sujet: SujetEchange; texte: string; auteur: string | null })[]).map((x) => ({ id: x.id, sujet: x.sujet, texte: x.texte, auteur: x.auteur, auteurRole: x.auteur_role, auteurNom: x.auteur_nom, creeLe: x.cree_le })),
+    versions: (v.data as (Brut & { statut: Statut; base: unknown; ajustements: Cibles | null })[]).map((x) => ({
+      id: x.id, statut: x.statut, base: hypothesesValides(x.base) ? x.base : null, ajustements: x.ajustements ?? {}, auteurRole: x.auteur_role, auteurNom: x.auteur_nom, creeLe: x.cree_le,
+    })),
+  }
+}
+export async function envoyerMessage(magasin: string, annee: number, sujet: SujetEchange, texte: string) {
+  verifier(await pilotage().from('echanges_budget').insert({ store_name: magasin, annee, sujet, texte: texte.trim() }))
+}
+export async function retirerMessage(id: number) {
+  verifier(await pilotage().from('echanges_budget').delete().eq('id', id))
+}
+
+// Plan d'action (lot 21) : auteur posé par la base ; le franchisé ne change que le statut
+export type StatutAction = 'a_faire' | 'faite' | 'abandonnee'
+export type Responsable = 'franchise' | 'coach' | 'rr' | 'directeur'
+export interface Action {
+  id: number; magasin: string; type: TypeAction; intitule: string; responsable: Responsable; echeance: string | null; statut: StatutAction
+  annee: number; depart: Mesure | null; creeParRole: Role | null; creeParNom: string | null; creeLe: string; faiteLe: string | null
+}
+export interface NouvelleAction { magasin: string; type: TypeAction; intitule: string; responsable: Responsable; echeance: string | null; annee: number; depart: Mesure | null }
+export async function chargerActions(): Promise<Action[]> {
+  const lignes = await toutesLesLignes<{
+    id: number; store_name: string; type_alerte: TypeAction; intitule: string; responsable: Responsable; echeance: string | null; statut: StatutAction
+    annee: number; depart: number | null; mois_depart: number | null; cree_par_role: Role | null; cree_par_nom: string | null; cree_le: string; faite_le: string | null
+  }>((de, a) => pilotage().from('actions').select('*').order('cree_le').range(de, a))
+  return lignes.map((l) => ({
+    id: l.id, magasin: l.store_name, type: l.type_alerte, intitule: l.intitule, responsable: l.responsable, echeance: l.echeance, statut: l.statut,
+    annee: l.annee, depart: l.depart === null ? null : { valeur: Number(l.depart), mois: l.mois_depart }, creeParRole: l.cree_par_role, creeParNom: l.cree_par_nom,
+    creeLe: l.cree_le, faiteLe: l.faite_le,
+  }))
+}
+export async function creerAction(a: NouvelleAction) {
+  verifier(await pilotage().from('actions').insert({
+    store_name: a.magasin, type_alerte: a.type, intitule: a.intitule.trim(), responsable: a.responsable, echeance: a.echeance, annee: a.annee,
+    depart: a.depart?.valeur ?? null, mois_depart: a.depart?.mois ?? null,
+  }))
+}
+export async function changerStatutAction(id: number, statut: StatutAction) {
+  verifier(await pilotage().from('actions').update({ statut }).eq('id', id))
+}
+export async function retirerAction(id: number) {
+  verifier(await pilotage().from('actions').delete().eq('id', id))
 }

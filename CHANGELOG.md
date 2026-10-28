@@ -5,6 +5,31 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 21 — Plan d'action relié aux alertes
+
+- Synthèse du magasin : « Agir » sur une alerte (Directeur, RR, Coach) ajoute une action au plan : quoi, qui
+  (franchisé, Coach, Responsable Régional, Directeur), pour quand. L'action garde la mesure du jour (écart au budget,
+  points de marge, mois manquants, trésorerie) et montre celle d'aujourd'hui, en vert si elle s'améliore. Actions sans
+  alerte possibles. Le franchisé voit le plan de son magasin, marque ses actions faites ou abandonnées, et les retrouve
+  dans son « À faire ». Accueil et vue Réseau : « Action en cours » à côté des alertes déjà prises en main.
+- **Base : migration `0012_actions.sql` à passer (après `0011`).**
+
+### Lot 20 — Échanges sur le budget
+
+- Onglet Budget : messages entre le siège, le RR, le Coach et le franchisé, par sujet (général, CA, marge, personnel,
+  frais, travaux, trésorerie) ; chacun retire ses propres messages. Historique du budget : une version à chaque
+  proposition, ajustement, validation ou réouverture, avec qui, quand, le CA, l'EBE et l'écart d'EBE à la version
+  précédente (recalculés avec les cibles du moment).
+- **Base : migration `0011_echanges_budget.sql` à passer.**
+
+### Lot 19 — Import du FEC
+
+- Onglet Quadrimestres : « Importer le FEC » du comptable. Montants du quadrimestre calculés sur les racines du plan
+  comptable (achats, variation de stock, charges externes, impôts et taxes, personnel, trésorerie), comptes inconnus à
+  ranger une fois par magasin, contrôle du CA face à la caisse, alerte si aucun stock n'est passé sur la période.
+  Le fichier n'est pas enregistré ; les montants sont repris dans la saisie avant d'enregistrer.
+- **Base : migration `0010_correspondances_fec.sql` à passer.** Sans elle, l'import marche, sans garder le classement.
+
 ### Lot 18 — Espace franchisé
 
 - Synthèse du magasin, pour le franchisé : liste « À faire » (réel du dernier mois terminé, quadrimestre fini à saisir,

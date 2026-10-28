@@ -43,12 +43,14 @@ export type TacheFranchise =
   | { type: 'quadrimestre'; annee: number; quadrimestre: 1 | 2 | 3 }
   | { type: 'budget'; annee: number; statut: 'propose' | 'en_discussion' }
   | { type: 'equipe' } | { type: 'frais' }
+  | { type: 'action'; intitule: string; echeance: string | null }  // action du plan confiée au franchisé
 export function tachesFranchise(e: {
   moisRenseignes: number                                            // mois de réel de l'année en cours
   quadrimestres: Record<number, (1 | 2 | 3)[]>                      // quadrimestres saisis, par année
   budget: { annee: number; statut: Statut | null }
   aEquipe: boolean
   aFrais: boolean
+  actions?: { intitule: string; echeance: string | null }[]
 }, aujourdhui = new Date()): TacheFranchise[] {
   const n = aujourdhui.getFullYear(), m = aujourdhui.getMonth()
   const t: TacheFranchise[] = []
@@ -61,5 +63,7 @@ export function tachesFranchise(e: {
   if (e.budget.statut === 'propose' || e.budget.statut === 'en_discussion') t.push({ type: 'budget', annee: e.budget.annee, statut: e.budget.statut })
   if (!e.aEquipe) t.push({ type: 'equipe' })
   if (!e.aFrais) t.push({ type: 'frais' })
+  // Actions du plan, la plus proche échéance d'abord
+  for (const a of [...(e.actions ?? [])].sort((x, y) => (x.echeance ?? '9999').localeCompare(y.echeance ?? '9999'))) t.push({ type: 'action', ...a })
   return t
 }
