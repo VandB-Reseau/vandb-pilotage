@@ -37,7 +37,7 @@ export interface ResultatQuadrimestre {
   ebeSurCA: number | null
   personnelSurMarge: number | null
   tresorerie: number | null
-  budget: { ca: number; marge: number; ebe: number } | null
+  budget: { ca: number; marge: number; chargesExternes: number; impotsTaxes: number; personnel: number; ebe: number } | null
   ecartEBE: number | null
 }
 
@@ -58,7 +58,8 @@ export function resultatPeriode(mois: number[], reel: MoisReel[], saisies: Saisi
   const tauxMarge = marge === null ? null : ratio(marge, ca)
   const tauxMargeCaisse = ratio(somme(r.map((m) => m?.margeHT ?? 0)), caAvecMarge)
   const ebe = marge === null || chargesExternes === null || impotsTaxes === null || personnel === null ? null : marge - chargesExternes - impotsTaxes - personnel
-  const b = budget ? { ca: somme(mois.map((i) => budget.mois[i].ca)), marge: somme(mois.map((i) => budget.mois[i].marge)), ebe: somme(mois.map((i) => budget.mois[i].ebe)) } : null
+  const duBudget = (k: 'ca' | 'marge' | 'chargesExternes' | 'impotsTaxes' | 'personnel' | 'ebe') => somme(mois.map((i) => budget!.mois[i][k]))
+  const b = budget ? { ca: duBudget('ca'), marge: duBudget('marge'), chargesExternes: duBudget('chargesExternes'), impotsTaxes: duBudget('impotsTaxes'), personnel: duBudget('personnel'), ebe: duBudget('ebe') } : null
   return {
     complet: ebe !== null && moisCaisse === mois.length, moisCaisse, ca, achatsConsommes, marge, tauxMarge,
     tauxMargeBudget: b ? ratio(b.marge, b.ca) : null, tauxMargeCaisse,
@@ -80,5 +81,40 @@ export function resultatsQuadrimestres(reel: MoisReel[], saisies: Partial<Record
   const cumul = dernier && jusquA.every((q) => saisies[q])
     ? resultatPeriode(jusquA.flatMap(moisDuQuadrimestre), reel, jusquA.map((q) => saisies[q]!), budget)
     : null
-  return { parQuadrimestre, cumul, dernier }
+  return { parQuadrimestre, cumul, dernier, moisCumul: cumul ? jusquA.flatMap(moisDuQuadrimestre) : [] }
+}
+
+// Cumul face au budget et à la même période de l'an passé (lot 26), ligne par ligne. Sans quadrimestres saisis l'an
+// passé, seul le CA de la caisse se compare. Écart au budget : réel − budget (pour une charge, un écart positif coûte).
+export interface LigneComparaison {
+  cle: string; libelle: string; charge: boolean
+  reel: number | null; budget: number | null; ecartBudget: number | null; n1: number | null; evolution: number | null
+}
+export function comparaisonPeriode(r: ResultatQuadrimestre, n1: ResultatQuadrimestre | null): LigneComparaison[] {
+  const lignes: [string, string, boolean, (x: ResultatQuadrimestre) => number | null, keyof NonNullable<ResultatQuadrimestre['budget']>][] = [
+    ['ca', 'CA HT', false, (x) => x.ca, 'ca'],
+    ['marge', 'Marge réelle', false, (x) => x.marge, 'marge'],
+    ['chargesExternes', 'Charges externes', true, (x) => x.chargesExternes, 'chargesExternes'],
+    ['impotsTaxes', 'Impôts et taxes', true, (x) => x.impotsTaxes, 'impotsTaxes'],
+    ['personnel', 'Frais de personnel', true, (x) => x.personnel, 'personnel'],
+    ['ebe', 'EBE', false, (x) => x.ebe, 'ebe'],
+  ]
+  return lignes.map(([cle, libelle, charge, f, k]) => {
+    const reel = f(r), budget = r.budget ? r.budget[k] : null
+    const avant = n1 ? f(n1) : null
+    return {
+      cle, libelle, charge, reel, budget,
+      ecartBudget: reel !== null && budget !== null ? reel - budget : null,
+      n1: avant ? avant : null,
+      evolution: reel !== null && avant && avant > 0 ? reel / avant - 1 : null,   // sans sens face à un montant négatif
+    }
+  })
+}
+
+// Même période l'an passé : caisse de l'an passé et quadrimestres saisis alors, s'ils le sont tous
+export function memePeriode(mois: number[], reelN1: MoisReel[], saisiesN1: Partial<Record<Quadrimestre, SaisieQuadrimestre>>): ResultatQuadrimestre | null {
+  if (!mois.length || !mois.some((i) => (reelN1[i]?.caHT ?? 0) > 0)) return null
+  const quadrimestres = QUADRIMESTRES.filter((q) => moisDuQuadrimestre(q).some((i) => mois.includes(i)))
+  const toutes = quadrimestres.every((q) => saisiesN1[q])
+  return resultatPeriode(mois, reelN1, toutes ? quadrimestres.map((q) => saisiesN1[q]!) : [], null)
 }

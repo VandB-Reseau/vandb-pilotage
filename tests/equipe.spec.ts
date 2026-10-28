@@ -41,7 +41,7 @@ test('le franchisé ajoute un vendeur au SMIC : coût chargé, réduction géné
   await fiche.getByRole('button', { name: 'Enregistrer' }).click()
   await expect(page.getByText('Vendeur 1 enregistré dans l’équipe.')).toBeVisible()
   expect(ecritures.find((e) => e.table === 'equipe')?.corps).toEqual({
-    store_name: MAGASINS[0], poste: 'Vendeur 1', categorie: 'employe', heures_hebdo: 35, brut_mensuel: 1823.03, primes: [], entree: null, sortie: null,
+    store_name: MAGASINS[0], poste: 'Vendeur 1', categorie: 'employe', heures_hebdo: 35, heures_saisie: 'semaine', enveloppe: false, brut_mensuel: 1823.03, primes: [], entree: null, sortie: null,
   })
   // Au SMIC, la réduction couvre 33,77 points sur 35 : 21 876,36 × 1,0123 ; l'an prochain, + 2 % de salaires
   const ligne = page.getByRole('table', { name: 'Postes et coût chargé' }).getByRole('row', { name: /Vendeur 1/ })
@@ -119,4 +119,48 @@ test('un Coach complète l’équipe d’un magasin de son périmètre', async (
   expect(ecritures.find((e) => e.table === 'equipe' && e.methode === 'POST')?.corps).toMatchObject({ heures_hebdo: 24, brut_mensuel: 1250, entree: `${N + 1}-03-01` })
   // Arrivée l'an prochain : rien cette année
   await expect(page.getByRole('table', { name: 'Postes et coût chargé' }).getByRole('row', { name: /Vendeur 2/ })).toContainText(/0\s€/)
+})
+
+test('primes d’équipe sans salarié, heures saisies au mois, productivité par heure travaillée', async ({ page, isMobile }, info) => {
+  const ecritures = await seConnecter(page, { magasins: avecBase, reseau, equipe })
+  await page.getByText(MAGASINS[0], { exact: true }).last().click()
+  await page.getByRole('tab', { name: 'Équipe' }).click()
+  // 35 h + 45 h par semaine, 52 semaines : 4 160 h ; CA 600 000 € ÷ 4 160 h = 144 € par heure
+  const chiffres = page.getByRole('region', { name: 'Masse salariale en chiffres' })
+  await expect(chiffres).toContainText(/144\s€ par heure/)
+  await expect(chiffres).toContainText(/4\s160\sh/)
+
+  await page.getByRole('button', { name: 'Primes d’équipe' }).click()
+  const fiche = page.getByRole('region', { name: 'Primes d’équipe' })
+  await expect(fiche.getByLabel('Heures par semaine')).toHaveCount(0)
+  await expect(fiche.getByLabel('Brut mensuel')).toHaveCount(0)
+  await fiche.getByRole('button', { name: 'Enregistrer' }).click()
+  await expect(fiche.getByText('Le montant d’au moins une prime est à renseigner.')).toBeVisible()
+  await fiche.getByLabel('Montant de la prime 1').fill('1000')
+  expect(await textesTropPetits(page)).toEqual([])
+  if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
+  await page.screenshot({ path: `captures/${info.project.name}-primes-equipe.png` })
+  await fiche.getByRole('button', { name: 'Enregistrer' }).click()
+  await expect(page.getByText('Primes d’équipe : primes enregistrées dans l’équipe.')).toBeVisible()
+  expect(ecritures.find((e) => e.table === 'equipe' && e.methode === 'POST')?.corps).toMatchObject({
+    poste: 'Primes d’équipe', heures_hebdo: 0, brut_mensuel: 0, enveloppe: true, primes: [{ mois: 12, montant: 1000 }],
+  })
+  // 1 000 € chargés à 35 %, sans réduction générale ; les heures ne changent pas
+  const tableau = page.getByRole('table', { name: 'Postes et coût chargé' })
+  await expect(tableau.getByRole('row', { name: /Primes d’équipe/ })).toContainText('Sans salarié')
+  await expect(tableau.getByRole('row', { name: /Primes d’équipe/ })).toContainText(/1\s350\s€/)
+  await expect(chiffres).toContainText(/4\s160\sh/)
+
+  // Vendeur 1 passe en heures par mois : 35 h par semaine = 151,7 h par mois ; 130 h par mois = 30 h par semaine
+  await page.getByRole('button', { name: 'Modifier Vendeur 1' }).click()
+  const vendeur = page.getByRole('region', { name: 'Modifier Vendeur 1' })
+  await vendeur.getByRole('button', { name: 'Par mois' }).click()
+  await expect(vendeur.getByLabel('Heures par mois')).toHaveValue(/^151,(6|7)/)
+  await vendeur.getByLabel('Heures par mois').fill('130')
+  await vendeur.getByRole('button', { name: 'Enregistrer' }).click()
+  await expect(page.getByText('Vendeur 1 enregistré dans l’équipe.')).toBeVisible()
+  const envoi = ecritures.find((e) => e.table === 'equipe' && e.methode === 'PATCH')?.corps as { heures_hebdo: number; heures_saisie: string }
+  expect(envoi.heures_saisie).toBe('mois')
+  expect(envoi.heures_hebdo).toBeCloseTo(30, 6)
+  await expect(tableau.getByRole('row', { name: /Vendeur 1/ })).toContainText('130 h par mois')
 })

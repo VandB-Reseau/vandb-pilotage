@@ -92,6 +92,12 @@ export const AIDE = {
     remplir: 'Saisis le solde prévu au 1er janvier.',
     calcul: 'Chaque mois : ventes encaissées TTC − fournisseurs, personnel, frais, TVA, emprunts. Les délais de paiement sont fixés par le siège.',
   },
+  versions: {
+    titre: 'Versions du budget',
+    quoi: 'Des copies du budget enregistrées sous un nom : prudente, ambitieuse, avec un vendeur de plus…',
+    remplir: 'Enregistre le budget tel qu’il est, change des hypothèses, puis enregistre une autre version. « Reprendre » remet les hypothèses d’une version dans le budget en cours, sans l’enregistrer.',
+    calcul: 'Chaque version se recalcule avec les cibles du siège d’aujourd’hui, et avec l’équipe et les frais du jour où elle a été enregistrée. Les écarts sont donnés face au budget en cours.',
+  },
 } satisfies Record<string, TexteAide>
 
 export type SujetAide = keyof typeof AIDE

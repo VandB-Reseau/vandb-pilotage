@@ -28,6 +28,7 @@ import { EchangesBudget } from '../components/EchangesBudget'
 import { AlertesEtActions } from '../components/PlanAction'
 import { AtterrissageMagasin } from '../components/AtterrissageMagasin'
 import { DetailCalcul } from '../components/DetailCalcul'
+import { VersionsBudget } from '../components/VersionsBudget'
 import { CompteResultatMois } from '../components/CompteResultatMois'
 import { CopieHypotheses } from '../components/CopieHypotheses'
 import { EtatVide } from '../components/EtatVide'
@@ -38,7 +39,6 @@ import { FraisMagasin } from '../components/FraisMagasin'
 import { useGarde, useSaisieEnCours } from '../components/GardeSaisie'
 import { PastilleStatut } from '../components/PastilleStatut'
 import { ComparaisonMagasin } from '../components/ComparaisonMagasin'
-import { SimulationMagasin } from '../components/SimulationMagasin'
 import { QuadrimestresMagasin } from '../components/QuadrimestresMagasin'
 import { ReelAnnee } from '../components/ReelAnnee'
 import { poidsValides, SaisonnaliteMagasin } from '../components/SaisonnaliteMagasin'
@@ -201,7 +201,6 @@ export function Magasin() {
         <Tab value="atterrissage" label={`Atterrissage ${anneeEnCours}`} sx={{ minHeight: 48 }} />
         <Tab value="reel" label={<LibelleOnglet texte="Réel" manque={!!reel.donnees && reelEnRetard(syntheseReel(reel.donnees.lignes, reel.donnees.tickets).moisRenseignes)} detail="en retard" />} sx={{ minHeight: 48 }} />
         <Tab value="quadrimestres" label="Quadrimestres" sx={{ minHeight: 48 }} />
-        <Tab value="simulation" label="Et si…" sx={{ minHeight: 48 }} />
         <Tab value="equipe" label={<LibelleOnglet texte="Équipe" manque={!d.equipes[ligne.magasin]?.length} detail="à renseigner" />} sx={{ minHeight: 48 }} />
         <Tab value="frais" label={<LibelleOnglet texte="Frais" manque={!d.frais[ligne.magasin]?.length} detail="à renseigner" />} sx={{ minHeight: 48 }} />
       </Tabs>
@@ -240,13 +239,6 @@ export function Magasin() {
           </ToggleButtonGroup>
           <QuadrimestresMagasin key={`${ligne.magasin}-${anneeQuadri}`} magasin={ligne.magasin} annee={anneeQuadri} peutSaisir={peutSaisir} />
         </Stack>
-      ) : onglet === 'simulation' ? (
-        resolu ? (
-          <SimulationMagasin key={ligne.magasin} hypotheses={resolu.hypotheses} parametres={parametres} annee={annee} depart={brouillon.tresorerieDepart ?? 0} />
-        ) : (
-          <EtatVide titre={`Pas encore de budget ${annee}`} texte="La simulation part du budget du magasin. Elle sera possible dès que le siège l’aura proposé."
-            action={directeur ? <Button variant="contained" onClick={() => setOnglet('atterrissage')} sx={{ minHeight: 48 }}>Proposer le budget</Button> : undefined} />
-        )
       ) : onglet === 'frais' ? (
         <FraisMagasin key={ligne.magasin} magasin={ligne.magasin} lignes={d.frais[ligne.magasin] ?? []} annee={anneeEnCours} peutSaisir={peutSaisir} apresEnregistrement={recharger}
           tauxSurCA={{ publicite: parametres.tauxPublicite, redevance: parametres.tauxRedevance }} />
@@ -255,7 +247,7 @@ export function Magasin() {
           key={ligne.magasin} magasin={ligne.magasin} equipe={d.equipes[ligne.magasin] ?? []} annee={anneeEnCours} anneeBudget={annee}
           hausse={resolu?.hypotheses.hausseSalaires ?? valeurHeritee(niveauxDe(ligne, d, brouillon), 'hausseSalaires')?.valeur ?? 0}
           charges={donnees.parametresN.charges} chargesBudget={parametres.charges}
-          peutSaisir={peutSaisir} apresEnregistrement={recharger}
+          peutSaisir={peutSaisir} apresEnregistrement={recharger} caAnnee={b?.atterrissage} caBudget={b?.ca}
         />
       ) : (<>
 
@@ -318,6 +310,14 @@ export function Magasin() {
           </Stack>
 
           {profil && <EchangesBudget key={`echanges-${ligne.magasin}`} ligne={ligne} d={d} annee={annee} parametres={parametres} moi={profil} />}
+
+          {profil && ligne.base && (
+            <VersionsBudget
+              key={`versions-${ligne.magasin}`} ligne={ligne} d={d} annee={annee} parametres={parametres} budget={b} ajustements={brouillon}
+              peutEnregistrer={directeur || profil.role === 'franchise'} peutReprendre={peutAjuster} moi={profil}
+              onReprendre={(a) => { setBrouillon(a); setMessage({ gravite: 'warning', texte: 'Hypothèses de la version reprises. Enregistre les ajustements pour les garder.' }) }}
+            />
+          )}
 
           {copie && <CopieHypotheses source={ligne.magasin} magasins={destinations.map((l) => l.magasin)} occupe={occupe} onCopier={copier} onFermer={() => setCopie(false)} />}
 

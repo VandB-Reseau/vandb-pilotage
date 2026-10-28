@@ -75,7 +75,7 @@ export function CompteResultatMois({ lignes, titre, libelleTableau, projeteA, en
                       {v === null ? '' : enChiffres(Math.round(v) || 0)}
                     </TableCell>
                   ))}
-                  <TableCell align="right" sx={{ ...style, fontWeight: 700, ...(l.total < 0 && l.fort ? { color: 'error.main' } : {}) }}>{montant(l.total)}</TableCell>
+                  <TableCell align="right" sx={{ ...style, fontWeight: 700, ...(l.total < 0 && l.fort ? { color: 'error.main' } : {}) }}>{l.heures ? `${enChiffres(Math.round(l.total))} h` : montant(l.total)}</TableCell>
                   <TableCell align="right" sx={{ ...style, color: 'text.secondary', fontWeight: 400 }}>{l.indicateur ? '' : taux(ca ? l.total / ca : 0)}</TableCell>
                 </TableRow>
               )

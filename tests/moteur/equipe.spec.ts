@@ -3,7 +3,7 @@ import { calculerBudget } from '../../src/moteur/budget'
 import { appliquerCibles } from '../../src/moteur/cibles'
 import { coefficientReduction, coutPersonne, masseSalariale, moisPresents, type Personne } from '../../src/moteur/equipe'
 import { chargesParDefaut, parametresParDefaut } from '../../src/moteur/parametres'
-import { champsDepuisPersonne, lirePersonne, nouvellePersonne } from '../../src/moteur/saisieEquipe'
+import { champsDepuisPersonne, lirePersonne, nouvellePersonne, nouvellesPrimesEquipe } from '../../src/moteur/saisieEquipe'
 import { magasinFictif } from '../donnees-fictives'
 
 // Équipe fictive, montants ronds : chaque résultat se vérifie à la main (détail en commentaire). Paramètres 2026 par défaut :
@@ -72,11 +72,36 @@ test('masse salariale de l’équipe et budget : le personnel vient de l’équi
 
 test('saisie d’une personne : montants à la française, contrôles lisibles, poste proposé', () => {
   expect(nouvellePersonne([vendeur({}), vendeur({ poste: 'Gérant' })]).poste).toBe('Vendeur 2')
-  const lu = lirePersonne({ poste: ' Vendeur 2 ', categorie: 'employe', heuresHebdo: '24', brutMensuel: '1 400,50', primes: [{ mois: 12, montant: '300' }, { mois: 6, montant: '' }], entree: '2027-03', sortie: '' })
+  const lu = lirePersonne({ poste: ' Vendeur 2 ', categorie: 'employe', heures: '24', heuresSaisie: 'semaine', brutMensuel: '1 400,50', primes: [{ mois: 12, montant: '300' }, { mois: 6, montant: '' }], entree: '2027-03', sortie: '', enveloppe: false })
   expect(lu.personne).toEqual({ id: undefined, poste: 'Vendeur 2', categorie: 'employe', heuresHebdo: 24, brutMensuel: 1400.5, primes: [{ mois: 12, montant: 300 }], entree: '2027-03', sortie: null })
   expect(champsDepuisPersonne(lu.personne!).brutMensuel).toBe('1400,5')
-  expect(lirePersonne({ poste: '', categorie: 'gerant_tns', heuresHebdo: '80', brutMensuel: '', primes: [{ mois: 1, montant: 'x' }], entree: '2027-05', sortie: '2027-01' }).erreurs).toEqual([
+  expect(lirePersonne({ poste: '', categorie: 'gerant_tns', heures: '80', heuresSaisie: 'semaine', brutMensuel: '', primes: [{ mois: 1, montant: 'x' }], entree: '2027-05', sortie: '2027-01', enveloppe: false }).erreurs).toEqual([
     'Le poste est à renseigner.', 'Les heures par semaine sont à renseigner (entre 0 et 70).', 'La rémunération mensuelle est à renseigner.',
     'Le montant d’une prime est illisible.', 'Le départ est avant l’arrivée.',
   ])
+})
+
+test('heures saisies au mois : 130 h par mois = 30 h par semaine, et la fiche les rend au mois', () => {
+  // 130 × 12 / 52 = 30
+  const lu = lirePersonne({ poste: 'Vendeur 3', categorie: 'employe', heures: '130', heuresSaisie: 'mois', brutMensuel: '1 500', primes: [], entree: '', sortie: '', enveloppe: false })
+  expect(lu.personne?.heuresHebdo).toBeCloseTo(30, 9)
+  expect(lu.personne?.heuresSaisie).toBe('mois')
+  expect(champsDepuisPersonne(lu.personne!).heures).toBe('130')
+  // Heures du mois pour la productivité : 30 × 52 / 12 = 130
+  proche(coutPersonne(lu.personne!, parametresParDefaut.charges, 2027).heures[0], 130)
+  expect(lirePersonne({ ...champsDepuisPersonne(lu.personne!), heures: '400' }).erreurs).toEqual(['Les heures par mois sont à renseigner (entre 0 et 303).'])
+})
+
+test('primes d’équipe sans salarié : chargées au taux de la catégorie, sans réduction, sans heures', () => {
+  const lu = lirePersonne({ ...nouvellesPrimesEquipe(), primes: [{ mois: 12, montant: '2 000' }, { mois: 6, montant: '1 000' }] })
+  expect(lu.personne).toMatchObject({ poste: 'Primes d’équipe', heuresHebdo: 0, brutMensuel: 0, enveloppe: true, primes: [{ mois: 12, montant: 2000 }, { mois: 6, montant: 1000 }] })
+  const c = coutPersonne(lu.personne!, parametresParDefaut.charges, 2027)
+  const t = parametresParDefaut.charges.taux.employe
+  // 3 000 × (1 + taux employé), aucune réduction générale, aucune heure, aucun équivalent temps plein
+  proche(c.coutAnnuel, 3_000 * (1 + t))
+  proche(c.cout[11], 2_000 * (1 + t))
+  expect(c.coefficient).toBe(0)
+  expect(c.heures.every((h) => h === 0)).toBe(true)
+  expect(c.etp).toBe(0)
+  expect(lirePersonne(nouvellesPrimesEquipe()).erreurs).toEqual(['Le montant d’au moins une prime est à renseigner.'])
 })

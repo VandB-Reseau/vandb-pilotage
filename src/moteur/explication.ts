@@ -1,9 +1,10 @@
+import type { BaseDepuisReel, MethodeAtterrissage } from './atterrissage'
 import { UNIVERS, universLibelle, type Budget, type Univers } from './types'
 
 // « D'où vient ce chiffre ? » (lot 25) : le calcul du CA, de la marge et de l'EBE du budget, étape par étape, avec les
 // chiffres du magasin. Chaque étape donne son effet et le résultat cumulé après elle : une évolution (taux), une part du
 // montant précédent (part, la marge visée) ou un montant ajouté ou retiré.
-export interface Etape { libelle: string; taux?: number; part?: number; montant?: number; resultat: number }
+export interface Etape { libelle: string; taux?: number; part?: number; diviseur?: number; montant?: number; resultat: number }
 export interface GroupeCalcul { titre: string; etapes: Etape[] }
 export interface Explication { groupes: GroupeCalcul[]; total: number }
 
@@ -68,4 +69,33 @@ export function expliquerEBE(b: Budget): Explication {
   moins('Impôts et taxes', b.impotsTaxes)
   moins('Personnel', b.personnel)
   return { groupes: [{ titre: 'EBE', etapes }], total: b.ebe }
+}
+
+// Atterrissage de l'année en cours (lot 26) : réalisé de chaque univers, puis l'année entière selon sa méthode
+const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
+const majuscule = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+const SOURCE: Record<Exclude<MethodeAtterrissage, 'rythme'>, string> = {
+  saisie: 'part saisie', magasin: 'saisonnalité du magasin l’an dernier', reseau: 'saisonnalité médiane du réseau', moyenne: 'moyenne des mois réalisés',
+}
+export function expliquerAtterrissage(r: BaseDepuisReel): Explication {
+  const m = r.moisRealises
+  const groupes: GroupeCalcul[] = []
+  let total = 0
+  for (const u of UNIVERS) {
+    const realise = somme(r.base.familles.filter((f) => f.univers === u).map((f) => f.caRealise))
+    const part = r.base.partRealisee?.[u]
+    if (realise <= 0 || !part) continue
+    const annee = realise / part
+    total += annee
+    const etapes: Etape[] = [{ libelle: `Réalisé de ${MOIS[r.debut - 1]} à ${MOIS[m - 1]}`, resultat: realise }]
+    const methode = r.methodes[u]
+    const rythme = r.rythmes?.[u]
+    if (m < 12) {
+      etapes.push(methode === 'rythme' && rythme
+        ? { libelle: `${majuscule(MOIS[m])} à décembre, au rythme de ${MOIS[rythme.de - 1]} à ${MOIS[rythme.a - 1]}`, montant: annee - realise, resultat: annee }
+        : { libelle: `Part de l’année réalisée (${SOURCE[methode as Exclude<MethodeAtterrissage, 'rythme'>]})`, diviseur: part, resultat: annee })
+    }
+    groupes.push({ titre: universLibelle[u], etapes })
+  }
+  return { groupes, total }
 }

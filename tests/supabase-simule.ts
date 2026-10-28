@@ -47,9 +47,12 @@ export interface OptionsSimulation {
   actions?: ActionSimulee[]
   versions?: VersionSimulee[]
   ouvertures?: { store_name: string; ouverture: string }[]
+  versionsNommees?: VersionNommeeSimulee[]
   panne?: boolean
   panneEcriture?: boolean
 }
+
+export type VersionNommeeSimulee = { id: number; store_name: string; annee: number; nom: string; base: unknown; ajustements: Record<string, unknown>; auteur: string | null; auteur_role: string | null; auteur_nom: string | null; cree_le: string }
 
 // Écritures reçues par la base simulée, pour les vérifier dans les tests
 export interface Ecriture { table: string; methode: string; corps: unknown; filtre: string }
@@ -78,6 +81,7 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
   const versions = structuredClone(options.versions ?? [])
   let actions = structuredClone(options.actions ?? [])
   let ouvertures = structuredClone(options.ouvertures ?? [])
+  let versionsNommees = structuredClone(options.versionsNommees ?? [])
   // Auteur posé par la base, comme le déclencheur de 0011
   const nomDuRole: Record<string, string | null> = { directeur: null, coach: 'Coach Nord', rr: 'RR Nord', franchise: 'Franchise Test' }
   let parametres = options.parametres === null ? null : options.parametres ?? { tauxRedevance: 0.02, tauxPublicite: 0.01 }
@@ -228,6 +232,13 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
         if (req.method() === 'DELETE') { const retirer = new Set(filtrer(ouvertures, url.searchParams)); ouvertures = ouvertures.filter((l) => !retirer.has(l)) }
         else { const c = corps as { store_name: string; ouverture: string }; ouvertures = [...ouvertures.filter((x) => x.store_name !== c.store_name), c] }
       }
+      if (table === 'versions_nommees') {
+        if (req.method() === 'DELETE') { const retirer = new Set(filtrer(versionsNommees, url.searchParams)); versionsNommees = versionsNommees.filter((l) => !retirer.has(l)) }
+        else {
+          const v = corps as Pick<VersionNommeeSimulee, 'store_name' | 'annee' | 'nom' | 'base' | 'ajustements'>
+          versionsNommees.push({ ...v, id: Math.max(0, ...versionsNommees.map((x) => x.id)) + 1, auteur: '00000000-0000-0000-0000-000000000001', auteur_role: options.role ?? 'directeur', auteur_nom: nomDuRole[options.role ?? 'directeur'] ?? null, cree_le: new Date().toISOString() })
+        }
+      }
       if (table === 'parametres_reseau') parametres = (corps as { valeur: Record<string, unknown> }).valeur
       if (table === 'groupe_magasins' && m) m.groupe_id = req.method() === 'DELETE' ? null : (corps as { groupe_id: number }).groupe_id
       return route.fulfill({ status: 204, body: '' })
@@ -244,6 +255,7 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
     if (table === 'echanges_budget') return route.fulfill({ json: filtrer(messages, url.searchParams).sort((a, b) => a.cree_le.localeCompare(b.cree_le)) })
     if (table === 'versions_budget') return route.fulfill({ json: filtrer(versions, url.searchParams).sort((a, b) => b.cree_le.localeCompare(a.cree_le)) })
     if (table === 'ouvertures') return route.fulfill({ json: ouvertures })
+    if (table === 'versions_nommees') return route.fulfill({ json: filtrer(versionsNommees, url.searchParams).sort((a, b) => a.cree_le.localeCompare(b.cree_le)) })
     if (table === 'codes_caisse') return route.fulfill({ json: [...codes].sort((a, b) => a.code.localeCompare(b.code)) })
     if (url.pathname === '/rest/v1/parametres_reseau') {
       const lignes = parametres === null ? [] : [{ valeur: parametres }]

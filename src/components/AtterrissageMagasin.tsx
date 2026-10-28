@@ -11,7 +11,7 @@ import { EtatVide } from './EtatVide'
 import { Panne } from './Panne'
 import { avecEquipeEtFrais, chargerReel, chargerSecours, enregistrerPartsRealisees, niveauxDe, proposerBudget, type DonneesBudgets, type LigneMagasin, type PartsRealisees } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
-import { MOIS_LONGS, montant, taux } from '../lib/format'
+import { milliers, MOIS_LONGS, montant, taux } from '../lib/format'
 import { compteResultat } from '../moteur/compteResultat'
 import { baseDepuisReel, type MethodeAtterrissage } from '../moteur/atterrissage'
 import { calculerBudget } from '../moteur/budget'
@@ -25,11 +25,13 @@ import TableCell from '@mui/material/TableCell'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import SaveOutlined from '@mui/icons-material/SaveOutlined'
+import { DetailCalcul } from './DetailCalcul'
+import { Indicateur } from './Indicateur'
 
 // Atterrissage de l'année en cours : réel des mois passés, projection des mois restants, équipe et frais du magasin.
 // Le Directeur en tire la proposition du budget de l'an prochain.
 const METHODE: Record<MethodeAtterrissage, string> = {
-  saisie: 'Part saisie', magasin: 'Saisonnalité du magasin l’an dernier', reseau: 'Saisonnalité médiane du réseau', moyenne: 'Moyenne des mois réalisés',
+  saisie: 'Part saisie', rythme: 'Rythme des derniers mois (magasin de moins de 18 mois)', magasin: 'Saisonnalité du magasin l’an dernier', reseau: 'Saisonnalité médiane du réseau', moyenne: 'Moyenne des mois réalisés',
 }
 
 export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, directeur, peutSaisir, allerA, apresProposition }: {
@@ -120,6 +122,13 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
           </Button>
         </Box>
       )}
+
+      <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap' }} component="section" aria-label={`Atterrissage ${annee} en chiffres`}>
+        <Indicateur libelle={`CA HT atterri ${annee}`} valeur={milliers(b.ca)} detail={`Dont réalisé : ${milliers(r.realise)}`}
+          action={<DetailCalcul quoi="atterrissage" budget={b} annee={annee} atterrissage={r} />} />
+        <Indicateur libelle="Marge commerciale" valeur={taux(b.tauxMarge)} detail={milliers(b.marge)} action={<DetailCalcul quoi="marge" budget={b} annee={annee} />} />
+        <Indicateur libelle="EBE" valeur={milliers(b.ebe)} detail={`${taux(b.ratios.ebeSurCA)} du CA`} action={<DetailCalcul quoi="ebe" budget={b} annee={annee} />} />
+      </Stack>
 
       <CompteResultatMois
         lignes={compteResultat(b, r.base, parametres)} projeteA={r.moisRealises}

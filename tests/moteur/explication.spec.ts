@@ -1,7 +1,10 @@
 import { expect, test } from '@playwright/test'
 import { calculerBudget } from '../../src/moteur/budget'
-import { expliquerCA, expliquerEBE, expliquerMarge, type Explication } from '../../src/moteur/explication'
+import { baseDepuisReel } from '../../src/moteur/atterrissage'
+import { expliquerAtterrissage, expliquerCA, expliquerEBE, expliquerMarge, type Explication } from '../../src/moteur/explication'
+import type { LigneReel } from '../../src/moteur/reel'
 import { parametresParDefaut } from '../../src/moteur/parametres'
+import { comparerVersions } from '../../src/moteur/versions'
 import type { Hypotheses, TempsFort } from '../../src/moteur/types'
 import { magasinFictif } from '../donnees-fictives'
 
@@ -82,4 +85,38 @@ test('travaux et démarque : part de l’année ouverte, démarque retirée de l
   proche(m[2].montant, -3_885)
   proche(m[2].part, 0.02)
   proche(m[2].resultat, 69_930)
+})
+
+test('atterrissage : réalisé depuis l’ouverture, puis rythme du jeune magasin ou part de l’année réalisée', () => {
+  const reseau = [...Array(8).fill(0.075), ...Array(4).fill(0.1)]
+  const cave = (ca: Record<number, number>): LigneReel[] => Object.entries(ca).map(([mois, caHT]) => ({ mois: Number(mois), univers: 'cave' as const, famille: 'Bière', caHT, caTTC: null, margeHT: caHT * 0.4 }))
+  // Ouvert en mars : 75 000 de mars à août ; mai à août 60 000 pour 30 % de l'année → 80 000 pour les 40 % restants
+  const jeune = baseDepuisReel({ n: { lignes: cave({ 3: 5_000, 4: 10_000, 5: 12_000, 6: 14_000, 7: 16_000, 8: 18_000 }), tickets: [] }, n1: { lignes: [], tickets: [] } },
+    2026, [], undefined, { saisonnaliteReseau: reseau, ouverture: { annee: 2026, mois: 3 } })!
+  const e = expliquerAtterrissage(jeune)
+  expect(resume(e)).toEqual([{ titre: 'Cave', etapes: [['Réalisé de mars à août', 75_000], ['Septembre à décembre, au rythme de mai à août', 155_000]] }])
+  proche(e.groupes[0].etapes[1].montant, 80_000)
+  proche(e.total, 155_000)
+  // Magasin ancien sans 2025 : 120 000 de janvier à août ÷ 60 % (saisonnalité du réseau) = 200 000
+  const ancien = baseDepuisReel({ n: { lignes: cave(Object.fromEntries(Array.from({ length: 8 }, (_, i) => [i + 1, 15_000]))), tickets: [] }, n1: { lignes: [], tickets: [] } },
+    2026, [], undefined, { saisonnaliteReseau: reseau })!
+  const a = expliquerAtterrissage(ancien)
+  expect(resume(a)).toEqual([{ titre: 'Cave', etapes: [['Réalisé de janvier à août', 120_000], ['Part de l’année réalisée (saisonnalité médiane du réseau)', 200_000]] }])
+  proche(a.groupes[0].etapes[1].diviseur, 0.6)
+})
+
+test('versions côte à côte : chiffres clés et écart au budget en cours', () => {
+  const enCours = calculerBudget(magasinFictif, parametresParDefaut)
+  // Version ambitieuse : Bière + 10 % au lieu de + 5 % → Cave 220 000, CA 650 000, marge + 3 800 (10 000 × 38 %)
+  const ambitieuse = calculerBudget({ ...magasinFictif, familles: magasinFictif.familles.map((f, i) => (i === 0 ? { ...f, evolution: 0.1 } : f)) }, parametresParDefaut)
+  const l = comparerVersions([enCours, ambitieuse])
+  const ligne = (cle: string) => l.find((x) => x.cle === cle)!
+  expect(ligne('ca').valeurs).toEqual([expect.closeTo(640_000, 6), expect.closeTo(650_000, 6)])
+  expect(ligne('ca').ecarts).toEqual([null, expect.closeTo(10_000, 6)])
+  proche(ligne('marge').ecarts[1]!, 3_800)
+  // Charges externes : redevance, publicité (3 %) et énergie (1,3 %) suivent le CA : + 430
+  proche(ligne('externes').ecarts[1]!, 430)
+  // EBE : + 3 800 − 430 = + 3 370
+  proche(ligne('ebe').ecarts[1]!, 3_370)
+  proche(ligne('ebe').taux![0], 54_780 / 640_000)
 })

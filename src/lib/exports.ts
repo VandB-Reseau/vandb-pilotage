@@ -32,7 +32,7 @@ export function feuillesBudget({ magasin, annee, statut, lignes, familles, flux 
     [{ v: 'En euros', s: 'entete' }, ...[...MOIS, 'Total', '% du CA'].map((v) => ({ v, s: 'enteteDroite' as const }))],
     ...lignes.map((l, i): Cellule[] => {
       const r = debut + i
-      const montant = l.indicateur ? 'euros2' : l.fort ? 'eurosGras' : 'euros'
+      const montant = l.heures ? 'texte' : l.indicateur ? 'euros2' : l.fort ? 'eurosGras' : 'euros'
       const complet = l.mois.every((v) => v !== null)
       return [
         { v: l.libelle, s: l.fort ? 'gras' : l.parent ? 'retrait' : 'texte' },

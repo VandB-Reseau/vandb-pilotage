@@ -22,11 +22,13 @@ import { Indicateur } from './Indicateur'
 import { Panne } from './Panne'
 import { chargerReel, enregistrerMoisReel } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
-import { ecartTaux, milliers, montant, MOIS, MOIS_LONGS, taux } from '../lib/format'
+import { ecartTaux, enChiffres, milliers, montant, MOIS, MOIS_LONGS, taux } from '../lib/format'
 import { cumulUnivers, syntheseReel } from '../moteur/reel'
 import { cleVente, famillesASaisir, lireSaisie, saisieDepuisReel, UNIVERS_TICKETS, type ChampsVente, type SaisieMois } from '../moteur/saisieReel'
-import { universLibelle } from '../moteur/types'
+import { UNIVERS, universLibelle } from '../moteur/types'
 
+// Texte lu par les lecteurs d'écran seulement
+const visuellementCache = { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' } as const
 const VIDE: ChampsVente = { caHT: '', caTTC: '', margeHT: '' }
 const nombreEntier = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 })
 const panier = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -124,53 +126,78 @@ export function ReelAnnee({ magasin, annee, peutSaisir, apresEnregistrement }: {
           {boutonSaisie && <Box>{boutonSaisie}</Box>}
 
           <Card component="section" aria-label={`CA par famille ${annee}`}>
-            <Typography variant="h2" sx={{ p: 2, pb: 0 }}>CA HT par famille</Typography>
+            <Typography variant="h2" sx={{ px: 2.5, pt: 2, pb: 1 }}>CA HT par famille</Typography>
             <TableContainer>
-              <Table className="colonne-fixe" size="small" aria-label={`Réel ${annee} par famille et par mois`}>
+              <Table className="colonne-fixe" size="small" aria-label={`Réel ${annee} par famille et par mois`}
+                sx={{ '& td, & th': { py: 0.75, px: 1, fontSize: '0.8125rem', whiteSpace: 'nowrap' }, '& td:first-of-type, & th:first-of-type': { pl: 2.5, minWidth: 200 } }}>
                 <TableHead>
                   <TableRow>
-                    <TableCell>Famille</TableCell>
+                    <TableCell><Box component="span" sx={{ fontWeight: 400 }}>En euros</Box></TableCell>
                     {MOIS.map((m, i) => (
                       <TableCell key={m} align="right">
                         {peutSaisir
-                          ? <Button size="small" onClick={() => ouvrir(i + 1)} aria-label={`Saisir ${MOIS_LONGS[i]} ${annee}`} sx={{ minHeight: 48, minWidth: 0, px: 1 }}>{m}</Button>
+                          ? <Button size="small" onClick={() => ouvrir(i + 1)} aria-label={`Saisir ${MOIS_LONGS[i]} ${annee}`} sx={{ minHeight: { xs: 48, md: 28 }, minWidth: 0, px: 0.5, fontSize: 'inherit' }}>{m}</Button>
                           : m}
                       </TableCell>
                     ))}
                     <TableCell align="right">Total</TableCell>
-                    <TableCell align="right">Part</TableCell>
+                    <TableCell align="right">% du CA</TableCell>
                     <TableCell align="right">Marge</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {s.familles.map((f) => (
-                    <TableRow key={`${f.univers}/${f.famille}`}>
-                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{f.famille} ({universLibelle[f.univers]})</TableCell>
-                      {f.parMois.map((v, i) => <TableCell key={i} align="right" sx={{ whiteSpace: 'nowrap' }}>{v ? montant(v) : ''}</TableCell>)}
-                      <TableCell align="right" sx={{ whiteSpace: 'nowrap', fontWeight: 700 }}>{montant(f.caHT)}</TableCell>
-                      <TableCell align="right">{taux(f.part)}</TableCell>
-                      <TableCell align="right">{taux(f.tauxMarge)}</TableCell>
-                    </TableRow>
-                  ))}
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>Total CA HT</TableCell>
-                    {s.parMois.map((m) => <TableCell key={m.mois} align="right" sx={{ whiteSpace: 'nowrap', fontWeight: 700 }}>{m.caHT ? montant(m.caHT) : ''}</TableCell>)}
-                    <TableCell align="right" sx={{ whiteSpace: 'nowrap', fontWeight: 700 }}>{montant(s.caHT)}</TableCell>
+                  {UNIVERS.filter((u) => s.familles.some((f) => f.univers === u)).map((u) => {
+                    const familles = s.familles.filter((f) => f.univers === u)
+                    const parMois = MOIS.map((_, i) => familles.reduce((a, f) => a + f.parMois[i], 0))
+                    const ca = familles.reduce((a, f) => a + f.caHT, 0), marge = familles.reduce((a, f) => a + f.margeHT, 0)
+                    const fond = { bgcolor: 'background.default' }
+                    return (
+                      <Fragment key={u}>
+                        <TableRow sx={fond}>
+                          <TableCell sx={{ ...fond, fontWeight: 700 }}>{universLibelle[u]}</TableCell>
+                          {parMois.map((v, i) => <TableCell key={i} align="right" sx={{ fontWeight: 700 }}>{v ? enChiffres(Math.round(v)) : ''}</TableCell>)}
+                          <TableCell align="right" sx={{ fontWeight: 700 }}>{montant(ca)}</TableCell>
+                          <TableCell align="right" sx={{ color: 'text.secondary' }}>{taux(s.caHT ? ca / s.caHT : 0)}</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 700 }}>{taux(ca ? marge / ca : 0)}</TableCell>
+                        </TableRow>
+                        {familles.map((f) => (
+                          <TableRow key={`${f.univers}/${f.famille}`}>
+                            <TableCell sx={{ pl: '40px !important', color: 'text.secondary' }}>{f.famille}<Box component="span" sx={visuellementCache}> ({universLibelle[f.univers]})</Box></TableCell>
+                            {f.parMois.map((v, i) => <TableCell key={i} align="right" sx={{ color: 'text.secondary' }}>{v ? enChiffres(Math.round(v)) : ''}</TableCell>)}
+                            <TableCell align="right" sx={{ fontWeight: 700 }}>{montant(f.caHT)}</TableCell>
+                            <TableCell align="right" sx={{ color: 'text.secondary' }}>{taux(f.part)}</TableCell>
+                            <TableCell align="right">{taux(f.tauxMarge)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </Fragment>
+                    )
+                  })}
+                  <TableRow sx={{ bgcolor: 'background.default', '& td': { fontWeight: 700, bgcolor: 'background.default' } }}>
+                    <TableCell>Chiffre d’affaires HT</TableCell>
+                    {s.parMois.map((m) => <TableCell key={m.mois} align="right">{m.caHT ? enChiffres(Math.round(m.caHT)) : ''}</TableCell>)}
+                    <TableCell align="right">{montant(s.caHT)}</TableCell>
+                    <TableCell align="right">{taux(1)}</TableCell>
+                    <TableCell align="right">{taux(s.tauxMarge)}</TableCell>
+                  </TableRow>
+                  <TableRow sx={{ bgcolor: 'background.default', '& td': { fontWeight: 700, bgcolor: 'background.default' } }}>
+                    <TableCell>Marge théorique</TableCell>
+                    {s.parMois.map((m) => <TableCell key={m.mois} align="right">{m.caHT ? enChiffres(Math.round(m.margeHT)) : ''}</TableCell>)}
+                    <TableCell align="right">{montant(s.margeHT)}</TableCell>
+                    <TableCell align="right">{taux(s.tauxMarge)}</TableCell>
                     <TableCell />
-                    <TableCell align="right" sx={{ fontWeight: 700 }}>{taux(s.tauxMarge)}</TableCell>
                   </TableRow>
                   {parUnivers.map(({ u, n }) => (
                     <Fragment key={u}>
                       <TableRow>
-                        <TableCell sx={{ whiteSpace: 'nowrap' }}>Tickets {universLibelle[u]}</TableCell>
+                        <TableCell>Tickets {universLibelle[u]}</TableCell>
                         {n.parMois.map((m, i) => <TableCell key={i} align="right">{m.tickets ? nombreEntier.format(m.tickets) : ''}</TableCell>)}
-                        <TableCell align="right">{nombreEntier.format(n.tickets)}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>{nombreEntier.format(n.tickets)}</TableCell>
                         <TableCell colSpan={2} />
                       </TableRow>
                       <TableRow>
-                        <TableCell sx={{ whiteSpace: 'nowrap' }}>Panier {universLibelle[u]} TTC</TableCell>
-                        {n.parMois.map((m, i) => <TableCell key={i} align="right" sx={{ whiteSpace: 'nowrap' }}>{m.panierTTC === null ? '' : panier.format(m.panierTTC)}</TableCell>)}
-                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{n.panierTTC === null ? '' : panier.format(n.panierTTC)}</TableCell>
+                        <TableCell>Panier {universLibelle[u]} TTC</TableCell>
+                        {n.parMois.map((m, i) => <TableCell key={i} align="right">{m.panierTTC === null ? '' : panier.format(m.panierTTC)}</TableCell>)}
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>{n.panierTTC === null ? '' : panier.format(n.panierTTC)}</TableCell>
                         <TableCell colSpan={2} />
                       </TableRow>
                     </Fragment>
