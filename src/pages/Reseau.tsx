@@ -21,10 +21,11 @@ import FileDownloadOutlined from '@mui/icons-material/FileDownloadOutlined'
 import PrintOutlined from '@mui/icons-material/PrintOutlined'
 import FilterListOutlined from '@mui/icons-material/FilterListOutlined'
 import { AlertesMagasins } from '../components/AlertesMagasins'
+import { MaSemaine } from '../components/MaSemaine'
 import { EtatVide } from '../components/EtatVide'
 import { Indicateur } from '../components/Indicateur'
 import { Panne } from '../components/Panne'
-import { chargerAlertes, chargerBudgets, chargerParametres, chargerReelDuCompte, hypothesesDe } from '../data/pilotage'
+import { chargerActions, chargerAlertes, chargerBudgets, chargerParametres, chargerReelDuCompte, hypothesesDe } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { feuilleReseau } from '../lib/exports'
 import { ecartTaux, lienMagasin, milliers, MOIS, taux } from '../lib/format'
@@ -32,7 +33,9 @@ import { classeur, nomFichier, telecharger } from '../lib/xlsx'
 import { fraisDepuisLignes } from '../moteur/atterrissage'
 import { calculerBudget } from '../moteur/budget'
 import { medianes, ratiosDuReel, RATIOS, type CleRatio } from '../moteur/comparaison'
+import { maSemaine } from '../moteur/semaine'
 import { ligneReseau, totalReseau, type LigneReseau, type MoisReel } from '../moteur/suivi'
+import { ficheVisite } from '../moteur/visite'
 
 type Cle = 'magasin' | 'moisRealises' | 'ca' | 'evolution' | 'ecartBudget' | 'tauxMarge' | 'panierCave' | 'ticketsCave' | 'panierBar' | 'ticketsBar' | 'personnelSurMarge' | 'caParHeure' | 'loyerSurCA' | 'ebeSurCA'
 type Colonne = { cle: Exclude<Cle, 'magasin'>; libelle: string; texte: (v: number) => string; rouge?: (v: number) => boolean }
@@ -62,23 +65,27 @@ const simple = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerC
 export function Reseau() {
   const annee = new Date().getFullYear()
   const { donnees, erreur, chargement, recharger } = useChargement(async () => {
-    const [d, { parametres }, reel, alertes] = await Promise.all([chargerBudgets(annee), chargerParametres(annee), chargerReelDuCompte(annee), chargerAlertes()])
+    const [d, { parametres }, reel, alertes, actions] = await Promise.all([chargerBudgets(annee), chargerParametres(annee), chargerReelDuCompte(annee), chargerAlertes(), chargerActions().catch(() => [])])
     const groupes = new Map(d.groupes.map((g) => [g.id, g.nom]))
     const p = { tauxRedevance: parametres.tauxRedevance, tauxPublicite: parametres.tauxPublicite, charges: parametres.charges, annee }
     const magasins = d.magasins.map((l) => {
       const h = l.statut ? hypothesesDe(l, d) : null
       const frais = d.frais[l.magasin]
+      const n = reel.magasins[l.magasin]?.n ?? douze(), n1 = reel.magasins[l.magasin]?.n1 ?? douze()
+      const budget = h ? calculerBudget(h.hypotheses, parametres) : null
       return {
+        // Fiche de visite du magasin (lot 28), pour « Ma semaine » (lot 29)
+        fiche: ficheVisite({ n, n1, budget }, parametres.tvaPanier),
         ...ligneReseau({
-          magasin: l.magasin, n: reel.magasins[l.magasin]?.n ?? douze(), n1: reel.magasins[l.magasin]?.n1 ?? douze(),
-          budget: h ? calculerBudget(h.hypotheses, parametres) : null,
+          magasin: l.magasin, n, n1,
+          budget,
           equipe: d.equipes[l.magasin], frais: frais?.length ? fraisDepuisLignes(frais).frais : undefined,
         }, p),
         groupeId: l.groupeId, groupe: l.groupeId ? groupes.get(l.groupeId) ?? '' : '', coach: reel.coachs[l.magasin] ?? '', rrs: reel.rrs[l.magasin] ?? [],
       }
     })
     const trie = (l: string[]) => [...new Set(l)].sort((a, b) => a.localeCompare(b, 'fr'))
-    return { magasins, alertes, groupes: d.groupes, coachs: trie(Object.values(reel.coachs)), rrs: trie(Object.values(reel.rrs).flat()) }
+    return { magasins, alertes, actions, groupes: d.groupes, coachs: trie(Object.values(reel.coachs)), rrs: trie(Object.values(reel.rrs).flat()) }
   }, [annee])
 
   // Filtres et tri gardés dans l'adresse : le retour depuis une fiche les retrouve
@@ -176,6 +183,12 @@ export function Reseau() {
         />
       </Box>
 
+      <Box className="pas-a-l-impression">
+        <MaSemaine
+          lignes={maSemaine(visibles.filter((m) => m.moisRealises > 0), donnees.alertes, donnees.actions, new Date().toISOString().slice(0, 10))}
+          avecCoachs={donnees.coachs.length > 0} etat={etat}
+        />
+      </Box>
       <Box className="pas-a-l-impression" sx={{ mb: 4 }}>
         <AlertesMagasins alertes={donnees.alertes.filter((a) => visibles.some((m) => m.magasin === a.magasin))} etat={etat} />
       </Box>

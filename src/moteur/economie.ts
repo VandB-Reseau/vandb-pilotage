@@ -39,5 +39,8 @@ export function economieFranchise(b: Budget, h: Hypotheses, p: Pick<ParametresRe
 
 // CA à atteindre pour porter la rémunération du gérant à la cible, au même résultat : chaque euro de plus pour le gérant
 // est un coût fixe de plus, couvert par la marge sur coûts variables
-export const caPourRemuneration = (e: EconomieFranchise, cible: number): number | null =>
-  e.tauxMCV > 0 ? e.ca + (cible - e.gerant) / e.tauxMCV : null
+export function caPourRemuneration(e: EconomieFranchise, cible: number): { ca: number; ecart: number } | null {
+  if (e.tauxMCV <= 0 || e.ca <= 0) return null
+  const ca = e.ca + (cible - e.gerant) / e.tauxMCV
+  return { ca, ecart: ca / e.ca - 1 }
+}

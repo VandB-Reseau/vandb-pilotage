@@ -48,6 +48,8 @@ import { AjustementsCAMagasin } from '../components/AjustementsCAMagasin'
 import { BaseCAMagasin } from '../components/BaseCAMagasin'
 import { TempsFortsMagasin } from '../components/TempsFortsMagasin'
 import { TresorerieBudget } from '../components/TresorerieBudget'
+import { EconomieFranchise } from '../components/EconomieFranchise'
+import { FamillesReseau } from '../components/FamillesReseau'
 import { SyntheseMagasin } from '../components/SyntheseMagasin'
 import { GrilleHypotheses } from '../components/GrilleHypotheses'
 import { lignesCibles, TableauCibles } from '../components/TableauCibles'
@@ -263,6 +265,7 @@ export function Magasin() {
           <SyntheseMagasin key={ligne.magasin} magasin={ligne.magasin} d={d} annee={anneeEnCours} parametres={donnees.parametresN} allerA={aller}
             visiteEtActions={!franchise && profil?.role !== 'aucun'} proposerAction={!franchise && profil?.role !== 'aucun' ? (intitule) => setProposition({ intitule, n: Date.now() }) : undefined} />
           {!franchise && <ComparaisonMagasin key={`comparaison-${ligne.magasin}`} magasin={ligne.magasin} directeur={directeur} />}
+          {!franchise && <FamillesReseau key={`familles-${ligne.magasin}`} magasin={ligne.magasin} directeur={directeur} />}
         </>
       ) : onglet === 'suivi' ? (
         <SuiviBudget key={ligne.magasin} magasin={ligne.magasin} annee={anneeEnCours} allerA={aller} />
@@ -420,6 +423,7 @@ export function Magasin() {
           )}
           <Stack spacing={3} className={partie('resultat')}>
             {resolu && <CompteResultatMois lignes={compteResultat(b, resolu.hypotheses, parametres)} titre={`Compte de résultat ${annee}`} libelleTableau={`Budget ${annee} mois par mois`} />}
+            {resolu && b && <EconomieFranchise budget={b} hypotheses={resolu.hypotheses} parametres={parametres} annee={annee} />}
             {tresorerie && (
               <TresorerieBudget
                 key={ligne.magasin} tresorerie={tresorerie} annee={annee} depart={brouillon.tresorerieDepart} lectureSeule={!peutAjuster} replie={franchise}

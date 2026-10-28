@@ -25,7 +25,8 @@ test('économie du franchisé : point mort, marge de sécurité, gérant, CA pou
   expect(e.gerant).toBe(34_800)                          // 2 000 × 12 × 1,45, sans équipe saisie
   expect(e.resteDisponible).toBe(20_000)
   // Gérant porté à 46 800 € : 12 000 € de fixes en plus, 12 000 / 0,36 = 33 333 € de CA en plus
-  proche(caPourRemuneration(e, 46_800), 600_000 + 12_000 / 0.36)
+  proche(caPourRemuneration(e, 46_800)?.ca, 600_000 + 12_000 / 0.36)
+  proche(caPourRemuneration(e, 46_800)?.ecart, 12_000 / 0.36 / 600_000)
   // Marge sur coûts variables négative : pas de point mort
   const perte = economieFranchise({ ...b, marge: 10_000 }, h, { charges: {} as never })
   expect(perte.pointMort).toBeNull()

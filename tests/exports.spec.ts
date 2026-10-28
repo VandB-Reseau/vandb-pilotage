@@ -70,7 +70,7 @@ test('vue réseau imprimée : sans menu ni filtres, sélection et date en tête'
   test.skip(isMobile, 'impression depuis le PC')
   await seConnecter(page, { reel, coachs, rrs })
   await page.getByRole('link', { name: 'Réseau' }).first().click()
-  await page.getByLabel('Coach').click()
+  await page.getByLabel('Coach', { exact: true }).click()
   await page.getByRole('option', { name: 'Coach Sud' }).click()
   await page.emulateMedia({ media: 'print' })
   await expect(page.getByRole('navigation', { name: 'Menu principal' })).toBeHidden()

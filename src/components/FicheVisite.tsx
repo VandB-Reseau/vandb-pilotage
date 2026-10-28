@@ -26,7 +26,7 @@ const jour = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('fr
 const aujourdhuiISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
 
 // Sujet de visite : le constat et le levier à travailler avec le franchisé
-function texteSujet(s: SujetVisite): { constat: string; levier: string } {
+export function texteSujet(s: SujetVisite): { constat: string; levier: string } {
   switch (s.type) {
     case 'ca': return { constat: `CA ${ecartTaux(s.ecart)} face au budget`, levier: 'Fréquentation et temps forts : revoir le calendrier commercial des prochains mois.' }
     case 'marge': return { constat: `Taux de marge ${ecartPts(s.ecart)} sur l’an dernier`, levier: 'Mix et démarque : mise en avant des familles les mieux margées, suivi de la casse.' }

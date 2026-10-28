@@ -25,7 +25,7 @@ test.afterEach(async ({ page }) => {
 test('fiche magasin : face à la médiane des budgets, puis du réel', async ({ page, isMobile }, info) => {
   await seConnecter(page, { magasins, reel })
   await page.getByText(MAGASINS[1], { exact: true }).last().click()
-  const section = page.getByRole('region', { name: 'Face au réseau' })
+  const section = page.getByRole('region', { name: 'Face au réseau', exact: true })
   const tableau = section.getByRole('table', { name: `${MAGASINS[1]} face aux médianes` })
   const ligne = (nom: string) => tableau.getByRole('row').filter({ has: page.getByRole('cell', { name: nom, exact: true }) })
   // Réel d'abord : 30 % de marge contre 40 % de médiane, 3e sur 3
@@ -50,5 +50,5 @@ test('le franchisé ne voit pas la comparaison', async ({ page }) => {
   await seConnecter(page, { role: 'franchise', magasins, reel })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await expect(page.getByRole('tab', { name: 'Synthèse' })).toHaveAttribute('aria-selected', 'true')
-  await expect(page.getByRole('region', { name: 'Face au réseau' })).toHaveCount(0)
+  await expect(page.getByRole('region', { name: 'Face au réseau', exact: true })).toHaveCount(0)
 })
