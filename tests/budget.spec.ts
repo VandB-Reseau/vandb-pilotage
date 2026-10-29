@@ -72,16 +72,16 @@ test('le franchisé s’écarte d’une cible : le budget passe en discussion, i
   await expect(resultat.getByRole('row', { name: /^Chiffre d’affaires HT/ })).toContainText(/615\s000\s€/)
   await ouvrir(page, 'Hypothèses')
   await expect(page.getByText('aucun écart aux cibles du siège', { exact: false })).toBeVisible()
-  const hypotheses = page.getByRole('table', { name: 'Hypothèses du magasin' })
-  await expect(hypotheses.getByRole('row', { name: /^Tickets \(Cave\)/ })).toContainText('Réseau')
-  await expect(hypotheses.getByRole('row', { name: /^Tickets \(Cave\)/ })).toContainText(/10\s300/)   // 10 000 attendus sur l'année × 1,03
-  await expect(hypotheses.getByRole('row', { name: /^Panier moyen TTC \(Cave\)/ })).toContainText(/24,00\s€/)
+  const hypotheses = page.getByRole('region', { name: 'Hypothèses du magasin' })
+  await expect(hypotheses.getByRole('group', { name: 'Tickets (Cave)' })).toContainText('Réseau')
+  await expect(hypotheses.getByRole('group', { name: 'Tickets (Cave)' })).toContainText(/10\s300/)   // 10 000 attendus sur l'année × 1,03
+  await expect(hypotheses.getByRole('group', { name: 'Panier moyen TTC (Cave)' })).toContainText(/24,00\s€/)
   // Panier +2 % : 200 000 × 1,03 × 1,02 = 210 120 € de Cave
   await page.getByLabel('Évolution du panier moyen : Cave').fill('2')
   await ouvrir(page, 'Résultat et trésorerie')
   await expect(resultat.getByRole('row', { name: /^Chiffre d’affaires HT/ })).toContainText(/619\s120\s€/)
   await ouvrir(page, 'Hypothèses')
-  await expect(hypotheses.getByRole('row', { name: /^Panier moyen TTC \(Cave\)/ })).toContainText(/24,48\s€/)
+  await expect(hypotheses.getByRole('group', { name: 'Panier moyen TTC (Cave)' })).toContainText(/24,48\s€/)
   await expect(page.getByText('1 écart aux cibles du siège', { exact: false })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Valider le budget' })).toHaveCount(0)
   expect(await textesTropPetits(page)).toEqual([])
@@ -109,6 +109,7 @@ test('le Directeur valide le budget, puis peut le rouvrir', async ({ page }) => 
   // Les hypothèses figées sont celles des cibles du moment : tickets de la Cave, CA du Bar
   expect(envoi.hypotheses.familles.map((f) => f.evolution)).toEqual([0, 0.03, 0])
   expect(envoi.hypotheses.flux.cave.evolution).toBe(0.03)
+  await page.getByRole('region', { name: 'Hypothèses du magasin' }).getByRole('button', { name: /^Détail par famille/ }).first().click()
   await expect(page.getByLabel('Part de la famille dans l’univers : Bière (Cave)')).toBeDisabled()
   await page.getByRole('button', { name: 'Rouvrir la discussion' }).click()
   await expect(page.getByText('Budget rouvert : il est de nouveau en discussion.')).toBeVisible()

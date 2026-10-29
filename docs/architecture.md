@@ -141,6 +141,9 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
    regroupées dans `MaSemaine`. `SectionParametres` : chaque section des Paramètres repliée avec son résumé.
    `src/moteur/objectifs.ts` : CA TTC, clients par jour et panier du mois pour Cave et Bar (`ObjectifsMois`, imprimable).
    Extras dans l'équipe (migration 0017) et démarque de consignes.
+31. Lot 31 : `HypothesesUnivers` remplace la grille complète dans le budget : leviers par univers, `GrilleHypotheses`
+   (mode `detail`) n'affiche plus que les familles d'un univers, à la demande. `cibles.ts` : `moyenneUnivers`,
+   `ecrireUnivers` (marge décalée de façon égale, démarque identique), `universRegle`. Sans migration.
 
 ## Rôles
 

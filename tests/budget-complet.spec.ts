@@ -25,7 +25,8 @@ test.afterEach(async ({ page }) => {
 test('le franchisé ajoute démarque, saisonnalité et travaux, puis enregistre', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { role: 'franchise', magasins: magasins().slice(0, 1) })
   await page.getByRole('tab', { name: /^Budget/ }).click()
-  const grille = page.getByRole('table', { name: 'Hypothèses du magasin' })
+  await page.getByRole('region', { name: 'Cave' }).getByRole('button', { name: /^Détail par famille/ }).click()
+  const grille = page.getByRole('table', { name: 'Familles : Cave' })
   const biere = grille.getByRole('row', { name: /Bière \(Cave\)/ })
 
   // Démarque : 200 000 × (36 % − 2 %) = 68 000
