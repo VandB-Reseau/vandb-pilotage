@@ -14,7 +14,16 @@ import ChevronRightOutlined from '@mui/icons-material/ChevronRightOutlined'
 import { enChiffres, enMilliers, montant, MOIS, QUADRIMESTRES_COURTS, taux } from '../lib/format'
 import type { LigneCompte } from '../moteur/compteResultat'
 import { COLONNES, regrouperCompte } from '../moteur/periodes'
+import type { SujetAide } from '../lib/aide'
+import { Aide } from './Aide'
 import { ChoixPeriode, usePeriode } from './ChoixPeriode'
+
+// Lot 32 : picto (i) sur chaque ligne calculée (pas sur le CA ni les rubriques qui ne font qu'additionner des frais)
+const AIDE_LIGNE: Record<string, SujetAide> = {
+  achats: 'achatsConsommes', marge: 'margeCommerciale', 'externes/publicite': 'publiciteRedevance', 'externes/redevance': 'publiciteRedevance',
+  'externes/consignes': 'demarqueConsignes', personnel: 'fraisPersonnel', ebe: 'ebe', amortissements: 'amortissements',
+  exploitation: 'resultatExploitation', impot: 'impotSocietes', net: 'resultatNet', tresorerie: 'tresorerieDegagee', productivite: 'productivite',
+}
 
 // Compte de résultat sur 12 mois : rubriques repliées, dépliables d'un clic ; titres et libellés figés au défilement.
 // « projeteA » : à partir de ce mois (0 = janvier), les colonnes sont des projections, en gris.
@@ -79,6 +88,7 @@ export function CompteResultatMois({ lignes, titre, libelleTableau, projeteA, en
                         {l.libelle}
                       </ButtonBase>
                     ) : l.libelle}
+                    {AIDE_LIGNE[l.cle] && <Aide sujet={AIDE_LIGNE[l.cle]} compact />}
                   </TableCell>
                   {l.mois.map((v, i) => (
                     <TableCell key={i} align="right" sx={{ ...style, ...(projete(colonnes[i]) ? { color: 'text.secondary' } : {}), ...(v !== null && v < 0 && l.fort ? { color: 'error.main' } : {}) }}>

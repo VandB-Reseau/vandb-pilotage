@@ -167,17 +167,17 @@ export function Reseau() {
       )}
       <Box component="section" aria-label={`Réseau ${annee} en chiffres`} sx={{ display: 'grid', gap: 2, mb: 4, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' } }}>
         <Indicateur
-          libelle="CA HT cumulé" valeur={milliers(total.ca)}
+          libelle="CA HT cumulé" aide="caCumule" valeur={milliers(total.ca)}
           ecart={total.evolution === null ? undefined : { texte: `${ecartTaux(total.evolution)} sur ${annee - 1}`, hausse: total.evolution >= 0, favorable: total.evolution >= 0 }}
           detail={`${total.magasins} magasin${total.magasins > 1 ? 's' : ''} avec du réel`}
         />
         <Indicateur
-          libelle="Écart au budget" valeur={total.ecartBudget === null ? 'Pas de budget' : ecartTaux(total.ecartBudget)}
+          libelle="Écart au budget" aide="ecartBudget" valeur={total.ecartBudget === null ? 'Pas de budget' : ecartTaux(total.ecartBudget)}
           detail={avecBudget ? `${sousBudget} magasin${sousBudget > 1 ? 's' : ''} sous le budget sur ${avecBudget}` : `Aucun budget ${annee} dans l’app`}
         />
-        <Indicateur libelle="Taux de marge" valeur={total.tauxMarge === null ? 'Non connu' : taux(total.tauxMarge)} detail={[total.panierCave === null ? '' : `Panier Cave ${euros.format(total.panierCave)}`, total.panierBar === null ? '' : `Bar ${euros.format(total.panierBar)}`].filter(Boolean).join(' · ') || undefined} />
+        <Indicateur libelle="Taux de marge" aide="margeTheorique" valeur={total.tauxMarge === null ? 'Non connu' : taux(total.tauxMarge)} detail={[total.panierCave === null ? '' : `Panier Cave ${euros.format(total.panierCave)}`, total.panierBar === null ? '' : `Bar ${euros.format(total.panierBar)}`].filter(Boolean).join(' · ') || undefined} />
         <Indicateur
-          libelle="Masse salariale / marge" valeur={total.personnelSurMarge === null ? 'À renseigner' : taux(total.personnelSurMarge)}
+          libelle="Masse salariale / marge" aide="masseSurMarge" valeur={total.personnelSurMarge === null ? 'À renseigner' : taux(total.personnelSurMarge)}
           detail={total.ebeSurCA === null ? 'Équipe et frais à renseigner' : `EBE à date : ${taux(total.ebeSurCA)} du CA`}
         />
       </Box>

@@ -20,20 +20,21 @@ import { GraphiqueTresorerie } from './GraphiqueTresorerie'
 import { ChampNombre } from './ChampNombre'
 import { Indicateur } from './Indicateur'
 import { Aide } from './Aide'
+import type { SujetAide } from '../lib/aide'
 
 // Trésorerie du budget mois par mois : encaissements, décaissements (montants TTC, délais de paiement compris), solde
 // « facultative » : ligne masquée quand elle est nulle toute l'année
-export const LIGNES_TRESORERIE: { cle: keyof MoisTresorerie; libelle: string; sortie?: boolean; fort?: boolean; facultative?: boolean }[] = [
-  { cle: 'encaissements', libelle: 'Encaissements des ventes TTC', fort: true },
-  { cle: 'consignesRemboursees', libelle: 'Consignes remboursées par les fournisseurs', facultative: true },
-  { cle: 'fournisseurs', libelle: 'Fournisseurs de marchandises', sortie: true },
-  { cle: 'frais', libelle: 'Frais, redevance et publicité', sortie: true },
-  { cle: 'personnel', libelle: 'Salaires et cotisations', sortie: true },
-  { cle: 'tva', libelle: 'TVA reversée', sortie: true },
-  { cle: 'emprunts', libelle: 'Emprunts (intérêts et capital)', sortie: true },
-  { cle: 'impot', libelle: 'Impôt sur les sociétés', sortie: true, facultative: true },
+export const LIGNES_TRESORERIE: { cle: keyof MoisTresorerie; libelle: string; sortie?: boolean; fort?: boolean; facultative?: boolean; aide?: SujetAide }[] = [
+  { cle: 'encaissements', libelle: 'Encaissements des ventes TTC', fort: true, aide: 'encaissements' },
+  { cle: 'consignesRemboursees', libelle: 'Consignes remboursées par les fournisseurs', facultative: true, aide: 'consignesTreso' },
+  { cle: 'fournisseurs', libelle: 'Fournisseurs de marchandises', sortie: true, aide: 'fournisseurs' },
+  { cle: 'frais', libelle: 'Frais, redevance et publicité', sortie: true, aide: 'fraisTreso' },
+  { cle: 'personnel', libelle: 'Salaires et cotisations', sortie: true, aide: 'salairesTreso' },
+  { cle: 'tva', libelle: 'TVA reversée', sortie: true, aide: 'tvaTreso' },
+  { cle: 'emprunts', libelle: 'Emprunts (intérêts et capital)', sortie: true, aide: 'empruntsTreso' },
+  { cle: 'impot', libelle: 'Impôt sur les sociétés', sortie: true, facultative: true, aide: 'impotSocietes' },
   { cle: 'travaux', libelle: 'Travaux', sortie: true, facultative: true },
-  { cle: 'consignesVersees', libelle: 'Consignes versées aux fournisseurs', sortie: true, facultative: true },
+  { cle: 'consignesVersees', libelle: 'Consignes versées aux fournisseurs', sortie: true, facultative: true, aide: 'consignesTreso' },
   { cle: 'decaissements', libelle: 'Total des décaissements', sortie: true, fort: true },
   { cle: 'flux', libelle: 'Variation du mois', fort: true },
 ]
@@ -78,15 +79,15 @@ export function TresorerieBudget({ tresorerie: t, annee, depart, onDepart, lectu
         </Box>
       </Box>
       <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap', px: 2.5, py: 1.5 }} aria-label="Trésorerie en bref">
-        <Indicateur libelle="Fin décembre" valeur={milliers(t.fin)} detail={`${t.fin >= t.debut ? '+' : ''}${milliers(t.fin - t.debut)} sur l’année`} />
-        <Indicateur libelle="Point bas" valeur={milliers(t.pointBas.montant)} detail={`Fin ${MOIS_LONGS[t.pointBas.mois]}`} />
+        <Indicateur libelle="Fin décembre" aide="tresorerieFin" valeur={milliers(t.fin)} detail={`${t.fin >= t.debut ? '+' : ''}${milliers(t.fin - t.debut)} sur l’année`} />
+        <Indicateur libelle="Point bas" aide="pointBas" valeur={milliers(t.pointBas.montant)} detail={`Fin ${MOIS_LONGS[t.pointBas.mois]}`} />
         <Indicateur
           libelle="Mois à découvert" valeur={t.moisNegatifs === 0 ? 'Aucun' : `${t.moisNegatifs} mois`}
           detail={t.moisNegatifs === 0 ? 'Trésorerie positive toute l’année' : `Besoin de financement : ${montant(-t.pointBas.montant)}`}
         />
         {t.consignesMoyennes > 0 && (
           <Indicateur
-            libelle="Consignes avancées aux fournisseurs" valeur={milliers(t.consignesMoyennes)}
+            libelle="Consignes avancées aux fournisseurs" aide="consignesAvancees" valeur={milliers(t.consignesMoyennes)}
             detail={`Moyenne sur l’année ; au plus haut fin ${MOIS_LONGS[plusHaut]} : ${milliers(t.mois[plusHaut].consignesEnAttente)}`}
           />
         )}
@@ -114,7 +115,7 @@ export function TresorerieBudget({ tresorerie: t, annee, depart, onDepart, lectu
               const fond = l.fort ? { bgcolor: 'background.default' } : undefined
               return (
                 <TableRow key={l.cle} sx={fond}>
-                  <TableCell sx={{ fontWeight: l.fort ? 700 : 400, ...fond }}>{l.libelle}</TableCell>
+                  <TableCell sx={{ fontWeight: l.fort ? 700 : 400, ...fond }}>{l.libelle}{l.aide && <Aide sujet={l.aide} compact />}</TableCell>
                   {regrouper(t.mois.map((m) => m[l.cle]), periode).map((v, i) => (
                     <TableCell key={i} align="right" sx={{ fontWeight: l.fort ? 700 : 400, ...(l.cle === 'flux' ? rouge(v) : {}) }}>
                       {affiche(signe * v)}

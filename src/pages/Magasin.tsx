@@ -317,11 +317,11 @@ export function Magasin() {
       {b && (
         <>
           <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap' }} component="section" aria-label="Indicateurs clés">
-            <Indicateur libelle="Chiffre d’affaires HT" valeur={milliers(b.ca)} detail={`Atterrissage de l’année en cours : ${milliers(b.atterrissage)}`} action={<DetailCalcul quoi="ca" budget={b} annee={annee} />} />
-            <Indicateur libelle="Marge commerciale" valeur={taux(b.tauxMarge)} detail={milliers(b.marge)} action={<DetailCalcul quoi="marge" budget={b} annee={annee} />} />
-            <Indicateur libelle="Masse salariale / marge" valeur={taux(b.ratios.personnelSurMarge)} detail={`${taux(b.ratios.personnelSurCA)} du CA`} />
-            <Indicateur libelle="EBE" valeur={milliers(b.ebe)} detail={`${taux(b.ratios.ebeSurCA)} du CA`} action={<DetailCalcul quoi="ebe" budget={b} annee={annee} />} />
-            <Indicateur libelle="Résultat net" valeur={milliers(b.resultatNet)} detail={`Impôt : ${milliers(b.impot)}`} />
+            <Indicateur libelle="Chiffre d’affaires HT" valeur={milliers(b.ca)} detail={`Atterrissage de l’année en cours : ${milliers(b.atterrissage)}`} info={<DetailCalcul quoi="ca" budget={b} annee={annee} />} />
+            <Indicateur libelle="Marge commerciale" valeur={taux(b.tauxMarge)} detail={milliers(b.marge)} info={<DetailCalcul quoi="marge" budget={b} annee={annee} />} />
+            <Indicateur libelle="Masse salariale / marge" aide="masseSurMarge" valeur={taux(b.ratios.personnelSurMarge)} detail={`${taux(b.ratios.personnelSurCA)} du CA`} />
+            <Indicateur libelle="EBE" valeur={milliers(b.ebe)} detail={`${taux(b.ratios.ebeSurCA)} du CA`} info={<DetailCalcul quoi="ebe" budget={b} annee={annee} />} />
+            <Indicateur libelle="Résultat net" aide="resultatNet" valeur={milliers(b.resultatNet)} detail={`Impôt : ${milliers(b.impot)}`} />
           </Stack>
 
           <Stack direction="row" useFlexGap spacing={1.5} className="pas-a-l-impression" sx={{ flexWrap: 'wrap' }} aria-label="Actions sur le budget">

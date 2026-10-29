@@ -6,6 +6,9 @@ toute l'année).
 
 ## Règles communes
 
+- Un modèle de chaque fichier se télécharge depuis la page Imports de caisse (« Modèle des ventes », « Modèle des
+  tickets », « Télécharger le modèle ») ; l'onglet Quadrimestres propose un exemple de FEC.
+
 - CSV séparé par des points-virgules, encodage UTF-8 (avec ou sans BOM), première ligne = noms des colonnes.
 - Montants HT et TTC en euros, virgule décimale (`1250,40`) ; les espaces de milliers sont acceptés.
 - `date` : `AAAA-MM-JJ` (une ligne par jour) ou `AAAA-MM` (une ligne par mois). L'app cumule par mois.

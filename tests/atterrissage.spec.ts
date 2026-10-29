@@ -139,7 +139,7 @@ test('synthèse et atterrissage : réel des mois passés, saisonnalité de l’a
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-atterrissage.png`, fullPage: true })
   // D'où vient ce chiffre : Cave 30 000 réalisés ÷ 2 000 / 15 000 de l'an dernier ; Bar sans an dernier
-  await page.getByRole('button', { name: 'D’où vient ce chiffre ? Chiffre d’affaires HT atterri' }).click()
+  await page.getByRole('button', { name: 'Comment c’est calculé : Chiffre d’affaires HT atterri' }).click()
   const calcul = page.getByRole('table', { name: `Calcul : Chiffre d’affaires HT atterri ${N}` })
   await expect(calcul.getByRole('row', { name: /^Réalisé de janvier à février/ }).first()).toContainText(/30\s000\s€/)
   await expect(calcul.getByRole('row', { name: /^Part de l’année réalisée/ }).first()).toContainText(/225\s000\s€/)

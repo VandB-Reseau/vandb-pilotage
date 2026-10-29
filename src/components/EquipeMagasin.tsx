@@ -254,12 +254,12 @@ export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, cha
       ) : (
         <>
           <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap' }} component="section" aria-label="Masse salariale en chiffres">
-            <Indicateur libelle={`Masse salariale chargée ${annee}`} valeur={milliers(n.cout)} detail={`Brut : ${milliers(n.brut)}`} />
-            <Indicateur libelle={`Masse salariale chargée ${anneeBudget}`} valeur={milliers(n1.cout)} detail={`Hausse des salaires : ${taux(hausse)}`} />
-            <Indicateur libelle="Équivalents temps plein" valeur={nombreEtp.format(n.etp)} detail={`${equipe.length} poste${equipe.length > 1 ? 's' : ''}`} />
-            <Indicateur libelle="Charges patronales" valeur={taux(n.tauxEffectif)} detail={`Réduction générale : ${milliers(n.reduction)}`} />
+            <Indicateur libelle={`Masse salariale chargée ${annee}`} aide="masseChargee" valeur={milliers(n.cout)} detail={`Brut : ${milliers(n.brut)}`} />
+            <Indicateur libelle={`Masse salariale chargée ${anneeBudget}`} aide="masseChargee" valeur={milliers(n1.cout)} detail={`Hausse des salaires : ${taux(hausse)}`} />
+            <Indicateur libelle="Équivalents temps plein" aide="etp" valeur={nombreEtp.format(n.etp)} detail={`${equipe.length} poste${equipe.length > 1 ? 's' : ''}`} />
+            <Indicateur libelle="Charges patronales" aide="chargesPatronales" valeur={taux(n.tauxEffectif)} detail={`Réduction générale : ${milliers(n.reduction)}`} />
             {(prodN1 !== null || prodN !== null) && (
-              <Indicateur libelle={`Productivité ${prodN1 !== null ? anneeBudget : annee}`} valeur={`${parHeure.format((prodN1 ?? prodN)!)} par heure`}
+              <Indicateur aide="productivite" libelle={`Productivité ${prodN1 !== null ? anneeBudget : annee}`} valeur={`${parHeure.format((prodN1 ?? prodN)!)} par heure`}
                 detail={`CA HT par heure travaillée${prodN1 !== null && prodN !== null ? ` · ${annee} : ${parHeure.format(prodN)}` : ''} · ${heures.format(heuresAn(prodN1 !== null ? n1 : n))} h`} />
             )}
           </Stack>

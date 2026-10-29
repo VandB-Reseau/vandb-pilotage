@@ -33,7 +33,8 @@ test('budget : trésorerie mois par mois, le franchisé saisit sa trésorerie de
   // Détail replié d'office pour le franchisé (lot 27) : la courbe et le bref d'abord
   await expect(tableau).toBeHidden()
   await section.getByRole('button', { name: 'Voir le détail mois par mois' }).click()
-  const ligne = (nom: string) => tableau.getByRole('row').filter({ has: page.getByRole('cell', { name: nom, exact: true }) })
+  // Libellé de la ligne, suivi ou non du picto (i) de son calcul
+  const ligne = (nom: string) => tableau.getByRole('row').filter({ has: page.getByRole('cell', { name: new RegExp(`^${nom.replace(/[()]/g, '\\$&')}( Aide : .*)?$`) }) })
   await expect(ligne('Encaissements des ventes TTC')).toContainText(/^Encaissements des ventes TTC53\s550/)   // 45 000 × 1,19
   await expect(ligne('TVA reversée')).toBeVisible()
   await expect(ligne('Travaux')).toHaveCount(0)                       // pas de travaux : pas de ligne

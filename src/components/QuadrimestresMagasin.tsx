@@ -28,6 +28,9 @@ import { ecartMontant, ecartPts, ecartTaux, enChiffres, milliers, montant, MOIS,
 import { tresorerieBudget, tresorerieGlissante } from '../moteur/tresorerie'
 import { calculerBudget } from '../moteur/budget'
 import { comparaisonPeriode, memePeriode, moisDuQuadrimestre, QUADRIMESTRES, quadrimestreLibelle, resultatsQuadrimestres, type Quadrimestre, type ResultatQuadrimestre, type SaisieQuadrimestre } from '../moteur/quadrimestre'
+import { BoutonModele } from './BoutonModele'
+import { MODELES } from '../lib/modeles'
+import { Aide } from './Aide'
 import { moisDuReel } from '../moteur/suivi'
 
 type Champ = keyof SaisieQuadrimestre
@@ -164,15 +167,15 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
       {cumul?.ebe != null && (
         <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap' }} component="section" aria-label={`Résultat réel à fin ${fin}`}>
           <Indicateur
-            libelle={`EBE réel à fin ${fin}`} valeur={milliers(cumul.ebe)}
+            libelle={`EBE réel à fin ${fin}`} aide="ebeReel" valeur={milliers(cumul.ebe)}
             ecart={cumul.ecartEBE === null ? undefined : { texte: `${ecartMontant(cumul.ecartEBE)} sur le budget`, hausse: cumul.ecartEBE >= 0, favorable: cumul.ecartEBE >= 0 }}
             detail={cumul.ebeSurCA === null ? undefined : `${taux(cumul.ebeSurCA)} du CA`}
           />
           <Indicateur
-            libelle="Taux de marge réel" valeur={cumul.tauxMarge === null ? '–' : taux(cumul.tauxMarge)}
+            libelle="Taux de marge réel" aide="margeReelle" valeur={cumul.tauxMarge === null ? '–' : taux(cumul.tauxMarge)}
             detail={cumul.ecartMargeCaisse === null ? undefined : `${ecartPts(cumul.ecartMargeCaisse)} face à la marge de la caisse`}
           />
-          <Indicateur libelle="Masse salariale / marge" valeur={cumul.personnelSurMarge === null ? '–' : taux(cumul.personnelSurMarge)} />
+          <Indicateur libelle="Masse salariale / marge" aide="masseSurMarge" valeur={cumul.personnelSurMarge === null ? '–' : taux(cumul.personnelSurMarge)} />
         </Stack>
       )}
 
@@ -181,6 +184,8 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
           <Typography variant="h2" sx={{ flex: 1 }}>Quadrimestres {annee}</Typography>
           {peutSaisir && (
             <>
+              <BoutonModele modele={MODELES.fec} libelle="Exemple de FEC" />
+              <Aide sujet="fec" />
               <Button variant="outlined" startIcon={<UploadFileOutlined />} disabled={occupe} onClick={() => entreeFEC.current?.click()} sx={{ minHeight: 48 }}>
                 Importer le FEC
               </Button>
@@ -270,9 +275,9 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
           </Box>
           <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap', px: 2.5, pb: 1.5 }}>
             <Indicateur libelle={`Trésorerie fin ${MOIS_LONGS[glissante.depart.mois]}`} valeur={milliers(glissante.depart.montant)} detail="Saisie au quadrimestre" />
-            <Indicateur libelle="Point bas prévu" valeur={milliers(glissante.pointBas.montant)}
+            <Indicateur libelle="Point bas prévu" aide="pointBas" valeur={milliers(glissante.pointBas.montant)}
               detail={`${MOIS_LONGS[glissante.pointBas.mois].charAt(0).toUpperCase()}${MOIS_LONGS[glissante.pointBas.mois].slice(1)}${glissante.moisNegatifs ? `, ${glissante.moisNegatifs} mois à découvert` : ''}`} />
-            <Indicateur libelle="Trésorerie fin décembre prévue" valeur={milliers(glissante.fin)} detail="Selon l’atterrissage de l’année" />
+            <Indicateur libelle="Trésorerie fin décembre prévue" aide="tresorerieGlissante" valeur={milliers(glissante.fin)} detail="Selon l’atterrissage de l’année" />
           </Stack>
           <TableContainer>
             <Table size="small" aria-label={`Trésorerie prévue ${annee} mois par mois`} sx={{ '& td, & th': { whiteSpace: 'nowrap' }, '& td:first-of-type, & th:first-of-type': { pl: 2.5 } }}>
