@@ -77,7 +77,8 @@ function LibelleOnglet({ texte, manque, detail }: { texte: string; manque: boole
 }
 // Lot 27 : espaces de la fiche ; chaque partie (ancien onglet) appartient à un espace. « budget » : les hypothèses.
 type Espace = 'synthese' | 'annee' | 'budget'
-const PARTIES_ANNEE = ['reel', 'suivi', 'atterrissage', 'quadrimestres']
+// 29/10/2026 (Joseph) : l'équipe et les frais sont ceux du magasin aujourd'hui, saisis dans l'année en cours ; le budget les reprend
+const PARTIES_ANNEE = ['reel', 'equipe', 'frais', 'suivi', 'atterrissage', 'quadrimestres']
 // Lot 30 (E1) : 10 onglets deviennent 6 ; une ancienne partie s'affiche dans l'onglet qui la regroupe, sous la première
 const REGROUPEES: Record<string, string> = { calendrier: 'budget', frais: 'equipe', atterrissage: 'suivi', quadrimestres: 'reel' }
 const ongletDe = (o: string) => REGROUPEES[o] ?? o
@@ -216,13 +217,13 @@ export function Magasin() {
   const reelRetard = !!reel.donnees && reelEnRetard(syntheseReel(reel.donnees.lignes, reel.donnees.tickets).moisRenseignes)
   const partiesAnnee: Partie[] = [
     { cle: 'reel', libelle: 'Réel', manque: reelRetard, detail: 'en retard' },
+    { cle: 'equipe', libelle: 'Équipe et frais', manque: !d.equipes[ligne.magasin]?.length || !d.frais[ligne.magasin]?.length, detail: 'à renseigner' },
     { cle: 'suivi', libelle: 'Où on va' },
   ]
   const partiesBudget: Partie[] = [
     { cle: 'budget', libelle: '1 · Chiffre d’affaires' },
-    { cle: 'equipe', libelle: '2 · Équipe et frais', manque: !d.equipes[ligne.magasin]?.length || !d.frais[ligne.magasin]?.length, detail: 'à renseigner' },
-    { cle: 'resultat', libelle: '3 · Résultat et trésorerie' },
-    { cle: 'echanges', libelle: '4 · Échanges et versions' },
+    { cle: 'resultat', libelle: '2 · Résultat et trésorerie' },
+    { cle: 'echanges', libelle: '3 · Échanges et versions' },
   ]
   // Budget : la partie affichée ; les autres parties du budget restent dans la page pour l'impression
   const partie = (cle: string) => (onglet === ongletDe(cle) ? undefined : 'partie-cachee')
@@ -307,6 +308,20 @@ export function Magasin() {
             <QuadrimestresMagasin key={`${ligne.magasin}-${anneeQuadri}`} magasin={ligne.magasin} annee={anneeQuadri} peutSaisir={peutSaisir} />
           </Stack>
         </Stack>
+      ) : onglet === 'equipe' ? (
+        <Stack spacing={5}>
+        <EquipeMagasin
+          key={ligne.magasin} magasin={ligne.magasin} equipe={d.equipes[ligne.magasin] ?? []} annee={anneeEnCours} anneeBudget={annee}
+          hausse={resolu?.hypotheses.hausseSalaires ?? valeurHeritee(niveauxDe(ligne, d, brouillon), 'hausseSalaires')?.valeur ?? 0}
+          charges={donnees.parametresN.charges} chargesBudget={parametres.charges}
+          peutSaisir={peutSaisir} apresEnregistrement={recharger} caAnnee={b?.atterrissage} caBudget={b?.ca} ebeBudget={b?.ebe}
+        />
+        <Box id="partie-frais" sx={{ scrollMarginTop: 80 }}>
+          <FraisMagasin key={ligne.magasin} magasin={ligne.magasin} lignes={d.frais[ligne.magasin] ?? []} annee={anneeEnCours} peutSaisir={peutSaisir} apresEnregistrement={recharger}
+            tauxSurCA={{ publicite: parametres.tauxPublicite, redevance: parametres.tauxRedevance }}
+            budget={b ? { annee, ca: b.ca, ebe: b.ebe } : undefined} />
+        </Box>
+        </Stack>
       ) : (<Stack spacing={3}>
 
       {message && (
@@ -321,7 +336,7 @@ export function Magasin() {
           <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap' }} component="section" aria-label="Indicateurs clés">
             <Indicateur libelle="Chiffre d’affaires HT" valeur={milliers(b.ca)} detail={`Atterrissage de l’année en cours : ${milliers(b.atterrissage)}`} info={<DetailCalcul quoi="ca" budget={b} annee={annee} />} />
             <Indicateur libelle="Marge commerciale" valeur={taux(b.tauxMarge)} detail={milliers(b.marge)} info={<DetailCalcul quoi="marge" budget={b} annee={annee} />} />
-            <Indicateur libelle="Masse salariale / marge" aide="masseSurMarge" valeur={taux(b.ratios.personnelSurMarge)} detail={`${taux(b.ratios.personnelSurCA)} du CA`} />
+            <Indicateur libelle="Masse salariale / CA" aide="masseSurCA" valeur={taux(b.ratios.personnelSurCA)} detail={`${taux(b.ratios.personnelSurMarge)} de la marge`} />
             <Indicateur libelle="EBE" valeur={milliers(b.ebe)} detail={`${taux(b.ratios.ebeSurCA)} du CA`} info={<DetailCalcul quoi="ebe" budget={b} annee={annee} />} />
             <Indicateur libelle="Résultat net" aide="resultatNet" valeur={milliers(b.resultatNet)} detail={`Impôt : ${milliers(b.impot)}`} />
           </Stack>
@@ -355,19 +370,7 @@ export function Magasin() {
         </>
       )}
 
-      {onglet === 'equipe' ? (<>
-        <EquipeMagasin
-          key={ligne.magasin} magasin={ligne.magasin} equipe={d.equipes[ligne.magasin] ?? []} annee={anneeEnCours} anneeBudget={annee}
-          hausse={resolu?.hypotheses.hausseSalaires ?? valeurHeritee(niveauxDe(ligne, d, brouillon), 'hausseSalaires')?.valeur ?? 0}
-          charges={donnees.parametresN.charges} chargesBudget={parametres.charges}
-          peutSaisir={peutSaisir} apresEnregistrement={recharger} caAnnee={b?.atterrissage} caBudget={b?.ca} ebeBudget={b?.ebe}
-        />
-        <Box id="partie-frais" sx={{ mt: 5, scrollMarginTop: 80 }}>
-          <FraisMagasin key={ligne.magasin} magasin={ligne.magasin} lignes={d.frais[ligne.magasin] ?? []} annee={anneeEnCours} peutSaisir={peutSaisir} apresEnregistrement={recharger}
-            tauxSurCA={{ publicite: parametres.tauxPublicite, redevance: parametres.tauxRedevance }}
-            budget={b ? { annee, ca: b.ca, ebe: b.ebe } : undefined} />
-        </Box>
-      </>) : onglet === 'echanges' ? (
+      {onglet === 'echanges' ? (
         <>
           {profil && <EchangesBudget key={`echanges-${ligne.magasin}`} ligne={ligne} d={d} annee={annee} parametres={parametres} moi={profil} />}
           {profil && ligne.base && b && (
@@ -427,6 +430,18 @@ export function Magasin() {
             </Stack>
           )}
           <Stack spacing={3} className={partie('resultat')}>
+            {resolu && (
+              <Card component="section" aria-label={`Équipe et frais ${annee}`} sx={{ px: 2.5, py: 2, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                <Box sx={{ flex: 1, minWidth: 260 }}>
+                  <Typography variant="h3" sx={{ fontSize: '1rem' }}>Équipe et frais {annee}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {`Masse salariale ${milliers(b.personnel)} : équipe ${anneeEnCours} + hausse des salaires de ${taux(resolu.hypotheses.hausseSalaires ?? 0)}. `}
+                    {`Frais ${milliers(b.chargesExternes + b.impotsTaxes - b.redevance - b.publicite)} : frais ${anneeEnCours} + inflation de ${taux(valeurHeritee(niveauxDe(ligne, d, brouillon), 'inflationFrais')?.valeur ?? 0)}.`}
+                  </Typography>
+                </Box>
+                <Button variant="outlined" onClick={() => garde(() => aller('equipe'))} sx={{ minHeight: 48 }}>Modifier dans {anneeEnCours} en cours</Button>
+              </Card>
+            )}
             {resolu && <CompteResultatMois lignes={compteResultat(b, resolu.hypotheses, parametres)} titre={`Compte de résultat ${annee}`} libelleTableau={`Budget ${annee} mois par mois`} />}
             {resolu && b && <EconomieFranchise budget={b} hypotheses={resolu.hypotheses} parametres={parametres} annee={annee} />}
             {tresorerie && (

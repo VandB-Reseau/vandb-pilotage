@@ -241,6 +241,11 @@ export const AIDE = {
     quoi: 'La productivité de l’équipe : ce que rapporte une heure de présence.',
     calcul: 'CA HT ÷ heures travaillées de l’équipe (heures par semaine de chaque poste, extras compris). Sur l’année : CA total ÷ heures totales.',
   },
+  masseSurCA: {
+    titre: 'Masse salariale / CA',
+    quoi: 'La part du chiffre d’affaires consacrée à l’équipe. Le rapport à la marge reste dans la productivité.',
+    calcul: 'Frais de personnel (gérant compris) ÷ CA HT.',
+  },
   masseSurMarge: {
     titre: 'Masse salariale / marge',
     quoi: 'La part de la marge mangée par l’équipe : le premier ratio de rentabilité d’un magasin.',

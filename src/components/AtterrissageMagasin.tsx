@@ -27,6 +27,7 @@ import TableRow from '@mui/material/TableRow'
 import SaveOutlined from '@mui/icons-material/SaveOutlined'
 import { DetailCalcul } from './DetailCalcul'
 import { Indicateur } from './Indicateur'
+import { styleTableau } from '../theme/tableau'
 
 // Atterrissage de l'année en cours : réel des mois passés, projection des mois restants, équipe et frais du magasin.
 // Le Directeur en tire la proposition du budget de l'an prochain.
@@ -72,7 +73,8 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
 
   const equipe = d.equipes[magasin]
   const frais = d.frais[magasin]
-  const b = calculerBudget(avecEquipeEtFrais(r.base, equipe, frais), parametres)
+  const h = avecEquipeEtFrais(r.base, equipe, frais)
+  const b = calculerBudget(h, parametres)
   const peutProposer = directeur && ligne.statut !== 'valide'
 
   const modifiees = parts !== null && JSON.stringify(parts) !== JSON.stringify(enregistrees)
@@ -131,7 +133,7 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
       </Stack>
 
       <CompteResultatMois
-        lignes={compteResultat(b, r.base, parametres)} projeteA={r.moisRealises}
+        lignes={compteResultat(b, h, parametres)} projeteA={r.moisRealises}
         titre={`Compte de résultat ${annee}`} libelleTableau={`Atterrissage ${annee} mois par mois`}
         entete={
           <Typography variant="body2" color="text.secondary">
@@ -147,7 +149,7 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
             <Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe} onClick={() => void enregistrerParts()} sx={{ minHeight: 48 }}>Enregistrer les parts</Button>
           )}
         </Box>
-        <Table size="small" aria-label={`Projection ${annee} par univers`} sx={{ '& td:first-of-type, & th:first-of-type': { pl: 2.5 } }}>
+        <Table size="small" aria-label={`Projection ${annee} par univers`} sx={styleTableau}>
           <TableHead>
             <TableRow>
               <TableCell>Univers</TableCell>

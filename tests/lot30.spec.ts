@@ -26,7 +26,7 @@ test('fiche : l’année en cours en 2 onglets, le réel et les quadrimestres su
   await seConnecter(page, { reel })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Réel')
-  await expect(page.getByRole('tablist', { name: /^Parties de l’année/ }).getByRole('tab')).toHaveText([/^Réel/, 'Où on va'])
+  await expect(page.getByRole('tablist', { name: /^Parties de l’année/ }).getByRole('tab')).toHaveText([/^Réel/, /^Équipe et frais/, 'Où on va'])
   await expect(page.getByRole('heading', { name: 'Quadrimestres comptables' })).toBeVisible()
   await ouvrir(page, 'Où on va')
   await expect(page.locator('#partie-atterrissage')).toBeVisible()

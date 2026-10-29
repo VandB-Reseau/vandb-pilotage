@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import Alert from '@mui/material/Alert'
-import Autocomplete from '@mui/material/Autocomplete'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
 import IconButton from '@mui/material/IconButton'
 import InputAdornment from '@mui/material/InputAdornment'
+import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
 import Select from '@mui/material/Select'
 import Stack from '@mui/material/Stack'
@@ -15,6 +15,7 @@ import TableCell from '@mui/material/TableCell'
 import TableRow from '@mui/material/TableRow'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
+import AddOutlined from '@mui/icons-material/AddOutlined'
 import DeleteOutlined from '@mui/icons-material/DeleteOutlined'
 import PlaylistAddOutlined from '@mui/icons-material/PlaylistAddOutlined'
 import { BarreEnregistrement } from './BarreEnregistrement'
@@ -35,7 +36,6 @@ import {
   type ChampFrais, type Mode, type SaisieFrais,
 } from '../moteur/saisieFrais'
 
-const bouton48 = { sx: { width: 48, height: 48 } }
 
 // Montant d'une ligne de frais : par an en euros, ou en part du CA
 function ChampFraisLigne({ ligne, onChange }: { ligne: ChampFrais; onChange: (l: Partial<ChampFrais>) => void }) {
@@ -66,6 +66,21 @@ function ChampFraisLigne({ ligne, onChange }: { ligne: ChampFrais; onChange: (l:
   )
 }
 
+// « + » d'un thème : les lignes de la grille du thème pas encore utilisées
+function AjoutTheme({ theme, lignes, onAjouter }: { theme: string; lignes: { code: string; libelle: string }[]; onAjouter: (code: string) => void }) {
+  const [ancre, setAncre] = useState<HTMLElement | null>(null)
+  return (
+    <>
+      <IconButton aria-label={`Ajouter une ligne : ${theme}`} onClick={(e) => setAncre(e.currentTarget)} sx={{ width: { xs: 48, md: 36 }, height: { xs: 48, md: 36 }, mr: -0.5 }}>
+        <AddOutlined fontSize="small" />
+      </IconButton>
+      <Menu anchorEl={ancre} open={!!ancre} onClose={() => setAncre(null)}>
+        {lignes.map((l) => <MenuItem key={l.code} onClick={() => { onAjouter(l.code); setAncre(null) }} sx={{ minHeight: 48 }}>{l.libelle}</MenuItem>)}
+      </Menu>
+    </>
+  )
+}
+
 // Frais annuels d'un magasin sur la grille du réseau, dans les blocs de l'onglet FFBUD avec leurs sous-totaux ;
 // publicité franchise et royalties calculées sur le CA ; amortissements, intérêts et emprunts sous l'EBE
 export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregistrement, tauxSurCA, budget }: {
@@ -80,7 +95,6 @@ export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregist
   const [saisie, setSaisie] = useState<SaisieFrais>(() => saisieDepuisLignes(lignes))
   const [message, setMessage] = useState<{ gravite: 'success' | 'error'; texte: string; details?: string[] } | null>(null)
   const [occupe, setOccupe] = useState(false)
-  const [choix, setChoix] = useState<string | null>(null)
   // Après un enregistrement (ou un changement de magasin), la saisie repart des lignes enregistrées
   const empreinte = JSON.stringify(lignes)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -187,16 +201,19 @@ export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregist
     </TableRow>
   ) : ligneTexte(k, LIBELLES_FINANCES[k], montant(valeurFinance(k)))
   // Un encart par thème de frais (29/10/2026, Joseph) : plusieurs côte à côte, total du thème en tête
-  const encart = (cle: string, libelle: string, total: string, lignesEncart: React.ReactNode[]) => (
-    <Card key={cle} component="section" aria-label={libelle} sx={{ alignSelf: 'start' }}>
-      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, px: 1.5, pt: 1.25, pb: 0.5 }}>
+  // Encarts en colonnes (sans trou entre eux, 29/10/2026) ; « + » dans chaque thème pour y ajouter une ligne de la grille
+  const encart = (cle: string, libelle: string, total: string, lignesEncart: React.ReactNode[], ajout?: React.ReactNode) => (
+    <Card key={cle} component="section" aria-label={libelle} sx={{ breakInside: 'avoid', mb: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, pt: 0.75, pb: lignesEncart.length ? 0.25 : 0.75, minHeight: 48 }}>
         <Typography component="h3" sx={{ fontWeight: 700, fontSize: '0.9375rem', flex: 1 }}>{libelle}</Typography>
         <Typography sx={{ fontWeight: 700, fontSize: '0.875rem', whiteSpace: 'nowrap' }}>{total}</Typography>
+        {ajout}
       </Box>
-      <Table size="small" aria-label={`Frais : ${libelle}`} sx={{ mb: 0.75 }}><TableBody>{lignesEncart}</TableBody></Table>
+      {lignesEncart.length > 0 && <Table size="small" aria-label={`Frais : ${libelle}`} sx={{ mb: 0.75 }}><TableBody>{lignesEncart}</TableBody></Table>}
     </Card>
   )
-  const themes = THEMES_FRAIS.map((r) => ({ r, dans: saisie.lignes.filter((l) => l.rubrique === r) })).filter((x) => x.dans.length)
+  const themes = THEMES_FRAIS.map((r) => ({ r, dans: saisie.lignes.filter((l) => l.rubrique === r), libres: disponibles.filter((l) => l.rubrique === r) }))
+    .filter((x) => x.dans.length || (peutSaisir && x.libres.length))
   const totalTheme = (dans: ChampFrais[]) => {
     const x = totauxFrais({ ...saisie, lignes: dans })
     return enMontant(x.annuel, x.taux)
@@ -216,13 +233,13 @@ export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregist
         <Indicateur libelle="Amortissements" aide="amortissements" valeur={milliers(valeurFinance('amortissements'))} />
       </Stack>
 
-      <Box component="section" aria-label="Frais par thème"
-        sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(3, minmax(0, 1fr))' } }}>
-        {themes.map(({ r, dans }) => encart(r, rubriqueLibelle[r], totalTheme(dans), dans.map(ligneSaisie)))}
+      <Box component="section" aria-label="Frais par thème" sx={{ columnCount: { xs: 1, md: 2, xl: 3 }, columnGap: 2, mb: -2 }}>
+        {themes.map(({ r, dans, libres }) => encart(r, rubriqueLibelle[r], dans.length ? totalTheme(dans) : '', dans.map(ligneSaisie),
+          peutSaisir && libres.length > 0 && <AjoutTheme theme={rubriqueLibelle[r]} lignes={libres} onAjouter={(code) => setSaisie((s) => ajouterLigne(s, code))} />))}
         {encart('reseau', 'Redevances du réseau', `${taux(surCA)} du CA`, (['publicite', 'redevance'] as const).map((k) => ligneTexte(k, LIGNES_SUR_CA[k].libelle, `${taux(tauxSurCA[k])} du CA`)))}
         {encart('hors-ebe', 'Sous l’excédent brut d’exploitation', montant(valeurFinance('amortissements') + interets),
           [ligneFinance('amortissements'), ...INTERETS.map(ligneFinance), ligneFinance('remboursementCapital')])}
-        <Card component="section" aria-label="Totaux" sx={{ alignSelf: 'start' }}>
+        <Card component="section" aria-label="Totaux" sx={{ breakInside: 'avoid', mb: 2 }}>
           <Typography component="h3" sx={{ fontWeight: 700, fontSize: '0.9375rem', px: 1.5, pt: 1.25, pb: 0.5 }}>Totaux</Typography>
           <Table size="small" aria-label={`Frais ${annee} par bloc`} sx={{ mb: 0.75 }}>
             <TableBody>
@@ -235,23 +252,6 @@ export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregist
         </Card>
       </Box>
       {peutSaisir && <RepriseFraisFEC onReprendre={(f, c) => setSaisie((s) => saisieAvecFEC(s, f, c))} />}
-      {peutSaisir && disponibles.length > 0 && (
-          <Box>
-            <Autocomplete
-              options={[...disponibles].sort((a, b) => THEMES_FRAIS.indexOf(a.rubrique) - THEMES_FRAIS.indexOf(b.rubrique))}
-              value={null}
-              inputValue={choix ?? ''}
-              onInputChange={(_, v) => setChoix(v)}
-              groupBy={(l) => rubriqueLibelle[l.rubrique]}
-              getOptionLabel={(l) => l.libelle}
-              onChange={(_, l) => { if (l) { setSaisie((s) => ajouterLigne(s, l.code)); setChoix('') } }}
-              openText="Ouvrir la liste" closeText="Fermer la liste" clearText="Effacer" noOptionsText="Aucune ligne"
-              slotProps={{ popupIndicator: bouton48, clearIndicator: bouton48, listbox: { sx: { '& li': { minHeight: 48 } } } }}
-              sx={{ maxWidth: 420 }}
-              renderInput={(p) => <TextField {...p} label="Ajouter une ligne" sx={{ '& .MuiInputBase-root': { py: 0 }, '& input': { height: 48, boxSizing: 'border-box' } }} />}
-            />
-          </Box>
-        )}
       {actions}
     </Stack>
   )

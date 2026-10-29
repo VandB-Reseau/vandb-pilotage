@@ -30,8 +30,8 @@ test('une saisie en cours n’est jamais perdue sans confirmation', async ({ pag
   await page.getByRole('button', { name: 'Partir des lignes courantes' }).click()
   await page.getByLabel('Locations immobilières', { exact: true }).fill('48000')
 
-  // Changer d'onglet : on reste, la saisie est intacte (Équipe et Frais sont dans le même onglet depuis le lot 30)
-  await ouvrir(page, 'Résultat')
+  // Changer d'espace : on reste, la saisie est intacte (Équipe et Frais sont dans l'année en cours depuis le 29/10/2026)
+  await page.getByRole('tablist', { name: 'Vues du magasin' }).getByRole('tab', { name: /^Budget \d{4}/ }).click()
   const garde = page.getByRole('dialog', { name: 'Modifications non enregistrées' })
   await expect(garde).toBeVisible()
   expect(await textesTropPetits(page)).toEqual([])
@@ -88,7 +88,7 @@ test('d’un magasin au suivant, dans la liste filtrée, en restant sur le même
   await ouvrir(page, 'Frais')
   await page.getByRole('link', { name: 'Magasin suivant : Les Ormes' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Les Ormes' })).toBeVisible()
-  await expect(page.getByRole('tab', { name: /^2 · Équipe et frais/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { name: /^Équipe et frais/ })).toHaveAttribute('aria-selected', 'true')
   await expect(page.getByText('Pas encore de frais')).toBeVisible()
   // Le précédent de Port-Navalo, dans la liste filtrée, est Saint-Aubin-des-Prés (Valcourt, en discussion, n'y est pas)
   await page.getByRole('link', { name: 'Magasin précédent : Port-Navalo' }).click()
@@ -100,9 +100,11 @@ test('les onglets signalent ce qui manque', async ({ page }) => {
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await expect(page.getByRole('tab', { name: /^Budget \d+$/ })).toBeVisible()
   await page.getByRole('tab', { name: /^Budget \d+$/ }).click()
-  // Lot 30 : budget en 4 étapes ; Équipe et frais signalé tant que l'un des deux manque
-  await expect(page.getByRole('tablist', { name: /^Parties du budget/ }).getByRole('tab')).toHaveText([/^1 · Chiffre d’affaires/, /^2 · Équipe et frais/, /^3 · Résultat et trésorerie/, /^4 · Échanges et versions/])
-  await expect(page.getByRole('tab', { name: '2 · Équipe et frais (à renseigner)' })).toBeVisible()
+  // Budget en 3 étapes ; l'équipe et les frais se saisissent dans l'année en cours (29/10/2026), signalés tant que l'un des deux manque
+  await expect(page.getByRole('tablist', { name: /^Parties du budget/ }).getByRole('tab')).toHaveText([/^1 · Chiffre d’affaires/, /^2 · Résultat et trésorerie/, /^3 · Échanges et versions/])
+  await page.getByRole('tab', { name: /^\d{4} en cours/ }).click()
+  await expect(page.getByRole('tab', { name: 'Équipe et frais (à renseigner)' })).toBeVisible()
+  await page.getByRole('tab', { name: /^Budget \d+$/ }).click()
   await page.getByRole('link', { name: `Magasin suivant : ${MAGASINS[1]}` }).click()
   await page.getByRole('link', { name: `Magasin suivant : ${MAGASINS[2]}` }).click()
   // Directeur : budget à proposer

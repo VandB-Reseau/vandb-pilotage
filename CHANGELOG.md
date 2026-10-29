@@ -5,6 +5,17 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 34 — Équipe et frais dans l'année en cours, frais par thème, tableaux harmonisés
+
+- Sans migration.
+- L'équipe et les frais se saisissent dans « 2026 en cours » (le magasin aujourd'hui) ; le budget 2027 les reprend avec la
+  hausse des salaires et l'inflation des frais, résumé en lecture dans « Résultat et trésorerie ». Budget en 3 étapes.
+- Frais : un « + » dans chaque thème, encarts en colonnes sans trou ; l'ajout global disparaît.
+- Chiffres clés : masse salariale / CA (la part de la marge reste en détail et dans la productivité).
+- Résultat projeté de l'année en cours : les frais du magasin sont repris ligne par ligne (charges externes et autres
+  charges détaillées).
+- Tableaux de chiffres au même rendu que le compte de résultat (`src/theme/tableau.ts`).
+
 ### Lot 33 — Frais par thème et depuis le FEC, résultat mensuel, BFR, validation par le RR
 
 - **Base : migration `0018_validation_rr.sql` à passer** (après 0015, 0016 et 0017).

@@ -39,6 +39,7 @@ import { ebeApres } from '../moteur/effets'
 import { CATEGORIES, categorieLibelle, masseSalariale, SEMAINES_PAR_MOIS, type ParametresCharges, type Personne } from '../moteur/equipe'
 import { champsDepuisPersonne, lirePersonne, nouveauxExtras, nouvellePersonne, nouvellesPrimesEquipe, type ChampsPersonne } from '../moteur/saisieEquipe'
 import { nombre } from '../import/caisse'
+import { styleTableau } from '../theme/tableau'
 
 const nombreEtp = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 })
 const heures = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 })
@@ -268,7 +269,7 @@ export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, cha
           <Card component="section" aria-label="Équipe du magasin">
             <Typography variant="h2" sx={{ p: 2, pb: 0 }}>Équipe</Typography>
             <TableContainer>
-              <Table className="colonne-fixe" aria-label="Postes et coût chargé">
+              <Table size="small" className="colonne-fixe" aria-label="Postes et coût chargé" sx={styleTableau}>
                 <TableHead>
                   <TableRow>
                     <TableCell>Poste</TableCell>

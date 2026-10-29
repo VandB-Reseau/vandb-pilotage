@@ -308,11 +308,11 @@ export async function zonesTropPetites(page: Page, min = 48): Promise<string[]> 
 
 // Fiche magasin (lot 27) : une partie s'ouvre depuis son espace (année en cours ou budget)
 // Lot 30 : les anciennes parties s'ouvrent dans l'onglet qui les regroupe
-const PARTIES_ANNEE = ['Réel', 'Suivi du budget', 'Atterrissage', 'Quadrimestres', 'Où on va']
+const PARTIES_ANNEE = ['Réel', 'Suivi du budget', 'Atterrissage', 'Quadrimestres', 'Où on va', 'Équipe', 'Frais']
 const ONGLET_DE: Record<string, string> = {
   'Réel': 'Réel', 'Quadrimestres': 'Réel', 'Suivi du budget': 'Où on va', 'Atterrissage': 'Où on va',
-  'Hypothèses': '1 · Chiffre d’affaires', 'Calendrier': '1 · Chiffre d’affaires', 'Équipe': '2 · Équipe et frais', 'Frais': '2 · Équipe et frais',
-  'Résultat': '3 · Résultat', 'Échanges': '4 · Échanges',
+  'Hypothèses': '1 · Chiffre d’affaires', 'Calendrier': '1 · Chiffre d’affaires', 'Équipe': 'Équipe et frais', 'Frais': 'Équipe et frais',
+  'Résultat': '2 · Résultat', 'Échanges': '3 · Échanges',
 }
 export async function ouvrir(page: Page, partie: string) {
   const annee = PARTIES_ANNEE.some((p) => partie.startsWith(p))

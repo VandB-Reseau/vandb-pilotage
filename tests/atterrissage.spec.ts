@@ -80,8 +80,8 @@ test('une ligne de frais s’ajoute depuis la grille ; un montant illisible est 
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Frais')
   await expect(page.getByLabel('Locations immobilières', { exact: true })).toHaveValue('60 000')
-  await page.getByLabel('Ajouter une ligne').fill('Honoraires de compt')
-  await page.getByRole('option', { name: 'Honoraires de comptabilité' }).click()
+  await page.getByRole('button', { name: 'Ajouter une ligne : Honoraires' }).click()
+  await page.getByRole('menuitem', { name: 'Honoraires de comptabilité' }).click()
   await page.getByLabel('Honoraires de comptabilité', { exact: true }).fill('six mille')
   await page.getByRole('button', { name: 'Enregistrer les frais' }).click()
   await expect(page.getByText('Honoraires de comptabilité : montant illisible.')).toBeVisible()
@@ -152,7 +152,7 @@ test('synthèse et atterrissage : réel des mois passés, saisonnalité de l’a
 
   await page.getByRole('tab', { name: 'Synthèse' }).click()
   await page.getByRole('button', { name: 'Renseigner l’équipe' }).click()
-  await expect(page.getByRole('tab', { name: /^2 · Équipe et frais/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { name: /^Équipe et frais/ })).toHaveAttribute('aria-selected', 'true')
 })
 
 test('le Directeur propose le budget de l’an prochain à partir de l’atterrissage', async ({ page }) => {
