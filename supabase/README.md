@@ -21,6 +21,7 @@ une migration par changement, numérotée dans l'ordre où elle s'applique. Cart
 | `0015_versions_et_equipe` | Colonnes `heures_saisie` et `enveloppe` de `equipe` (heures saisies au mois, primes d'équipe sans salarié) ; table `versions_nommees` (versions du budget enregistrées sous un nom), lue sur les magasins du compte, ajoutée par le Directeur ou le franchisé sur ses magasins, retirée par le Directeur ou son auteur | 28/10/2026 |
 | `0016_alertes_commerciales` | Types d'alerte `tickets` et `panier` acceptés dans `actions` ; règles d'accès inchangées | 28/10/2026 |
 | `0017_extras` | Colonne `taux_horaire` de `equipe` : les extras deviennent un poste de l'équipe (heures moyennes × taux horaire) ; règles d'accès inchangées | 29/10/2026 |
+| `0018_validation_rr` | Le RR valide ou rouvre le budget de ses magasins (statut et photo des hypothèses seulement) ; déclencheur `garde_budget` et règle de modification de `budgets` | 29/10/2026 |
 | `0006_suivi_reseau` | Fonction `reel_du_compte` : réel de tous les magasins du compte totalisé par mois, pour la vue réseau ; aucune table ni règle d'accès nouvelle | 27/10/2026 |
 
 ## Passer une migration

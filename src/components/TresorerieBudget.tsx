@@ -85,6 +85,10 @@ export function TresorerieBudget({ tresorerie: t, annee, depart, onDepart, lectu
           libelle="Mois à découvert" valeur={t.moisNegatifs === 0 ? 'Aucun' : `${t.moisNegatifs} mois`}
           detail={t.moisNegatifs === 0 ? 'Trésorerie positive toute l’année' : `Besoin de financement : ${montant(-t.pointBas.montant)}`}
         />
+        <Indicateur
+          libelle="Besoin en fonds de roulement" aide="bfr" valeur={milliers(t.bfr.total)}
+          detail={`Fin décembre, ${enChiffres(Math.round(t.bfr.joursCA))} jours de CA. Stock ${milliers(t.bfr.stock)}${t.bfr.consignes ? ` et consignes ${milliers(t.bfr.consignes)}` : ''}, moins ${milliers(t.bfr.fournisseurs + t.bfr.tva + t.bfr.cotisations + t.bfr.redevance)} encore dus`}
+        />
         {t.consignesMoyennes > 0 && (
           <Indicateur
             libelle="Consignes avancées aux fournisseurs" aide="consignesAvancees" valeur={milliers(t.consignesMoyennes)}

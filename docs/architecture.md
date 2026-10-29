@@ -147,6 +147,9 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
 32. Lot 32 : `src/lib/modeles.ts` (modèles d'import, relus par les vrais imports dans `tests/moteur/lot32.spec.ts`) et
    `BoutonModele`. `Indicateur` prend `aide` (texte de `src/lib/aide.ts`) ou `info` (`DetailCalcul`, devenu picto) ;
    `Aide compact` dans les lignes du compte de résultat et de la trésorerie. Sans migration.
+33. Lot 33 : `fraisDepuisFEC` (`src/moteur/fec.ts`) et `saisieAvecFEC` (`src/moteur/saisieFrais.ts`), BFR dans `tresorerieBudget`,
+   saisonnalité par univers (`caMensuelUnivers`), compte de résultat mensuel jusqu'à la trésorerie dégagée ; tests dans
+   `tests/moteur/lot33.spec.ts` et `tests/lot33.spec.ts`. Migration `0018_validation_rr.sql` (le RR valide).
 
 ## Rôles
 

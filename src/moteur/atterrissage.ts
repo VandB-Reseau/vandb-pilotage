@@ -122,12 +122,18 @@ export function baseDepuisReel(reel: ReelAnnees, annee: number, frais: LigneFrai
 
   // Mois projeté i d'une famille : réalisé × (1 / part − 1), réparti selon les poids des mois restants
   const caMois = Array(12).fill(0)
+  const caMoisU = Object.fromEntries(UNIVERS.map((u) => [u, Array(12).fill(0)])) as Record<Univers, number[]>
   for (const f of s.familles) {
     const ytd = somme(f.parMois.slice(0, m))
     const w = poids[f.univers], reste = somme(w.slice(m))
     const aProjeter = ytd * (1 / partRealisee[f.univers]! - 1)
-    f.parMois.forEach((v, i) => { caMois[i] += i < m ? v : reste > 0 ? aProjeter * w[i] / reste : 0 })
+    f.parMois.forEach((v, i) => {
+      const x = i < m ? v : reste > 0 ? aProjeter * w[i] / reste : 0
+      caMois[i] += x
+      caMoisU[f.univers][i] += x
+    })
   }
+  const caMensuelUnivers = Object.fromEntries(UNIVERS.filter((u) => somme(caMoisU[u]) > 0).map((u) => [u, caMoisU[u]]))
 
   // Tickets réalisés ; panier TTC sur les seuls mois où les tickets sont connus
   const flux: Hypotheses['flux'] = {}
@@ -158,7 +164,7 @@ export function baseDepuisReel(reel: ReelAnnees, annee: number, frais: LigneFrai
 
   return {
     base: {
-      annee, moisRealises: m, caMensuelReference: caMois, partRealisee,
+      annee, moisRealises: m, caMensuelReference: caMois, caMensuelUnivers, partRealisee,
       ...(Object.keys(sortie).length ? { sortie } : {}),
       familles: s.familles.map((f) => {
         const ca = somme(f.parMois.slice(0, m))

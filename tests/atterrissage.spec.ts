@@ -43,9 +43,11 @@ test('le Coach renseigne les frais : lignes courantes, part du CA, emprunts, lig
   const chiffres = page.getByRole('region', { name: 'Frais en chiffres' })
   await expect(chiffres).toContainText(/60\sk€/)
   await expect(chiffres).toContainText(/4,3\s%\sdu CA/)              // énergie 1,3 % + publicité franchise 1 % + royalties 2 %
-  // Blocs de l'onglet FFBUD avec leurs sous-totaux ; publicité franchise et royalties calculées sur le CA
+  // Un encart par thème ; publicité franchise et royalties calculées sur le CA ; totaux des blocs de l'onglet FFBUD
+  await expect(page.getByRole('region', { name: 'Immobilier' })).toContainText(/60\s000\s€/)
+  await expect(page.getByRole('table', { name: 'Frais : Redevances du réseau' }).getByRole('row', { name: /^Royalties/ })).toContainText(/2,0\s%\sdu CA/)
+  await expect(page.getByLabel('Budget communication annuel', { exact: true })).toBeVisible()
   const blocs = page.getByRole('table', { name: /^Frais \d{4} par bloc$/ })
-  await expect(blocs.getByRole('row', { name: /^Royalties/ })).toContainText(/2,0\s%\sdu CA/)
   await expect(blocs.getByRole('row', { name: /^Total des charges externes/ })).toContainText(/60\s000\s€ \+ 4,3\s%\sdu CA/)
   await expect(blocs.getByRole('row', { name: /^Intérêts et charges assimilées/ })).toContainText(/1\s200\s€/)
   expect(await textesTropPetits(page)).toEqual([])

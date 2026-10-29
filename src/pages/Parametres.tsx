@@ -69,7 +69,7 @@ export function Parametres() {
   const [occupe, setOccupe] = useState(false)
   // Trésorerie : délais en mois gardés en texte pendant la frappe
   const [treso, setTreso] = useState<ParametresTresorerie | null>(null)
-  const [delais, setDelais] = useState({ fournisseurs: '', redevance: '', ecoulement: '', remboursement: '', exterieur: '' })
+  const [delais, setDelais] = useState({ fournisseurs: '', redevance: '', ecoulement: '', remboursement: '', exterieur: '', stock: '' })
   const [messageTreso, setMessageTreso] = useState<{ gravite: 'success' | 'error'; texte: string } | null>(null)
   // Seuils des alertes : textes pendant la frappe, sauf l'écart de CA (pourcentage)
   const [ecartCA, setEcartCA] = useState<number | undefined>(undefined)
@@ -91,7 +91,7 @@ export function Parametres() {
     setDelais({
       fournisseurs: String(p.tresorerie.delaiFournisseurs), redevance: String(p.tresorerie.delaiRedevance),
       ecoulement: String(p.tresorerie.consignes?.ecoulement ?? 0), remboursement: String(p.tresorerie.consignes?.remboursement ?? 0),
-      exterieur: String(p.tresorerie.avanceExterieur ?? 0),
+      exterieur: String(p.tresorerie.avanceExterieur ?? 0), stock: String(p.tresorerie.stockJours ?? 0),
     })
     setCharges(p.charges)
     setSmic(String(p.charges.reduction.smicAnnuel).replace('.', ','))
@@ -119,9 +119,10 @@ export function Parametres() {
   const delai = (t: string, max = 3) => { const n = nombre(t); return n !== null && Number.isInteger(n) && n >= 0 && n <= max ? n : null }
   const delaisLus = { delaiFournisseurs: delai(delais.fournisseurs), delaiRedevance: delai(delais.redevance), avanceExterieur: delai(delais.exterieur) }
   const delaisConsignes = { ecoulement: delai(delais.ecoulement, 6), remboursement: delai(delais.remboursement, 6) }
-  const tresoValide = Object.values({ ...delaisLus, ...delaisConsignes }).every((v) => v !== null)
+  const stockLu = delai(delais.stock, 365)
+  const tresoValide = Object.values({ ...delaisLus, ...delaisConsignes, stockLu }).every((v) => v !== null)
   const tresoLue = (t: ParametresTresorerie): ParametresTresorerie => ({
-    ...t, delaiFournisseurs: delaisLus.delaiFournisseurs ?? 0, delaiRedevance: delaisLus.delaiRedevance ?? 0, avanceExterieur: delaisLus.avanceExterieur ?? 0,
+    ...t, delaiFournisseurs: delaisLus.delaiFournisseurs ?? 0, delaiRedevance: delaisLus.delaiRedevance ?? 0, avanceExterieur: delaisLus.avanceExterieur ?? 0, stockJours: stockLu ?? 0,
     consignes: t.consignes && { ...t.consignes, ecoulement: delaisConsignes.ecoulement ?? 0, remboursement: delaisConsignes.remboursement ?? 0 },
   })
   const tresoModifiee = !!p && !!treso && JSON.stringify(tresoLue(treso)) !== JSON.stringify(p.tresorerie)
@@ -350,6 +351,10 @@ export function Parametres() {
                       <ToggleButton value="trimestre" sx={{ minHeight: 48 }}>Chaque trimestre</ToggleButton>
                     </ToggleButtonGroup>
                   </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Stock moyen du magasin, en jours d’achats de marchandises (besoin en fonds de roulement)</TableCell>
+                  <TableCell align="right"><ChampNombre libelle="Stock moyen en jours d’achats" valeur={delais.stock} unite="jours" largeur={120} onChange={(v) => setDelais((d) => ({ ...d, stock: v }))} /></TableCell>
                 </TableRow>
                 <TableRow>
                   <TableCell>Part du coût du personnel payée le mois suivant (cotisations salariales et patronales)</TableCell>

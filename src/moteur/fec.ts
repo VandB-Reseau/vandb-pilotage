@@ -113,3 +113,66 @@ export const exceptionsDe = (comptes: CompteFEC[]): Record<string, RubriqueFEC> 
   Object.fromEntries(comptes.filter((c) => c.rubrique !== null && c.rubrique !== c.parDefaut).map((c) => [c.compte, c.rubrique!]))
 
 const arrondi = (v: number) => Math.round(v * 100) / 100
+
+// Frais repris du FEC (lot 33) : chaque compte de charges rangé sur une ligne de la grille des frais (racine la plus
+// longue), amortissements et intérêts à part, puis le tout ramené à l'année (× 12 ÷ mois couverts par le fichier).
+// Restent hors des frais : achats et stock, personnel, taxes comptées dans la masse salariale (lot 23), royalties
+// calculées sur le CA, charges exceptionnelles et impôt sur les bénéfices. Les autres comptes sont listés, à ranger à la main.
+export type FinanceFEC = 'amortissements' | 'interets' | 'interetsComptesCourants' | 'agios'
+type CibleCompte = { code: string } | { finance: FinanceFEC } | { exclu: string }
+const EXCLUS: [string, string][] = [
+  ...['601', '602', '603', '607', '6081', '6082', '6087', '6091', '6092', '6097'].map((r): [string, string] => [r, 'Achats de marchandises']),
+  ['64', 'Personnel'], ['6312', 'Comptée dans la masse salariale'], ['6333', 'Comptée dans la masse salariale'],
+  ['651', 'Royalties calculées sur le CA'], ['66', 'Autres charges financières'], ['67', 'Charges exceptionnelles'],
+  ['68', 'Autres dotations'], ['69', 'Impôt sur les bénéfices'],
+]
+// À longueur égale, l'exclusion l'emporte (tri stable) : formation continue et taxe d'apprentissage restent dans la masse salariale
+const CIBLES_COMPTES: [string, CibleCompte][] = ([
+  ...EXCLUS.map(([r, raison]): [string, CibleCompte] => [r, { exclu: raison }]),
+  ...lignesFrais.flatMap((g) => g.racines.map((r): [string, CibleCompte] => [r, { code: g.code }])),
+  ['681', { finance: 'amortissements' }], ['6611', { finance: 'interets' }], ['6615', { finance: 'interetsComptesCourants' }], ['6616', { finance: 'agios' }],
+] as [string, CibleCompte][]).sort((a, b) => b[0].length - a[0].length)
+
+export interface LigneFEC { code: string; libelle: string; annuel: number; comptes: string[] }
+export interface FraisFEC {
+  mois: number                                       // mois couverts par le fichier, de la première à la dernière écriture
+  lignes: LigneFEC[]                                 // dans l'ordre de la grille
+  finances: Partial<Record<FinanceFEC, number>>      // annuels
+  aRanger: { compte: string; libelle: string; annuel: number }[]
+  exclus: { compte: string; libelle: string; annuel: number; raison: string }[]
+}
+
+export function fraisDepuisFEC(ecritures: EcritureFEC[]): FraisFEC {
+  const charges = ecritures.filter((e) => estCharge(e.compte) && /^\d{4}-\d{2}/.test(e.date))
+  const rang = (d: string) => Number(d.slice(0, 4)) * 12 + Number(d.slice(5, 7)) - 1
+  const dates = ecritures.map((e) => e.date).filter((d) => /^\d{4}-\d{2}/.test(d)).sort()
+  const mois = dates.length ? rang(dates[dates.length - 1]) - rang(dates[0]) + 1 : 0
+  const facteur = mois ? 12 / mois : 0
+  const parCompte = new Map<string, { libelle: string; montant: number }>()
+  for (const e of charges) {
+    const c = parCompte.get(e.compte) ?? { libelle: e.libelle, montant: 0 }
+    c.montant += e.solde
+    if (!c.libelle) c.libelle = e.libelle
+    parCompte.set(e.compte, c)
+  }
+  const lignes = new Map<string, LigneFEC>()
+  const finances: Partial<Record<FinanceFEC, number>> = {}
+  const aRanger: FraisFEC['aRanger'] = [], exclus: FraisFEC['exclus'] = []
+  for (const [compte, c] of [...parCompte.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    const annuel = arrondi(c.montant * facteur)
+    if (!annuel) continue
+    const cible = CIBLES_COMPTES.find(([r]) => compte.startsWith(r))?.[1]
+    if (!cible) aRanger.push({ compte, libelle: c.libelle, annuel })
+    else if ('exclu' in cible) exclus.push({ compte, libelle: c.libelle, annuel, raison: cible.exclu })
+    else if ('finance' in cible) finances[cible.finance] = arrondi((finances[cible.finance] ?? 0) + annuel)
+    else {
+      const g = lignesFrais.find((x) => x.code === cible.code)!
+      const l = lignes.get(g.code) ?? { code: g.code, libelle: g.libelle, annuel: 0, comptes: [] }
+      l.annuel = arrondi(l.annuel + annuel)
+      l.comptes.push(compte)
+      lignes.set(g.code, l)
+    }
+  }
+  const ordre = (code: string) => lignesFrais.findIndex((g) => g.code === code)
+  return { mois, lignes: [...lignes.values()].sort((a, b) => ordre(a.code) - ordre(b.code)), finances, aRanger, exclus }
+}

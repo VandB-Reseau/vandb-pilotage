@@ -127,6 +127,8 @@ export function Magasin() {
   const { state } = useLocation() as { state: { liste?: string[]; retour?: string; depuis?: { chemin: string; nom: string } } | null }
 
   const directeur = profil?.role === 'directeur'
+  // Joseph, 29/10/2026 : le budget est validé par le RR (ses magasins) ou par le Directeur
+  const peutValider = directeur || profil?.role === 'rr'
   const peutSaisir = !!profil && profil.role !== 'aucun'
   const franchise = profil?.role === 'franchise'
   const seul = franchise && donnees?.d.magasins.length === 1
@@ -325,7 +327,7 @@ export function Magasin() {
           </Stack>
 
           <Stack direction="row" useFlexGap spacing={1.5} className="pas-a-l-impression" sx={{ flexWrap: 'wrap' }} aria-label="Actions sur le budget">
-            {directeur && ligne.base && ligne.statut !== 'valide' && (
+            {peutValider && ligne.base && ligne.statut !== 'valide' && (
               <Button variant={modifie ? 'outlined' : 'contained'} color="success" startIcon={<CheckCircleOutlined />} disabled={occupe || !enregistrable} sx={{ minHeight: 48 }}
                 onClick={() => resolu && void agir(async () => {
                   if (modifie) await enregistrerAjustements(ligne.magasin, annee, brouillon, resolu.hypotheses)
@@ -334,7 +336,7 @@ export function Magasin() {
                 Valider le budget
               </Button>
             )}
-            {directeur && ligne.statut === 'valide' && resolu && (
+            {peutValider && ligne.statut === 'valide' && resolu && (
               <Button variant="outlined" startIcon={<LockOpenOutlined />} disabled={occupe} sx={{ minHeight: 48 }}
                 onClick={() => void agir(() => changerStatut(ligne.magasin, annee, 'en_discussion', resolu.hypotheses), 'Budget rouvert : il est de nouveau en discussion.')}>
                 Rouvrir la discussion

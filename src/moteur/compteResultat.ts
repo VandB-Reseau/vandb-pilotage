@@ -2,7 +2,9 @@ import { blocDe, LIGNES_SUR_CA, lignesFrais, rubriqueLibelle } from './parametre
 import { UNIVERS, universLibelle, type Budget, type Hypotheses } from './types'
 
 // Compte de résultat sur 12 mois, ligne par ligne, prêt à afficher : rubriques dépliables (détail par univers ou par ligne de frais).
-// Montants en charge négatifs. L'impôt sur les sociétés et ce qui en découle ne sont calculés que sur l'année.
+// Montants en charge négatifs. L'impôt sur les sociétés se calcule sur l'année ; chaque mois en porte sa part, au prorata de son
+// résultat avant impôt (29/10/2026, Joseph : résultat net mois par mois). Sous le résultat net, le capital des emprunts
+// remboursé et les amortissements réintégrés mènent à la trésorerie dégagée du mois.
 export interface LigneCompte {
   cle: string
   libelle: string
@@ -41,7 +43,15 @@ export function compteResultat(b: Budget, h: Hypotheses, p: { tauxRedevance: num
 
   const amort = Array(12).fill(-b.amortissements / 12)
   const interets = Array(12).fill(-h.interets / 12)
-  const annuel = (cle: string, libelle: string, total: number, o: Partial<LigneCompte> = {}): LigneCompte => ({ cle, libelle, mois: Array(12).fill(null), total, ...o })
+  // Impôt du mois : part de l'impôt de l'année au prorata du résultat avant impôt (somme des mois = impôt de l'année)
+  const rai = b.mois.map((m) => m.resultatAvantImpot)
+  const totalRai = somme(rai)
+  const impotMois = rai.map((r) => (totalRai ? b.impot * r / totalRai : b.impot / 12))
+  const net = rai.map((r, i) => r - impotMois[i])
+  const capital = Array(12).fill(-h.remboursementCapital / 12)
+  const reintegres = Array(12).fill(b.amortissements / 12)
+  // Charges des événements (temps forts), comprises dans les charges externes du mois
+  const evenements = b.mois.map((m) => m.autresChargesTempsForts ?? 0)
 
   return [
     ligne('ca', 'Chiffre d’affaires HT', ca, { fort: true }),
@@ -52,6 +62,7 @@ export function compteResultat(b: Budget, h: Hypotheses, p: { tauxRedevance: num
     ...externes.map((l) => detailFrais(l, 'externes')),
     ligne('externes/publicite', LIGNES_SUR_CA.publicite.libelle, negatif(ca.map((c) => c * p.tauxPublicite)), { parent: 'externes' }),
     ligne('externes/redevance', LIGNES_SUR_CA.redevance.libelle, negatif(ca.map((c) => c * p.tauxRedevance)), { parent: 'externes' }),
+    ...(evenements.some((v) => v) ? [ligne('externes/evenements', 'Charges des événements', negatif(evenements), { parent: 'externes' })] : []),
     ...(b.mois.some((m) => m.demarqueConsignes) ? [ligne('externes/consignes', 'Démarque de consignes', negatif(b.mois.map((m) => m.demarqueConsignes ?? 0)), { parent: 'externes' })] : []),
     ligne('impots', 'Impôts et taxes', negatif(b.mois.map((m) => m.impotsTaxes))),
     ...impots.map((l) => detailFrais(l, 'impots')),
@@ -62,9 +73,11 @@ export function compteResultat(b: Budget, h: Hypotheses, p: { tauxRedevance: num
     ligne('exploitation', 'Résultat d’exploitation', b.mois.map((m) => m.resultatExploitation), { fort: true }),
     ligne('interets', 'Intérêts et charges assimilées', interets),
     ligne('avant_impot', 'Résultat avant impôt', b.mois.map((m) => m.resultatAvantImpot)),
-    annuel('impot', 'Impôt sur les sociétés', -b.impot),
-    annuel('net', 'Résultat net', b.resultatNet, { fort: true }),
-    annuel('tresorerie', 'Trésorerie dégagée après emprunts', b.tresorerieDegagee),
+    ligne('impot', 'Impôt sur les sociétés', negatif(impotMois)),
+    ligne('net', 'Résultat net', net, { fort: true }),
+    ...(b.amortissements ? [ligne('reintegres', 'Amortissements réintégrés', reintegres)] : []),
+    ...(h.remboursementCapital ? [ligne('capital', 'Capital des emprunts remboursé', capital)] : []),
+    ligne('tresorerie', 'Trésorerie dégagée après emprunts', net.map((v, i) => v + reintegres[i] + capital[i]), { fort: true }),
     ...productivite(b),
   ]
 }
