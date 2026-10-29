@@ -181,6 +181,11 @@ export function calculerBudget(h: Hypotheses, p: ParametresReseau): Budget {
   // Avec l'équipe du magasin, le personnel se calcule personne par personne
   const equipe = h.equipe?.length ? masseSalariale(h.equipe, p.charges, h.annee, h.hausseSalaires ?? 0) : null
 
+  // Démarque des consignes (29/10/2026) : vides jamais remboursés, en part des consignes versées avec les achats de
+  // chaque univers ; charge externe répartie comme le CA, le reste des consignes ne touche pas le compte de résultat
+  const cons = p.tresorerie?.consignes
+  const consignesAn = cons?.demarque ? somme(UNIVERS.map((u) => somme(familles.filter((f) => f.univers === u).map((f) => f.objectif - f.margeObjectif)) * (cons.achats[u] ?? 0))) * cons.demarque : 0
+
   const mois: Mois[] = poids.map((_, i) => {
     const univers = Object.fromEntries(UNIVERS.map((u) => {
       const caU = enMois(u, i) + ajout[u][i].tf + ajout[u][i].adj
@@ -190,7 +195,8 @@ export function calculerBudget(h: Hypotheses, p: ParametresReseau): Budget {
     const margeMois = somme(UNIVERS.map((u) => univers[u].ca * tauxU[u]))
     const duMois = tempsForts.filter((t) => t.mois === i + 1)
     const autresChargesTempsForts = somme(duMois.map((t) => Math.max(0, t.autresCharges || 0)))
-    let externes = caMois * (p.tauxRedevance + p.tauxPublicite) + autresChargesTempsForts
+    const demarqueConsignes = ca > 0 ? consignesAn * caMois / ca : 0
+    let externes = caMois * (p.tauxRedevance + p.tauxPublicite) + autresChargesTempsForts + demarqueConsignes
     let impots = 0
     for (const l of h.frais) {
       const montant = (l.annuel ?? 0) / 12 + caMois * (l.tauxCA ?? 0)
@@ -198,18 +204,17 @@ export function calculerBudget(h: Hypotheses, p: ParametresReseau): Budget {
       else externes += montant
     }
     const personnel = (equipe ? equipe.parMois[i].cout : (g.salairesMensuels[i] ?? 0) + g.remunerationGerance * (1 + g.tauxCotisationsGerance))
-      + somme(duMois.map((t) => Math.max(0, t.extrasPersonnel || 0)))
     const ebe = margeMois - externes - impots - personnel
     const resultatExploitation = ebe - amortissements / 12
     const heures = equipe ? equipe.parMois[i].heures : g.heuresMensuelles[i] ?? 0
     return {
       ca: caMois, achats: caMois - margeMois, marge: margeMois, chargesExternes: externes, impotsTaxes: impots, personnel, ebe,
       resultatExploitation, resultatAvantImpot: resultatExploitation - h.interets / 12, productivite: heures > 0 ? caMois / heures : null,
-      univers, autresChargesTempsForts,
+      univers, autresChargesTempsForts, demarqueConsignes,
     }
   })
 
-  const total = (k: keyof Omit<Mois, 'productivite' | 'univers' | 'autresChargesTempsForts'>) => somme(mois.map((m) => m[k]))
+  const total = (k: keyof Omit<Mois, 'productivite' | 'univers' | 'autresChargesTempsForts' | 'demarqueConsignes'>) => somme(mois.map((m) => m[k]))
   const personnel = total('personnel')
   const ebe = total('ebe')
   const resultatAvantImpot = total('resultatAvantImpot')
@@ -230,7 +235,7 @@ export function calculerBudget(h: Hypotheses, p: ParametresReseau): Budget {
     tempsForts: {
       retire: somme(UNIVERS.map((u) => passes(u))),
       ajoute: somme(tempsForts.map((t) => t.ca || 0)),
-      charges: somme(tempsForts.map((t) => Math.max(0, t.extrasPersonnel || 0) + Math.max(0, t.autresCharges || 0))),
+      charges: somme(tempsForts.map((t) => Math.max(0, t.autresCharges || 0))),
       ajustements: somme(UNIVERS.map((u) => somme(ajout[u].map((x) => x.adj)))),
     },
     paiementsTempsForts: tempsForts.map((t) => ({ mois: moisValide(t.moisAchats) ? t.moisAchats - 1 : t.mois - 1, montant: (t.ca || 0) * (1 - tauxU[t.univers]), vente: t.mois - 1, univers: t.univers })),

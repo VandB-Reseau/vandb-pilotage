@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type FraisSimule, type TicketsSimules, type VenteSimulee } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type FraisSimule, type TicketsSimules, type VenteSimulee, plusLoin } from './supabase-simule'
 
 // Lot 28 : alertes tickets et panier, fiche de visite, leviers commerciaux, campagne des budgets, CA par heure,
 // barre d'enregistrement des frais. Données fictives uniquement : dépôt public.
@@ -69,6 +69,7 @@ test('fiche de visite : chiffres à date, trois sujets, alertes et notes', async
 test('fiche de visite et leviers : rien pour le franchisé à créer, simulateur sans bouton d’action', async ({ page }) => {
   await seConnecter(page, { role: 'franchise', reel, tickets, magasins: [{ magasin: MAGASINS[0], statut: 'valide', hypotheses: magasinFictif, maj_le: null }] })
   await expect(page.getByRole('button', { name: 'Fiche de visite' })).toHaveCount(0)
+  await plusLoin(page)
   const leviers = page.getByRole('region', { name: 'Leviers commerciaux' })
   await leviers.getByLabel('Tickets en plus : Cave').fill('2')
   await expect(leviers.getByLabel('Effet sur un an')).toContainText(/CA \+/)
@@ -78,6 +79,7 @@ test('fiche de visite et leviers : rien pour le franchisé à créer, simulateur
 test('leviers commerciaux : effet sur un an, « En faire une action » ouvre le plan pré-rempli', async ({ page, isMobile }, info) => {
   await seConnecter(page, { reel, tickets })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
+  await plusLoin(page)
   const leviers = page.getByRole('region', { name: 'Leviers commerciaux' })
   const effet = leviers.getByLabel('Effet sur un an')
   await expect(effet).toContainText(/CA \+0\sk€/)
@@ -112,6 +114,9 @@ test('campagne des budgets : avancement par Responsable Régional, dates dans Pa
 
   await page.getByRole('link', { name: /Paramètres/ }).click()
   const dates = page.getByRole('region', { name: 'Campagne des budgets' })
+  // Section repliée (lot 30) : le résumé donne les trois dates
+  await expect(dates).toContainText('Proposition avant le 01/01, retour avant le 02/01, validation avant le 03/01')
+  await dates.getByRole('button', { name: /^Campagne des budgets \d{4} : ouvrir$/ }).click()
   await expect(dates.getByLabel('Budgets validés avant le')).toHaveValue('2020-01-03')
   await dates.getByLabel('Budgets validés avant le').fill('2020-01-01')
   await expect(dates.getByText('Les trois dates se suivent')).toBeVisible()

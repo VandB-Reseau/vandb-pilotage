@@ -52,6 +52,7 @@ export function compteResultat(b: Budget, h: Hypotheses, p: { tauxRedevance: num
     ...externes.map((l) => detailFrais(l, 'externes')),
     ligne('externes/publicite', LIGNES_SUR_CA.publicite.libelle, negatif(ca.map((c) => c * p.tauxPublicite)), { parent: 'externes' }),
     ligne('externes/redevance', LIGNES_SUR_CA.redevance.libelle, negatif(ca.map((c) => c * p.tauxRedevance)), { parent: 'externes' }),
+    ...(b.mois.some((m) => m.demarqueConsignes) ? [ligne('externes/consignes', 'Démarque de consignes', negatif(b.mois.map((m) => m.demarqueConsignes ?? 0)), { parent: 'externes' })] : []),
     ligne('impots', 'Impôts et taxes', negatif(b.mois.map((m) => m.impotsTaxes))),
     ...impots.map((l) => detailFrais(l, 'impots')),
     ...(autres.length ? [ligne('autres', 'Autres charges', negatif(totalAutres)), ...autres.map((l) => detailFrais(l, 'autres'))] : []),

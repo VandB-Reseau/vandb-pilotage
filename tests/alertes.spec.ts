@@ -27,46 +27,43 @@ test.afterEach(async ({ page }) => {
   expect((page as unknown as { erreurs: string[] }).erreurs, 'aucune erreur JavaScript').toEqual([])
 })
 
-test('accueil : alertes des magasins, les plus graves d’abord, filtre par type, lien vers le bon onglet', async ({ page, isMobile }, info) => {
+test('vue Réseau : les alertes de chaque magasin dans Ma semaine ; « À traiter » y renvoie', async ({ page, isMobile }, info) => {
   await seConnecter(page, { reel, quadrimestres })
-  const alertes = page.getByRole('region', { name: 'Alertes' })
-  await expect(alertes.getByRole('heading')).toHaveText(`${nbAlertes} alertes`)
-  const lignes = alertes.getByRole('listitem')
-  await expect(lignes.first()).toContainText(new RegExp(`${MAGASINS[2]}Trésorerie de [-−]4\\s000\\s€ fin avril`))
-  await expect(lignes.nth(1)).toContainText(new RegExp(`${MAGASINS[0]}CA [-−]\\d+,\\d\\s%\\sface au budget`))
-  await expect(lignes.nth(2)).toContainText(/Taux de marge de 36,0\s%, [-−]4,0 pt sur l’an dernier/)
-  if (M >= 1) await expect(lignes.nth(3)).toContainText('Aucun mois de réel cette année')
+  // Lot 30 (E3) : plus de liste d'alertes sur l'accueil du siège, « À traiter » mène à Ma semaine
+  await expect(page.getByRole('region', { name: 'Alertes' })).toHaveCount(0)
+  const aTraiter = page.getByRole('region', { name: 'À traiter' })
+  await expect(aTraiter).toContainText(`${M >= 1 ? 3 : 2} magasins en alerte`)
+  await aTraiter.getByRole('link', { name: 'Voir dans Ma semaine' }).click()
+  const semaine = page.getByRole('region', { name: 'Ma semaine' })
+  const premier = semaine.getByRole('list', { name: `Alertes de ${MAGASINS[0]}` }).getByRole('listitem')
+  await expect(premier).toHaveText(['CA sous le budget', 'Marge en baisse'])
+  await expect(premier.nth(1)).toHaveAttribute('aria-label', /Taux de marge de 36,0\s%, [-−]4,0 pt sur l’an dernier/)
+  const troisieme = semaine.getByRole('list', { name: `Alertes de ${MAGASINS[2]}` }).getByRole('listitem')
+  await expect(troisieme.first()).toHaveAttribute('aria-label', /Trésorerie de [-−]4\s000\s€ fin avril/)
+  if (M >= 1) await expect(semaine.getByRole('list', { name: `Alertes de ${MAGASINS[1]}` })).toContainText('Réel en retard')
+  await expect(semaine.getByRole('listitem')).toHaveCount(nbAlertes)
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
-  await alertes.screenshot({ path: `captures/${info.project.name}-alertes.png` })
-
-  await alertes.getByRole('button', { name: 'Marge en baisse (1)' }).click()
-  await expect(lignes).toHaveCount(1)
-  await alertes.getByRole('button', { name: 'Marge en baisse (1)' }).click()
-  await expect(lignes).toHaveCount(nbAlertes)
-  // La trésorerie se lit dans l'onglet Quadrimestres
-  await lignes.first().getByRole('link', { name: MAGASINS[2] }).click()
-  await expect(page.getByRole('tab', { name: 'Quadrimestres' })).toHaveAttribute('aria-selected', 'true')
+  await semaine.screenshot({ path: `captures/${info.project.name}-alertes.png` })
+  // La liste suit le filtre de la page
+  await page.getByLabel('Filtrer la liste des magasins').fill('Saint')
+  await expect(semaine.getByRole('listitem')).toHaveCount(M >= 1 ? 2 : 1)
 })
 
-test('fiche magasin : ses alertes en tête de la synthèse ; vue Réseau filtrée', async ({ page }) => {
+test('fiche magasin : ses alertes en tête de la synthèse', async ({ page }) => {
   await seConnecter(page, { reel, quadrimestres })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   const alertes = page.getByRole('region', { name: 'Alertes' })
   await expect(alertes.getByRole('heading')).toHaveText('2 alertes')
   await expect(alertes.getByRole('link')).toHaveCount(0)
-
-  await page.getByRole('link', { name: /Réseau/ }).first().click()
-  const reseau = page.getByRole('region', { name: 'Alertes' })
-  await expect(reseau.getByRole('heading')).toHaveText(`${nbAlertes} alertes`)
-  await page.getByLabel('Filtrer la liste des magasins').fill('Saint')
-  await expect(reseau.getByRole('heading')).toHaveText(M >= 1 ? '2 alertes' : '1 alerte')
 })
 
 test('paramètres réseau : le Directeur règle les seuils, les alertes suivent', async ({ page, isMobile }) => {
   const ecritures = await seConnecter(page, { reel, quadrimestres })
   await page.getByRole('link', { name: /Paramètres/ }).first().click()
   const section = page.getByRole('region', { name: 'Alertes' })
+  await expect(section).toContainText('Valeurs par défaut')
+  await section.getByRole('button', { name: 'Alertes : ouvrir' }).click()
   const enregistrer = section.getByRole('button', { name: 'Enregistrer' })
   await expect(page.getByLabel('Baisse du taux de marge')).toHaveValue('1')
   await expect(enregistrer).toBeDisabled()
@@ -79,7 +76,8 @@ test('paramètres réseau : le Directeur règle les seuils, les alertes suivent'
   const envoi = ecritures.find((e) => e.table === 'parametres_reseau')?.corps as { valeur: { alertes: unknown } }
   expect(envoi.valeur.alertes).toEqual({ ecartCA: 0.05, baisseMarge: 0.05, moisRetard: 0, tresorerie: -5_000, baisseTickets: 0.05, baissePanier: 0.03 })
 
+  await expect(section).not.toContainText('Valeurs par défaut')
   // Il ne reste que le CA sous le budget
-  await page.getByRole('link', { name: /Magasins/ }).first().click()
-  await expect(page.getByRole('region', { name: 'Alertes' }).getByRole('heading')).toHaveText('1 alerte')
+  await page.getByRole('link', { name: /Réseau/ }).first().click()
+  await expect(page.getByRole('region', { name: 'Ma semaine' }).getByRole('listitem')).toHaveCount(1)
 })

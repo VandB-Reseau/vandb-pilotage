@@ -77,6 +77,7 @@ test('paramètres réseau : le Directeur règle délais et TVA de la trésorerie
   const ecritures = await seConnecter(page, { role: 'directeur' })
   await page.getByRole('link', { name: /Paramètres/ }).first().click()
   const section = page.getByRole('region', { name: 'Trésorerie' })
+  await section.getByRole('button', { name: /^Trésorerie \d{4} : ouvrir$/ }).click()
   const enregistrer = section.getByRole('button', { name: 'Enregistrer' })
   await expect(enregistrer).toBeDisabled()
   await page.getByLabel('Délai de paiement des fournisseurs').fill('2')
@@ -84,6 +85,7 @@ test('paramètres réseau : le Directeur règle délais et TVA de la trésorerie
   await page.getByLabel('TVA moyenne sur les ventes').fill('18')
   await page.getByLabel('Consignes sur les achats : Bar').fill('20')
   await page.getByLabel('Temps pour écouler et rendre un fût').fill('2')
+  await page.getByLabel('Démarque de consignes').fill('2')
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   // Un délai hors de 0 à 3 mois bloque l'enregistrement
   await page.getByLabel('Délai de paiement de la redevance').fill('6')
@@ -93,5 +95,13 @@ test('paramètres réseau : le Directeur règle délais et TVA de la trésorerie
   await expect(page.getByText('Paramètres de trésorerie 2027 enregistrés.')).toBeVisible()
   const envoi = ecritures.find((e) => e.table === 'parametres_reseau')?.corps as { valeur: { tresorerie: Record<string, unknown> & { consignes: unknown } } }
   expect(envoi.valeur.tresorerie).toMatchObject({ delaiFournisseurs: 2, delaiRedevance: 1, tvaTrimestrielle: true, tvaVentes: 0.18 })
-  expect(envoi.valeur.tresorerie.consignes).toMatchObject({ achats: { cave: 0.03, bar: 0.2, exterieur: 0.15 }, ecoulement: 2, remboursement: 1 })
+  expect(envoi.valeur.tresorerie.consignes).toMatchObject({ achats: { cave: 0.03, bar: 0.2, exterieur: 0.15 }, ecoulement: 2, remboursement: 1, demarque: 0.02 })
+})
+
+test('démarque de consignes : une ligne des charges externes du budget, absente sans taux', async ({ page }) => {
+  await seConnecter(page, { parametres: { tauxRedevance: 0.02, tauxPublicite: 0.01, tresorerie: { consignes: { achats: { cave: 0.03, bar: 0.15, exterieur: 0.15 }, ecoulement: 1, remboursement: 1, demarque: 0.05 } } } })
+  await page.getByText(MAGASINS[0], { exact: true }).last().click()
+  await ouvrir(page, 'Résultat et trésorerie')
+  await page.getByRole('button', { name: 'Charges externes : détailler' }).click()
+  await expect(page.getByRole('row', { name: /^Démarque de consignes/ })).toBeVisible()
 })

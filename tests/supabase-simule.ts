@@ -307,9 +307,23 @@ export async function zonesTropPetites(page: Page, min = 48): Promise<string[]> 
 }
 
 // Fiche magasin (lot 27) : une partie s'ouvre depuis son espace (année en cours ou budget)
-const PARTIES_ANNEE = ['Réel', 'Suivi du budget', 'Atterrissage', 'Quadrimestres']
+// Lot 30 : les anciennes parties s'ouvrent dans l'onglet qui les regroupe
+const PARTIES_ANNEE = ['Réel', 'Suivi du budget', 'Atterrissage', 'Quadrimestres', 'Où on va']
+const ONGLET_DE: Record<string, string> = {
+  'Réel': 'Réel', 'Quadrimestres': 'Réel', 'Suivi du budget': 'Où on va', 'Atterrissage': 'Où on va',
+  'Hypothèses': '1 · Chiffre d’affaires', 'Calendrier': '1 · Chiffre d’affaires', 'Équipe': '2 · Équipe et frais', 'Frais': '2 · Équipe et frais',
+  'Résultat': '3 · Résultat', 'Échanges': '4 · Échanges',
+}
 export async function ouvrir(page: Page, partie: string) {
   const annee = PARTIES_ANNEE.some((p) => partie.startsWith(p))
+  const cle = Object.keys(ONGLET_DE).find((k) => partie.startsWith(k))
+  const onglet = cle ? ONGLET_DE[cle] : partie
   await page.getByRole('tablist', { name: 'Vues du magasin' }).getByRole('tab', { name: annee ? /^\d{4} en cours/ : /^Budget \d{4}/ }).click()
-  await page.getByRole('tablist', { name: annee ? /^Parties de l’année/ : /^Parties du budget/ }).getByRole('tab', { name: new RegExp(`^${partie}`) }).click()
+  await page.getByRole('tablist', { name: annee ? /^Parties de l’année/ : /^Parties du budget/ }).getByRole('tab', { name: new RegExp(`^${onglet}`) }).click()
+}
+
+// Synthèse du magasin (lot 30) : déplie « Pour aller plus loin » (graphique, leviers, face au réseau, familles)
+export async function plusLoin(page: Page) {
+  const bouton = page.getByRole('region', { name: 'Pour aller plus loin' }).getByRole('button', { name: /^Pour aller plus loin/ })
+  if ((await bouton.getAttribute('aria-expanded')) !== 'true') await bouton.click()
 }

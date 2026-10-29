@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -9,12 +9,15 @@ import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import FactCheckOutlined from '@mui/icons-material/FactCheckOutlined'
+import FlagOutlined from '@mui/icons-material/FlagOutlined'
+import { ObjectifsMois } from './ObjectifsMois'
 import { EtatVide } from './EtatVide'
 import { FicheVisite } from './FicheVisite'
 import { LeviersCommerciaux } from './LeviersCommerciaux'
 import { GraphiqueMois } from './GraphiqueMois'
 import { Indicateur } from './Indicateur'
 import { Panne } from './Panne'
+import { PlusLoin } from './PlusLoin'
 import { atterrissageDe, chargerBudgets, chargerReel, chargerSecours, hypothesesDe, type DonneesBudgets } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { ecartPts, milliers, montant, MOIS_LONGS, taux } from '../lib/format'
@@ -26,8 +29,9 @@ import type { ParametresReseau } from '../moteur/types'
 import { brand } from '../theme/theme'
 
 // Santé du magasin en un coup d'œil : cumul de l'année face au budget de l'année (lot 27) et à l'an dernier, marge,
-// masse salariale, résultat attendu ; CA cumulé ou mois par mois
-export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteEtActions, proposerAction }: {
+// masse salariale, résultat attendu ; CA cumulé ou mois par mois. Lot 30 (E2) : trois blocs, où on en est (les chiffres),
+// quoi faire (À faire, alertes, plan d'action) et, replié, pour aller plus loin (graphique, leviers, face au réseau)
+export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteEtActions, proposerAction, quoiFaire, plusLoin }: {
   magasin: string
   d: DonneesBudgets
   annee: number
@@ -35,15 +39,19 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteE
   allerA: (onglet: string) => void
   visiteEtActions?: boolean                     // Directeur, RR, Coach : fiche de visite (lot 28)
   proposerAction?: (intitule: string) => void   // leviers commerciaux → plan d'action (lot 28)
+  quoiFaire?: ReactNode
+  plusLoin?: ReactNode                          // face au réseau, familles : seulement pour le siège
 }) {
   const { donnees, erreur, chargement, recharger } = useChargement(
     () => Promise.all([chargerReel(magasin, annee), chargerReel(magasin, annee - 1), chargerSecours(magasin, annee), chargerBudgets(annee).catch(() => null)])
       .then(([n, n1, secours, budgets]) => ({ n, n1, secours, budgets })), [magasin, annee])
   const [vue, setVue] = usePreference<'cumul' | 'mois'>('synthese', 'cumul', ['cumul', 'mois'])
   const [visite, setVisite] = useState(false)
+  const [objectifs, setObjectifs] = useState(false)
 
-  if (chargement && !donnees) return <Skeleton variant="rounded" height={320} />
-  if (erreur || !donnees) return <Panne quoi={`Les chiffres réels ${annee}`} recharger={recharger} />
+  const contenu = plusLoin ? '(graphique, leviers, face au réseau)' : '(graphique, leviers)'
+  if (chargement && !donnees) return <Stack spacing={3}><Skeleton variant="rounded" height={320} />{quoiFaire}</Stack>
+  if (erreur || !donnees) return <Stack spacing={3}><Panne quoi={`Les chiffres réels ${annee}`} recharger={recharger} />{quoiFaire}</Stack>
 
   const equipe = d.equipes[magasin]
   const frais = d.frais[magasin]
@@ -51,11 +59,15 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteE
   const s = santeMagasin(donnees.n, donnees.n1, a?.budget ?? null)
   if (s.moisRealises === 0 || !a) {
     return (
-      <EtatVide
-        titre={`Pas encore de réel ${annee}`}
-        texte={`La synthèse du magasin part des chiffres réels ${annee}, importés chaque mois ou saisis à la main.`}
-        action={<Button variant="contained" onClick={() => allerA('reel')} sx={{ minHeight: 48 }}>Voir le réel</Button>}
-      />
+      <Stack spacing={3}>
+        <EtatVide
+          titre={`Pas encore de réel ${annee}`}
+          texte={`La synthèse du magasin part des chiffres réels ${annee}, importés chaque mois ou saisis à la main.`}
+          action={<Button variant="contained" onClick={() => allerA('reel')} sx={{ minHeight: 48 }}>Voir le réel</Button>}
+        />
+        {quoiFaire}
+        {plusLoin && <PlusLoin contenu="(face au réseau)">{plusLoin}</PlusLoin>}
+      </Stack>
     )
   }
   const b = a.budget
@@ -76,12 +88,17 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteE
   const n = moisDuReel(donnees.n.lignes, donnees.n.tickets)
   return (
     <Stack spacing={3}>
-      {visiteEtActions && (
-        <Box className="pas-a-l-impression" sx={{ display: 'flex', justifyContent: 'flex-end', mb: -1 }}>
-          <Button variant="outlined" startIcon={<FactCheckOutlined />} onClick={() => setVisite(true)} sx={{ minHeight: 48 }}>Fiche de visite</Button>
+      {(visiteEtActions || budgetN) && (
+        <Box className="pas-a-l-impression" sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5, flexWrap: 'wrap', mb: -1 }}>
+          {budgetN && <Button variant="outlined" startIcon={<FlagOutlined />} onClick={() => setObjectifs(true)} sx={{ minHeight: 48 }}>Objectifs du mois</Button>}
+          {visiteEtActions && <Button variant="outlined" startIcon={<FactCheckOutlined />} onClick={() => setVisite(true)} sx={{ minHeight: 48 }}>Fiche de visite</Button>}
           {visite && (
             <FicheVisite ouverte fermer={() => setVisite(false)} magasin={magasin} annee={annee} n={n}
               n1={moisDuReel(donnees.n1.lignes, donnees.n1.tickets)} budget={budgetN} tvaPanier={parametres.tvaPanier} />
+          )}
+          {objectifs && budgetN && (
+            <ObjectifsMois ouverte fermer={() => setObjectifs(false)} magasin={magasin} annee={annee} budget={budgetN}
+              n1={moisDuReel(donnees.n1.lignes, donnees.n1.tickets)} tvaPanier={parametres.tvaPanier} />
           )}
         </Box>
       )}
@@ -115,6 +132,9 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteE
         </Alert>
       ))}
 
+      {quoiFaire}
+
+      <PlusLoin contenu={contenu}>
       <Card component="section" aria-label={`Chiffre d’affaires ${annee}`} sx={{ p: { xs: 2, md: 3 } }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', mb: 2 }}>
           <Typography variant="h2" sx={{ flex: 1, minWidth: 200 }}>Chiffre d’affaires {annee}</Typography>
@@ -149,6 +169,8 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteE
       </Card>
 
       <LeviersCommerciaux budget={b} annee={annee} parametres={parametres} proposerAction={proposerAction} />
+        {plusLoin}
+      </PlusLoin>
     </Stack>
   )
 }

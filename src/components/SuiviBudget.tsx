@@ -24,8 +24,9 @@ import { brand } from '../theme/theme'
 
 type Ligne = { libelle: string; valeur: (l: LigneSuivi) => number | null; cumul: number | null; ecart?: boolean; fort?: boolean }
 
-// Réel de l'année face à son budget, mois par mois : où le magasin décroche, et de combien
-export function SuiviBudget({ magasin, annee, allerA }: { magasin: string; annee: number; allerA: (onglet: string) => void }) {
+// Réel de l'année face à son budget, mois par mois : où le magasin décroche, et de combien. muetSansReel (lot 30) : dans
+// « Où on va », l'atterrissage dit déjà qu'il n'y a pas de réel
+export function SuiviBudget({ magasin, annee, allerA, muetSansReel }: { magasin: string; annee: number; allerA: (onglet: string) => void; muetSansReel?: boolean }) {
   const { donnees, erreur, chargement, recharger } = useChargement(
     () => Promise.all([chargerBudgets(annee), chargerParametres(annee), chargerReel(magasin, annee)]).then(([d, p, reel]) => ({ d, parametres: p.parametres, reel })),
     [magasin, annee])
@@ -46,6 +47,7 @@ export function SuiviBudget({ magasin, annee, allerA }: { magasin: string; annee
   const b = calculerBudget(h.hypotheses, donnees.parametres)
   const s = suiviBudget(moisDuReel(donnees.reel.lignes, donnees.reel.tickets), b)
   if (s.moisRealises === 0) {
+    if (muetSansReel) return null
     return (
       <EtatVide
         titre={`Pas encore de réel ${annee}`}

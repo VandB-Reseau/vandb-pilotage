@@ -71,7 +71,7 @@ test('« Ma semaine » : magasins par marge en jeu, regroupés par Coach', () =>
     { magasin: 'Valcourt', statut: 'a_faire', echeance: '2026-12-01' },     // pas encore échue
     { magasin: 'Valcourt', statut: 'faite', echeance: '2026-09-01' },       // faite
   ], '2026-10-28')
-  expect(l.map((x) => [x.magasin, x.enJeu, x.alertes, x.actionsEnRetard])).toEqual([
+  expect(l.map((x) => [x.magasin, x.enJeu, x.alertes.length, x.actionsEnRetard])).toEqual([
     ['Brionne-sur-Lac', 18_000, 2, 0], ['Valcourt', 4_000, 0, 1], ['Saint-Aubin-des-Prés', 0, 0, 0],
   ])
   expect(l[0].sujet?.enJeu).toBe(10_000)

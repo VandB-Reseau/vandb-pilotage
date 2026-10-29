@@ -20,7 +20,6 @@ import Typography from '@mui/material/Typography'
 import FileDownloadOutlined from '@mui/icons-material/FileDownloadOutlined'
 import PrintOutlined from '@mui/icons-material/PrintOutlined'
 import FilterListOutlined from '@mui/icons-material/FilterListOutlined'
-import { AlertesMagasins } from '../components/AlertesMagasins'
 import { MaSemaine } from '../components/MaSemaine'
 import { EtatVide } from '../components/EtatVide'
 import { Indicateur } from '../components/Indicateur'
@@ -183,14 +182,12 @@ export function Reseau() {
         />
       </Box>
 
+      {/* Lot 30 (E3) : Ma semaine porte aussi les alertes ; un magasin sans réel y figure s'il a une alerte */}
       <Box className="pas-a-l-impression">
         <MaSemaine
-          lignes={maSemaine(visibles.filter((m) => m.moisRealises > 0), donnees.alertes, donnees.actions, new Date().toISOString().slice(0, 10))}
+          lignes={maSemaine(visibles.filter((m) => m.moisRealises > 0 || donnees.alertes.some((a) => a.magasin === m.magasin)), donnees.alertes, donnees.actions, new Date().toISOString().slice(0, 10))}
           avecCoachs={donnees.coachs.length > 0} etat={etat}
         />
-      </Box>
-      <Box className="pas-a-l-impression" sx={{ mb: 4 }}>
-        <AlertesMagasins alertes={donnees.alertes.filter((a) => visibles.some((m) => m.magasin === a.magasin))} etat={etat} />
       </Box>
 
       <Stack direction="row" spacing={2} useFlexGap className="pas-a-l-impression" sx={{ mb: 2, flexWrap: 'wrap' }}>

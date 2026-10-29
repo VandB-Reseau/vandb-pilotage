@@ -65,7 +65,7 @@ export const AIDE = {
   tempsForts: {
     titre: 'Temps forts',
     quoi: 'Les événements qui font un CA à part : salons, marchés de Noël, soirées, opérations commerciales.',
-    remplir: 'Pour chacun : le CA de l’an passé, le CA prévu, les extras de personnel, les autres charges et le mois où les achats sont payés.',
+    remplir: 'Pour chacun : le CA de l’an passé, le CA prévu, les autres charges et le mois où les achats sont payés. Les extras de personnel se saisissent dans Équipe.',
     calcul: 'Le CA de l’an passé sort de la base pour ne pas être compté deux fois ; le CA prévu s’ajoute dans son mois, avec ses charges.',
   },
   ajustements: {
@@ -124,6 +124,18 @@ export const AIDE = {
     titre: 'Ma semaine',
     quoi: 'Les magasins du périmètre classés par la marge en jeu depuis janvier, pour savoir où aller en premier.',
     calcul: 'Marge en jeu : la somme des trois sujets de la fiche de visite (CA sous le budget, points de marge perdus, tickets et panier en baisse face à l’an dernier).',
+  },
+  objectifsMois: {
+    titre: 'Objectifs du mois',
+    quoi: 'Le budget du mois traduit pour l’équipe : clients par jour et panier moyen visés, Cave et Bar séparés, face au même mois de l’an dernier.',
+    remplir: 'Choisis le mois et corrige les jours d’ouverture si le magasin ferme un autre jour que le dimanche.',
+    calcul: 'Clients du mois = CA HT du budget × (1 + TVA moyenne) ÷ panier visé ; par jour = ÷ jours d’ouverture. Un euro de plus par client = nombre de clients du mois.',
+  },
+  extras: {
+    titre: 'Extras',
+    quoi: 'Les heures faites par des extras sur l’année, comme un poste de l’équipe : renforts du samedi, de décembre, des temps forts.',
+    remplir: 'Les heures moyennes d’extras par semaine ou par mois, toutes personnes confondues, et le taux horaire brut, congés payés compris. Arrivée et départ pour une saison seulement.',
+    calcul: 'Brut du mois = heures moyennes du mois × taux horaire. Charges au taux de la catégorie, moins la réduction générale calculée sur le taux horaire. Les heures comptent dans le CA par heure travaillée.',
   },
 } satisfies Record<string, TexteAide>
 

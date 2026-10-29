@@ -4,7 +4,9 @@
 //   calculée sur le brut annuel de chaque salarié, maximale au SMIC, nulle à 3 SMIC ; pas de réduction pour un gérant TNS ;
 // - primes annuelles versées le mois choisi, pas de 13e mois ; entrées et sorties au mois ;
 // - primes d'équipe (lot 26) : une enveloppe sans heures ni salaire, chargée au taux de sa catégorie, sans réduction
-//   (la réduction dépend du salaire de chaque bénéficiaire, inconnu ici : le coût n'est pas sous-estimé).
+//   (la réduction dépend du salaire de chaque bénéficiaire, inconnu ici : le coût n'est pas sous-estimé) ;
+// - extras (Joseph, 29/10/2026) : un poste comme un autre, heures moyennes par semaine ou par mois × taux horaire brut,
+//   congés payés compris ; ils remplacent les extras de personnel des temps forts.
 // Fonction pure, testée dans tests/moteur/equipe.spec.ts.
 
 export type Categorie = 'employe' | 'agent_maitrise' | 'cadre' | 'apprenti' | 'gerant_tns'
@@ -25,6 +27,7 @@ export interface Personne {
   sortie: string | null    // « AAAA-MM », dernier mois travaillé ; null : pas de départ prévu
   heuresSaisie?: 'semaine' | 'mois'  // unité choisie à la saisie (lot 26) ; le calcul part toujours des heures par semaine
   enveloppe?: boolean      // primes d'équipe sans salarié (lot 26) : ni heures ni salaire, charges de la catégorie, sans réduction
+  tauxHoraire?: number     // extras : taux horaire brut ; brutMensuel = taux × heures moyennes du mois
 }
 
 // Heures par mois ↔ heures par semaine : 52 semaines sur 12 mois

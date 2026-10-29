@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type ActionSimulee, type MagasinSimule, type VenteSimulee } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type ActionSimulee, type MagasinSimule, type VenteSimulee, plusLoin } from './supabase-simule'
 
 // Lot 29 : économie du franchisé, familles face au réseau, « Ma semaine » dans la vue Réseau. Données fictives : dépôt public.
 const N = new Date().getFullYear()
@@ -55,6 +55,7 @@ test('économie du franchisé : visible par le franchisé sur son magasin', asyn
 test('familles face au réseau : poids, marge et médianes à partir de trois magasins', async ({ page, isMobile }, info) => {
   await seConnecter(page, { magasins: troisMagasins })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
+  await plusLoin(page)
   const region = page.getByRole('region', { name: 'Familles face au réseau' })
   const tableau = region.getByRole('table', { name: `Familles de ${MAGASINS[0]} face au réseau` })
   await expect(tableau.getByRole('columnheader', { name: 'Poids dans l’univers' })).toBeVisible()
@@ -68,6 +69,7 @@ test('familles face au réseau : cachées sous trois magasins et pour le franchi
   await seConnecter(page)
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await expect(page.getByRole('tablist', { name: 'Vues du magasin' })).toBeVisible()
+  await plusLoin(page)
   await expect(page.getByRole('region', { name: 'Familles face au réseau' })).toHaveCount(0)
 })
 

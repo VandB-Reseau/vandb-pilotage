@@ -77,7 +77,8 @@ export type ChoixRythme = 'auto' | 'applique' | 'ignore'
 export type TypeTempsFort = 'exterieur' | 'soiree' | 'operation'
 export interface TempsFort {
   nom: string; type: TypeTempsFort; mois: number; univers: Univers
-  caAnPasse: number; ca: number; extrasPersonnel: number; autresCharges: number; moisAchats: number
+  caAnPasse: number; ca: number; autresCharges: number; moisAchats: number
+  extrasPersonnel?: number // retiré le 29/10/2026 : les extras se saisissent dans l'équipe ; ignoré s'il reste enregistré
 }
 // Client gagné ou perdu, concurrent, horaires : montant HT par mois, ou part du CA de l'univers, de tel mois à tel mois
 export interface AjustementCA { libelle: string; univers: Univers; de: number; a: number; montant?: number; taux?: number }
@@ -111,6 +112,7 @@ export interface Mois {
   productivite: number | null // CA par heure travaillée
   univers?: Record<Univers, { ca: number; achats: number; achatsTempsForts: number }> // détail du mois (lot 24)
   autresChargesTempsForts?: number
+  demarqueConsignes?: number // vides jamais remboursés, dans les charges externes (29/10/2026)
 }
 
 export interface ResultatFamille extends Famille { atterrissage: number; objectif: number; margeObjectif: number }

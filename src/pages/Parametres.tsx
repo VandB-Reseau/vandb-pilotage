@@ -24,18 +24,39 @@ import { ChampNombre } from '../components/ChampNombre'
 import { ChampTaux } from '../components/ChampTaux'
 import { ChoixListe } from '../components/ChoixListe'
 import { Panne } from '../components/Panne'
+import { SectionParametres } from '../components/SectionParametres'
 import { anneeBudget, chargerParametres, enregistrerParametres, type ParametresCharges } from '../data/pilotage'
 import { nombre } from '../import/caisse'
 import { CATEGORIES, categorieLibelle } from '../moteur/equipe'
 import { useChargement } from '../data/useChargement'
 import type { ParametresAlertes } from '../moteur/alertes'
 import { campagneDe, type Campagne } from '../moteur/campagne'
+import { parametresParDefaut } from '../moteur/parametres'
+import type { ParametresReseau } from '../moteur/types'
 import type { OperationReseau, ParametresTresorerie } from '../moteur/tresorerie'
 import { UNIVERS, universLibelle, type Univers } from '../moteur/types'
 import { enChiffres, montant, MOIS_LONGS, taux } from '../lib/format'
 
 const MOIS_OPTIONS = MOIS_LONGS.map((m, i) => ({ valeur: i + 1, libelle: m.charAt(0).toUpperCase() + m.slice(1) }))
 const DE_L_UNIVERS: Record<Univers, string> = { cave: 'de la Cave', bar: 'du Bar', exterieur: 'de l’Extérieur' }
+
+// Résumés des sections repliées (lot 30, E4)
+const egal = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+const pct = (v: number) => taux(v).replace(',0 %', ' %')
+const jourMois = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
+const resumeCharges = (p: ParametresReseau) =>
+  `Employé ${pct(p.charges.taux.employe)}, cadre ${pct(p.charges.taux.cadre)}, gérant TNS ${pct(p.charges.taux.gerant_tns)} ; SMIC annuel ${montant(p.charges.reduction.smicAnnuel)}`
+const resumeAlertes = (p: ParametresReseau) => [
+  `CA ${pct(p.alertes.ecartCA)} sous le budget`, `marge −${String(Math.round(p.alertes.baisseMarge * 1000) / 10).replace('.', ',')} pt`,
+  p.alertes.baisseTickets !== undefined ? `tickets −${pct(p.alertes.baisseTickets)}` : '', p.alertes.baissePanier !== undefined ? `panier −${pct(p.alertes.baissePanier)}` : '',
+  p.alertes.moisRetard ? `réel en retard de ${p.alertes.moisRetard} mois` : '', `trésorerie sous ${montant(p.alertes.tresorerie)}`,
+].filter(Boolean).join(', ')
+const resumeCampagne = (c: Campagne) => `Proposition avant le ${jourMois(c.proposition)}, retour avant le ${jourMois(c.retour)}, validation avant le ${jourMois(c.validation)}`
+const resumeTreso = (p: ParametresReseau) => {
+  const t = p.tresorerie, c = t.consignes
+  return [`Fournisseurs à ${t.delaiFournisseurs} mois`, `TVA ${t.tvaTrimestrielle ? 'trimestrielle' : 'mensuelle'}`,
+    c ? `consignes Cave ${pct(c.achats.cave)}, Bar ${pct(c.achats.bar)}, démarque ${pct(c.demarque ?? 0)}` : ''].filter(Boolean).join(', ')
+}
 
 export function Parametres() {
   const annee = anneeBudget()
@@ -201,11 +222,8 @@ export function Parametres() {
         </Card>
 
         {charges && (
-          <Card component="section" aria-label="Charges sociales">
-            <Box sx={{ p: 2, pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-              <Typography variant="h2">Charges sociales {annee}</Typography>
-              <Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe || !valides} onClick={() => void enregistrer()} sx={{ minHeight: 48 }}>Enregistrer</Button>
-            </Box>
+          <SectionParametres nom="Charges sociales" titre={`Charges sociales ${annee}`} resume={resumeCharges(p)} parDefaut={egal(p.charges, parametresParDefaut.charges)}
+            action={<Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe || !valides} onClick={() => void enregistrer()} sx={{ minHeight: 48 }}>Enregistrer</Button>}>
             {message && <Box sx={{ px: 2 }}><Alert severity={message.gravite} onClose={() => setMessage(null)} closeText="Fermer" slotProps={{ closeButton: { sx: { width: 48, height: 48 } } }}>{message.texte}</Alert></Box>}
             <Table aria-label={`Charges sociales ${annee}`}>
               <TableBody>
@@ -237,14 +255,11 @@ export function Parametres() {
                 </TableRow>
               </TableBody>
             </Table>
-          </Card>
+          </SectionParametres>
         )}
 
-        <Card component="section" aria-label="Alertes">
-          <Box sx={{ p: 2, pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-            <Typography variant="h2">Alertes</Typography>
-            <Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe || !alertesLues || !alertesModifiees} onClick={() => void enregistrerAlertes()} sx={{ minHeight: 48 }}>Enregistrer</Button>
-          </Box>
+        <SectionParametres nom="Alertes" titre={'Alertes'} resume={resumeAlertes(p)} parDefaut={egal(p.alertes, parametresParDefaut.alertes)}
+          action={<Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe || !alertesLues || !alertesModifiees} onClick={() => void enregistrerAlertes()} sx={{ minHeight: 48 }}>Enregistrer</Button>}>
           {messageAlertes && <Box sx={{ px: 2 }}><Alert severity={messageAlertes.gravite} onClose={() => setMessageAlertes(null)} closeText="Fermer" slotProps={{ closeButton: { sx: { width: 48, height: 48 } } }}>{messageAlertes.texte}</Alert></Box>}
           <Table aria-label="Seuils des alertes">
             <TableBody>
@@ -274,14 +289,11 @@ export function Parametres() {
               </TableRow>
             </TableBody>
           </Table>
-        </Card>
+        </SectionParametres>
 
         {campagne && (
-          <Card component="section" aria-label="Campagne des budgets">
-            <Box sx={{ p: 2, pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-              <Typography variant="h2">Campagne des budgets {annee}</Typography>
-              <Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe || !campagneValide || !campagneModifiee} onClick={() => void enregistrerCampagne()} sx={{ minHeight: 48 }}>Enregistrer</Button>
-            </Box>
+          <SectionParametres nom="Campagne des budgets" titre={`Campagne des budgets ${annee}`} resume={resumeCampagne(campagneDe(p, annee))} parDefaut={!p.campagne}
+            action={<Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe || !campagneValide || !campagneModifiee} onClick={() => void enregistrerCampagne()} sx={{ minHeight: 48 }}>Enregistrer</Button>}>
             {messageCampagne && <Box sx={{ px: 2 }}><Alert severity={messageCampagne.gravite} onClose={() => setMessageCampagne(null)} closeText="Fermer" slotProps={{ closeButton: { sx: { width: 48, height: 48 } } }}>{messageCampagne.texte}</Alert></Box>}
             {!campagneValide && <Box sx={{ px: 2 }}><Alert severity="warning">Les trois dates se suivent : proposition, puis retour des franchisés, puis validation.</Alert></Box>}
             <Table aria-label={`Dates de la campagne des budgets ${annee}`}>
@@ -301,15 +313,12 @@ export function Parametres() {
                 ))}
               </TableBody>
             </Table>
-          </Card>
+          </SectionParametres>
         )}
 
         {treso && (
-          <Card component="section" aria-label="Trésorerie">
-            <Box sx={{ p: 2, pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-              <Typography variant="h2">Trésorerie {annee}</Typography>
-              <Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe || !tresoValide || !tresoModifiee} onClick={() => void enregistrerTreso()} sx={{ minHeight: 48 }}>Enregistrer</Button>
-            </Box>
+          <SectionParametres nom="Trésorerie" titre={`Trésorerie ${annee}`} resume={resumeTreso(p)} parDefaut={egal(p.tresorerie, parametresParDefaut.tresorerie)}
+            action={<Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe || !tresoValide || !tresoModifiee} onClick={() => void enregistrerTreso()} sx={{ minHeight: 48 }}>Enregistrer</Button>}>
             {messageTreso && <Box sx={{ px: 2 }}><Alert severity={messageTreso.gravite} onClose={() => setMessageTreso(null)} closeText="Fermer" slotProps={{ closeButton: { sx: { width: 48, height: 48 } } }}>{messageTreso.texte}</Alert></Box>}
             <Table aria-label={`Paramètres de trésorerie ${annee}`}>
               <TableBody>
@@ -353,6 +362,10 @@ export function Parametres() {
                       <TableCell align="right"><ChampTaux libelle={`Consignes sur les achats : ${universLibelle[u]}`} valeur={treso.consignes!.achats[u]} onChange={(v) => consigne(u, v)} /></TableCell>
                     </TableRow>
                   ))}
+                  <TableRow>
+                    <TableCell>Démarque de consignes : part des consignes jamais remboursée (vides perdus ou cassés), en charge du compte de résultat</TableCell>
+                    <TableCell align="right"><ChampTaux libelle="Démarque de consignes" valeur={treso.consignes!.demarque ?? 0} onChange={(v) => setTreso((t) => (t?.consignes ? { ...t, consignes: { ...t.consignes, demarque: v ?? 0 } } : t))} /></TableCell>
+                  </TableRow>
                   <TableRow>
                     <TableCell>Temps pour écouler un fût et le rendre au fournisseur, en mois</TableCell>
                     <TableCell align="right"><ChampNombre libelle="Temps pour écouler et rendre un fût" valeur={delais.ecoulement} unite="mois" largeur={120} onChange={(v) => setDelais((d) => ({ ...d, ecoulement: v }))} /></TableCell>
@@ -409,7 +422,7 @@ export function Parametres() {
                 Ajouter une opération
               </Button>
             </Box>
-          </Card>
+          </SectionParametres>
         )}
         </Stack>
       )}

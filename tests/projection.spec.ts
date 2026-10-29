@@ -97,9 +97,9 @@ test('le franchisé prévoit un temps fort et un client gagné : la base perd l�
   await expect(ca).toContainText(/595\s000\s€/)
   await ouvrir(page, 'Calendrier')
   await expect(tf).toContainText(/CA 2026 retiré : 12\sk€ · CA 2027 ajouté : 15\sk€/)
-  await tf.getByLabel('Extras de personnel : Oktoberfest').fill('800')
+  await expect(tf.getByLabel('Extras de personnel : Oktoberfest')).toHaveCount(0)
   await tf.getByLabel('Autres charges : Oktoberfest').fill('2 200')
-  await expect(tf).toContainText(/Charges : 3\sk€/)
+  await expect(tf).toContainText(/Charges : 2\sk€/)
 
   // Une association gagnée : 1 000 € par mois toute l'année
   await page.getByRole('button', { name: 'Ajouter un client gagné ou perdu' }).click()
@@ -126,7 +126,7 @@ test('le franchisé prévoit un temps fort et un client gagné : la base perd l�
   await expect(page.getByText('Ajustements enregistrés : le budget est en discussion avec le siège.')).toBeVisible()
   const envoi = ecritures.find((e) => e.table === 'budgets' && e.methode === 'PATCH')?.corps as { ajustements: unknown }
   expect(envoi.ajustements).toEqual({
-    tempsForts: [{ nom: 'Oktoberfest', type: 'exterieur', mois: 6, univers: 'exterieur', caAnPasse: 12_000, ca: 15_000, extrasPersonnel: 800, autresCharges: 2_200, moisAchats: 5 }],
+    tempsForts: [{ nom: 'Oktoberfest', type: 'exterieur', mois: 6, univers: 'exterieur', caAnPasse: 12_000, ca: 15_000, autresCharges: 2_200, moisAchats: 5 }],
     ajustementsCA: [{ libelle: 'Association sportive', univers: 'bar', de: 10, a: 12, taux: -0.1 }],
   })
   // Retirer le temps fort : la carte revient au bouton
@@ -166,6 +166,7 @@ test('paramètres réseau : achats de l’Extérieur payés avant la vente, opé
   const ecritures = await seConnecter(page, { role: 'directeur' })
   await page.getByRole('link', { name: /Paramètres/ }).first().click()
   const section = page.getByRole('region', { name: 'Trésorerie' })
+  await section.getByRole('button', { name: /^Trésorerie \d{4} : ouvrir$/ }).click()
   await expect(page.getByLabel('Avance des achats de l’Extérieur')).toHaveValue('1')
   await section.getByRole('button', { name: 'Ajouter une opération' }).click()
   await page.getByLabel('Nom de l’opération 1').fill('Foire aux vins')

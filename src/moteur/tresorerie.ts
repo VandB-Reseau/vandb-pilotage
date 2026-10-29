@@ -19,11 +19,13 @@ export interface ParametresTresorerie {
   // (foire aux vins…) : une part des achats du mois de vente payée à un autre mois. Mois de 1 à 12.
   avanceExterieur?: number
   operations?: OperationReseau[]
-  // Consignes (fûts, caisses, bouteilles de gaz) : hors TVA et hors compte de résultat, elles décalent la trésorerie
+  // Consignes (fûts, caisses, bouteilles de gaz) : hors TVA et hors compte de résultat, elles décalent la trésorerie ;
+  // seule leur démarque (vides perdus, cassés, jamais remboursés) est une charge du compte de résultat (Joseph, 29/10/2026)
   consignes?: {
     achats: Record<Univers, number>   // consigne payée aux fournisseurs, en part des achats de l'univers
     ecoulement: number                // mois pour vider le fût et le rendre au fournisseur
     remboursement: number             // mois de remboursement après le retour (1 = 30 jours fin de mois)
+    demarque?: number                 // part des consignes versées jamais remboursée : charge externe, retirée du remboursement
   }
 }
 
@@ -43,7 +45,8 @@ export const tresorerieParDefaut: ParametresTresorerie = {
   operations: [],
   // Joseph (28/10/2026) : remboursé à 30 jours fin de mois une fois le fût fini ; taux et délais modifiables. Les cautions
   // des clients sont des empreintes bancaires, jamais encaissées : elles ne comptent pas.
-  consignes: { achats: { cave: 0.03, bar: 0.15, exterieur: 0.15 }, ecoulement: 1, remboursement: 1 },
+  // Démarque des consignes : 0 tant que le Directeur ne l'a pas saisie dans Paramètres réseau (29/10/2026).
+  consignes: { achats: { cave: 0.03, bar: 0.15, exterieur: 0.15 }, ecoulement: 1, remboursement: 1, demarque: 0 },
 }
 
 export interface MoisTresorerie {
@@ -142,7 +145,7 @@ export function tresorerieBudget(b: Budget, h: Hypotheses, p: { tauxRedevance: n
     const tva = tvaPayee(i)
     const emprunts = (h.interets + h.remboursementCapital) / 12
     const travaux = investissement[i] * (1 + t.tvaFrais)
-    const consignesVersees = versees[i], consignesRemboursees = decale(versees, i, retour)
+    const consignesVersees = versees[i], consignesRemboursees = decale(versees, i, retour) * (1 - (t.consignes?.demarque ?? 0))
     const decaissements = fournisseurs + frais + salaires + tva + emprunts + impot(i) + travaux + consignesVersees
     const flux = encaissements + consignesRemboursees - decaissements
     solde += flux
