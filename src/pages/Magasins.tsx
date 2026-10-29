@@ -205,7 +205,8 @@ export function Magasins() {
               <Indicateur libelle="Fiches à compléter" valeur={String(synthese.aCompleter)} detail="Équipe ou frais à renseigner" />
             </Box>
           )}
-          <Box sx={{ mb: 4 }}><AlertesMagasins alertes={donnees.alertes} etat={{ liste: tous.map((m) => m.magasin) }} /></Box>
+          {/* Lot 30 (E3) : pour le Directeur, le RR et le Coach, les alertes se lisent dans Ma semaine (vue Réseau) */}
+          {!estEquipe(profil) && <Box sx={{ mb: 4 }}><AlertesMagasins alertes={donnees.alertes} etat={{ liste: tous.map((m) => m.magasin) }} /></Box>}
           {(tous.length > 5 || donnees.groupes.length > 0) && (
             <Stack direction="row" spacing={2} useFlexGap sx={{ mb: 2, flexWrap: 'wrap' }}>
               {tous.length > 5 && (

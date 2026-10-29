@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { MAGASINS } from './donnees-fictives'
-import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type FraisSimule, type PartSimulee, type TicketsSimules, type VenteSimulee } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type FraisSimule, type PartSimulee, type TicketsSimules, type VenteSimulee, plusLoin } from './supabase-simule'
 
 // Frais ligne par ligne et atterrissage de l'année en cours ; le Directeur en tire le budget de l'an prochain.
 // Données fictives uniquement : dépôt public. Mêmes chiffres que tests/moteur/atterrissage.spec.ts, vérifiés à la main.
@@ -108,6 +108,7 @@ test('synthèse et atterrissage : réel des mois passés, saisonnalité de l’a
   await expect(sante).toContainText(/Budget à date : 96\sk€/)
   // Courbe cumulée d'office ; en décembre : réel 40 000, projection jusqu'à l'atterrissage 285 000, budget 640 000,
   // an dernier 11 × 1 000 + 4 000 = 15 000
+  await plusLoin(page)
   const graphique = page.getByRole('region', { name: /^Chiffre d’affaires \d+$/ })
   await graphique.locator('[data-mois="12"]').click()
   const bulle = page.getByRole('tooltip')
@@ -149,7 +150,7 @@ test('synthèse et atterrissage : réel des mois passés, saisonnalité de l’a
 
   await page.getByRole('tab', { name: 'Synthèse' }).click()
   await page.getByRole('button', { name: 'Renseigner l’équipe' }).click()
-  await expect(page.getByRole('tab', { name: /^Équipe/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { name: /^2 · Équipe et frais/ })).toHaveAttribute('aria-selected', 'true')
 })
 
 test('le Directeur propose le budget de l’an prochain à partir de l’atterrissage', async ({ page }) => {
@@ -177,7 +178,7 @@ test('sans réel de l’année, l’atterrissage renvoie vers le réel', async (
   await ouvrir(page, 'Atterrissage')
   await expect(page.getByText(`Pas encore de réel ${N}`)).toBeVisible()
   await page.getByRole('button', { name: 'Voir le réel' }).click()
-  await expect(page.getByRole('button', { name: String(N), exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('group', { name: 'Année du réel' }).getByRole('button', { name: String(N), exact: true })).toHaveAttribute('aria-pressed', 'true')
 })
 
 test('sans réel de l’an dernier : part de l’année réalisée saisie par univers, comme dans le prévisionnel', async ({ page, isMobile }, info) => {

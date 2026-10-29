@@ -54,7 +54,6 @@ export function ATraiter({ items, annee, directeur, filtrer, etat }: {
       case 'frais': return `Frais à renseigner dans ${pluriel(x.nombre, 'magasin', 'magasins')}`
     }
   }
-  const allerAuxAlertes = () => document.querySelector('section[aria-label="Alertes"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
   return (
     <Card component="section" aria-label="À traiter">
@@ -79,7 +78,7 @@ export function ATraiter({ items, annee, directeur, filtrer, etat }: {
                   <Typography component="span" color="text.secondary">et {pluriel(x.magasins.length - PREMIERS, 'autre', 'autres')}</Typography>
                 )}
               </Box>
-              {x.cle === 'alertes' && <Button onClick={allerAuxAlertes} sx={{ minHeight: 48 }}>Voir les alertes</Button>}
+              {(x.cle === 'alertes' || x.cle === 'actions') && <Button component={RouterLink} to="/reseau" sx={{ minHeight: 48 }}>Voir dans Ma semaine</Button>}
               {x.filtre && <Button onClick={() => filtrer(x.filtre!)} sx={{ minHeight: 48 }} aria-label={`Afficher ces magasins : ${texte(x)}`}>Afficher ces magasins</Button>}
             </Box>
           ))}

@@ -125,6 +125,12 @@ export const AIDE = {
     quoi: 'Les magasins du périmètre classés par la marge en jeu depuis janvier, pour savoir où aller en premier.',
     calcul: 'Marge en jeu : la somme des trois sujets de la fiche de visite (CA sous le budget, points de marge perdus, tickets et panier en baisse face à l’an dernier).',
   },
+  objectifsMois: {
+    titre: 'Objectifs du mois',
+    quoi: 'Le budget du mois traduit pour l’équipe : clients par jour et panier moyen visés, Cave et Bar séparés, face au même mois de l’an dernier.',
+    remplir: 'Choisis le mois et corrige les jours d’ouverture si le magasin ferme un autre jour que le dimanche.',
+    calcul: 'Clients du mois = CA HT du budget × (1 + TVA moyenne) ÷ panier visé ; par jour = ÷ jours d’ouverture. Un euro de plus par client = nombre de clients du mois.',
+  },
   extras: {
     titre: 'Extras',
     quoi: 'Les heures faites par des extras sur l’année, comme un poste de l’équipe : renforts du samedi, de décembre, des temps forts.',

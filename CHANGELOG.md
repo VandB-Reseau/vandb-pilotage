@@ -5,6 +5,17 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 30 — Fiche plus simple, objectifs du mois
+
+- **Base : migration `0017_extras.sql` à passer** (voir ci-dessous), rien d'autre.
+- Fiche du magasin : budget en 4 étapes numérotées, année en 2 vues (Réel, Où on va). Calendrier dans le chiffre
+  d'affaires, frais avec l'équipe, quadrimestres avec le réel, atterrissage avec le suivi.
+- Synthèse en 3 blocs (santé, manques, quoi faire) ; graphique, leviers, comparaisons dans « Pour aller plus loin ».
+- Alertes regroupées dans « Ma semaine » (vue Réseau) ; le filtre par type d'alerte de la vue Réseau disparaît.
+- Paramètres réseau : chaque section repliée avec son résumé et la mention « Valeurs par défaut ».
+- Objectifs du mois : clients par jour et panier TTC pour Cave et Bar, comparés à l'an dernier, un euro de plus par
+  client, imprimable pour l'équipe.
+
 ### Extras dans l'équipe, démarque de consignes
 
 - **Base : migration `0017_extras.sql` à passer** avant d'enregistrer des extras (après 0015 et 0016).

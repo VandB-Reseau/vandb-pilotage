@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { seConnecter, textesTropPetits, zonesTropPetites, type FraisSimule, type MagasinSimule, type PersonneSimulee, type QuadrimestreSimule, type VenteSimulee } from './supabase-simule'
+import { seConnecter, textesTropPetits, zonesTropPetites, type FraisSimule, type MagasinSimule, type PersonneSimulee, type QuadrimestreSimule, type VenteSimulee, plusLoin } from './supabase-simule'
 
 // Espace franchisé : en tête de la fiche, ce qu'il a à faire, chaque ligne mène à l'onglet. Données fictives : dépôt public.
 // Le jour est figé au 15 octobre : réel de septembre attendu, quadrimestres de janvier à avril et de mai à août.
@@ -37,13 +37,16 @@ test('le franchisé voit ce qu’il a à faire et y va en un clic, sans la compa
     /Équipe à renseigner/,
     /Frais à renseigner/,
   ])
+  await plusLoin(page)
   await expect(page.getByRole('region', { name: 'Face au réseau', exact: true })).toHaveCount(0)
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-espace-franchise.png`, fullPage: true })
 
   await liste.getByRole('button', { name: `Saisir : Quadrimestre mai à août ${N} à saisir` }).click()
-  await expect(page.getByRole('tab', { name: 'Quadrimestres' })).toHaveAttribute('aria-selected', 'true')
+  // Lot 30 : les quadrimestres sont sous le réel, dans l'onglet Réel, et la page défile jusqu'à eux
+  await expect(page.getByRole('tab', { name: /^Réel/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('heading', { name: 'Quadrimestres comptables' })).toBeInViewport()
   await page.getByRole('tab', { name: 'Synthèse' }).click()
   await aFaire(page).getByRole('button', { name: 'Saisir : Réel de septembre à saisir' }).click()
   await expect(page.getByRole('tab', { name: /Réel/ })).toHaveAttribute('aria-selected', 'true')

@@ -80,6 +80,9 @@ function LibelleOnglet({ texte, manque, detail }: { texte: string; manque: boole
 // Lot 27 : espaces de la fiche ; chaque partie (ancien onglet) appartient à un espace. « budget » : les hypothèses.
 type Espace = 'synthese' | 'annee' | 'budget'
 const PARTIES_ANNEE = ['reel', 'suivi', 'atterrissage', 'quadrimestres']
+// Lot 30 (E1) : 10 onglets deviennent 6 ; une ancienne partie s'affiche dans l'onglet qui la regroupe, sous la première
+const REGROUPEES: Record<string, string> = { calendrier: 'budget', frais: 'equipe', atterrissage: 'suivi', quadrimestres: 'reel' }
+const ongletDe = (o: string) => REGROUPEES[o] ?? o
 const espaceDe = (o: string): Espace => (o === 'synthese' ? 'synthese' : PARTIES_ANNEE.includes(o) ? 'annee' : 'budget')
 type Partie = { cle: string; libelle: string; manque?: boolean; detail?: string }
 
@@ -103,7 +106,15 @@ export function Magasin() {
   // Budget de l'an prochain, réel de l'année en cours et de la précédente
   const anneeEnCours = new Date().getFullYear()
   // Synthèse d'abord : la santé du magasin en un coup d'œil
-  const [onglet, setOnglet] = useState((useLocation().state as { onglet?: string } | null)?.onglet ?? 'synthese')
+  const demande = (useLocation().state as { onglet?: string } | null)?.onglet ?? 'synthese'
+  const [onglet, setOnglet] = useState(ongletDe(demande))
+  // Partie regroupée demandée (« frais », « quadrimestres »…) : la page défile jusqu'à elle une fois affichée
+  const [section, setSection] = useState<string | null>(REGROUPEES[demande] ? demande : null)
+  useEffect(() => {
+    if (!section) return
+    const t = window.setTimeout(() => { document.getElementById(`partie-${section}`)?.scrollIntoView({ block: 'start' }); setSection(null) }, 50)
+    return () => window.clearTimeout(t)
+  }, [section, onglet])
   const [dernieres, setDernieres] = useState<Record<Exclude<Espace, 'synthese'>, string>>({ annee: 'reel', budget: 'budget' })
   const [anneeReel, setAnneeReel] = useState(anneeEnCours)
   const [anneeQuadri, setAnneeQuadri] = useState(anneeEnCours)
@@ -196,25 +207,25 @@ export function Magasin() {
 
   // Lot 27 : trois espaces (synthèse, année en cours, budget) découpés en parties ; on garde la dernière partie de chaque espace
   const espace = espaceDe(onglet)
-  const aller = (o: string) => { setOnglet(o); if (espaceDe(o) !== 'synthese') setDernieres((d) => ({ ...d, [espaceDe(o)]: o })) }
+  const aller = (o: string) => {
+    const g = ongletDe(o)
+    setOnglet(g); setSection(REGROUPEES[o] ? o : null)
+    if (espaceDe(g) !== 'synthese') setDernieres((d) => ({ ...d, [espaceDe(g)]: g }))
+  }
   const changerEspace = (e: Espace) => garde(() => { setBrouillon(ligne.ajustements); aller(e === 'synthese' ? 'synthese' : dernieres[e]) })
   const reelRetard = !!reel.donnees && reelEnRetard(syntheseReel(reel.donnees.lignes, reel.donnees.tickets).moisRenseignes)
   const partiesAnnee: Partie[] = [
     { cle: 'reel', libelle: 'Réel', manque: reelRetard, detail: 'en retard' },
-    { cle: 'suivi', libelle: `Suivi du budget ${anneeEnCours}` },
-    { cle: 'atterrissage', libelle: `Atterrissage ${anneeEnCours}` },
-    { cle: 'quadrimestres', libelle: 'Quadrimestres' },
+    { cle: 'suivi', libelle: 'Où on va' },
   ]
   const partiesBudget: Partie[] = [
-    { cle: 'budget', libelle: 'Hypothèses' },
-    { cle: 'equipe', libelle: 'Équipe', manque: !d.equipes[ligne.magasin]?.length, detail: 'à renseigner' },
-    { cle: 'frais', libelle: 'Frais', manque: !d.frais[ligne.magasin]?.length, detail: 'à renseigner' },
-    { cle: 'calendrier', libelle: 'Calendrier' },
-    { cle: 'resultat', libelle: 'Résultat et trésorerie' },
-    { cle: 'echanges', libelle: 'Échanges et versions' },
+    { cle: 'budget', libelle: '1 · Chiffre d’affaires' },
+    { cle: 'equipe', libelle: '2 · Équipe et frais', manque: !d.equipes[ligne.magasin]?.length || !d.frais[ligne.magasin]?.length, detail: 'à renseigner' },
+    { cle: 'resultat', libelle: '3 · Résultat et trésorerie' },
+    { cle: 'echanges', libelle: '4 · Échanges et versions' },
   ]
   // Budget : la partie affichée ; les autres parties du budget restent dans la page pour l'impression
-  const partie = (cle: string) => (onglet === cle ? undefined : 'partie-cachee')
+  const partie = (cle: string) => (onglet === ongletDe(cle) ? undefined : 'partie-cachee')
 
   // Effet des changements non enregistrés, face au budget enregistré
   const enregistre = hypothesesDe(ligne, d, ligne.ajustements)
@@ -244,7 +255,7 @@ export function Magasin() {
         <Tab value="budget" label={<LibelleOnglet texte={`Budget ${annee}`} manque={directeur && !ligne.statut} detail="à proposer" />} />
       </Tabs>
       {espace !== 'synthese' && (
-        <Tabs value={onglet} onChange={(_, v: string) => (espace === 'budget' && onglet !== 'equipe' && onglet !== 'frais' ? aller(v) : garde(() => aller(v)))} variant="scrollable" scrollButtons="auto"
+        <Tabs value={onglet} onChange={(_, v: string) => (espace === 'budget' && onglet !== 'equipe' ? aller(v) : garde(() => aller(v)))} variant="scrollable" scrollButtons="auto"
           aria-label={espace === 'budget' ? `Parties du budget ${annee}` : `Parties de l’année ${anneeEnCours}`} sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
           {(espace === 'budget' ? partiesBudget : partiesAnnee).map((x) => (
             <Tab key={x.cle} value={x.cle} label={x.manque !== undefined ? <LibelleOnglet texte={x.libelle} manque={x.manque} detail={x.detail ?? ''} /> : x.libelle} sx={{ minHeight: 48 }} />
@@ -252,41 +263,49 @@ export function Magasin() {
         </Tabs>
       )}
 
-      {onglet === 'synthese' && franchise && (
-        <AFaireFranchise
-          key={`a-faire-${ligne.magasin}`} magasin={ligne.magasin} allerA={(o, a) => { if (a) setAnneeQuadri(a); aller(o) }}
-          moisRenseignes={reel.donnees ? syntheseReel(reel.donnees.lignes, reel.donnees.tickets).moisRenseignes : null}
-          budget={{ annee, statut: ligne.statut, avant: campagneDe(parametres, annee).validation }} aEquipe={!!d.equipes[ligne.magasin]?.length} aFrais={!!d.frais[ligne.magasin]?.length}
-        />
-      )}
-      {onglet === 'synthese' && <AlertesEtActions key={`alertes-${ligne.magasin}`} magasin={ligne.magasin} equipe={!franchise && profil?.role !== 'aucun'} proposition={proposition} />}
       {onglet === 'synthese' ? (
-        <>
-          <SyntheseMagasin key={ligne.magasin} magasin={ligne.magasin} d={d} annee={anneeEnCours} parametres={donnees.parametresN} allerA={aller}
-            visiteEtActions={!franchise && profil?.role !== 'aucun'} proposerAction={!franchise && profil?.role !== 'aucun' ? (intitule) => setProposition({ intitule, n: Date.now() }) : undefined} />
-          {!franchise && <ComparaisonMagasin key={`comparaison-${ligne.magasin}`} magasin={ligne.magasin} directeur={directeur} />}
-          {!franchise && <FamillesReseau key={`familles-${ligne.magasin}`} magasin={ligne.magasin} directeur={directeur} />}
-        </>
-      ) : onglet === 'suivi' ? (
-        <SuiviBudget key={ligne.magasin} magasin={ligne.magasin} annee={anneeEnCours} allerA={aller} />
-      ) : onglet === 'atterrissage' ? (
-        <AtterrissageMagasin
-          key={ligne.magasin} ligne={ligne} d={d} annee={anneeEnCours} anneeBudget={annee} parametres={donnees.parametresN}
-          directeur={directeur} peutSaisir={peutSaisir} allerA={aller} apresProposition={recharger}
+        <SyntheseMagasin key={ligne.magasin} magasin={ligne.magasin} d={d} annee={anneeEnCours} parametres={donnees.parametresN} allerA={aller}
+          visiteEtActions={!franchise && profil?.role !== 'aucun'} proposerAction={!franchise && profil?.role !== 'aucun' ? (intitule) => setProposition({ intitule, n: Date.now() }) : undefined}
+          quoiFaire={<>
+            {franchise && (
+              <AFaireFranchise
+                key={`a-faire-${ligne.magasin}`} magasin={ligne.magasin} allerA={(o, a) => { if (a) setAnneeQuadri(a); aller(o) }}
+                moisRenseignes={reel.donnees ? syntheseReel(reel.donnees.lignes, reel.donnees.tickets).moisRenseignes : null}
+                budget={{ annee, statut: ligne.statut, avant: campagneDe(parametres, annee).validation }} aEquipe={!!d.equipes[ligne.magasin]?.length} aFrais={!!d.frais[ligne.magasin]?.length}
+              />
+            )}
+            <AlertesEtActions key={`alertes-${ligne.magasin}`} magasin={ligne.magasin} equipe={!franchise && profil?.role !== 'aucun'} proposition={proposition} />
+          </>}
+          plusLoin={franchise ? undefined : <>
+            <ComparaisonMagasin key={`comparaison-${ligne.magasin}`} magasin={ligne.magasin} directeur={directeur} />
+            <FamillesReseau key={`familles-${ligne.magasin}`} magasin={ligne.magasin} directeur={directeur} />
+          </>}
         />
-      ) : onglet === 'reel' ? (
-        <Stack spacing={2}>
-          <ToggleButtonGroup exclusive size="small" value={anneeReel} onChange={(_, v: number | null) => v && setAnneeReel(v)} aria-label="Année du réel">
-            {[anneeEnCours, anneeEnCours - 1].map((a) => <ToggleButton key={a} value={a} sx={{ minHeight: 48, minWidth: 72 }}>{a}</ToggleButton>)}
-          </ToggleButtonGroup>
-          <ReelAnnee key={`${ligne.magasin}-${anneeReel}`} magasin={ligne.magasin} annee={anneeReel} peutSaisir={peutSaisir} apresEnregistrement={reel.recharger} />
+      ) : onglet === 'suivi' ? (
+        <Stack spacing={5}>
+          <SuiviBudget key={ligne.magasin} magasin={ligne.magasin} annee={anneeEnCours} allerA={aller} muetSansReel />
+          <Box id="partie-atterrissage" sx={{ scrollMarginTop: 80 }}>
+            <AtterrissageMagasin
+              key={ligne.magasin} ligne={ligne} d={d} annee={anneeEnCours} anneeBudget={annee} parametres={donnees.parametresN}
+              directeur={directeur} peutSaisir={peutSaisir} allerA={aller} apresProposition={recharger}
+            />
+          </Box>
         </Stack>
-      ) : onglet === 'quadrimestres' ? (
-        <Stack spacing={2}>
-          <ToggleButtonGroup exclusive size="small" value={anneeQuadri} onChange={(_, v: number | null) => v && garde(() => setAnneeQuadri(v))} aria-label="Année des quadrimestres">
-            {[anneeEnCours, anneeEnCours - 1].map((a) => <ToggleButton key={a} value={a} sx={{ minHeight: 48, minWidth: 72 }}>{a}</ToggleButton>)}
-          </ToggleButtonGroup>
-          <QuadrimestresMagasin key={`${ligne.magasin}-${anneeQuadri}`} magasin={ligne.magasin} annee={anneeQuadri} peutSaisir={peutSaisir} />
+      ) : onglet === 'reel' ? (
+        <Stack spacing={5}>
+          <Stack spacing={2}>
+            <ToggleButtonGroup exclusive size="small" value={anneeReel} onChange={(_, v: number | null) => v && setAnneeReel(v)} aria-label="Année du réel">
+              {[anneeEnCours, anneeEnCours - 1].map((a) => <ToggleButton key={a} value={a} sx={{ minHeight: 48, minWidth: 72 }}>{a}</ToggleButton>)}
+            </ToggleButtonGroup>
+            <ReelAnnee key={`${ligne.magasin}-${anneeReel}`} magasin={ligne.magasin} annee={anneeReel} peutSaisir={peutSaisir} apresEnregistrement={reel.recharger} />
+          </Stack>
+          <Stack spacing={2} id="partie-quadrimestres" sx={{ scrollMarginTop: 80 }}>
+            <Typography variant="h2">Quadrimestres comptables</Typography>
+            <ToggleButtonGroup exclusive size="small" value={anneeQuadri} onChange={(_, v: number | null) => v && garde(() => setAnneeQuadri(v))} aria-label="Année des quadrimestres">
+              {[anneeEnCours, anneeEnCours - 1].map((a) => <ToggleButton key={a} value={a} sx={{ minHeight: 48, minWidth: 72 }}>{a}</ToggleButton>)}
+            </ToggleButtonGroup>
+            <QuadrimestresMagasin key={`${ligne.magasin}-${anneeQuadri}`} magasin={ligne.magasin} annee={anneeQuadri} peutSaisir={peutSaisir} />
+          </Stack>
         </Stack>
       ) : (<Stack spacing={3}>
 
@@ -336,18 +355,19 @@ export function Magasin() {
         </>
       )}
 
-      {onglet === 'equipe' ? (
+      {onglet === 'equipe' ? (<>
         <EquipeMagasin
           key={ligne.magasin} magasin={ligne.magasin} equipe={d.equipes[ligne.magasin] ?? []} annee={anneeEnCours} anneeBudget={annee}
           hausse={resolu?.hypotheses.hausseSalaires ?? valeurHeritee(niveauxDe(ligne, d, brouillon), 'hausseSalaires')?.valeur ?? 0}
           charges={donnees.parametresN.charges} chargesBudget={parametres.charges}
           peutSaisir={peutSaisir} apresEnregistrement={recharger} caAnnee={b?.atterrissage} caBudget={b?.ca} ebeBudget={b?.ebe}
         />
-      ) : onglet === 'frais' ? (
-        <FraisMagasin key={ligne.magasin} magasin={ligne.magasin} lignes={d.frais[ligne.magasin] ?? []} annee={anneeEnCours} peutSaisir={peutSaisir} apresEnregistrement={recharger}
-          tauxSurCA={{ publicite: parametres.tauxPublicite, redevance: parametres.tauxRedevance }}
-          budget={b ? { annee, ca: b.ca, ebe: b.ebe } : undefined} />
-      ) : onglet === 'echanges' ? (
+        <Box id="partie-frais" sx={{ mt: 5, scrollMarginTop: 80 }}>
+          <FraisMagasin key={ligne.magasin} magasin={ligne.magasin} lignes={d.frais[ligne.magasin] ?? []} annee={anneeEnCours} peutSaisir={peutSaisir} apresEnregistrement={recharger}
+            tauxSurCA={{ publicite: parametres.tauxPublicite, redevance: parametres.tauxRedevance }}
+            budget={b ? { annee, ca: b.ca, ebe: b.ebe } : undefined} />
+        </Box>
+      </>) : onglet === 'echanges' ? (
         <>
           {profil && <EchangesBudget key={`echanges-${ligne.magasin}`} ligne={ligne} d={d} annee={annee} parametres={parametres} moi={profil} />}
           {profil && ligne.base && b && (
@@ -404,7 +424,7 @@ export function Magasin() {
             )}
           </Stack>
           {ligne.base && (
-            <Stack spacing={3} className={partie('calendrier')}>
+            <Stack spacing={3} className={partie('calendrier')} id="partie-calendrier" sx={{ scrollMarginTop: 80 }}>
               <SaisonnaliteMagasin budget={b} poids={brouillon.poidsMois} lectureSeule={!peutAjuster}
                 onChange={(p) => setBrouillon(({ poidsMois: _, ...reste }) => (p ? { ...reste, poidsMois: p } : reste))} />
               {resolu && (

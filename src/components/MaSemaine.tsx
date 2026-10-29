@@ -12,15 +12,21 @@ import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import Typography from '@mui/material/Typography'
 import { Aide } from './Aide'
+import Chip from '@mui/material/Chip'
+import Tooltip from '@mui/material/Tooltip'
+import { texteAlerte, typeAlerteLibelle } from './AlertesMagasins'
 import { texteSujet } from './FicheVisite'
+import type { Alerte } from '../moteur/alertes'
 import { lienMagasin, milliers } from '../lib/format'
 import { parCoach, type LigneSemaine } from '../moteur/semaine'
 
 const PREMIERS = 10
+// Pastille d'une alerte : le type, et l'univers pour les tickets et le panier ; le détail au survol
+const libelleCourt = (a: Alerte) => ('univers' in a ? `${typeAlerteLibelle[a.type]} ${a.univers === 'cave' ? 'Cave' : 'Bar'}` : typeAlerteLibelle[a.type])
 const rouge = (v: number) => (v > 0 ? { color: 'error.main', fontWeight: 700 } : undefined)
 
 // « Ma semaine » (lot 29) : où aller en premier, magasin par magasin ; par Coach pour le RR et le Directeur
-export function MaSemaine({ lignes, avecCoachs, etat }: { lignes: LigneSemaine[]; avecCoachs: boolean; etat?: object }) {
+export function MaSemaine({ lignes, avecCoachs, etat }: { lignes: LigneSemaine<Alerte>[]; avecCoachs: boolean; etat?: object }) {
   const [tout, setTout] = useState(false)
   if (!lignes.length) return null
   const vues = tout ? lignes : lignes.slice(0, PREMIERS)
@@ -39,7 +45,7 @@ export function MaSemaine({ lignes, avecCoachs, etat }: { lignes: LigneSemaine[]
               {avecCoachs && <TableCell>Coach</TableCell>}
               <TableCell align="right">Marge en jeu</TableCell>
               <TableCell>Premier sujet</TableCell>
-              <TableCell align="right">Alertes</TableCell>
+              <TableCell>Alertes</TableCell>
               <TableCell align="right">Actions en retard</TableCell>
             </TableRow>
           </TableHead>
@@ -50,7 +56,17 @@ export function MaSemaine({ lignes, avecCoachs, etat }: { lignes: LigneSemaine[]
                 {avecCoachs && <TableCell>{l.coach}</TableCell>}
                 <TableCell align="right" sx={{ fontWeight: 700 }}>{l.enJeu > 0 ? milliers(l.enJeu) : '–'}</TableCell>
                 <TableCell>{l.sujet ? texteSujet(l.sujet).constat : 'Rien ne recule'}</TableCell>
-                <TableCell align="right" sx={rouge(l.alertes)}>{l.alertes}</TableCell>
+                <TableCell>
+                  {l.alertes.length === 0 ? '–' : (
+                    <Box component="ul" aria-label={`Alertes de ${l.magasin}`} sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', maxWidth: 360, whiteSpace: 'normal', listStyle: 'none', m: 0, p: 0 }}>
+                      {l.alertes.map((a) => (
+                        <Tooltip key={texteAlerte(a)} title={texteAlerte(a)}>
+                          <Chip component="li" size="small" color="error" variant="outlined" label={libelleCourt(a)} aria-label={texteAlerte(a)} sx={{ fontSize: '0.8125rem' }} />
+                        </Tooltip>
+                      ))}
+                    </Box>
+                  )}
+                </TableCell>
                 <TableCell align="right" sx={rouge(l.actionsEnRetard)}>{l.actionsEnRetard}</TableCell>
               </TableRow>
             ))}

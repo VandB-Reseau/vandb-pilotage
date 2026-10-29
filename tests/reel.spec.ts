@@ -145,7 +145,7 @@ test('sans chiffres, l’année l’explique et propose la saisie ; le Coach n�
   await expect(page.getByRole('link', { name: /Imports/ })).toHaveCount(0)
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Réel')
-  await page.getByRole('button', { name: String(N - 1), exact: true }).click()
+  await page.getByRole('group', { name: 'Année du réel' }).getByRole('button', { name: String(N - 1), exact: true }).click()
   await expect(page.getByText(`Pas encore de chiffres réels ${N - 1}`)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Saisir un mois' })).toBeVisible()
   await page.goto('./#/imports')

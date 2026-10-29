@@ -22,8 +22,8 @@ test('fiche en trois espaces ; la barre d’enregistrement montre l’effet avan
   await expect(espaces.getByRole('tab')).toHaveText(['Synthèse', /^\d{4} en cours/, /^Budget \d{4}/])
   await espaces.getByRole('tab', { name: /^Budget/ }).click()
   const parties = page.getByRole('tablist', { name: /^Parties du budget/ })
-  await expect(parties.getByRole('tab', { name: 'Hypothèses' })).toHaveAttribute('aria-selected', 'true')
-  await expect(parties.getByRole('tab')).toHaveCount(6)
+  await expect(parties.getByRole('tab', { name: '1 · Chiffre d’affaires' })).toHaveAttribute('aria-selected', 'true')
+  await expect(parties.getByRole('tab')).toHaveCount(4)
 
   const barre = page.getByRole('region', { name: 'Changements non enregistrés' })
   await expect(barre).toHaveCount(0)

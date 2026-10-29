@@ -89,6 +89,7 @@ test('le Directeur ajuste les taux de charges du réseau', async ({ page, isMobi
   const ecritures = await seConnecter(page)
   await page.getByRole('link', { name: /Paramètres/ }).click()
   const charges = page.getByRole('region', { name: 'Charges sociales' })
+  await charges.getByRole('button', { name: /^Charges sociales \d{4} : ouvrir$/ }).click()
   await expect(charges.getByLabel('Charges patronales : Employé')).toHaveValue('35')
   await expect(charges.getByLabel('Réduction générale : taux dégressif')).toHaveValue('37,81')
   await expect(charges.getByLabel('SMIC annuel brut')).toHaveValue('21876,4')

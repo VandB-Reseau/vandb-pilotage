@@ -77,6 +77,7 @@ test('paramètres réseau : le Directeur règle délais et TVA de la trésorerie
   const ecritures = await seConnecter(page, { role: 'directeur' })
   await page.getByRole('link', { name: /Paramètres/ }).first().click()
   const section = page.getByRole('region', { name: 'Trésorerie' })
+  await section.getByRole('button', { name: /^Trésorerie \d{4} : ouvrir$/ }).click()
   const enregistrer = section.getByRole('button', { name: 'Enregistrer' })
   await expect(enregistrer).toBeDisabled()
   await page.getByLabel('Délai de paiement des fournisseurs').fill('2')

@@ -166,6 +166,7 @@ test('paramètres réseau : achats de l’Extérieur payés avant la vente, opé
   const ecritures = await seConnecter(page, { role: 'directeur' })
   await page.getByRole('link', { name: /Paramètres/ }).first().click()
   const section = page.getByRole('region', { name: 'Trésorerie' })
+  await section.getByRole('button', { name: /^Trésorerie \d{4} : ouvrir$/ }).click()
   await expect(page.getByLabel('Avance des achats de l’Extérieur')).toHaveValue('1')
   await section.getByRole('button', { name: 'Ajouter une opération' }).click()
   await page.getByLabel('Nom de l’opération 1').fill('Foire aux vins')
