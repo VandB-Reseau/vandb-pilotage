@@ -39,6 +39,18 @@ export const AIDE = {
     remplir: 'En pourcentage du CA HT. Sans saisie, celui constaté en caisse.',
     calcul: 'Marge de la famille = CA × (marge visée − démarque).',
   },
+  margeUnivers: {
+    titre: 'Marge visée de l’univers',
+    quoi: 'La moyenne des marges visées des familles de l’univers, pondérée par leur CA.',
+    remplir: 'En pourcentage du CA HT. Une saisie décale chaque famille du même nombre de points : l’écart entre familles reste. Pour régler une famille seule, ouvre le détail par famille.',
+    calcul: 'Marge de l’univers = somme des familles de CA × (marge visée − démarque).',
+  },
+  demarqueUnivers: {
+    titre: 'Démarque de l’univers',
+    quoi: 'Ce qui se perd entre la marge théorique et la marge réelle sur tout l’univers : casse, vol, offerts, erreurs de prix.',
+    remplir: 'En pourcentage du CA. La valeur saisie s’applique à chaque famille de l’univers ; le détail par famille permet d’en régler une à part.',
+    calcul: 'Marge de la famille = CA × (marge visée − démarque).',
+  },
   demarque: {
     titre: 'Démarque',
     quoi: 'Ce qui se perd entre la marge théorique et la marge réelle : casse, vol, offerts, erreurs de prix.',

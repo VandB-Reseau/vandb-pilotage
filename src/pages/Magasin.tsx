@@ -8,7 +8,6 @@ import Card from '@mui/material/Card'
 import Skeleton from '@mui/material/Skeleton'
 import Stack from '@mui/material/Stack'
 import Tab from '@mui/material/Tab'
-import TableContainer from '@mui/material/TableContainer'
 import Tabs from '@mui/material/Tabs'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
@@ -51,8 +50,7 @@ import { TresorerieBudget } from '../components/TresorerieBudget'
 import { EconomieFranchise } from '../components/EconomieFranchise'
 import { FamillesReseau } from '../components/FamillesReseau'
 import { SyntheseMagasin } from '../components/SyntheseMagasin'
-import { GrilleHypotheses } from '../components/GrilleHypotheses'
-import { lignesCibles, TableauCibles } from '../components/TableauCibles'
+import { HypothesesUnivers } from '../components/HypothesesUnivers'
 import {
   anneeBudget, changerStatut, chargerBudgets, chargerParametres, chargerReel, enregistrerAjustements, hypothesesDe, niveauxDe, statutLibelle, valeursSansCible,
 } from '../data/pilotage'
@@ -391,27 +389,12 @@ export function Magasin() {
           <Stack spacing={3} className={partie('budget')}>
             {ligne.base && resolu && (
               <Card component="section" aria-label="Hypothèses du magasin">
-                <Typography variant="h2" sx={{ px: 2.5, pt: 2, pb: 1 }}>Hypothèses</Typography>
-                <TableContainer>
-                  <GrilleHypotheses
-                    titre="Hypothèses du magasin" familles={b.familles} flux={b.flux} annee={annee}
-                    cibles={brouillon} auDessus={niveauxDe(ligne, d).slice(0, -1)} valeursBase={valeursSansCible(ligne.base)}
-                    onChange={setBrouillon} lectureSeule={!peutAjuster}
-                  />
-                </TableContainer>
-                <Typography variant="h3" sx={{ px: 2.5, pt: 3, pb: 1 }}>Salaires et frais</Typography>
-                <TableContainer>
-                  <TableauCibles
-                    titre="Autres hypothèses du magasin"
-                    lignes={lignesCibles([], false, [])}
-                    niveau="magasin"
-                    cibles={brouillon}
-                    auDessus={niveauxDe(ligne, d).slice(0, -1)}
-                    valeursBase={valeursSansCible(ligne.base)}
-                    onChange={setBrouillon}
-                    lectureSeule={!peutAjuster}
-                  />
-                </TableContainer>
+                <Typography variant="h2" sx={{ px: 2.5, pt: 2 }}>Hypothèses</Typography>
+                <HypothesesUnivers
+                  familles={b.familles} flux={b.flux} annee={annee}
+                  cibles={brouillon} auDessus={niveauxDe(ligne, d).slice(0, -1)} valeursBase={valeursSansCible(ligne.base)}
+                  onChange={setBrouillon} lectureSeule={!peutAjuster}
+                />
               </Card>
             )}
             {ligne.base && (

@@ -5,6 +5,14 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 31 — Hypothèses par univers
+
+- Sans migration.
+- Hypothèses du budget réglées par univers (Cave, Bar, Extérieur) : tickets, panier, marge visée et démarque, avec leur
+  effet sous chaque champ. La marge de l'univers est la moyenne de ses familles pondérée par le CA : la changer décale
+  chaque famille du même nombre de points. La démarque saisie vaut pour chaque famille. Détail par famille à la demande.
+- Hausse des salaires et inflation des frais dans le même bloc, sans tableau.
+
 ### Lot 30 — Fiche plus simple, objectifs du mois
 
 - **Base : migration `0017_extras.sql` à passer** (voir ci-dessous), rien d'autre.

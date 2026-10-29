@@ -1,5 +1,5 @@
 import type { Tranche } from './projection'
-import { universLibelle, type AjustementCA, type ChoixRythme, type Famille, type Hypotheses, type TempsFort, type Travaux, type Univers, type UniversTickets } from './types'
+import { universLibelle, type AjustementCA, type ResultatFamille, type ChoixRythme, type Famille, type Hypotheses, type TempsFort, type Travaux, type Univers, type UniversTickets } from './types'
 
 // Hypothèses du budget par niveaux : le siège fixe des cibles pour le réseau, éventuellement pour un groupe de magasins,
 // et le magasin peut s'en écarter. Chaque valeur vient du niveau le plus proche du magasin qui la renseigne :
@@ -216,4 +216,27 @@ export function ajustementsCopies(source: Cibles, cible: Cibles): Cibles {
   const copie = structuredClone(source)
   for (const k of PROPRES) delete copie[k]
   return { ...copie, ...Object.fromEntries(PROPRES.filter((k) => cible[k] !== undefined).map((k) => [k, cible[k]])) }
+}
+
+// Lot 31 : réglage d'un univers entier, sans passer famille par famille. Marge visée de l'univers = moyenne des familles
+// pondérée par leur CA de l'an prochain ; la changer décale chaque famille du même nombre de points, l'écart entre
+// familles reste. La démarque de l'univers s'applique telle quelle à chaque famille. undefined efface les valeurs du
+// niveau pour toutes les familles de l'univers : elles reprennent celles du niveau au-dessus.
+export type ReglageUnivers = 'marge' | 'demarque'
+const valeurFamille = (f: ResultatFamille, type: ReglageUnivers) => (type === 'marge' ? f.margeCible : f.demarque ?? 0)
+export function moyenneUnivers(familles: ResultatFamille[], u: Univers, type: ReglageUnivers): number {
+  const l = familles.filter((f) => f.univers === u)
+  if (!l.length) return 0
+  const ca = l.reduce((a, f) => a + f.objectif, 0)
+  const m = ca > 0 ? l.reduce((a, f) => a + f.objectif * valeurFamille(f, type), 0) / ca : l.reduce((a, f) => a + valeurFamille(f, type), 0) / l.length
+  return Math.round(m * 1e6) / 1e6 // arrondi : la saisie « 36,5 » relue telle quelle
+}
+export function ecrireUnivers(c: Cibles, familles: ResultatFamille[], u: Univers, type: ReglageUnivers, v: number | undefined): Cibles {
+  const l = familles.filter((f) => f.univers === u)
+  const decalage = defini(v) && type === 'marge' ? v - moyenneUnivers(familles, u, type) : 0
+  return l.reduce((r, f) => ecrireCible(r, `${type}/${cleFamille(f)}`, !defini(v) ? undefined : type === 'marge' ? f.margeCible + decalage : v), c)
+}
+// Au moins une famille de l'univers a sa valeur propre à ce niveau
+export function universRegle(c: Cibles, familles: ResultatFamille[], u: Univers, type: ReglageUnivers): boolean {
+  return familles.some((f) => f.univers === u && lireCible(c, `${type}/${cleFamille(f)}`) !== undefined)
 }

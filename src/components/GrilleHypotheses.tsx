@@ -17,8 +17,10 @@ import { ChampTaux } from './ChampTaux'
 // règle par l'évolution des tickets et du panier, chaque famille par sa part dans l'univers ; son évolution en découle.
 // Une valeur propre au magasin ressort (bouton pour reprendre celle du niveau au-dessus) ; sinon, d'où elle vient.
 // Lot 27 : la provenance passe sous le champ (« Réalisé », « Réseau : 3,0 % · reprendre ») pour que la grille tienne dans l'écran.
-export function GrilleHypotheses({ titre, familles, flux, annee, cibles, auDessus, valeursBase, onChange, lectureSeule }: {
+// Lot 31 : detail = les familles d'un univers seulement, sous ses leviers (sans tickets, panier ni totaux)
+export function GrilleHypotheses({ titre, familles, flux, annee, cibles, auDessus, valeursBase, onChange, lectureSeule, detail }: {
   titre: string
+  detail?: boolean
   familles: ResultatFamille[]
   flux: Budget['flux']
   annee: number
@@ -99,8 +101,8 @@ export function GrilleHypotheses({ titre, familles, flux, annee, cibles, auDessu
           const nomU = universLibelle[u]
           return (
             <Fragment key={u}>
-              {(univers.length > 1 || fl) && ligneTotal(nomU, totaux(l), false)}
-              {fl && (
+              {!detail && (univers.length > 1 || fl) && ligneTotal(nomU, totaux(l), false)}
+              {fl && !detail && (
                 <>
                   <TableRow>
                     <TableCell sx={{ pl: '36px !important' }}>Tickets ({nomU})<Aide sujet="tickets" /></TableCell>
@@ -125,7 +127,7 @@ export function GrilleHypotheses({ titre, familles, flux, annee, cibles, auDessu
                 const cle = cleFamille(f)
                 return (
                   <TableRow key={cle}>
-                    <TableCell sx={{ pl: univers.length > 1 || fl ? '36px !important' : undefined }}>{nom}</TableCell>
+                    <TableCell sx={{ pl: !detail && (univers.length > 1 || fl) ? '36px !important' : undefined }}>{nom}</TableCell>
                     <TableCell align="right">{milliers(f.atterrissage)}</TableCell>
                     {fl ? cellule(`mix/${cle}`, `Part de la famille dans l’univers : ${nom}`, `part de ${nom}`, ratio(f.objectif, caU))
                       : <TableCell align="right" sx={{ color: 'text.secondary' }}>–</TableCell>}
@@ -141,7 +143,7 @@ export function GrilleHypotheses({ titre, familles, flux, annee, cibles, auDessu
             </Fragment>
           )
         })}
-        {ligneTotal('Total', totaux(familles), true)}
+        {!detail && ligneTotal('Total', totaux(familles), true)}
       </TableBody>
     </Table>
   )
