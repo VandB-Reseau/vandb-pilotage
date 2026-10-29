@@ -26,6 +26,7 @@ import { ecartTaux, enChiffres, milliers, montant, MOIS, MOIS_LONGS, taux } from
 import { cumulUnivers, syntheseReel } from '../moteur/reel'
 import { cleVente, famillesASaisir, lireSaisie, saisieDepuisReel, UNIVERS_TICKETS, type ChampsVente, type SaisieMois } from '../moteur/saisieReel'
 import { UNIVERS, universLibelle } from '../moteur/types'
+import { styleTableau } from '../theme/tableau'
 
 // Texte lu par les lecteurs d'écran seulement
 const visuellementCache = { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' } as const
@@ -235,7 +236,7 @@ export function ReelAnnee({ magasin, annee, peutSaisir, apresEnregistrement }: {
             <Box key={univers} sx={{ mb: 3 }}>
               <Typography variant="h4" component="h3" sx={{ mb: 1 }}>{universLibelle[univers]}</Typography>
               <TableContainer sx={{ maxHeight: 'none' }}>
-                <Table size="small" className="colonne-fixe" aria-label={`Ventes ${universLibelle[univers]}`}>
+                <Table size="small" className="colonne-fixe" aria-label={`Ventes ${universLibelle[univers]}`} sx={styleTableau}>
                   <TableHead>
                     <TableRow>
                       <TableCell>Famille</TableCell>

@@ -35,6 +35,7 @@ import { medianes, ratiosDuReel, RATIOS, type CleRatio } from '../moteur/compara
 import { maSemaine } from '../moteur/semaine'
 import { ligneReseau, totalReseau, type LigneReseau, type MoisReel } from '../moteur/suivi'
 import { ficheVisite } from '../moteur/visite'
+import { styleTableau } from '../theme/tableau'
 
 type Cle = 'magasin' | 'moisRealises' | 'ca' | 'evolution' | 'ecartBudget' | 'tauxMarge' | 'panierCave' | 'ticketsCave' | 'panierBar' | 'ticketsBar' | 'personnelSurMarge' | 'caParHeure' | 'loyerSurCA' | 'ebeSurCA'
 type Colonne = { cle: Exclude<Cle, 'magasin'>; libelle: string; texte: (v: number) => string; rouge?: (v: number) => boolean }
@@ -224,7 +225,7 @@ export function Reseau() {
       ) : (
         <Card>
           <TableContainer>
-            <Table size="small" className="colonne-fixe" aria-label={`Réel ${annee} par magasin`} sx={{ '& td, & th': { px: 1.25 }, '& td:first-of-type, & th:first-of-type': { pl: 2.5 } }}>
+            <Table size="small" className="colonne-fixe" aria-label={`Réel ${annee} par magasin`} sx={styleTableau}>
               <TableHead>
                 <TableRow>
                   <TableCell sortDirection={tri === 'magasin' ? sens : false} sx={{ minWidth: 180 }}>

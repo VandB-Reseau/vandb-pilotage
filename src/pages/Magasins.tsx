@@ -39,6 +39,7 @@ import { tresorerieBudget } from '../moteur/tresorerie'
 import { syntheseBudgets, totalBudgets } from '../moteur/sante'
 import type { Alerte } from '../moteur/alertes'
 import { campagneDe } from '../moteur/campagne'
+import { styleTableau } from '../theme/tableau'
 
 // Liste des magasins (lot 27) : une ligne par magasin, colonnes triables, alertes et EBE / CA lisibles d'un coup d'œil
 const ENTETES = [
@@ -273,7 +274,7 @@ export function Magasins() {
           ) : visibles.length > 0 && (
             <Card>
               <TableContainer>
-                <Table className="colonne-fixe" aria-label={`Budgets ${annee} par magasin`} sx={{ '& td, & th': { whiteSpace: 'nowrap' } }}>
+                <Table size="small" className="colonne-fixe" aria-label={`Budgets ${annee} par magasin`} sx={styleTableau}>
                   <TableHead>
                     <TableRow>
                       {ENTETES.filter((c) => avecGroupe || c.cle !== 'groupe').map((c) => (

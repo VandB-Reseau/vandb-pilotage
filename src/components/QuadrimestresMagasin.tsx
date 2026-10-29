@@ -32,6 +32,7 @@ import { BoutonModele } from './BoutonModele'
 import { MODELES } from '../lib/modeles'
 import { Aide } from './Aide'
 import { moisDuReel } from '../moteur/suivi'
+import { styleTableau } from '../theme/tableau'
 
 type Champ = keyof SaisieQuadrimestre
 type Textes = Record<Quadrimestre, Record<Champ, string>>
@@ -201,7 +202,7 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
         )}
         {negatif && <Box sx={{ px: 2.5, pb: 1 }}><Alert severity="warning">Les achats et les charges se saisissent en positif.</Alert></Box>}
         <TableContainer>
-          <Table size="small" className="colonne-fixe" aria-label={`Résultat réel ${annee} par quadrimestre`} sx={{ '& td, & th': { px: 1.25, whiteSpace: 'nowrap' }, '& td:first-of-type, & th:first-of-type': { pl: 2.5, minWidth: 240 } }}>
+          <Table size="small" className="colonne-fixe" aria-label={`Résultat réel ${annee} par quadrimestre`} sx={{ ...styleTableau, '& td:first-of-type, & th:first-of-type': { pl: 2.5, minWidth: 240 } }}>
             <TableHead>
               <TableRow>
                 <TableCell><Box component="span" sx={{ fontWeight: 400 }}>En euros HT</Box></TableCell>
@@ -280,7 +281,7 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
             <Indicateur libelle="Trésorerie fin décembre prévue" aide="tresorerieGlissante" valeur={milliers(glissante.fin)} detail="Selon l’atterrissage de l’année" />
           </Stack>
           <TableContainer>
-            <Table size="small" aria-label={`Trésorerie prévue ${annee} mois par mois`} sx={{ '& td, & th': { whiteSpace: 'nowrap' }, '& td:first-of-type, & th:first-of-type': { pl: 2.5 } }}>
+            <Table size="small" aria-label={`Trésorerie prévue ${annee} mois par mois`} sx={styleTableau}>
               <TableHead>
                 <TableRow>
                   <TableCell><Box component="span" sx={{ fontWeight: 400 }}>En euros</Box></TableCell>

@@ -116,8 +116,8 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteE
             : suivi ? `Budget : ${taux(suivi.cumul.tauxMargeBudget)} · ${milliers(s.margeCumulee)} à fin ${finMois}` : `${milliers(s.margeCumulee)} à fin ${finMois}`}
         />
         <Indicateur
-          libelle="Masse salariale / marge" aide="masseSurMarge" valeur={equipe?.length ? taux(b.ratios.personnelSurMarge) : 'À renseigner'}
-          detail={equipe?.length ? `${milliers(b.personnel)} sur l’année` : 'Équipe non renseignée'}
+          libelle="Masse salariale / CA" aide="masseSurCA" valeur={equipe?.length ? taux(b.ratios.personnelSurCA) : 'À renseigner'}
+          detail={equipe?.length ? `${milliers(b.personnel)} sur l’année, ${taux(b.ratios.personnelSurMarge)} de la marge` : 'Équipe non renseignée'}
         />
         <Indicateur
           libelle={`EBE attendu ${annee}`} aide="ebe" valeur={milliers(b.ebe)} serie={b.mois.map((m) => m.ebe)}
