@@ -66,9 +66,12 @@ test('compte de résultat sur 12 mois : rubriques, détail des frais, totaux ide
   proche(ligne('amortissements').mois[0]!, -1_000)
   proche(ligne('interets').mois[0]!, -200)
   proche(ligne('avant_impot').total, b.resultatAvantImpot)
-  // L'impôt sur les sociétés ne se calcule que sur l'année
-  expect(ligne('impot').mois.every((v) => v === null)).toBe(true)
+  // Impôt de l'année réparti au prorata du résultat avant impôt de chaque mois (29/10/2026)
+  proche(ligne('impot').total, -b.impot)
+  proche(ligne('impot').mois[0]!, -b.impot * b.mois[0].resultatAvantImpot / b.resultatAvantImpot)
   proche(ligne('net').total, b.resultatNet)
+  proche(ligne('net').mois[0]!, b.mois[0].resultatAvantImpot + ligne('impot').mois[0]!)
+  proche(ligne('tresorerie').total, b.tresorerieDegagee)
 })
 
 test('synthèse d’un périmètre : budgets validés, sommes, fiches à compléter', () => {

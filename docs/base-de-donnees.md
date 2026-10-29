@@ -4,7 +4,7 @@ Même base Supabase que l'app réseau. Le pilotage n'écrit que dans le schéma 
 fonctions (`mon_role()`, `est_directeur()`, `magasins_visibles()`, `mes_magasins()`, `json_sur()`) et ses tables `perimetre_equipe`
 et `app_config` (lue seulement : fiche des Responsables Régionaux, clé `drs_data`).
 
-Mis à jour le 29/10/2026 (migration `0017`).
+Mis à jour le 29/10/2026 (migration `0018`).
 
 ## Principes
 
@@ -19,7 +19,7 @@ Mis à jour le 29/10/2026 (migration `0017`).
 | Table | Contenu | Clé | Lecture | Écriture |
 | --- | --- | --- | --- | --- |
 | `parametres_reseau` | Paramètres de l'année : `valeur` jsonb (`tauxRedevance`, `tauxPublicite`, `impot`, `tvaPanier`, `charges` : taux de charges patronales par catégorie et paramètres de la réduction générale ; `tresorerie` : délais de paiement en mois, TVA des ventes, des achats et des frais, `tvaTrimestrielle`, `partCotisations`, `consignes` : part des achats par univers, `ecoulement` et `remboursement` en mois, `demarque` (part des consignes jamais remboursée, en charge externe du budget ; 0 si absente), `avanceExterieur` (mois d'avance des achats Extérieur sur la vente), `operations` (`[{nom, mois, moisPaiement, part}]` : opérations du réseau dont une part des achats Cave et Bar du mois est payée à un autre mois) ; `alertes` : seuils `ecartCA`, `baisseMarge` en points, `moisRetard`, `tresorerie` en euros) | `annee` | Comptes ouverts | Directeur |
-| `budgets` | Budget d'un magasin pour une année : `statut` (`propose`, `en_discussion`, `valide`), `base` (réalisé importé du prévisionnel), `ajustements` (écarts du magasin aux cibles, format `Cibles`, dont saisonnalité, travaux et `tresorerieDepart`), `proposition` (base proposée par le siège), `hypotheses` (hypothèses calculées au dernier enregistrement, figées à la validation), `valide_le` | `store_name`, `annee` | Magasins du compte | Création et suppression : Directeur. Modification : Directeur, franchisé sur ses magasins |
+| `budgets` | Budget d'un magasin pour une année : `statut` (`propose`, `en_discussion`, `valide`), `base` (réalisé importé du prévisionnel), `ajustements` (écarts du magasin aux cibles, format `Cibles`, dont saisonnalité, travaux et `tresorerieDepart`), `proposition` (base proposée par le siège), `hypotheses` (hypothèses calculées au dernier enregistrement, figées à la validation), `valide_le` | `store_name`, `annee` | Magasins du compte | Création et suppression : Directeur. Modification : Directeur, RR (validation et réouverture seulement, 0018) et franchisé sur leurs magasins |
 | `reel_mensuel` | Réel par mois (1er du mois), univers (`cave`, `bar`, `exterieur`) et famille : `ca_ht`, `ca_ttc`, `marge_ht` (marge théorique de la caisse), `maj_par`. La colonne `tickets` de `0001` n'est plus utilisée (voir `reel_tickets`) | `store_name`, `mois`, `univers`, `famille` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
 | `reel_tickets` | Tickets par mois et univers (un ticket ne se compte pas par famille) : `tickets`, `maj_par` | `store_name`, `mois`, `univers` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
 | `codes_caisse` | Code magasin de la caisse (fichiers de la DSI) → nom du magasin, un code par magasin | `code` | Équipe | Directeur |
@@ -46,7 +46,10 @@ Mis à jour le 29/10/2026 (migration `0017`).
   `proposition`, ni au statut `valide`, ni à un budget déjà validé.
 - Un franchisé modifie les `ajustements` de ses magasins (même effet) ; la `base` n'est modifiable que par le Directeur
   (déclencheur `garde_base`, distinct pour que rejouer `0001` seule ne le retire pas).
-- Coachs et RR lisent sans écrire. Le franchisé ne lit pas les tables de groupes et de cibles : il les reçoit par
+- Le RR valide un budget proposé ou en discussion de ses magasins, ou rouvre un budget validé (0018). Il ne change
+  que le `statut` et, à la validation, la photo des `hypotheses` ; ni `proposition`, ni `base`, ni `ajustements`.
+  Il ne crée ni ne supprime de budget.
+- Les Coachs lisent sans écrire. Le franchisé ne lit pas les tables de groupes et de cibles : il les reçoit par
   `budgets_du_compte()`, limitées au réseau et au groupe de ses magasins.
 
 ## Fonctions

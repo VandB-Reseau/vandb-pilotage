@@ -1,6 +1,7 @@
 import { nombre } from '../import/caisse'
 import { enChiffres } from '../lib/format'
 import { CODES_FINANCES, type LigneFraisMagasin } from './atterrissage'
+import type { FinanceFEC, FraisFEC } from './fec'
 import { blocDe, lignesFrais, type BlocFrais } from './parametres'
 import type { Rubrique } from './types'
 
@@ -15,7 +16,7 @@ export const LIBELLES_FINANCES: Record<keyof typeof CODES_FINANCES, string> = {
 }
 export const INTERETS: (keyof typeof CODES_FINANCES)[] = ['interets', 'interetsComptesCourants', 'agios']
 // Lignes que presque tous les magasins ont : point de départ d'une saisie
-export const LIGNES_COURANTES = ['loyer', 'charges_locatives', 'energie', 'honoraires_comptables', 'assurances', 'banque', 'telecom', 'cfe']
+export const LIGNES_COURANTES = ['loyer', 'charges_locatives', 'energie', 'honoraires_comptables', 'assurances', 'banque', 'telecom', 'budget_communication', 'cfe']
 
 const enTexte = (v: number) => enChiffres(Math.round(v * 100) / 100)
 const codesFinances = Object.values(CODES_FINANCES) as string[]
@@ -73,4 +74,17 @@ export function totauxFrais(s: SaisieFrais): { parBloc: Record<BlocFrais, { annu
     if (l.mode === 'annuel') { r.annuel += v; annuel += v } else { r.taux += v / 100; taux += v / 100 }
   }
   return { parBloc, annuel, taux }
+}
+
+// Frais repris du FEC (lot 33) : les lignes cochées prennent le montant annuel du FEC (en euros par an, ajoutées si
+// besoin), de même pour les amortissements et intérêts cochés. Les autres lignes de la saisie ne bougent pas.
+export function saisieAvecFEC(s: SaisieFrais, f: FraisFEC, choisis: string[]): SaisieFrais {
+  let r = s
+  for (const l of f.lignes.filter((x) => choisis.includes(x.code) && x.annuel > 0)) {
+    r = ajouterLigne(r, l.code)
+    r = { ...r, lignes: r.lignes.map((x) => (x.code === l.code ? { ...x, mode: 'annuel' as Mode, valeur: enTexte(l.annuel) } : x)) }
+  }
+  const finances = { ...r.finances }
+  for (const [k, v] of Object.entries(f.finances) as [FinanceFEC, number][]) if (choisis.includes(k) && v > 0) finances[k] = enTexte(v)
+  return { ...r, finances }
 }

@@ -41,6 +41,9 @@ export interface Hypotheses {
   annee: number                       // année budgétée
   moisRealises: number                // mois de l'année en cours déjà réalisés (1 à 11)
   caMensuelReference: number[]        // 12 mois de CA HT de référence : sert à la saisonnalité et à la part réalisée
+  // 29/10/2026 (Joseph) : les mêmes 12 mois univers par univers (réalisé puis projeté), pour que chaque univers garde
+  // sa saisonnalité (l'Extérieur l'été…). Absent des bases enregistrées avant : saisonnalité du total pour tous
+  caMensuelUnivers?: Partial<Record<Univers, number[]>>
   partRealisee?: Partial<Record<Univers, number>> // part du CA annuel réalisée à fin de période, si connue par univers
   familles: Famille[]
   flux?: Partial<Record<'cave' | 'bar', Flux>>

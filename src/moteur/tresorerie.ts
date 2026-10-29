@@ -27,6 +27,9 @@ export interface ParametresTresorerie {
     remboursement: number             // mois de remboursement après le retour (1 = 30 jours fin de mois)
     demarque?: number                 // part des consignes versées jamais remboursée : charge externe, retirée du remboursement
   }
+  // Lot 33 : stock moyen en jours d'achats de marchandises, pour le besoin en fonds de roulement (45 jours proposés le
+  // 29/10/2026, à valider par Joseph ; un magasin peut avoir le sien)
+  stockJours?: number
 }
 
 export interface OperationReseau { nom: string; mois: number; moisPaiement: number; part: number }
@@ -47,6 +50,7 @@ export const tresorerieParDefaut: ParametresTresorerie = {
   // des clients sont des empreintes bancaires, jamais encaissées : elles ne comptent pas.
   // Démarque des consignes : 0 tant que le Directeur ne l'a pas saisie dans Paramètres réseau (29/10/2026).
   consignes: { achats: { cave: 0.03, bar: 0.15, exterieur: 0.15 }, ecoulement: 1, remboursement: 1, demarque: 0 },
+  stockJours: 45,
 }
 
 export interface MoisTresorerie {
@@ -73,6 +77,21 @@ export interface Tresorerie {
   pointBas: { montant: number; mois: number }   // mois de 0 (janvier) à 11
   moisNegatifs: number
   consignesMoyennes: number   // argent avancé en moyenne aux fournisseurs (part du besoin en fonds de roulement)
+  bfr: BFR
+}
+
+// Besoin en fonds de roulement au 31 décembre du budget (lot 33) : l'argent immobilisé dans l'exploitation. Ce que le
+// magasin a payé d'avance (stock, consignes) moins ce qu'il doit encore (fournisseurs, TVA, cotisations, redevance).
+// Les ventes sont encaissées le mois même : pas de créances clients. Montants positifs ; total = emplois − ressources.
+export interface BFR {
+  stock: number               // achats HT de l'année × jours de stock ÷ 365
+  consignes: number           // consignes versées, pas encore remboursées
+  fournisseurs: number        // achats TTC des derniers mois, payés l'an prochain (délai des fournisseurs)
+  tva: number                 // TVA due, pas encore reversée (négative : crédit à recevoir)
+  cotisations: number         // part du coût du personnel de décembre payée en janvier
+  redevance: number           // redevance et publicité TTC pas encore payées
+  total: number
+  joursCA: number             // total en jours de CA HT
 }
 
 const somme = (l: number[]) => l.reduce((a, b) => a + b, 0)
@@ -155,9 +174,19 @@ export function tresorerieBudget(b: Budget, h: Hypotheses, p: { tauxRedevance: n
     }
   })
   const bas = mois.reduce((m, x, i) => (x.fin < mois[m].fin ? i : m), 0)
+  // BFR au 31 décembre : dettes des derniers mois de l'année (délais), stock en jours d'achats
+  const derniers = (l: number[], n: number) => somme(l.slice(12 - Math.max(0, Math.min(12, Math.round(n)))))
+  const stock = somme(achats) * (t.stockJours ?? 0) / 365
+  const consignes = mois[11].consignesEnAttente
+  const fournisseurs = derniers(achats, t.delaiFournisseurs) * (1 + t.tvaAchats)
+  const tva = derniers(tvaDue, t.tvaTrimestrielle ? 3 : 1)
+  const cotisations = personnel[11] * t.partCotisations
+  const redevanceDue = derniers(redevance, t.delaiRedevance) * (1 + t.tvaFrais)
+  const totalBfr = stock + consignes - fournisseurs - tva - cotisations - redevanceDue
   return {
     debut, mois, fin: solde, pointBas: { montant: mois[bas].fin, mois: bas }, moisNegatifs: mois.filter((m) => m.fin < 0).length,
     consignesMoyennes: somme(mois.map((m) => m.consignesEnAttente)) / 12,
+    bfr: { stock, consignes, fournisseurs, tva, cotisations, redevance: redevanceDue, total: totalBfr, joursCA: b.ca ? totalBfr / (b.ca / 365) : 0 },
   }
 }
 

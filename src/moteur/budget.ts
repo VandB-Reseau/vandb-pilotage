@@ -130,7 +130,15 @@ export function calculerBudget(h: Hypotheses, p: ParametresReseau): Budget {
 
   // Temps forts du budget et ajustements datés, univers par univers et mois par mois (en plus de la saisonnalité)
   const base = Object.fromEntries(UNIVERS.map((u) => [u, somme(dansU(u).map((i) => objectifs[i]))])) as Record<Univers, number>
-  const enMois = (u: Univers, i: number) => (ouverture > 0 ? base[u] * poids[i] * travaux.activite[i] / ouverture : 0)
+  // Saisonnalité de chaque univers (29/10/2026) quand la base la donne et que le magasin n'a pas réglé la sienne ;
+  // le total de l'univers ne change pas, seule sa répartition dans l'année
+  const propre = h.poidsMois?.length === 12
+  const poidsU = Object.fromEntries(UNIVERS.map((u) => {
+    const r = h.caMensuelUnivers?.[u]
+    return [u, !propre && r?.length === 12 && somme(r) > 0 ? poidsMensuels(r) : poids]
+  })) as Record<Univers, number[]>
+  const ouvertureU = Object.fromEntries(UNIVERS.map((u) => [u, somme(poidsU[u].map((w, i) => w * travaux.activite[i]))])) as Record<Univers, number>
+  const enMois = (u: Univers, i: number) => (ouverture > 0 && ouvertureU[u] > 0 ? base[u] * poidsU[u][i] * travaux.activite[i] / ouvertureU[u] : 0)
   const ajustements = (h.ajustementsCA ?? []).filter((a) => moisValide(a.de) && moisValide(a.a) && UNIVERS.includes(a.univers))
   const ajout = Object.fromEntries(UNIVERS.map((u) => [u, poids.map((_, i) => {
     const tf = somme(tempsForts.filter((t) => t.univers === u && t.mois === i + 1).map((t) => t.ca || 0))

@@ -10,7 +10,7 @@ import { magasinFictif } from '../donnees-fictives'
 
 test('grille : lignes de l’onglet FFBUD dans ses blocs, codes uniques', () => {
   expect(new Set(lignesFrais.map((l) => l.code)).size).toBe(lignesFrais.length)
-  expect(lignesFrais.filter((l) => l.bloc === 'charges_externes')).toHaveLength(30)   // 31 lignes moins la publicité franchise, calculée
+  expect(lignesFrais.filter((l) => l.bloc === 'charges_externes')).toHaveLength(31)   // 31 lignes moins la publicité franchise, calculée, plus le budget communication annuel (29/10/2026)
   expect(lignesFrais.filter((l) => l.bloc === 'impots_taxes').map((l) => l.code)).toEqual(['formation_continue', 'taxe_apprentissage', 'cfe', 'taxes_foncieres', 'enregistrement', 'taxes_diverses', 'csg_gc', 'csg_ac'])
   expect(lignesFrais.filter((l) => l.bloc === 'autres_charges').map((l) => l.code)).toEqual(['droits_auteur', 'charges_diverses'])
   // Ligne hors de la grille : bloc d'après sa rubrique

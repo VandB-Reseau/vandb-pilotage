@@ -21,7 +21,7 @@ import { ChoixPeriode, usePeriode } from './ChoixPeriode'
 // Lot 32 : picto (i) sur chaque ligne calculée (pas sur le CA ni les rubriques qui ne font qu'additionner des frais)
 const AIDE_LIGNE: Record<string, SujetAide> = {
   achats: 'achatsConsommes', marge: 'margeCommerciale', 'externes/publicite': 'publiciteRedevance', 'externes/redevance': 'publiciteRedevance',
-  'externes/consignes': 'demarqueConsignes', personnel: 'fraisPersonnel', ebe: 'ebe', amortissements: 'amortissements',
+  'externes/consignes': 'demarqueConsignes', 'externes/evenements': 'chargesEvenements', capital: 'capitalRembourse', reintegres: 'amortissementsReintegres', personnel: 'fraisPersonnel', ebe: 'ebe', amortissements: 'amortissements',
   exploitation: 'resultatExploitation', impot: 'impotSocietes', net: 'resultatNet', tresorerie: 'tresorerieDegagee', productivite: 'productivite',
 }
 

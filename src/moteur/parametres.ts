@@ -73,6 +73,8 @@ export const lignesFrais: LigneGrille[] = [
   ext('actes', 'Frais d’actes et de contentieux', 'honoraires', ['6227']),
   ext('livraison', 'Frais de livraison (agrégateurs)', 'autres', ['6242']),
   ext('publicite_locale', 'Publicité diverse et animation', 'communication', ['623']),
+  // Joseph, 29/10/2026 : enveloppe de communication locale de l'année (réseaux sociaux, flyers, partenariats…)
+  ext('budget_communication', 'Budget communication annuel', 'communication', []),
   ext('transports_achats', 'Transports sur achats', 'autres', ['6241']),
   ext('deplacements', 'Voyages et déplacements', 'deplacements', ['6251']),
   ext('receptions', 'Missions et réceptions', 'deplacements', ['6256', '6257']),
@@ -91,6 +93,9 @@ export const lignesFrais: LigneGrille[] = [
   ligne('droits_auteur', 'Droits d’auteur', 'autres', 'autres_charges', ['6516']),
   ligne('charges_diverses', 'Charges diverses', 'autres', 'autres_charges', ['658']),
 ]
+// Thèmes des encarts de l'onglet Frais (29/10/2026), dans cet ordre
+export const THEMES_FRAIS: Rubrique[] = ['immobilier', 'energies', 'entretien', 'honoraires', 'communication', 'deplacements', 'banque_assurances', 'autres', 'impots_taxes']
+
 // Lignes calculées sur le CA, à leur place dans le bloc des charges externes : publicité franchise après les
 // frais de livraison, royalties en fin de bloc (comme dans l'onglet FFBUD, « comprises dans les charges externes »)
 export const LIGNES_SUR_CA = { publicite: { libelle: 'Publicité franchise', apres: 'livraison' }, redevance: { libelle: 'Royalties', apres: 'formations' } } as const

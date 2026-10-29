@@ -5,6 +5,21 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 33 — Frais par thème et depuis le FEC, résultat mensuel, BFR, validation par le RR
+
+- **Base : migration `0018_validation_rr.sql` à passer** (après 0015, 0016 et 0017).
+- Le RR valide ou rouvre le budget de ses magasins, comme le Directeur ; il ne modifie ni la proposition, ni la base,
+  ni les ajustements.
+- Frais : un encart compact par thème (immobilier, énergies, honoraires…), plusieurs côte à côte, totaux des blocs à
+  part ; nouvelle ligne « Budget communication annuel ». « Reprendre les frais du FEC » : chaque compte de charges sur sa
+  ligne, ramené à l'année, lignes cochées reprises dans la saisie (le FEC n'est pas enregistré).
+- Compte de résultat : impôt et résultat net mois par mois (impôt au prorata du résultat avant impôt), amortissements
+  réintégrés et capital des emprunts remboursé jusqu'à la trésorerie dégagée du mois ; charges des événements visibles
+  dans les charges externes.
+- Atterrissage et budget : chaque univers garde sa propre saisonnalité (l'Extérieur l'été) ; totaux inchangés.
+- Trésorerie : besoin en fonds de roulement au 31 décembre (stock à 45 jours d'achats par défaut, réglable dans
+  Paramètres réseau).
+
 ### Lot 32 — Modèles d'import, picto (i) sur les calculs
 
 - Sans migration.

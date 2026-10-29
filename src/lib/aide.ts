@@ -209,7 +209,22 @@ export const AIDE = {
   impotSocietes: {
     titre: 'Impôt sur les sociétés',
     quoi: 'L’impôt dû sur le résultat de l’année.',
-    calcul: '(Résultat avant impôt − déficit reportable) × 15 % jusqu’à 42 500 €, 25 % au-delà (taux réglés dans Paramètres réseau). Zéro si le résultat est négatif.',
+    calcul: '(Résultat avant impôt − déficit reportable) × 15 % jusqu’à 42 500 €, 25 % au-delà (taux réglés dans Paramètres réseau). Zéro si le résultat est négatif. Chaque mois en porte une part, au prorata de son résultat avant impôt.',
+  },
+  capitalRembourse: {
+    titre: 'Capital des emprunts remboursé',
+    quoi: 'La part des échéances d’emprunt qui rembourse la dette. Ce n’est pas une charge : elle ne baisse pas le résultat, mais elle sort de la banque.',
+    calcul: 'Capital remboursé sur l’année (saisi dans les frais, avec les emprunts) ÷ 12.',
+  },
+  amortissementsReintegres: {
+    titre: 'Amortissements réintégrés',
+    quoi: 'Les amortissements baissent le résultat sans sortir d’argent : on les rajoute pour passer du résultat à la trésorerie.',
+    calcul: 'Dotations aux amortissements de l’année ÷ 12.',
+  },
+  chargesEvenements: {
+    titre: 'Charges des événements',
+    quoi: 'Les charges propres aux temps forts (animation, location, sécurité…), saisies avec chaque événement.',
+    calcul: 'Autres charges de chaque temps fort, au mois de l’événement.',
   },
   resultatNet: {
     titre: 'Résultat net',
@@ -275,6 +290,11 @@ export const AIDE = {
     titre: 'Point bas',
     quoi: 'Le mois où la banque descend le plus bas : c’est lui qui dit s’il faut un découvert ou un financement.',
     calcul: 'Plus petite trésorerie de fin de mois de l’année.',
+  },
+  bfr: {
+    titre: 'Besoin en fonds de roulement',
+    quoi: 'L’argent immobilisé par l’exploitation au 31 décembre : ce que le magasin a payé d’avance (stock, consignes) moins ce qu’il doit encore (fournisseurs, TVA, cotisations, redevance). Négatif : l’exploitation finance la trésorerie.',
+    calcul: 'Stock (achats HT de l’année × jours de stock ÷ 365, jours réglés dans Paramètres réseau) + consignes pas encore remboursées − achats TTC pas encore payés (délai des fournisseurs) − TVA due − cotisations de décembre − redevance et publicité dues. Les ventes sont encaissées le mois même.',
   },
   consignesAvancees: {
     titre: 'Consignes avancées aux fournisseurs',
@@ -346,6 +366,12 @@ export const AIDE = {
     quoi: 'Le fichier des écritures comptables, au format fixé par l’administration fiscale : tous les logiciels comptables l’exportent à l’identique. L’exemple montre une facture d’achat, le stock, le loyer, la paie et une remise en banque.',
     remplir: 'Demande au cabinet le FEC de l’année en cours, arrêté à la fin du quadrimestre. Il est lu dans le navigateur et n’est pas enregistré.',
     calcul: 'Achats (601, 602, 607), variation de stock (603, signe inversé), charges externes (604 à 62, 651), impôts et taxes (63), personnel (64), trésorerie (soldes 51 et 53).',
+  },
+  fraisFEC: {
+    titre: 'Frais repris du FEC',
+    quoi: 'Pré-remplit les frais à partir des comptes de charges du comptable : chaque compte va sur sa ligne de la grille du réseau.',
+    remplir: 'Demande au cabinet le FEC de la dernière année complète, ou de l’année en cours. Il est lu dans le navigateur et n’est pas enregistré. Coche les lignes à reprendre, puis enregistre les frais.',
+    calcul: 'Somme des comptes de chaque ligne × 12 ÷ mois couverts par le fichier. Restent hors des frais : achats et stock, personnel, formation continue et taxe d’apprentissage (dans la masse salariale), royalties (calculées sur le CA), charges exceptionnelles, impôt sur les bénéfices.',
   },
   fraisAnnee: {
     titre: 'Frais de l’année',
