@@ -47,7 +47,7 @@ test('synthèse en 3 blocs : les chiffres, quoi faire, et le détail replié', a
   await expect(page.getByRole('region', { name: 'Leviers commerciaux' })).toBeVisible()
   // Le choix reste d'un magasin à l'autre
   await page.getByRole('link', { name: `Magasin suivant : ${MAGASINS[1]}` }).click()
-  await expect(page.getByRole('region', { name: 'Pour aller plus loin' }).getByRole('button')).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByRole('region', { name: 'Pour aller plus loin' }).getByRole('button', { name: /^Pour aller plus loin/ })).toHaveAttribute('aria-expanded', 'true')
 })
 
 test('objectifs du mois : clients par jour et panier visés pour la Cave, à imprimer pour l’équipe', async ({ page, isMobile }, info) => {
