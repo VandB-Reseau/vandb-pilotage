@@ -109,6 +109,22 @@ export const AIDE = {
     quoi: 'Une page A4 à imprimer avant la visite : les chiffres à date, les alertes, le plan d’action et les trois sujets à aborder.',
     calcul: 'Les sujets sont classés par la marge en jeu depuis le 1er janvier : CA manquant face au budget, points de marge perdus, tickets perdus au panier de l’an dernier, euros de panier perdus sur les tickets de l’année.',
   },
+  economie: {
+    titre: 'Économie du franchisé',
+    quoi: 'Le CA à partir duquel le magasin gagne de l’argent (point mort), la marge de sécurité au-dessus, la rémunération du gérant et ce qu’il reste après les emprunts.',
+    remplir: 'Rémunération visée : charges comprises, par an. Rien n’est enregistré.',
+    calcul: 'Coûts variables : achats, redevance, publicité et frais en part du CA. Tout le reste jusqu’au résultat avant impôt est fixe. Point mort = coûts fixes ÷ taux de marge sur coûts variables. Reste disponible = capacité d’autofinancement − capital remboursé.',
+  },
+  familles: {
+    titre: 'Familles face au réseau',
+    quoi: 'Le poids de chaque famille dans le CA de son univers et sa marge, face à la médiane des magasins qui ont cet univers. Une famille absente compte pour 0 %.',
+    calcul: 'Potentiel : si le magasin pèse moins que la médiane sur une famille mieux margée que le reste de l’univers, (poids médian − poids) × CA de l’univers × (taux de la famille − taux du reste). CA réalisé de l’année en cours.',
+  },
+  semaine: {
+    titre: 'Ma semaine',
+    quoi: 'Les magasins du périmètre classés par la marge en jeu depuis janvier, pour savoir où aller en premier.',
+    calcul: 'Marge en jeu : la somme des trois sujets de la fiche de visite (CA sous le budget, points de marge perdus, tickets et panier en baisse face à l’an dernier).',
+  },
 } satisfies Record<string, TexteAide>
 
 export type SujetAide = keyof typeof AIDE

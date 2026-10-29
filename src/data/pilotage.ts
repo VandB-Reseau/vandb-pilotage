@@ -15,7 +15,7 @@ import { ratiosDuBudget, ratiosDuReel, type Ratios } from '../moteur/comparaison
 import { ligneReseau } from '../moteur/suivi'
 import { QUADRIMESTRES, type Quadrimestre, type SaisieQuadrimestre } from '../moteur/quadrimestre'
 import { tresorerieBudget } from '../moteur/tresorerie'
-import type { Hypotheses, ParametresReseau, Univers } from '../moteur/types'
+import type { Famille, Hypotheses, ParametresReseau, Univers } from '../moteur/types'
 
 export type Statut = 'propose' | 'en_discussion' | 'valide'
 export const statutLibelle: Record<Statut, string> = { propose: 'Proposé par le siège', en_discussion: 'En discussion', valide: 'Validé' }
@@ -442,7 +442,7 @@ export async function chargerMesures(aujourdhui = new Date()): Promise<Record<st
 
 // Ratios de chaque magasin du compte, pour la comparaison aux médianes : réel de l'année à date et budgets de l'an prochain
 export interface RatiosMagasin { magasin: string; groupeId: number | null; ratios: Ratios }
-export async function chargerComparaison(aujourdhui = new Date()): Promise<{ annee: number; anneeBudget: number; groupes: { id: number; nom: string }[]; reel: RatiosMagasin[]; budget: RatiosMagasin[] }> {
+export async function chargerComparaison(aujourdhui = new Date()): Promise<{ annee: number; anneeBudget: number; groupes: { id: number; nom: string }[]; reel: RatiosMagasin[]; budget: RatiosMagasin[]; familles: { magasin: string; groupeId: number | null; familles: Famille[] }[] }> {
   const annee = aujourdhui.getFullYear(), aB = anneeBudget(aujourdhui)
   const [d, { parametres }, dB, { parametres: pB }, reel] = await Promise.all([
     chargerBudgets(annee), chargerParametres(annee), chargerBudgets(aB), chargerParametres(aB), chargerReelDuCompte(annee),
@@ -465,6 +465,11 @@ export async function chargerComparaison(aujourdhui = new Date()): Promise<{ ann
     budget: dB.magasins.flatMap((l) => {
       const h = l.statut ? hypothesesDe(l, dB) : null
       return h ? [{ magasin: l.magasin, groupeId: l.groupeId, ratios: ratiosDuBudget(calculerBudget(h.hypotheses, pB), h.hypotheses) }] : []
+    }),
+    // Familles du réalisé de l'année en cours, base des budgets de l'an prochain (lot 29)
+    familles: dB.magasins.flatMap((l) => {
+      const h = l.base || l.statut ? hypothesesDe(l, dB) : null
+      return h ? [{ magasin: l.magasin, groupeId: l.groupeId, familles: h.hypotheses.familles }] : []
     }),
   }
 }

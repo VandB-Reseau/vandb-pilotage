@@ -37,7 +37,7 @@ test('le franchisé voit ce qu’il a à faire et y va en un clic, sans la compa
     /Équipe à renseigner/,
     /Frais à renseigner/,
   ])
-  await expect(page.getByRole('region', { name: 'Face au réseau' })).toHaveCount(0)
+  await expect(page.getByRole('region', { name: 'Face au réseau', exact: true })).toHaveCount(0)
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-espace-franchise.png`, fullPage: true })

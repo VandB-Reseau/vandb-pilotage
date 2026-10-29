@@ -5,6 +5,16 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 29 — Économie du franchisé, familles, ma semaine
+
+- Sans migration.
+- Économie du franchisé dans Résultat et trésorerie : point mort, marge de sécurité, rémunération du gérant, reste
+  disponible après emprunts, et CA à atteindre pour une rémunération du gérant visée.
+- Familles face au réseau sur la synthèse : poids de chaque famille dans son univers et taux de marge face à la médiane
+  (à partir de 3 magasins), potentiel de marge si le magasin rejoint la médiane. Caché au franchisé.
+- « Ma semaine » en tête de la vue Réseau : magasins classés par la marge en jeu, premier sujet, alertes, actions en
+  retard, et totaux par Coach. Pas de colonne « dernière visite » : les visites ne sont pas encore enregistrées.
+
 ### Lot 28 — Terrain et commerce
 
 - **Base : migration `0016_alertes_commerciales.sql` à passer** avant de créer une action sur une alerte tickets ou panier.

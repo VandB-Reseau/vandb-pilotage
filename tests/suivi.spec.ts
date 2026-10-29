@@ -94,7 +94,7 @@ test('vue réseau : classement, total, tri, filtre par Coach et retour', async (
   await expect(lignes.nth(3)).toContainText(MAGASINS[1])
   await expect(lignes.nth(5)).toContainText(MAGASINS[2])
 
-  await page.getByLabel('Coach').click()
+  await page.getByLabel('Coach', { exact: true }).click()
   await page.getByRole('option', { name: 'Coach Nord' }).click()
   await expect(lignes).toHaveCount(4)
   await expect(lignes.nth(1)).toContainText('Total de la sélection')
@@ -109,7 +109,7 @@ test('vue réseau : le Coach y accède, sans réel elle le dit', async ({ page }
   await seConnecter(page, { role: 'coach' })
   await page.getByRole('link', { name: 'Réseau' }).first().click()
   await expect(page.getByText(`Pas encore de réel ${N}`)).toBeVisible()
-  await expect(page.getByLabel('Coach')).toHaveCount(0)
+  await expect(page.getByLabel('Coach', { exact: true })).toHaveCount(0)
 })
 
 test('vue réseau : jamais montrée au franchisé', async ({ page }) => {
