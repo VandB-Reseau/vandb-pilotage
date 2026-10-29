@@ -5,6 +5,15 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Extras dans l'équipe, démarque de consignes
+
+- **Base : migration `0017_extras.sql` à passer** avant d'enregistrer des extras (après 0015 et 0016).
+- Extras retirés des temps forts : ils se saisissent dans Équipe (bouton « Extras »), comme un poste, avec les heures
+  moyennes par semaine ou par mois et le taux horaire brut. Ils comptent dans la masse salariale, la réduction générale
+  et le CA par heure travaillée. Des extras déjà saisis sur un temps fort ne comptent plus.
+- Démarque de consignes dans Paramètres réseau : part des consignes jamais remboursée, en charge externe du compte de
+  résultat et retirée du remboursement dans la trésorerie. 0 tant qu'elle n'est pas saisie ; la marge ne bouge pas.
+
 ### Lot 29 — Économie du franchisé, familles, ma semaine
 
 - Sans migration.

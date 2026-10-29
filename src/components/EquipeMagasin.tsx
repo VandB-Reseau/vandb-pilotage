@@ -24,7 +24,9 @@ import AddOutlined from '@mui/icons-material/AddOutlined'
 import DeleteOutlined from '@mui/icons-material/DeleteOutlined'
 import EditOutlined from '@mui/icons-material/EditOutlined'
 import PersonAddAltOutlined from '@mui/icons-material/PersonAddAltOutlined'
+import GroupAddOutlined from '@mui/icons-material/GroupAddOutlined'
 import RedeemOutlined from '@mui/icons-material/RedeemOutlined'
+import { Aide } from './Aide'
 import { BarreEnregistrement } from './BarreEnregistrement'
 import { ChampNombre } from './ChampNombre'
 import { EtatVide } from './EtatVide'
@@ -32,10 +34,10 @@ import { useSaisieEnCours } from './GardeSaisie'
 import { Indicateur } from './Indicateur'
 import { enregistrerPersonne, supprimerPersonne } from '../data/pilotage'
 import { nombreChangements } from '../lib/aFaire'
-import { milliers, montant, MOIS_LONGS, taux } from '../lib/format'
+import { milliers, montant, MOIS_LONGS, panier, taux } from '../lib/format'
 import { ebeApres } from '../moteur/effets'
 import { CATEGORIES, categorieLibelle, masseSalariale, SEMAINES_PAR_MOIS, type ParametresCharges, type Personne } from '../moteur/equipe'
-import { champsDepuisPersonne, lirePersonne, nouvellePersonne, nouvellesPrimesEquipe, type ChampsPersonne } from '../moteur/saisieEquipe'
+import { champsDepuisPersonne, lirePersonne, nouveauxExtras, nouvellePersonne, nouvellesPrimesEquipe, type ChampsPersonne } from '../moteur/saisieEquipe'
 import { nombre } from '../import/caisse'
 
 const nombreEtp = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 })
@@ -111,7 +113,7 @@ export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, cha
     setErreurs(lu.erreurs)
     if (!lu.personne) return
     const p = lu.personne
-    if (await agir(() => enregistrerPersonne(magasin, p), p.enveloppe ? `${p.poste} : primes enregistrées dans l’équipe.` : `${p.poste} enregistré dans l’équipe.`)) setFiche(null)
+    if (await agir(() => enregistrerPersonne(magasin, p), p.enveloppe ? `${p.poste} : primes enregistrées dans l’équipe.` : p.tauxHoraire ? `${p.poste} : extras enregistrés dans l’équipe.` : `${p.poste} enregistré dans l’équipe.`)) setFiche(null)
     else setErreurs(['L’enregistrement n’a pas abouti. Vérifie ta connexion, puis réessaie.'])
   }
   const retirer = async (p: Personne) => {
@@ -124,7 +126,7 @@ export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, cha
   // Fiche d'un poste dans la page, sans fenêtre : sous la ligne modifiée, ou en bas du tableau pour un nouveau poste
   const formulaire = fiche && (
     <Box component="section" aria-labelledby="titre-poste" sx={{ p: { xs: 2, md: 2.5 }, bgcolor: 'background.default', borderRadius: 2 }}>
-      <Typography variant="h3" component="h3" id="titre-poste" sx={{ mb: 2 }}>{fiche.id ? `Modifier ${fiche.poste}` : fiche.enveloppe ? 'Primes d’équipe' : 'Nouveau poste'}</Typography>
+      <Typography variant="h3" component="h3" id="titre-poste" sx={{ mb: 2 }}>{fiche.id ? `Modifier ${fiche.poste}` : fiche.enveloppe ? 'Primes d’équipe' : fiche.extra ? 'Extras' : 'Nouveau poste'}{fiche.extra && <Aide sujet="extras" />}</Typography>
       {erreurs.length > 0 && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {erreurs.length === 1 ? erreurs[0] : <Box component="ul" sx={{ m: 0, pl: 2.5 }}>{erreurs.map((t) => <li key={t}>{t}</li>)}</Box>}
@@ -132,7 +134,7 @@ export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, cha
       )}
       <Stack spacing={2.5}>
         <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <TextField label={fiche.enveloppe ? 'Nom' : 'Poste'} value={fiche.poste} onChange={(e) => changer({ poste: e.target.value })} slotProps={{ htmlInput: { maxLength: 80 } }} sx={{ minWidth: 200, bgcolor: 'background.paper' }} />
+          <TextField label={fiche.enveloppe || fiche.extra ? 'Nom' : 'Poste'} value={fiche.poste} onChange={(e) => changer({ poste: e.target.value })} slotProps={{ htmlInput: { maxLength: 80 } }} sx={{ minWidth: 200, bgcolor: 'background.paper' }} />
           <TextField select label={fiche.enveloppe ? 'Catégorie des bénéficiaires' : 'Catégorie'} value={fiche.categorie} onChange={(e) => changer({ categorie: e.target.value as ChampsPersonne['categorie'] })} sx={{ ...select, bgcolor: 'background.paper' }}>
             {CATEGORIES.map((c) => <MenuItem key={c} value={c} sx={{ minHeight: 48 }}>{categorieLibelle[c]}</MenuItem>)}
           </TextField>
@@ -146,10 +148,16 @@ export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, cha
                   <ToggleButton value="mois" sx={{ minHeight: { xs: 48, md: 32 }, px: 1.25 }}>Par mois</ToggleButton>
                 </ToggleButtonGroup>
               </Box>
-              <ChampNombre libelle={fiche.heuresSaisie === 'mois' ? 'Heures par mois' : 'Heures par semaine'} valeur={fiche.heures} unite="h" largeur={140} onChange={(v) => changer({ heures: v })} />
+              <ChampNombre libelle={`${fiche.extra ? 'Heures d’extras' : 'Heures'} par ${fiche.heuresSaisie}`} valeur={fiche.heures} unite="h" largeur={140} onChange={(v) => changer({ heures: v })} />
             </Box>
           )}
-          {!fiche.enveloppe && (
+          {fiche.extra && (
+            <Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>Taux horaire brut</Typography>
+              <ChampNombre libelle="Taux horaire brut" valeur={fiche.tauxHoraire} unite="€ par heure" largeur={170} onChange={(v) => changer({ tauxHoraire: v })} />
+            </Box>
+          )}
+          {!fiche.enveloppe && !fiche.extra && (
             <Box>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>{fiche.categorie === 'gerant_tns' ? 'Rémunération mensuelle' : 'Brut mensuel'}</Typography>
               <ChampNombre libelle={fiche.categorie === 'gerant_tns' ? 'Rémunération mensuelle' : 'Brut mensuel'} valeur={fiche.brutMensuel} largeur={180} onChange={(v) => changer({ brutMensuel: v })} />
@@ -205,6 +213,9 @@ export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, cha
       </Button>
       <Button variant="outlined" startIcon={<RedeemOutlined />} sx={{ minHeight: 48 }} onClick={() => ouvrir(nouvellesPrimesEquipe())}>
         Primes d’équipe
+      </Button>
+      <Button variant="outlined" startIcon={<GroupAddOutlined />} sx={{ minHeight: 48 }} onClick={() => ouvrir(nouveauxExtras())}>
+        Extras
       </Button>
     </Stack>
   )
@@ -281,7 +292,7 @@ export function EquipeMagasin({ magasin, equipe, annee, anneeBudget, hausse, cha
                         <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 600 }}>{p.poste}</TableCell>
                         <TableCell sx={{ whiteSpace: 'nowrap' }}>{categorieLibelle[p.categorie]}</TableCell>
                         <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{heuresDe(p)}</TableCell>
-                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{p.enveloppe ? '–' : montant(p.brutMensuel)}</TableCell>
+                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{p.enveloppe ? '–' : p.tauxHoraire ? `${montant(p.brutMensuel)} (${panier(p.tauxHoraire)} de l’heure)` : montant(p.brutMensuel)}</TableCell>
                         <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{primes ? montant(primes) : ''}</TableCell>
                         <TableCell sx={{ whiteSpace: 'nowrap' }}>{presence(p)}</TableCell>
                         <TableCell align="right">{taux(x.tauxEffectif)}</TableCell>

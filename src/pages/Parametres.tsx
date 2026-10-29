@@ -354,6 +354,10 @@ export function Parametres() {
                     </TableRow>
                   ))}
                   <TableRow>
+                    <TableCell>Démarque de consignes : part des consignes jamais remboursée (vides perdus ou cassés), en charge du compte de résultat</TableCell>
+                    <TableCell align="right"><ChampTaux libelle="Démarque de consignes" valeur={treso.consignes!.demarque ?? 0} onChange={(v) => setTreso((t) => (t?.consignes ? { ...t, consignes: { ...t.consignes, demarque: v ?? 0 } } : t))} /></TableCell>
+                  </TableRow>
+                  <TableRow>
                     <TableCell>Temps pour écouler un fût et le rendre au fournisseur, en mois</TableCell>
                     <TableCell align="right"><ChampNombre libelle="Temps pour écouler et rendre un fût" valeur={delais.ecoulement} unite="mois" largeur={120} onChange={(v) => setDelais((d) => ({ ...d, ecoulement: v }))} /></TableCell>
                   </TableRow>

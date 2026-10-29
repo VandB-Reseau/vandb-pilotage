@@ -110,3 +110,35 @@ test('trésorerie glissante : réel de fin août, puis les flux de l’atterriss
   // Fin décembre connue : plus rien à projeter
   expect(tresorerieGlissante(t, { montant: 3_000, mois: 11 })).toMatchObject({ mois: [], fin: 3_000, pointBas: { montant: 3_000, mois: 11 } })
 })
+
+test('démarque de consignes : 10 % des consignes jamais remboursés, en charge externe ; le reste hors compte de résultat', () => {
+  // Bar seul, comme au-dessus : 900 € de consignes par mois, 1 800 € en décembre. Démarque 10 % : 90 € par mois, 180 € en
+  // décembre, retirés du remboursement ; 11 700 € de consignes sur l'année, soit 1 170 € de charge
+  const ca = [...Array(11).fill(10_000), 20_000]
+  const saison = {
+    ca: 130_000, impot: 0,
+    mois: ca.map((c) => ({ ca: c, achats: c * 0.6, personnel: 0 })),
+    familles: [{ univers: 'bar', famille: 'Fût', objectif: 130_000, margeObjectif: 52_000 }],
+  } as unknown as Budget
+  const sansFrais = { frais: [], interets: 0, remboursementCapital: 0 } as unknown as Hypotheses
+  const consignes = { achats: { cave: 0, bar: 0.15, exterieur: 0 }, ecoulement: 1, remboursement: 1 }
+  const t = tresorerieBudget(saison, sansFrais, p, { ...tresorerieParDefaut, consignes: { ...consignes, demarque: 0.1 } })
+  const sans = tresorerieBudget(saison, sansFrais, p, { ...tresorerieParDefaut, consignes })
+  proche(t.mois[0].consignesVersees, 900)
+  proche(t.mois[0].consignesRemboursees, 810)     // vides de novembre, moins 10 %
+  proche(t.mois[1].consignesRemboursees, 1_620)   // vides de décembre, moins 10 %
+  proche(t.fin - sans.fin, -1_170)
+
+  // Dans le budget : charge externe répartie comme le CA, marge inchangée. Magasin fictif, consignes au taux par défaut
+  // (Cave 3 %, Bar et Extérieur 15 %) et démarque 10 % : 10 % × Σ achats de l'univers × taux
+  const avec = { ...parametresParDefaut, tresorerie: { ...tresorerieParDefaut, consignes: { ...tresorerieParDefaut.consignes!, demarque: 0.1 } } }
+  const b0 = calculerBudget(magasinFictif, parametresParDefaut)
+  const b1 = calculerBudget(magasinFictif, avec)
+  const achats = (u: string) => b0.familles.filter((f) => f.univers === u).reduce((a, f) => a + f.objectif - f.margeObjectif, 0)
+  const charge = 0.1 * (achats('cave') * 0.03 + achats('bar') * 0.15 + achats('exterieur') * 0.15)
+  expect(charge).toBeGreaterThan(0)
+  proche(b1.marge, b0.marge)
+  proche(b1.chargesExternes - b0.chargesExternes, charge)
+  proche(b0.ebe - b1.ebe, charge)
+  proche(b1.mois[0].demarqueConsignes!, charge * b1.mois[0].ca / b1.ca)
+})

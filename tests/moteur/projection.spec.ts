@@ -36,10 +36,11 @@ test('temps forts : le CA de l’an passé sort de la base, celui du budget entr
   // Achats de l'Oktoberfest : 15 000 × (1 − 40 %), payés en mai
   proche(b.mois[5].univers!.exterieur.achatsTempsForts, 9_000)
   expect(b.paiementsTempsForts).toEqual([{ mois: 4, vente: 5, univers: 'exterieur', montant: expect.closeTo(9_000, 6) }])
-  // Extras en personnel, autres charges dans les charges externes (avec la redevance et la publicité du CA en plus)
-  proche(b.mois[5].personnel, sans.mois[5].personnel + 800)
+  // Extras enregistrés avant le 29/10/2026 ignorés (ils se saisissent dans l'équipe) ; autres charges dans les charges
+  // externes (avec la redevance et la publicité du CA en plus)
+  proche(b.mois[5].personnel, sans.mois[5].personnel)
   proche(b.mois[5].chargesExternes - sans.mois[5].chargesExternes, 2_200 + 13_500 * 0.03 + 13_500 * 0.013)
-  expect(b.tempsForts).toEqual({ retire: 12_000, ajoute: 15_000, charges: 3_000, ajustements: 0 })
+  expect(b.tempsForts).toEqual({ retire: 12_000, ajoute: 15_000, charges: 2_200, ajustements: 0 })
   // Sans temps fort, le calcul est celui d'avant : mêmes mois
   proche(sans.mois[0].ca, 600_000 * 0.075)
 })

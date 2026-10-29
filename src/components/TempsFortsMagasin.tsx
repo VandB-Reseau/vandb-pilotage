@@ -35,7 +35,7 @@ export function TempsFortsMagasin({ tempsForts, onChange, lectureSeule, annee, b
   budget: Budget
 }) {
   const liste = tempsForts ?? []
-  const ajouter = () => onChange([...liste, { nom: '', type: 'exterieur', mois: 6, univers: 'exterieur', caAnPasse: 0, ca: 0, extrasPersonnel: 0, autresCharges: 0, moisAchats: 5 }])
+  const ajouter = () => onChange([...liste, { nom: '', type: 'exterieur', mois: 6, univers: 'exterieur', caAnPasse: 0, ca: 0, autresCharges: 0, moisAchats: 5 }])
   if (!liste.length) {
     if (lectureSeule) return null
     return (
@@ -66,7 +66,6 @@ export function TempsFortsMagasin({ tempsForts, onChange, lectureSeule, annee, b
               <TableCell>Univers</TableCell>
               <TableCell align="right">CA {annee - 1} HT</TableCell>
               <TableCell align="right">CA {annee} HT</TableCell>
-              <TableCell align="right">Extras de personnel</TableCell>
               <TableCell align="right">Autres charges</TableCell>
               <TableCell>Achats payés en</TableCell>
               <TableCell />
@@ -93,7 +92,6 @@ export function TempsFortsMagasin({ tempsForts, onChange, lectureSeule, annee, b
                   </TableCell>
                   <TableCell align="right"><ChampMontant libelle={`CA ${annee - 1} : ${nom}`} valeur={t.caAnPasse} desactive={lectureSeule} onChange={(v) => changer(i, { caAnPasse: v })} /></TableCell>
                   <TableCell align="right"><ChampMontant libelle={`CA ${annee} : ${nom}`} valeur={t.ca} desactive={lectureSeule} onChange={(v) => changer(i, { ca: v })} /></TableCell>
-                  <TableCell align="right"><ChampMontant libelle={`Extras de personnel : ${nom}`} valeur={t.extrasPersonnel} desactive={lectureSeule} largeur={120} onChange={(v) => changer(i, { extrasPersonnel: v })} /></TableCell>
                   <TableCell align="right"><ChampMontant libelle={`Autres charges : ${nom}`} valeur={t.autresCharges} desactive={lectureSeule} largeur={120} onChange={(v) => changer(i, { autresCharges: v })} /></TableCell>
                   <TableCell><ChoixListe libelle={`Achats payés en : ${nom}`} valeur={t.moisAchats} options={MOIS_OPTIONS} desactive={lectureSeule} largeur={130} onChange={(v) => changer(i, { moisAchats: v })} /></TableCell>
                   <TableCell>

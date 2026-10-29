@@ -3,7 +3,7 @@ import { calculerBudget } from '../../src/moteur/budget'
 import { appliquerCibles } from '../../src/moteur/cibles'
 import { coefficientReduction, coutPersonne, masseSalariale, moisPresents, type Personne } from '../../src/moteur/equipe'
 import { chargesParDefaut, parametresParDefaut } from '../../src/moteur/parametres'
-import { champsDepuisPersonne, lirePersonne, nouvellePersonne, nouvellesPrimesEquipe } from '../../src/moteur/saisieEquipe'
+import { champsDepuisPersonne, lirePersonne, nouveauxExtras, nouvellePersonne, nouvellesPrimesEquipe } from '../../src/moteur/saisieEquipe'
 import { magasinFictif } from '../donnees-fictives'
 
 // Équipe fictive, montants ronds : chaque résultat se vérifie à la main (détail en commentaire). Paramètres 2026 par défaut :
@@ -104,4 +104,25 @@ test('primes d’équipe sans salarié : chargées au taux de la catégorie, san
   expect(c.heures.every((h) => h === 0)).toBe(true)
   expect(c.etp).toBe(0)
   expect(lirePersonne(nouvellesPrimesEquipe()).erreurs).toEqual(['Le montant d’au moins une prime est à renseigner.'])
+})
+
+test('extras : heures moyennes au mois × taux horaire, réduction générale sur le taux horaire, heures comptées', () => {
+  // 65 h par mois = 15 h par semaine ; 65 h × 12 € = 780 € brut par mois, 9 360 € sur l'année
+  const lu = lirePersonne({ ...nouveauxExtras(), heures: '65', tauxHoraire: '12' })
+  expect(lu.erreurs).toEqual([])
+  expect(lu.personne).toMatchObject({ poste: 'Extras', categorie: 'employe', heuresSaisie: 'mois', tauxHoraire: 12 })
+  proche(lu.personne!.heuresHebdo, 15, 9)
+  proche(lu.personne!.brutMensuel, 780, 9)
+  const c = coutPersonne(lu.personne!, chargesParDefaut, 2027)
+  proche(c.brutAnnuel, 9_360)
+  proche(c.heures[0], 65, 9)
+  // Même coefficient qu'un salarié à 35 h payé 12 € de l'heure : 1 820 € par mois, 21 840 € par an face au SMIC plein
+  expect(c.coefficient).toBe(coutPersonne(vendeur({ brutMensuel: 1_820 }), chargesParDefaut, 2027).coefficient)
+  expect(c.coefficient).toBe(Math.min(coefficientReduction(21_840, SMIC, r), chargesParDefaut.taux.employe - r.horsReduction))
+  proche(c.coutAnnuel, 9_360 * (1 + chargesParDefaut.taux.employe - c.coefficient))
+  // La fiche rend les heures au mois et le taux ; sans taux, un message lisible
+  expect(champsDepuisPersonne(lu.personne!)).toMatchObject({ extra: true, heures: '65', heuresSaisie: 'mois', tauxHoraire: '12' })
+  expect(lirePersonne({ ...nouveauxExtras(), heures: '65' }).erreurs).toEqual(['Le taux horaire brut est à renseigner.'])
+  // Plusieurs extras additionnés : au-delà de 70 h par semaine accepté, jusqu'à 150
+  expect(lirePersonne({ ...nouveauxExtras(), heures: '400', tauxHoraire: '12' }).erreurs).toEqual([])
 })
