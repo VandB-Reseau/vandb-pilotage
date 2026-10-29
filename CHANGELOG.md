@@ -5,6 +5,16 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 32 — Modèles d'import, picto (i) sur les calculs
+
+- Sans migration.
+- Chaque import propose son modèle : ventes et tickets de la caisse, quadrimestres des comptables (code magasin
+  « EXEMPLE », jamais importé), et un exemple de FEC commenté dans l'onglet Quadrimestres.
+- « D'où vient ce chiffre ? » devient un picto (i) à côté du chiffre. Picto (i) sur les chiffres calculés : cartes du
+  budget, de la synthèse, du suivi, de l'équipe, des frais, des quadrimestres, de l'économie du franchisé, de la
+  trésorerie et de la vue Réseau ; lignes calculées du compte de résultat et de la trésorerie (pas sur le CA ni les
+  totaux qui additionnent).
+
 ### Lot 31 — Hypothèses par univers
 
 - Sans migration.

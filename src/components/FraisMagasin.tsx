@@ -206,9 +206,9 @@ export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregist
     <Stack spacing={3}>
       {alerte}
       <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap' }} component="section" aria-label="Frais en chiffres">
-        <Indicateur libelle={`Frais ${annee}`} valeur={milliers(t.annuel)} detail={`et ${taux(t.taux + surCA)} du CA`} />
-        <Indicateur libelle="Emprunts" valeur={milliers(interets + valeurFinance('remboursementCapital'))} detail={`Intérêts et charges assimilées : ${milliers(interets)}`} />
-        <Indicateur libelle="Amortissements" valeur={milliers(valeurFinance('amortissements'))} />
+        <Indicateur libelle={`Frais ${annee}`} aide="fraisAnnee" valeur={milliers(t.annuel)} detail={`et ${taux(t.taux + surCA)} du CA`} />
+        <Indicateur libelle="Emprunts" aide="empruntsTreso" valeur={milliers(interets + valeurFinance('remboursementCapital'))} detail={`Intérêts et charges assimilées : ${milliers(interets)}`} />
+        <Indicateur libelle="Amortissements" aide="amortissements" valeur={milliers(valeurFinance('amortissements'))} />
       </Stack>
 
       <Card component="section" aria-label="Frais par bloc">

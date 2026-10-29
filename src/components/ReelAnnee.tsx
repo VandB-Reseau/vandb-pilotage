@@ -114,11 +114,11 @@ export function ReelAnnee({ magasin, annee, peutSaisir, apresEnregistrement }: {
         <>
           <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap' }} component="section" aria-label={`Réel ${annee} en chiffres`}>
             <Indicateur libelle={`CA HT ${annee}`} valeur={milliers(s.caHT)} detail={s.moisRenseignes === 12 ? 'Année complète' : `De janvier à fin ${MOIS_LONGS[s.moisRenseignes - 1]}`} />
-            <Indicateur libelle="Marge théorique" valeur={taux(s.tauxMarge)} detail={milliers(s.margeHT)} />
+            <Indicateur libelle="Marge théorique" aide="margeTheorique" valeur={taux(s.tauxMarge)} detail={milliers(s.margeHT)} />
             {parUnivers.map(({ u, n, evoTickets, evoPanier }) => (
               <Fragment key={u}>
-                <Indicateur libelle={`Tickets ${universLibelle[u]}`} valeur={nombreEntier.format(n.tickets)} detail={surAvant(evoTickets)} />
-                <Indicateur libelle={`Panier ${universLibelle[u]} TTC`} valeur={n.panierTTC === null ? 'Non connu' : panier.format(n.panierTTC)}
+                <Indicateur libelle={`Tickets ${universLibelle[u]}`} aide="ticketsPanier" valeur={nombreEntier.format(n.tickets)} detail={surAvant(evoTickets)} />
+                <Indicateur libelle={`Panier ${universLibelle[u]} TTC`} aide="ticketsPanier" valeur={n.panierTTC === null ? 'Non connu' : panier.format(n.panierTTC)}
                   detail={n.panierTTC === null ? 'Il faut le CA TTC et les tickets' : surAvant(evoPanier)} />
               </Fragment>
             ))}

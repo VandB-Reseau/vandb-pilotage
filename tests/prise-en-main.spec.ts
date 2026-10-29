@@ -74,7 +74,7 @@ test('le franchisé ouvre l’aide d’une hypothèse et voit d’où viennent s
   await page.keyboard.press('Escape')
 
   // CA : Cave 200 000 × 1,03 (tickets), Bar 300 000 × 1,03, Extérieur 100 000
-  await page.getByRole('button', { name: 'D’où vient ce chiffre ? Chiffre d’affaires HT' }).click()
+  await page.getByRole('button', { name: 'Comment c’est calculé : Chiffre d’affaires HT' }).click()
   const calcul = page.getByRole('table', { name: 'Calcul : Chiffre d’affaires HT 2027' })
   await expect(calcul.getByRole('row', { name: /^CA 2026 attendu/ }).first()).toContainText(/200\s000\s€/)
   await expect(calcul.getByRole('row', { name: /^Évolution des tickets/ })).toContainText(/\+3,0\s%/)
@@ -86,7 +86,7 @@ test('le franchisé ouvre l’aide d’une hypothèse et voit d’où viennent s
   await page.screenshot({ path: `captures/${info.project.name}-calcul-ca.png` })
   await page.getByRole('button', { name: 'Fermer' }).click()
 
-  await page.getByRole('button', { name: 'D’où vient ce chiffre ? EBE' }).click()
+  await page.getByRole('button', { name: 'Comment c’est calculé : EBE' }).click()
   const ebe = page.getByRole('table', { name: 'Calcul : EBE 2027' })
   // Redevance 2 % de 615 000
   await expect(ebe.getByRole('row', { name: /^Redevance/ })).toContainText(/[-−]12\s300\s€/)

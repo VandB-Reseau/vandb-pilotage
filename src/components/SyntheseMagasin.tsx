@@ -104,23 +104,23 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteE
       )}
       <Box component="section" aria-label={`Santé du magasin à fin ${finMois}`} sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' } }}>
         <Indicateur
-          libelle={`CA HT à fin ${finMois}`} valeur={milliers(s.caCumule)} serie={s.serieN}
+          libelle={`CA HT à fin ${finMois}`} aide="caCumule" valeur={milliers(s.caCumule)} serie={s.serieN}
           ecart={ecartCA !== null ? { texte: `${taux(Math.abs(ecartCA))} face au budget`, hausse: ecartCA >= 0, favorable: ecartCA >= 0 }
             : s.evolution === null ? undefined : { texte: `${taux(Math.abs(s.evolution))} sur ${annee - 1}`, hausse: s.evolution >= 0, favorable: s.evolution >= 0 }}
           detail={[suivi && `Budget à date : ${milliers(suivi.cumul.caBudget)}`, suivi && evolution, `Atterrissage ${annee} : ${milliers(b.ca)}`].filter(Boolean).join(' · ')}
         />
         <Indicateur
-          libelle="Marge commerciale" valeur={s.tauxMarge === null ? 'Non connue' : taux(s.tauxMarge)}
+          libelle="Marge commerciale" aide="margeTheorique" valeur={s.tauxMarge === null ? 'Non connue' : taux(s.tauxMarge)}
           ecart={ecartMarge === null ? undefined : { texte: `${ecartPts(Math.abs(ecartMarge)).replace('+', '')} face au budget`, hausse: ecartMarge >= 0, favorable: ecartMarge >= 0 }}
           detail={s.tauxMarge === null ? 'Marge absente des chiffres de caisse'
             : suivi ? `Budget : ${taux(suivi.cumul.tauxMargeBudget)} · ${milliers(s.margeCumulee)} à fin ${finMois}` : `${milliers(s.margeCumulee)} à fin ${finMois}`}
         />
         <Indicateur
-          libelle="Masse salariale / marge" valeur={equipe?.length ? taux(b.ratios.personnelSurMarge) : 'À renseigner'}
+          libelle="Masse salariale / marge" aide="masseSurMarge" valeur={equipe?.length ? taux(b.ratios.personnelSurMarge) : 'À renseigner'}
           detail={equipe?.length ? `${milliers(b.personnel)} sur l’année` : 'Équipe non renseignée'}
         />
         <Indicateur
-          libelle={`EBE attendu ${annee}`} valeur={milliers(b.ebe)} serie={b.mois.map((m) => m.ebe)}
+          libelle={`EBE attendu ${annee}`} aide="ebe" valeur={milliers(b.ebe)} serie={b.mois.map((m) => m.ebe)}
           ecart={budgetN ? { texte: `${milliers(Math.abs(b.ebe - budgetN.ebe))} face au budget`, hausse: b.ebe >= budgetN.ebe, favorable: b.ebe >= budgetN.ebe } : undefined}
           detail={budgetN ? `Budget : ${milliers(budgetN.ebe)} · ${taux(b.ratios.ebeSurCA)} du CA` : `${taux(b.ratios.ebeSurCA)} du CA`}
         />

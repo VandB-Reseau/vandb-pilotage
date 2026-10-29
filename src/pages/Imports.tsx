@@ -19,7 +19,9 @@ import AddOutlined from '@mui/icons-material/AddOutlined'
 import CloudUploadOutlined from '@mui/icons-material/CloudUploadOutlined'
 import DeleteOutlined from '@mui/icons-material/DeleteOutlined'
 import UploadFileOutlined from '@mui/icons-material/UploadFileOutlined'
+import { BoutonModele } from '../components/BoutonModele'
 import { ChoixMagasin } from '../components/ChoixMagasin'
+import { MODELES } from '../lib/modeles'
 import { Panne } from '../components/Panne'
 import { anneeBudget, chargerBudgets, chargerCodes, enregistrerCode, importerQuadrimestres, importerReel, supprimerCode } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
@@ -114,7 +116,9 @@ export function Imports() {
       <Stack spacing={3}>
         <Card component="section" aria-label="Fichiers de la DSI" sx={{ p: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-            <Typography variant="h2">Fichiers du mois</Typography>
+            <Typography variant="h2" sx={{ flex: 1 }}>Fichiers du mois</Typography>
+            <BoutonModele modele={MODELES.ventes} libelle="Modèle des ventes" />
+            <BoutonModele modele={MODELES.tickets} libelle="Modèle des tickets" />
             <Button variant={lus ? 'outlined' : 'contained'} startIcon={<UploadFileOutlined />} disabled={occupe} onClick={() => entree.current?.click()} sx={{ minHeight: 48 }}>
               Choisir les fichiers
             </Button>
@@ -204,7 +208,8 @@ export function Imports() {
 
         <Card component="section" aria-label="Quadrimestres des comptables" sx={{ p: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-            <Typography variant="h2">Quadrimestres des comptables</Typography>
+            <Typography variant="h2" sx={{ flex: 1 }}>Quadrimestres des comptables</Typography>
+            <BoutonModele modele={MODELES.quadrimestres} />
             <Button variant="outlined" startIcon={<UploadFileOutlined />} disabled={occupe} onClick={() => entreeQuadri.current?.click()} sx={{ minHeight: 48 }}>
               Choisir le fichier
             </Button>

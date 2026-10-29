@@ -125,9 +125,9 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
 
       <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap' }} component="section" aria-label={`Atterrissage ${annee} en chiffres`}>
         <Indicateur libelle={`CA HT atterri ${annee}`} valeur={milliers(b.ca)} detail={`Dont réalisé : ${milliers(r.realise)}`}
-          action={<DetailCalcul quoi="atterrissage" budget={b} annee={annee} atterrissage={r} />} />
-        <Indicateur libelle="Marge commerciale" valeur={taux(b.tauxMarge)} detail={milliers(b.marge)} action={<DetailCalcul quoi="marge" budget={b} annee={annee} />} />
-        <Indicateur libelle="EBE" valeur={milliers(b.ebe)} detail={`${taux(b.ratios.ebeSurCA)} du CA`} action={<DetailCalcul quoi="ebe" budget={b} annee={annee} />} />
+          info={<DetailCalcul quoi="atterrissage" budget={b} annee={annee} atterrissage={r} />} />
+        <Indicateur libelle="Marge commerciale" valeur={taux(b.tauxMarge)} detail={milliers(b.marge)} info={<DetailCalcul quoi="marge" budget={b} annee={annee} />} />
+        <Indicateur libelle="EBE" valeur={milliers(b.ebe)} detail={`${taux(b.ratios.ebeSurCA)} du CA`} info={<DetailCalcul quoi="ebe" budget={b} annee={annee} />} />
       </Stack>
 
       <CompteResultatMois

@@ -7,7 +7,8 @@ import InfoOutlined from '@mui/icons-material/InfoOutlined'
 import { AIDE, type SujetAide } from '../lib/aide'
 
 // Icône d'aide : ce que c'est, comment le remplir, comment c'est calculé. Rien ne s'affiche tant qu'on ne la touche pas.
-export function Aide({ sujet }: { sujet: SujetAide }) {
+// compact : dans une ligne de tableau, l'icône ne grandit pas la ligne sur PC (48 px gardés sur téléphone)
+export function Aide({ sujet, compact }: { sujet: SujetAide; compact?: boolean }) {
   const [ancre, setAncre] = useState<HTMLElement | null>(null)
   const id = useId()
   const t = AIDE[sujet]
@@ -22,9 +23,9 @@ export function Aide({ sujet }: { sujet: SujetAide }) {
       <IconButton
         aria-label={`Aide : ${t.titre}`} aria-describedby={ancre ? id : undefined} className="pas-a-l-impression"
         onClick={(e) => { e.stopPropagation(); setAncre(e.currentTarget) }}
-        sx={{ width: { xs: 48, md: 32 }, height: { xs: 48, md: 32 }, color: 'text.secondary', verticalAlign: 'middle' }}
+        sx={{ width: { xs: 48, md: compact ? 24 : 32 }, height: { xs: 48, md: compact ? 24 : 32 }, my: compact ? { xs: -1.5, md: -0.5 } : 0, color: 'text.secondary', verticalAlign: 'middle' }}
       >
-        <InfoOutlined sx={{ fontSize: 18 }} />
+        <InfoOutlined sx={{ fontSize: compact ? 16 : 18 }} />
       </IconButton>
       <Popover
         id={id} open={!!ancre} anchorEl={ancre} onClose={() => setAncre(null)}

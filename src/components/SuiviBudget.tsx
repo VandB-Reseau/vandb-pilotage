@@ -77,18 +77,18 @@ export function SuiviBudget({ magasin, annee, allerA, muetSansReel }: { magasin:
       </Box>
       <Box component="section" aria-label={`Réel face au budget à fin ${finMois}`} sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' } }}>
         <Indicateur
-          libelle={`CA HT à fin ${finMois}`} valeur={milliers(c.caReel)}
+          libelle={`CA HT à fin ${finMois}`} aide="caCumule" valeur={milliers(c.caReel)}
           ecart={c.ecartCAPart === null ? undefined : { texte: `${ecartTaux(c.ecartCAPart)} sur le budget`, hausse: c.ecartCAPart >= 0, favorable: c.ecartCAPart >= 0 }}
           detail={`Budget des mêmes mois : ${milliers(c.caBudget)}`}
         />
-        <Indicateur libelle="Écart de CA" valeur={ecartMontant(c.ecartCA)} detail={`${sousBudget} mois sous le budget sur ${s.moisRealises}`} serie={s.mois.map((l) => l.ecartCA)} />
+        <Indicateur libelle="Écart de CA" aide="ecartBudget" valeur={ecartMontant(c.ecartCA)} detail={`${sousBudget} mois sous le budget sur ${s.moisRealises}`} serie={s.mois.map((l) => l.ecartCA)} />
         <Indicateur
-          libelle="Taux de marge" valeur={c.tauxMargeReel === null ? 'Non connu' : taux(c.tauxMargeReel)}
+          libelle="Taux de marge" aide="margeTheorique" valeur={c.tauxMargeReel === null ? 'Non connu' : taux(c.tauxMargeReel)}
           ecart={c.tauxMargeReel === null ? undefined : { texte: `${ecartPts(c.tauxMargeReel - c.tauxMargeBudget)} sur le budget`, hausse: c.tauxMargeReel >= c.tauxMargeBudget, favorable: c.tauxMargeReel >= c.tauxMargeBudget }}
           detail={`Budget : ${taux(c.tauxMargeBudget)}`}
         />
         <Indicateur
-          libelle="Écart de marge" valeur={c.ecartMarge === null ? 'Non connu' : ecartMontant(c.ecartMarge)}
+          libelle="Écart de marge" aide="ecartBudget" valeur={c.ecartMarge === null ? 'Non connu' : ecartMontant(c.ecartMarge)}
           detail={c.ecartMarge === null ? 'Marge absente des chiffres de caisse' : `Mois dont la marge est complète : ${s.mois.filter((l) => l.margeReel !== null).length} sur ${s.moisRealises}`}
         />
       </Box>

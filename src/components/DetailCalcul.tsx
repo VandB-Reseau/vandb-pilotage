@@ -10,7 +10,8 @@ import TableCell from '@mui/material/TableCell'
 import TableRow from '@mui/material/TableRow'
 import useMediaQuery from '@mui/material/useMediaQuery'
 import { useTheme } from '@mui/material/styles'
-import CalculateOutlined from '@mui/icons-material/CalculateOutlined'
+import IconButton from '@mui/material/IconButton'
+import InfoOutlined from '@mui/icons-material/InfoOutlined'
 import { ecartMontant, ecartTaux, montant, taux } from '../lib/format'
 import { expliquerAtterrissage, expliquerCA, expliquerEBE, expliquerMarge, type Etape, type Explication } from '../moteur/explication'
 import type { BaseDepuisReel } from '../moteur/atterrissage'
@@ -19,7 +20,7 @@ import type { Budget } from '../moteur/types'
 type Quoi = 'ca' | 'marge' | 'ebe' | 'atterrissage'
 const titres: Record<Quoi, string> = { ca: 'Chiffre d’affaires HT', marge: 'Marge commerciale', ebe: 'EBE', atterrissage: 'Chiffre d’affaires HT atterri' }
 
-// « D'où vient ce chiffre ? » : le calcul du budget étape par étape, avec les chiffres du magasin (moteur src/moteur/explication)
+// Picto (i) d'un chiffre clé (lot 32, remplace « D'où vient ce chiffre ? ») : le calcul du budget étape par étape, avec les chiffres du magasin (moteur src/moteur/explication)
 export function DetailCalcul({ quoi, budget, annee, atterrissage }: { quoi: Quoi; budget: Budget; annee: number; atterrissage?: BaseDepuisReel }) {
   const [ouvert, setOuvert] = useState(false)
   const theme = useTheme()
@@ -38,10 +39,10 @@ export function DetailCalcul({ quoi, budget, annee, atterrissage }: { quoi: Quoi
   const plusieurs = e.groupes.length > 1
   return (
     <>
-      <Button size="small" startIcon={<CalculateOutlined />} onClick={() => setOuvert(true)} className="pas-a-l-impression"
-        aria-label={`D’où vient ce chiffre ? ${titres[quoi]}`} aria-haspopup="dialog" sx={{ alignSelf: 'flex-start', minHeight: { xs: 48, md: 32 }, px: 1, ml: -1 }}>
-        D’où vient ce chiffre ?
-      </Button>
+      <IconButton onClick={() => setOuvert(true)} className="pas-a-l-impression" aria-label={`Comment c’est calculé : ${titres[quoi]}`} aria-haspopup="dialog"
+        sx={{ width: { xs: 48, md: 32 }, height: { xs: 48, md: 32 }, color: 'text.secondary' }}>
+        <InfoOutlined sx={{ fontSize: 18 }} />
+      </IconButton>
       <Dialog open={ouvert} onClose={() => setOuvert(false)} fullScreen={telephone} maxWidth="sm" fullWidth aria-labelledby={`calcul-${quoi}`}>
         <DialogTitle id={`calcul-${quoi}`}>{titre}</DialogTitle>
         <DialogContent>

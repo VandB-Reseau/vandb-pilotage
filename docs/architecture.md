@@ -144,6 +144,9 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
 31. Lot 31 : `HypothesesUnivers` remplace la grille complète dans le budget : leviers par univers, `GrilleHypotheses`
    (mode `detail`) n'affiche plus que les familles d'un univers, à la demande. `cibles.ts` : `moyenneUnivers`,
    `ecrireUnivers` (marge décalée de façon égale, démarque identique), `universRegle`. Sans migration.
+32. Lot 32 : `src/lib/modeles.ts` (modèles d'import, relus par les vrais imports dans `tests/moteur/lot32.spec.ts`) et
+   `BoutonModele`. `Indicateur` prend `aide` (texte de `src/lib/aide.ts`) ou `info` (`DetailCalcul`, devenu picto) ;
+   `Aide compact` dans les lignes du compte de résultat et de la trésorerie. Sans migration.
 
 ## Rôles
 
