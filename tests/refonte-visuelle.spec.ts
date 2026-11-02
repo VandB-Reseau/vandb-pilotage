@@ -48,11 +48,14 @@ test('synthèse : jauges, lignes de tendance, barres du réel dans le contour du
 
 test('quadrimestres : pastilles face au budget, pont d’écart de l’EBE, plan de trésorerie', async ({ page, isMobile }, info) => {
   await seConnecter(page, { role: 'franchise', magasins: [magasin], reel, tickets, quadrimestres })
-  await ouvrir(page, 'Quadrimestres')
+  await ouvrir(page, 'Comptes du quadrimestre')
   const pont = page.getByRole('region', { name: 'Du budget au réel : EBE à fin avril' })
   await expect(pont).toContainText(/le poste qui pèse le plus/)
   // La somme des marches est l'écart d'EBE : on part de l'EBE budgété, on arrive aux 7 000 € réels
   await expect(pont.getByRole('img', { name: /budgétés à 7\sk€ réels : chiffre d’affaires/ })).toBeVisible()
+  await expect(page.getByRole('table', { name: `Cumul ${N} face au budget et à ${N - 1}` })).toBeVisible()
+  await page.screenshot({ path: `captures/${info.project.name}-pont.png`, fullPage: true })
+  await ouvrir(page, 'Trésorerie')
   const plan = page.getByRole('region', { name: `Plan de trésorerie ${N}` })
   await expect(plan).toContainText(`Prévu : budget ${N}`)
   await expect(plan).toContainText(/Trésorerie fin avril25\sk€/)
@@ -60,7 +63,6 @@ test('quadrimestres : pastilles face au budget, pont d’écart de l’EBE, plan
   await expect(plan.getByRole('table', { name: `Plan de trésorerie ${N} mois par mois` }).getByRole('row', { name: /^Encaissé en caisse/ }).getByRole('cell').nth(1)).toContainText(/^60\s000\s*prévu/)
   const parQ = plan.getByRole('table', { name: `Trésorerie ${N} par quadrimestre` })
   await expect(parQ.getByRole('row', { name: /^Trésorerie en fin de période/ }).getByRole('cell').nth(1)).toContainText(/^25\s000/)
-  await expect(page.getByRole('table', { name: `Cumul ${N} face au budget et à ${N - 1}` })).toBeVisible()
   expect(await sansDebordement(page)).toBeLessThanOrEqual(0)
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])

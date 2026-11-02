@@ -308,21 +308,27 @@ export async function zonesTropPetites(page: Page, min = 48): Promise<string[]> 
 
 // Fiche magasin (lot 36) : une partie s'ouvre en choisissant son espace (Données, Budget, Suivi), puis la partie dans le
 // menu de gauche (PC) ou dans les onglets de la page (téléphone). Les anciens noms des tests restent acceptés.
-const PARTIES: [string, { espace: string; libelle: RegExp }][] = [
+// Lot 37 : le budget tient en 4 étapes ; les hypothèses s'ouvrent par thème depuis leur carte (« theme »)
+const PARTIES: [string, { espace: string; libelle: RegExp; theme?: string }][] = [
   ['Réel', { espace: 'Données', libelle: /^Réel du mois/ }],
   ['Quadrimestres', { espace: 'Données', libelle: /^Comptes du quadrimestre/ }],
-  ['Frais du budget', { espace: 'Budget', libelle: /^3 · Frais/ }],
+  ['Comptes du quadrimestre', { espace: 'Suivi', libelle: /^Face au budget/ }],
+  ['Frais du budget', { espace: 'Budget', libelle: /^1 · Hypothèses/, theme: 'Frais' }],
   ['Frais', { espace: 'Données', libelle: /^Frais \d{4}/ }],
   ['Suivi du budget', { espace: 'Suivi', libelle: /^Face au budget/ }],
   ['Où on va', { espace: 'Suivi', libelle: /^Face au budget/ }],
   ['Synthèse', { espace: 'Suivi', libelle: /^Synthèse/ }],
+  ['Trésorerie du budget', { espace: 'Budget', libelle: /^1 · Hypothèses/, theme: 'Trésorerie' }],
+  ['Trésorerie', { espace: 'Suivi', libelle: /^Trésorerie/ }],
   ['Atterrissage', { espace: 'Budget', libelle: /^0 · Point de départ/ }],
   ['Point de départ', { espace: 'Budget', libelle: /^0 · Point de départ/ }],
-  ['Hypothèses', { espace: 'Budget', libelle: /^1 · Chiffre d’affaires/ }],
-  ['Calendrier', { espace: 'Budget', libelle: /^1 · Chiffre d’affaires/ }],
-  ['Équipe', { espace: 'Budget', libelle: /^2 · Équipe/ }],
-  ['Résultat', { espace: 'Budget', libelle: /^4 · Résultat/ }],
-  ['Échanges', { espace: 'Budget', libelle: /^5 · Échanges/ }],
+  ['Cartes des hypothèses', { espace: 'Budget', libelle: /^1 · Hypothèses/ }],
+  ['Hypothèses', { espace: 'Budget', libelle: /^1 · Hypothèses/, theme: 'Ventes' }],
+  ['Ventes', { espace: 'Budget', libelle: /^1 · Hypothèses/, theme: 'Ventes' }],
+  ['Calendrier', { espace: 'Budget', libelle: /^1 · Hypothèses/, theme: 'Calendrier' }],
+  ['Équipe', { espace: 'Budget', libelle: /^1 · Hypothèses/, theme: 'Équipe' }],
+  ['Résultat', { espace: 'Budget', libelle: /^2 · Résultat/ }],
+  ['Échanges', { espace: 'Budget', libelle: /^3 · Échanges/ }],
 ]
 export async function ouvrir(page: Page, partie: string) {
   const cible = PARTIES.find(([k]) => partie.startsWith(k))?.[1]
@@ -336,8 +342,9 @@ export async function ouvrir(page: Page, partie: string) {
   for (let essai = 0; ; essai++) {
     const courant = telephone ? (await bouton.getAttribute('class'))?.includes('Mui-selected') : (await bouton.getAttribute('aria-current')) === 'true'
     if (!courant) await bouton.click()
-    try { await lien.click({ timeout: essai < 2 ? 5_000 : undefined }); return } catch (e) { if (essai >= 2) throw e }
+    try { await lien.click({ timeout: essai < 2 ? 5_000 : undefined }); break } catch (e) { if (essai >= 2) throw e }
   }
+  if (cible.theme) await page.locator('main').getByRole('region', { name: cible.theme, exact: true }).getByRole('link').click()
 }
 
 // Pages du réseau (lot 36) : chacune dans son espace ; sur téléphone, le menu s'ouvre par l'icône en haut à gauche

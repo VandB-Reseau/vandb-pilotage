@@ -2,6 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { magasinDeChemin } from '../lib/navigation'
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete'
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import List from '@mui/material/List'
+import ListItem from '@mui/material/ListItem'
+import ListItemButton from '@mui/material/ListItemButton'
+import ListItemText from '@mui/material/ListItemText'
 import Dialog from '@mui/material/Dialog'
 import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
@@ -10,6 +16,7 @@ import InputAdornment from '@mui/material/InputAdornment'
 import TextField from '@mui/material/TextField'
 import CloseOutlined from '@mui/icons-material/CloseOutlined'
 import SearchOutlined from '@mui/icons-material/SearchOutlined'
+import UnfoldMoreOutlined from '@mui/icons-material/UnfoldMoreOutlined'
 import { anneeBudget, chargerBudgets } from '../data/pilotage'
 import { lienMagasin } from '../lib/format'
 import { useGarde } from './GardeSaisie'
@@ -34,6 +41,8 @@ function noterRecent(nom: string): string[] {
 
 // « saint aubin », « St-Aubin » ou « aubin des pres » retrouvent « Saint-Aubin-des-Prés »
 const simple = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[-'’]/g, ' ').replace(/\s+/g, ' ').trim()
+// Partie affichée, lue dans l'adresse au moment du choix (la fiche a pu changer de partie depuis l'ouverture du menu)
+const partieActuelle = () => magasinDeChemin(window.location.hash.replace(/^#/, '').split('?')[0])?.partie ?? null
 const filtre = createFilterOptions<string>({ stringify: simple, matchFrom: 'any', trim: true })
 
 export function RechercheMagasin({ telephone }: { telephone: boolean }) {
@@ -79,7 +88,7 @@ export function RechercheMagasin({ telephone }: { telephone: boolean }) {
     if (!nom) return
     setOuvert(false)
     champ.current?.blur()
-    garde(() => navigate(lienMagasin(nom, partieOuverte ?? undefined), { state: { liste: magasins } }))
+    garde(() => navigate(lienMagasin(nom, partieActuelle() ?? partieOuverte ?? undefined), { state: { liste: magasins } }))
   }
   const recherche = (enDialogue: boolean) => (
     <Autocomplete
@@ -120,6 +129,62 @@ export function RechercheMagasin({ telephone }: { telephone: boolean }) {
           <IconButton aria-label="Fermer la recherche" onClick={() => setOuvert(false)} sx={{ width: 48, height: 48 }}><CloseOutlined /></IconButton>
         </DialogTitle>
         <DialogContent sx={{ pt: '8px !important' }}>{recherche(true)}</DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
+// Lot 37 (Joseph, 02/11/2026) : le menu de gauche ne montre que le magasin ouvert ; son nom est un sélecteur qui ouvre la
+// liste de tes magasins, avec recherche, sans quitter la page affichée (même partie pour le nouveau magasin).
+export function SelecteurMagasin({ magasin }: { magasin: string }) {
+  const [magasins, setMagasins] = useState<string[]>([])
+  const [ouvert, setOuvert] = useState(false)
+  const [texte, setTexte] = useState('')
+  const navigate = useNavigate()
+  const garde = useGarde()
+  useEffect(() => {
+    let actif = true
+    chargerBudgets(anneeBudget()).then((d) => actif && setMagasins(d.magasins.map((m) => m.magasin).sort((a, b) => a.localeCompare(b, 'fr'))), () => {})
+    return () => { actif = false }
+  }, [])
+  const recents = lireRecents().filter((x) => magasins.includes(x) && x !== magasin)
+  const options = [...recents, ...magasins.filter((x) => !recents.includes(x) && x !== magasin)]
+  const visibles = options.filter((m) => simple(m).includes(simple(texte)))
+  const titre = <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left', flex: 1 }}>{magasin}</Box>
+  if (magasins.length <= 1) {
+    return <Box sx={{ display: 'flex', px: 1, py: 1, fontWeight: 700, fontSize: '0.9375rem' }}>{titre}</Box>
+  }
+  const choisir = (nom: string | null) => {
+    if (!nom) return
+    setOuvert(false)
+    setTexte('')
+    garde(() => navigate(lienMagasin(nom, partieActuelle() ?? undefined), { state: { liste: magasins } }))
+  }
+  return (
+    <>
+      <Button onClick={() => { setTexte(''); setOuvert(true) }} aria-label={`Changer de magasin (magasin ouvert : ${magasin})`} endIcon={<UnfoldMoreOutlined />}
+        sx={{ width: '100%', minHeight: 48, px: 1, mt: 0.5, color: 'text.primary', fontWeight: 700, fontSize: '0.9375rem', textTransform: 'none', justifyContent: 'space-between', border: 1, borderColor: 'divider', borderRadius: 2 }}>
+        {titre}
+      </Button>
+      <Dialog open={ouvert} onClose={() => setOuvert(false)} fullWidth maxWidth="xs" aria-labelledby="selecteur-titre" slotProps={{ paper: { sx: { alignSelf: 'flex-start', mt: 10 } } }}>
+        <DialogTitle id="selecteur-titre" sx={{ display: 'flex', alignItems: 'center', pr: 1 }}>
+          <span style={{ flex: 1 }}>Changer de magasin</span>
+          <IconButton aria-label="Fermer" onClick={() => setOuvert(false)} sx={{ width: 48, height: 48 }}><CloseOutlined /></IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ pt: '8px !important', pb: 3 }}>
+          <TextField autoFocus fullWidth placeholder="Nom du magasin" value={texte} onChange={(e) => setTexte(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && visibles[0]) choisir(visibles[0]) }}
+            slotProps={{ htmlInput: { 'aria-label': 'Nom du magasin' }, input: { startAdornment: <InputAdornment position="start"><SearchOutlined /></InputAdornment> } }}
+            sx={{ '& input': { height: 48, boxSizing: 'border-box' } }} />
+          <List aria-label="Mes magasins" sx={{ maxHeight: '50vh', overflowY: 'auto', mt: 1 }}>
+            {visibles.length === 0 && <ListItem><ListItemText primary="Aucun magasin ne correspond" /></ListItem>}
+            {visibles.map((m) => (
+              <ListItemButton key={m} onClick={() => choisir(m)} sx={{ minHeight: 48, borderRadius: 1 }}>
+                <ListItemText primary={m} secondary={recents.includes(m) ? RECENTS : undefined} />
+              </ListItemButton>
+            ))}
+          </List>
+        </DialogContent>
       </Dialog>
     </>
   )

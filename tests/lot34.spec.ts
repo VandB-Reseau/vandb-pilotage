@@ -18,12 +18,12 @@ test.afterEach(async ({ page }) => {
 
 test('le budget reprend l’équipe et les frais de l’année en cours ; « + » dans chaque thème', async ({ page, isMobile }, info) => {
   await seConnecter(page, { role: 'franchise', magasins, frais: [loyer] })
-  await ouvrir(page, 'Hypothèses')
+  await ouvrir(page, 'Cartes des hypothèses')
   await expect(page.getByRole('button', { name: 'Aide : % FP (frais de personnel)' })).toBeVisible()
-  await ouvrir(page, 'Résultat et trésorerie')
-  const resume = page.getByRole('region', { name: /^Équipe et frais \d{4}$/ })
-  await expect(resume).toContainText('hausse des salaires')
-  await resume.getByRole('button', { name: 'Voir l’équipe' }).click()
+  // Lot 37 : l'équipe et les frais ont chacun leur carte dans les hypothèses
+  const resume = page.locator('main').getByRole('region', { name: 'Équipe', exact: true })
+  await expect(resume).toContainText('Hausse générale des salaires')
+  await resume.getByRole('link').click()
   await expect(page).toHaveURL(/\/equipe$/)
   await ouvrir(page, 'Frais')
   await page.getByRole('button', { name: 'Ajouter une ligne : Énergies' }).click()

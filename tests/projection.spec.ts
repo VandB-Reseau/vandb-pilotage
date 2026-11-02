@@ -157,8 +157,8 @@ test('le Directeur fixe la hausse tarifaire et les valeurs par ancienneté ; le 
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Hypothèses')
   const hypotheses = page.getByRole('region', { name: 'Hypothèses du magasin' })
-  await expect(hypotheses.getByRole('group', { name: 'Tickets (Cave)' })).toContainText('Ancienneté')
-  await expect(hypotheses.getByRole('group', { name: 'Panier moyen TTC (Cave)' })).toContainText('Tarif')
+  await expect(hypotheses.getByRole('region', { name: 'Cave' }).getByRole('row', { name: /^Tickets/ })).toContainText('Ancienneté')
+  await expect(hypotheses.getByRole('region', { name: 'Cave' }).getByRole('row', { name: /^Panier moyen TTC/ })).toContainText('Tarif')
   await expect(page.getByLabel('Évolution du nombre de tickets : Cave')).toHaveAttribute('placeholder', '5')
 })
 

@@ -82,7 +82,7 @@ test('vue réseau imprimée : sans menu ni filtres, sélection et date en tête'
 
 test('budget : export Excel du compte de résultat et des hypothèses, impression', async ({ page, isMobile }, info) => {
   await seConnecter(page, { role: 'franchise', magasins: [{ magasin: MAGASINS[0], statut: 'valide', hypotheses: magasinFictif, base: magasinFictif, ajustements: {}, maj_le: null }] })
-  await ouvrir(page, 'Hypothèses')
+  await ouvrir(page, 'Cartes des hypothèses')
   const annee = Number((await page.getByRole('tablist', { name: /^Étapes du budget/ }).getAttribute('aria-label'))?.match(/\d{4}/)?.[0])
 
   const { nom, fichiers } = await telechargement(page, 'Exporter en Excel')

@@ -99,9 +99,9 @@ test('les onglets signalent ce qui manque', async ({ page }) => {
   await seConnecter(page, { magasins: sept, frais: [loyer(MAGASINS[0])] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Hypothèses')
-  // Budget en 6 étapes (lot 36) ; l'équipe manquante est signalée dans le budget
-  await expect(page.getByRole('tablist', { name: /^Étapes du budget/ }).getByRole('tab')).toHaveText([/^0 · Point de départ/, /^1 · Chiffre d’affaires/, /^2 · Équipe/, /^3 · Frais/, /^4 · Résultat et trésorerie/, /^5 · Échanges et validation/])
-  await expect(page.getByRole('tab', { name: '2 · Équipe (à renseigner)' })).toBeVisible()
+  // Budget en 4 étapes (lot 37) ; l'équipe manquante est signalée sur l'étape des hypothèses
+  await expect(page.getByRole('tablist', { name: /^Étapes du budget/ }).getByRole('tab')).toHaveText([/^0 · Point de départ/, /^1 · Hypothèses/, /^2 · Résultat et trésorerie/, /^3 · Échanges et validation/])
+  await expect(page.getByRole('tab', { name: '1 · Hypothèses (équipe à renseigner)' })).toBeVisible()
   await page.getByRole('link', { name: `Magasin suivant : ${MAGASINS[1]}` }).click()
   await page.getByRole('link', { name: `Magasin suivant : ${MAGASINS[2]}` }).click()
   // Directeur : budget à proposer, depuis le point de départ

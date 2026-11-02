@@ -73,15 +73,15 @@ test('le franchisé s’écarte d’une cible : le budget passe en discussion, i
   await ouvrir(page, 'Hypothèses')
   await expect(page.getByText('aucun écart aux cibles du siège', { exact: false })).toBeVisible()
   const hypotheses = page.getByRole('region', { name: 'Hypothèses du magasin' })
-  await expect(hypotheses.getByRole('group', { name: 'Tickets (Cave)' })).toContainText('Réseau')
-  await expect(hypotheses.getByRole('group', { name: 'Tickets (Cave)' })).toContainText(/10\s300/)   // 10 000 attendus sur l'année × 1,03
-  await expect(hypotheses.getByRole('group', { name: 'Panier moyen TTC (Cave)' })).toContainText(/24,00\s€/)
+  await expect(hypotheses.getByRole('region', { name: 'Cave' }).getByRole('row', { name: /^Tickets/ })).toContainText('Réseau')
+  await expect(hypotheses.getByRole('region', { name: 'Cave' }).getByRole('row', { name: /^Tickets/ })).toContainText(/10\s300/)   // 10 000 attendus sur l'année × 1,03
+  await expect(hypotheses.getByRole('region', { name: 'Cave' }).getByRole('row', { name: /^Panier moyen TTC/ })).toContainText(/24,00\s€/)
   // Panier +2 % : 200 000 × 1,03 × 1,02 = 210 120 € de Cave
   await page.getByLabel('Évolution du panier moyen : Cave').fill('2')
   await ouvrir(page, 'Résultat et trésorerie')
   await expect(resultat.getByRole('row', { name: /^Chiffre d’affaires HT/ })).toContainText(/619\s120\s€/)
   await ouvrir(page, 'Hypothèses')
-  await expect(hypotheses.getByRole('group', { name: 'Panier moyen TTC (Cave)' })).toContainText(/24,48\s€/)
+  await expect(hypotheses.getByRole('region', { name: 'Cave' }).getByRole('row', { name: /^Panier moyen TTC/ })).toContainText(/24,48\s€/)
   await expect(page.getByText('1 écart aux cibles du siège', { exact: false })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Valider le budget' })).toHaveCount(0)
   expect(await textesTropPetits(page)).toEqual([])
@@ -101,7 +101,7 @@ test('le franchisé s’écarte d’une cible : le budget passe en discussion, i
 test('le Directeur valide le budget, puis peut le rouvrir', async ({ page }) => {
   const ecritures = await seConnecter(page, { magasins: avecBase('en_discussion'), reseau })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await ouvrir(page, 'Hypothèses')
+  await ouvrir(page, 'Cartes des hypothèses')
   await page.getByRole('button', { name: 'Valider le budget' }).click()
   await expect(page.getByText('Budget 2027 validé.')).toBeVisible()
   const envoi = ecritures.find((e) => e.table === 'budgets' && e.methode === 'PATCH')?.corps as { statut: string; hypotheses: { familles: { evolution: number }[]; flux: { cave: { evolution: number } } } }
@@ -109,8 +109,10 @@ test('le Directeur valide le budget, puis peut le rouvrir', async ({ page }) => 
   // Les hypothèses figées sont celles des cibles du moment : tickets de la Cave, CA du Bar
   expect(envoi.hypotheses.familles.map((f) => f.evolution)).toEqual([0, 0.03, 0])
   expect(envoi.hypotheses.flux.cave.evolution).toBe(0.03)
+  await ouvrir(page, 'Hypothèses')
   await page.getByRole('region', { name: 'Hypothèses du magasin' }).getByRole('button', { name: /^Détail par famille/ }).first().click()
   await expect(page.getByLabel('Part de la famille dans l’univers : Bière (Cave)')).toBeDisabled()
+  await ouvrir(page, 'Cartes des hypothèses')
   await page.getByRole('button', { name: 'Rouvrir la discussion' }).click()
   await expect(page.getByText('Budget rouvert : il est de nouveau en discussion.')).toBeVisible()
 })
@@ -121,15 +123,15 @@ test('un Coach lit les hypothèses sans pouvoir les modifier ; une écriture qui
   await ouvrir(page, 'Hypothèses')
   await expect(page.getByLabel('Évolution du nombre de tickets : Cave')).toBeDisabled()
   await expect(page.getByRole('button', { name: /Enregistrer|Valider|Importer/ })).toHaveCount(0)
-  await expect(page.getByRole('link', { name: /Hypothèses/ })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: /Hypothèses du réseau/ })).toHaveCount(0)
 
   await page.unrouteAll({ behavior: 'ignoreErrors' })
   await page.getByRole('button', { name: 'Mon compte' }).click()
   await page.getByRole('menuitem', { name: 'Se déconnecter' }).click()
   await seConnecter(page, { role: 'franchise', magasins: avecBase(), reseau, panneEcriture: true })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await ouvrir(page, 'Hypothèses')
-  await page.getByLabel('Salaires et frais : Hausse des salaires').fill('1')
+  await ouvrir(page, 'Équipe')
+  await page.getByLabel('Hausse générale des salaires').fill('1')
   await page.getByRole('button', { name: 'Enregistrer les ajustements' }).click()
   await expect(page.getByText('L’enregistrement n’a pas abouti. Vérifie ta connexion, puis réessaie.')).toBeVisible()
 })

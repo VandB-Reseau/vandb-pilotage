@@ -18,12 +18,12 @@ test.afterEach(async ({ page }) => {
 
 test('fiche en trois espaces ; la barre d’enregistrement montre l’effet avant → après et se retire à l’annulation', async ({ page, isMobile }, info) => {
   await seConnecter(page, { role: 'franchise', magasins: [propose] })
-  // Lot 36 : la fiche s'ouvre sur le suivi ; le budget est un espace à part, en 6 étapes (0 : point de départ)
+  // Lot 36 : la fiche s'ouvre sur le suivi ; le budget est un espace à part, en 4 étapes (0 : point de départ)
   await expect(page).toHaveURL(/\/synthese$/)
   await ouvrir(page, 'Hypothèses')
   const parties = page.getByRole('tablist', { name: /^Étapes du budget/ })
-  await expect(parties.getByRole('tab', { name: '1 · Chiffre d’affaires' })).toHaveAttribute('aria-selected', 'true')
-  await expect(parties.getByRole('tab')).toHaveCount(6)
+  await expect(parties.getByRole('tab', { name: /^1 · Hypothèses/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(parties.getByRole('tab')).toHaveCount(4)
 
   const barre = page.getByRole('region', { name: 'Changements non enregistrés' })
   await expect(barre).toHaveCount(0)

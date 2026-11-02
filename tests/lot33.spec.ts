@@ -66,7 +66,7 @@ test('résultat : impôt, résultat net et capital remboursé mois par mois ; be
 test('le RR valide le budget de son magasin, puis le rouvre', async ({ page }) => {
   const ecritures = await seConnecter(page, { role: 'rr', magasins: magasins('en_discussion') })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await ouvrir(page, 'Hypothèses')
+  await ouvrir(page, 'Cartes des hypothèses')
   await expect(page.getByRole('button', { name: 'Copier vers d’autres magasins' })).toHaveCount(0)
   await page.getByRole('button', { name: 'Valider le budget' }).click()
   await expect(page.getByText('Budget 2027 validé.')).toBeVisible()

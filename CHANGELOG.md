@@ -5,6 +5,17 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 37 — Hypothèses du budget en cartes, trésorerie de l'année dans le Suivi
+
+- Budget en 4 étapes : 0 · Point de départ, 1 · Hypothèses, 2 · Résultat et trésorerie, 3 · Échanges et validation.
+- Étape « Hypothèses » : une carte par thème (Ventes, Calendrier, Équipe, Frais, Trésorerie, Résultat). Un clic ouvre le
+  tableau court du thème : année en cours, proposition du siège, choix du magasin, année du budget. Les changements restent
+  d'un thème à l'autre jusqu'à l'enregistrement. La hausse générale des salaires passe dans Équipe, l'inflation dans Frais.
+- Suivi : nouvelle page « Trésorerie » (réel au quadrimestre face au prévu) ; « Face au budget » montre le compte du
+  quadrimestre (cumul face au budget et à l'an passé, pont d'EBE).
+- Données › Comptes du quadrimestre : la saisie et l'import du FEC seulement.
+- Aucune migration.
+
 ### Lot 36 — Navigation en trois espaces : Données, Budget, Suivi
 
 - Le menu de gauche commence par un sélecteur Données / Budget / Suivi ; le magasin ouvert reste le même d'un espace à l'autre.

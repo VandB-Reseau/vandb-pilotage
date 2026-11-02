@@ -66,7 +66,7 @@ test('la fiche d’un magasin montre le compte de résultat et le budget mois pa
 test('un magasin sans budget l’explique', async ({ page }) => {
   await seConnecter(page)
   await page.getByText(MAGASINS[2], { exact: true }).last().click()
-  await ouvrir(page, 'Hypothèses')
+  await ouvrir(page, 'Cartes des hypothèses')
   await expect(page.getByText('Pas encore de budget', { exact: false })).toBeVisible()
 })
 

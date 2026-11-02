@@ -24,7 +24,7 @@ import { useChargement } from '../data/useChargement'
 import { nombreChangements } from '../lib/aFaire'
 import { nombre } from '../import/caisse'
 import { lireFEC, texteDuFEC } from '../import/fec'
-import { ecartMontant, ecartPts, ecartTaux, enChiffres, milliers, montant, taux } from '../lib/format'
+import { ecartMontant, ecartPts, ecartTaux, enChiffres, lienMagasin, milliers, montant, taux } from '../lib/format'
 import { tresorerieBudget, tresorerieGlissante } from '../moteur/tresorerie'
 import { niveauEcart, planTresorerie, pontEBE } from '../moteur/visuel'
 import { PlanTresorerieAnnee } from './PlanTresorerieAnnee'
@@ -35,6 +35,8 @@ import { comparaisonPeriode, memePeriode, moisDuQuadrimestre, QUADRIMESTRES, qua
 import { BoutonModele } from './BoutonModele'
 import { MODELES } from '../lib/modeles'
 import { Aide } from './Aide'
+import { EtatVide } from './EtatVide'
+import { Link as RouterLink } from 'react-router-dom'
 import { moisDuReel } from '../moteur/suivi'
 import { styleTableau } from '../theme/tableau'
 
@@ -54,7 +56,10 @@ const vers = (saisies: Partial<Record<Quadrimestre, SaisieQuadrimestre>>): Texte
   Object.fromEntries(QUADRIMESTRES.map((q) => [q, Object.fromEntries(CHAMPS.map((c) => [c, saisies[q]?.[c] == null ? '' : enChiffres(saisies[q]![c]!)]))])) as Textes
 
 // Résultat réel tous les 4 mois : quelques montants comptables saisis, le reste calculé (CA de la caisse, marge, EBE)
-export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: string; annee: number; peutSaisir: boolean }) {
+// Lot 37 (Joseph, 02/11/2026) : la saisie reste dans l'espace Données ; le compte du quadrimestre face au budget et la
+// trésorerie se lisent dans l'espace Suivi (vue « compte » et vue « tresorerie »).
+export type VueQuadrimestres = 'saisie' | 'compte' | 'tresorerie'
+export function QuadrimestresMagasin({ magasin, annee, peutSaisir, vue = 'saisie' }: { magasin: string; annee: number; peutSaisir: boolean; vue?: VueQuadrimestres }) {
   const { donnees, erreur, chargement, recharger } = useChargement(
     () => Promise.all([chargerBudgets(annee), chargerParametres(annee), chargerReel(magasin, annee), chargerQuadrimestres(annee), chargerReel(magasin, annee - 1), chargerSecours(magasin, annee),
       chargerQuadrimestres(annee - 1).catch(() => ({}) as Awaited<ReturnType<typeof chargerQuadrimestres>>)])
@@ -76,7 +81,7 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
   }
   const negatif = QUADRIMESTRES.some((q) => (['achats', 'chargesExternes', 'impotsTaxes', 'personnel'] as Champ[]).some((c) => (lues[q]?.[c] ?? 0) < 0))
   const modifie = !!donnees && JSON.stringify(vers(lues)) !== JSON.stringify(vers(donnees.saisies))
-  useSaisieEnCours(modifie)
+  useSaisieEnCours(vue === 'saisie' && modifie)
 
   if (chargement && !donnees) return <Skeleton variant="rounded" height={320} />
   if (erreur || !donnees) return <Panne quoi={`Les quadrimestres ${annee}`} recharger={recharger} />
@@ -178,8 +183,56 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
   const euros = (v: number) => enChiffres(Math.round(v) || 0)
   const fin = dernier ? quadrimestreLibelle[dernier].split(' à ')[1] : ''
 
-  return (
-    <Stack spacing={3}>
+  const comparaisonCarte = comparaison && (
+        <Card component="section" aria-label={`Cumul à fin ${fin} face au budget et à ${annee - 1}`}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2.5, pt: 2, pb: 1 }}>
+            <Typography variant="h2" sx={{ flex: 1 }}>Cumul à fin {fin} : budget et {annee - 1}</Typography>
+            <LegendePastilles seuil={seuil} />
+          </Box>
+          <TableContainer>
+            <Table size="small" className="colonne-fixe" aria-label={`Cumul ${annee} face au budget et à ${annee - 1}`} sx={{ ...styleTableau, '& td:first-of-type, & th:first-of-type': { pl: 2.5, minWidth: 200 } }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell><Box component="span" sx={{ fontWeight: 400 }}>En euros HT</Box></TableCell>
+                  <TableCell align="right">Réel {annee}</TableCell>
+                  <TableCell align="right">Budget</TableCell>
+                  <TableCell align="right">Écart au budget</TableCell>
+                  <TableCell align="right">{annee - 1}, même période</TableCell>
+                  <TableCell align="right">Évolution</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {comparaison.map((l) => {
+                  const fort = l.cle === 'ca' || l.cle === 'marge' || l.cle === 'ebe'
+                  const favorable = (v: number) => (l.charge ? v <= 0 : v >= 0)
+                  const tiret = <Box component="span" sx={{ color: 'text.disabled' }}>–</Box>
+                  return (
+                    <TableRow key={l.cle} className={fort ? 'ligne-forte' : undefined}>
+                      <TableCell>{l.libelle}</TableCell>
+                      <TableCell align="right">{l.reel === null ? tiret : (
+                        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}><Pastille niveau={niveauEcart(l.reel, l.budget, seuil, l.charge)} />{montant(l.reel)}</Box>
+                      )}</TableCell>
+                      <TableCell align="right">{l.budget === null ? tiret : montant(l.budget)}</TableCell>
+                      <TableCell align="right" sx={l.ecartBudget === null ? undefined : { color: favorable(l.ecartBudget) ? 'success.dark' : 'error.main' }}>{l.ecartBudget === null ? tiret : ecartMontant(l.ecartBudget)}</TableCell>
+                      <TableCell align="right">{l.n1 === null ? tiret : montant(l.n1)}</TableCell>
+                      <TableCell align="right" sx={l.evolution === null ? undefined : { color: favorable(l.evolution) ? 'success.dark' : 'error.main' }}>{l.evolution === null ? tiret : ecartTaux(l.evolution)}</TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Card>
+      )
+  const versSaisie = (
+    <Button component={RouterLink} to={lienMagasin(magasin, 'quadrimestres')} variant="contained" sx={{ minHeight: 48 }}>Saisir les comptes du quadrimestre</Button>
+  )
+  if (vue === 'compte') {
+    if (cumul?.ebe == null && !comparaison) {
+      return <EtatVide titre={`Pas encore de comptes ${annee}`} texte="Le compte de résultat du quadrimestre apparaît ici dès que les montants comptables d’un quadrimestre sont saisis ou importés du FEC." action={peutSaisir ? versSaisie : undefined} />
+    }
+    return (
+      <Stack spacing={3}>
       {cumul?.ebe != null && (
         <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap' }} component="section" aria-label={`Résultat réel à fin ${fin}`}>
           <Indicateur
@@ -195,6 +248,20 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
         </Stack>
       )}
 
+        {comparaisonCarte}
+        {pont && <PontEcartEBE pont={pont} periode={`à fin ${fin}`} />}
+      </Stack>
+    )
+  }
+  if (vue === 'tresorerie') {
+    if (!plan || !prevue) {
+      return <EtatVide titre={`Pas encore de trésorerie ${annee}`} texte="Le plan de trésorerie se construit à partir du budget ou, à défaut, de l’atterrissage du magasin. Il apparaît dès que la caisse de l’année est importée." />
+    }
+    return <PlanTresorerieAnnee annee={annee} plan={plan} prevue={prevue} seuil={seuil} enCours={enCours} source={budget ? 'budget' : 'atterrissage'} />
+  }
+
+  return (
+    <Stack spacing={3}>
       <Card component="section" aria-label={`Quadrimestres ${annee}`}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2.5, pt: 2, pb: 1 }}>
           <Typography variant="h2" sx={{ flex: 1 }}>Quadrimestres {annee}</Typography>
@@ -247,51 +314,6 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
         </TableContainer>
       </Card>
 
-      {comparaison && (
-        <Card component="section" aria-label={`Cumul à fin ${fin} face au budget et à ${annee - 1}`}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2.5, pt: 2, pb: 1 }}>
-            <Typography variant="h2" sx={{ flex: 1 }}>Cumul à fin {fin} : budget et {annee - 1}</Typography>
-            <LegendePastilles seuil={seuil} />
-          </Box>
-          <TableContainer>
-            <Table size="small" className="colonne-fixe" aria-label={`Cumul ${annee} face au budget et à ${annee - 1}`} sx={{ ...styleTableau, '& td:first-of-type, & th:first-of-type': { pl: 2.5, minWidth: 200 } }}>
-              <TableHead>
-                <TableRow>
-                  <TableCell><Box component="span" sx={{ fontWeight: 400 }}>En euros HT</Box></TableCell>
-                  <TableCell align="right">Réel {annee}</TableCell>
-                  <TableCell align="right">Budget</TableCell>
-                  <TableCell align="right">Écart au budget</TableCell>
-                  <TableCell align="right">{annee - 1}, même période</TableCell>
-                  <TableCell align="right">Évolution</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {comparaison.map((l) => {
-                  const fort = l.cle === 'ca' || l.cle === 'marge' || l.cle === 'ebe'
-                  const favorable = (v: number) => (l.charge ? v <= 0 : v >= 0)
-                  const tiret = <Box component="span" sx={{ color: 'text.disabled' }}>–</Box>
-                  return (
-                    <TableRow key={l.cle} className={fort ? 'ligne-forte' : undefined}>
-                      <TableCell>{l.libelle}</TableCell>
-                      <TableCell align="right">{l.reel === null ? tiret : (
-                        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}><Pastille niveau={niveauEcart(l.reel, l.budget, seuil, l.charge)} />{montant(l.reel)}</Box>
-                      )}</TableCell>
-                      <TableCell align="right">{l.budget === null ? tiret : montant(l.budget)}</TableCell>
-                      <TableCell align="right" sx={l.ecartBudget === null ? undefined : { color: favorable(l.ecartBudget) ? 'success.dark' : 'error.main' }}>{l.ecartBudget === null ? tiret : ecartMontant(l.ecartBudget)}</TableCell>
-                      <TableCell align="right">{l.n1 === null ? tiret : montant(l.n1)}</TableCell>
-                      <TableCell align="right" sx={l.evolution === null ? undefined : { color: favorable(l.evolution) ? 'success.dark' : 'error.main' }}>{l.evolution === null ? tiret : ecartTaux(l.evolution)}</TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Card>
-      )}
-
-      {pont && <PontEcartEBE pont={pont} periode={`à fin ${fin}`} />}
-
-      {plan && prevue && <PlanTresorerieAnnee annee={annee} plan={plan} prevue={prevue} seuil={seuil} enCours={enCours} source={budget ? 'budget' : 'atterrissage'} />}
       {peutSaisir && modifie && (
         <BarreEnregistrement
           changements={nombreChangements(vers(donnees.saisies), textes)} occupe={occupe} desactive={!lisible || negatif}
