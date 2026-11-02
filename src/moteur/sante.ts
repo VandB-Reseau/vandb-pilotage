@@ -78,5 +78,5 @@ export function totalBudgets(budgets: Budget[]) {
   const marge = somme(budgets.map((b) => b.marge))
   const personnel = somme(budgets.map((b) => b.personnel))
   const ebe = somme(budgets.map((b) => b.ebe))
-  return { magasins: budgets.length, ca, marge, ebe, tauxMarge: ca ? marge / ca : 0, personnelSurMarge: marge ? personnel / marge : 0, ebeSurCA: ca ? ebe / ca : 0 }
+  return { magasins: budgets.length, ca, marge, ebe, tauxMarge: ca ? marge / ca : 0, pctFP: ca ? personnel / ca : 0, ebeSurCA: ca ? ebe / ca : 0 }
 }

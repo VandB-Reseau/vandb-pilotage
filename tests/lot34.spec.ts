@@ -19,7 +19,7 @@ test.afterEach(async ({ page }) => {
 test('le budget reprend l’équipe et les frais de l’année en cours ; « + » dans chaque thème', async ({ page, isMobile }, info) => {
   await seConnecter(page, { role: 'franchise', magasins, frais: [loyer] })
   await page.getByRole('tab', { name: /^Budget/ }).click()
-  await expect(page.getByRole('button', { name: 'Aide : Masse salariale / CA' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Aide : % FP (frais de personnel)' })).toBeVisible()
   await ouvrir(page, 'Résultat et trésorerie')
   const resume = page.getByRole('region', { name: /^Équipe et frais \d{4}$/ })
   await expect(resume).toContainText('hausse des salaires')

@@ -176,7 +176,7 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
             libelle="Taux de marge réel" aide="margeReelle" valeur={cumul.tauxMarge === null ? '–' : taux(cumul.tauxMarge)}
             detail={cumul.ecartMargeCaisse === null ? undefined : `${ecartPts(cumul.ecartMargeCaisse)} face à la marge de la caisse`}
           />
-          <Indicateur libelle="Masse salariale / marge" aide="masseSurMarge" valeur={cumul.personnelSurMarge === null ? '–' : taux(cumul.personnelSurMarge)} />
+          <Indicateur libelle="% FP" aide="pctFP" valeur={cumul.pctFP === null ? '–' : taux(cumul.pctFP)} />
         </Stack>
       )}
 

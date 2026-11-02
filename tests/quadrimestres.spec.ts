@@ -49,7 +49,7 @@ test('le franchisé saisit son premier quadrimestre : marge réelle, démarque e
   await expect(ligne(page, 'EBE / CA')).toContainText('5')
   const cartes = page.getByRole('region', { name: 'Résultat réel à fin avril' })
   await expect(cartes).toContainText(/10\sk€/)
-  await expect(cartes).toContainText('44,9')                   // masse salariale / marge : 35 000 / 78 000
+  await expect(cartes).toContainText('17,5')                   // % FP : 35 000 / 200 000
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-quadrimestres.png`, fullPage: true })

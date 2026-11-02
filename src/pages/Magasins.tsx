@@ -49,7 +49,7 @@ const ENTETES = [
   { cle: 'alertes', libelle: 'Alertes' },
   { cle: 'ca', libelle: 'CA HT', droite: true },
   { cle: 'marge', libelle: 'Marge', droite: true },
-  { cle: 'personnel', libelle: 'Masse salariale / marge', droite: true },
+  { cle: 'personnel', libelle: '% FP', droite: true },
   { cle: 'ebe', libelle: 'EBE', droite: true },
   { cle: 'ebeSurCA', libelle: 'EBE / CA', droite: true },
   { cle: 'pointBas', libelle: 'Point bas de trésorerie', droite: true },
@@ -134,7 +134,7 @@ export function Magasins() {
         case 'majLe': return m.majLe
         case 'ca': return m.budget?.ca ?? null
         case 'marge': return m.budget?.tauxMarge ?? null
-        case 'personnel': return m.budget?.ratios.personnelSurMarge ?? null
+        case 'personnel': return m.budget?.ratios.pctFP ?? null
         case 'ebe': return m.budget?.ebe ?? null
         case 'ebeSurCA': return m.budget?.ratios.ebeSurCA ?? null
       }
@@ -280,7 +280,7 @@ export function Magasins() {
                       {ENTETES.filter((c) => avecGroupe || c.cle !== 'groupe').map((c) => (
                         <TableCell key={c.cle} align={'droite' in c ? 'right' : 'left'} sortDirection={tri === c.cle ? sens : false} sx={{ verticalAlign: 'bottom' }}>
                           <TableSortLabel active={tri === c.cle} direction={tri === c.cle ? sens : SENS_DEFAUT[c.cle]} onClick={() => trier(c.cle)} sx={{ minHeight: 36 }}>
-                            {c.cle === 'statut' ? `Budget ${annee}` : c.libelle}
+                            {c.cle === 'statut' ? `Budget ${annee}` : c.cle === 'personnel' ? <abbr title="Frais de personnel ÷ CA HT" style={{ textDecoration: 'none' }}>{c.libelle}</abbr> : c.libelle}
                           </TableSortLabel>
                         </TableCell>
                       ))}
@@ -295,7 +295,7 @@ export function Magasins() {
                         <TableCell />
                         <TableCell align="right">{milliers(total.ca)}</TableCell>
                         <TableCell align="right">{taux(total.tauxMarge)}</TableCell>
-                        <TableCell align="right">{taux(total.personnelSurMarge)}</TableCell>
+                        <TableCell align="right">{taux(total.pctFP)}</TableCell>
                         <TableCell align="right">{milliers(total.ebe)}</TableCell>
                         <TableCell align="right"><RatioEbe valeur={total.ebeSurCA} max={ebeMax} /></TableCell>
                         <TableCell />
@@ -312,7 +312,7 @@ export function Magasins() {
                           <TableCell sx={alertes.length ? { color: 'error.main', fontWeight: 600 } : { color: 'text.secondary' }}>{alertes.length ? texteAlertes(alertes) : 'Aucune'}</TableCell>
                           <TableCell align="right">{m.budget ? milliers(m.budget.ca) : ''}</TableCell>
                           <TableCell align="right">{m.budget ? taux(m.budget.tauxMarge) : ''}</TableCell>
-                          <TableCell align="right">{m.budget ? taux(m.budget.ratios.personnelSurMarge) : ''}</TableCell>
+                          <TableCell align="right">{m.budget ? taux(m.budget.ratios.pctFP) : ''}</TableCell>
                           <TableCell align="right">{m.budget ? milliers(m.budget.ebe) : ''}</TableCell>
                           <TableCell align="right">{m.budget ? <RatioEbe valeur={m.budget.ratios.ebeSurCA} max={ebeMax} /> : ''}</TableCell>
                           <TableCell align="right" sx={m.pointBas !== null && m.pointBas < 0 ? { color: 'error.main', fontWeight: 600 } : undefined}>{m.pointBas === null ? '' : milliers(m.pointBas)}</TableCell>
