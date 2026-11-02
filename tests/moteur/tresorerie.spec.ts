@@ -21,7 +21,7 @@ test('trésorerie : encaissements, décaissements et TVA d’un mois type', () =
   const t = tresorerieBudget(budget, h, p, tresorerieParDefaut, 5_000)
   const janvier = t.mois[0]
   proche(janvier.encaissements, 11_900)       // 10 000 × 1,19
-  proche(janvier.fournisseurs, 7_200)         // achats de décembre, régime établi : 6 000 × 1,2
+  proche(janvier.fournisseurs, 7_200)         // achats de janvier, livrés en décembre et payés fin janvier : 6 000 × 1,2
   proche(janvier.frais, 1_660)                // redevance et publicité 300 × 1,2 + loyer 1 000 × 1,2 + assurance 100
   proche(janvier.personnel, 2_000)            // 60 % du mois + 40 % du mois précédent
   proche(janvier.tva, 440)                    // 1 900 collectée − 1 200 sur achats − 260 sur frais
@@ -61,12 +61,14 @@ test('trésorerie du magasin fictif : saisonnalité, délais et TVA ne changent 
     const t = tresorerieBudget(b, hyp, parametresParDefaut, reglages, 20_000)
     proche(t.fin - 20_000, b.tresorerieDegagee - 30_000)
   }
-  // Fournisseurs de janvier : achats Cave et Bar de décembre, Extérieur de février (payé un mois avant la vente, lot 24)
+  // Fournisseurs de janvier : achats Cave et Bar de janvier (livrés en décembre, payés fin janvier), Extérieur de février
+  // (payé un mois avant la vente, lot 24)
   const t = tresorerieBudget(b, hyp, parametresParDefaut, tresorerieParDefaut)
-  const d = b.mois[11].univers!, f = b.mois[1].univers!
-  proche(t.mois[0].fournisseurs, (d.cave.achats + d.bar.achats + f.exterieur.achats) * 1.2)
-  // Sans avance, l'Extérieur de janvier se paie en janvier
-  proche(tresorerieBudget(b, hyp, parametresParDefaut, { ...tresorerieParDefaut, avanceExterieur: 0 }).mois[0].fournisseurs, (d.cave.achats + d.bar.achats + b.mois[0].univers!.exterieur.achats) * 1.2)
+  const j = b.mois[0].univers!, d = b.mois[11].univers!, f = b.mois[1].univers!
+  proche(t.mois[0].fournisseurs, (j.cave.achats + j.bar.achats + f.exterieur.achats) * 1.2)
+  // Sans avance, l'Extérieur de janvier se paie en janvier ; sans avance de livraison, Cave et Bar de décembre
+  proche(tresorerieBudget(b, hyp, parametresParDefaut, { ...tresorerieParDefaut, avanceExterieur: 0 }).mois[0].fournisseurs, (j.cave.achats + j.bar.achats + j.exterieur.achats) * 1.2)
+  proche(tresorerieBudget(b, hyp, parametresParDefaut, { ...tresorerieParDefaut, avanceLivraison: 0 }).mois[0].fournisseurs, (d.cave.achats + d.bar.achats + f.exterieur.achats) * 1.2)
   proche(t.mois[6].travaux, 36_000)           // juillet, premier mois touché
 })
 
@@ -141,4 +143,29 @@ test('démarque de consignes : 10 % des consignes jamais remboursés, en charge 
   proche(b1.chargesExternes - b0.chargesExternes, charge)
   proche(b0.ebe - b1.ebe, charge)
   proche(b1.mois[0].demarqueConsignes!, charge * b1.mois[0].ca / b1.ca)
+})
+
+test('livraison un mois avant la vente, facturée à la livraison : janvier paie le stock de janvier, la TVA de décembre déduit ce stock', () => {
+  // 10 000 € de CA HT par mois, 30 000 € en décembre ; achats 60 % du CA ; ni personnel, ni frais, ni emprunts
+  const ca = [...Array(11).fill(10_000), 30_000]
+  const noel = { ca: 140_000, impot: 0, mois: ca.map((c) => ({ ca: c, achats: c * 0.6, personnel: 0 })) } as unknown as Budget
+  const rien = { frais: [], interets: 0, remboursementCapital: 0 } as unknown as Hypotheses
+  const zero = { tauxRedevance: 0, tauxPublicite: 0 }
+  const t = tresorerieBudget(noel, rien, zero, { ...tresorerieParDefaut, consignes: undefined })
+  // Janvier : 11 900 encaissés − stock de janvier 6 000 × 1,2 = 7 200
+  //           − TVA de décembre : 30 000 × 19 % − stock de janvier livré en décembre 6 000 × 20 % = 4 500
+  proche(t.mois[0].fournisseurs, 7_200)
+  proche(t.mois[0].tva, 4_500)
+  proche(t.mois[0].flux, 11_900 - 7_200 - 4_500)
+  // Novembre paie le stock de Noël livré en novembre : 18 000 × 1,2 ; sa TVA (payée en décembre) le déduit
+  proche(t.mois[11].fournisseurs, 21_600)
+  proche(t.mois[11].tva, 10_000 * 0.19 - 18_000 * 0.2)
+  // Ancien calcul (livré le mois de la vente) : janvier payait Noël, 18 000 × 1,2, et la TVA de décembre 5 700 − 3 600
+  const avant = tresorerieBudget(noel, rien, zero, { ...tresorerieParDefaut, consignes: undefined, avanceLivraison: 0 })
+  proche(avant.mois[0].flux, 11_900 - 21_600 - 2_100)
+  // Sur l'année, rien ne change : EBE = 140 000 × 40 %
+  proche(t.fin, 56_000)
+  proche(avant.fin, 56_000)
+  // Dette fournisseurs au 31 décembre : stock de janvier livré en décembre, 6 000 × 1,2
+  proche(t.bfr.fournisseurs, 7_200)
 })

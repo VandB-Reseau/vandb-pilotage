@@ -81,6 +81,8 @@ test('paramètres réseau : le Directeur règle délais et TVA de la trésorerie
   await section.getByRole('button', { name: /^Trésorerie \d{4} : ouvrir$/ }).click()
   const enregistrer = section.getByRole('button', { name: 'Enregistrer' })
   await expect(enregistrer).toBeDisabled()
+  // Livraison des marchandises un mois avant la vente par défaut (Joseph, 2/11/2026)
+  await expect(page.getByLabel('Avance de livraison des marchandises')).toHaveValue('1')
   await page.getByLabel('Délai de paiement des fournisseurs').fill('2')
   await section.getByRole('button', { name: 'Chaque trimestre' }).click()
   await page.getByLabel('TVA moyenne sur les ventes').fill('18')
@@ -95,7 +97,7 @@ test('paramètres réseau : le Directeur règle délais et TVA de la trésorerie
   await enregistrer.click()
   await expect(page.getByText('Paramètres de trésorerie 2027 enregistrés.')).toBeVisible()
   const envoi = ecritures.find((e) => e.table === 'parametres_reseau')?.corps as { valeur: { tresorerie: Record<string, unknown> & { consignes: unknown } } }
-  expect(envoi.valeur.tresorerie).toMatchObject({ delaiFournisseurs: 2, delaiRedevance: 1, tvaTrimestrielle: true, tvaVentes: 0.18 })
+  expect(envoi.valeur.tresorerie).toMatchObject({ delaiFournisseurs: 2, avanceLivraison: 1, delaiRedevance: 1, tvaTrimestrielle: true, tvaVentes: 0.18 })
   expect(envoi.valeur.tresorerie.consignes).toMatchObject({ achats: { cave: 0.03, bar: 0.2, exterieur: 0.15 }, ecoulement: 2, remboursement: 1, demarque: 0.02 })
 })
 

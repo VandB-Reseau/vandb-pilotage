@@ -309,7 +309,7 @@ export const AIDE = {
   fournisseurs: {
     titre: 'Fournisseurs de marchandises',
     quoi: 'Le paiement des achats de marchandises.',
-    calcul: 'Achats HT × (1 + TVA des achats), payés selon le délai fournisseurs (30 jours fin de mois par défaut) ; certains achats payés à l’avance (Extérieur, opérations du réseau).',
+    calcul: 'Achats HT × (1 + TVA des achats). Cave et Bar : livrés et facturés un mois avant la vente, payés à 30 jours fin de mois, donc le mois de la vente (réglages dans Paramètres réseau) ; certains achats payés à l’avance (Extérieur, opérations du réseau).',
   },
   fraisTreso: {
     titre: 'Frais, redevance et publicité',
@@ -324,7 +324,7 @@ export const AIDE = {
   tvaTreso: {
     titre: 'TVA reversée',
     quoi: 'La TVA encaissée sur les ventes moins celle payée sur les achats et les frais.',
-    calcul: 'TVA collectée − TVA déductible, reversée le mois suivant (ou chaque trimestre selon Paramètres réseau). Négative : crédit de TVA.',
+    calcul: 'TVA collectée sur les ventes du mois − TVA déductible sur les achats livrés et les frais du mois, reversée le mois suivant (ou chaque trimestre selon Paramètres réseau). Négative : crédit de TVA.',
   },
   empruntsTreso: {
     titre: 'Emprunts',

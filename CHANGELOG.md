@@ -17,6 +17,14 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 - Frais de l'année (« 2026 en cours ») : un seul tableau, un groupe repliable par thème avec son sous-total, à la place
   des encarts. Le compte de résultat détaille les charges externes par les mêmes thèmes, puis ligne par ligne.
 
+### Trésorerie : marchandises livrées et facturées un mois avant la vente
+
+- Sans migration.
+- Cave et Bar : le stock est livré et facturé le mois précédant la vente, puis payé à 30 jours fin de mois, donc le mois
+  de la vente. La TVA sur ces achats se déduit au mois de livraison. Janvier ne paie plus le stock de Noël (payé fin
+  décembre). Sur l'année, la trésorerie ne change pas.
+- Nouveau réglage dans Paramètres réseau : « Livraison et facturation des marchandises, en mois avant la vente » (1 par défaut).
+
 ### % FP à la place de « Masse salariale / marge »
 
 - Sans migration.
