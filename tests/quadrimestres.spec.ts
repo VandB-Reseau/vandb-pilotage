@@ -47,9 +47,8 @@ test('le franchisé saisit son premier quadrimestre : marge réelle, démarque e
   // EBE : 78 000 − 30 000 − 3 000 − 35 000 = 10 000, 5 % du CA
   await expect(ligne(page, 'EBE réel')).toContainText(/10\s000/)
   await expect(ligne(page, 'EBE / CA')).toContainText('5')
-  const cartes = page.getByRole('region', { name: 'Résultat réel à fin avril' })
-  await expect(cartes).toContainText(/10\sk€/)
-  await expect(cartes).toContainText('17,5')                   // % FP : 35 000 / 200 000
+  // Lot 37 : la saisie seule dans l'espace Données ; le résultat se lit dans le Suivi
+  await expect(page.getByRole('region', { name: /Résultat réel à fin/ })).toHaveCount(0)
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-quadrimestres.png`, fullPage: true })
@@ -61,6 +60,20 @@ test('le franchisé saisit son premier quadrimestre : marge réelle, démarque e
     store_name: MAGASINS[0], annee: N, quadrimestre: 1, achats: 130_000, variation_stock: 8_000,
     charges_externes: 30_000, impots_taxes: 3_000, personnel: 35_000, tresorerie: 25_000,
   }])
+})
+
+test('Suivi : le compte du quadrimestre et ses indicateurs, sans saisie', async ({ page, isMobile }) => {
+  const quadrimestres: QuadrimestreSimule[] = [
+    { store_name: MAGASINS[0], annee: N, quadrimestre: 1, achats: 130_000, variation_stock: 8_000, charges_externes: 30_000, impots_taxes: 3_000, personnel: 35_000, tresorerie: 25_000 },
+  ]
+  await seConnecter(page, { role: 'franchise', magasins: [magasin], reel, quadrimestres })
+  await ouvrir(page, 'Comptes du quadrimestre')
+  const cartes = page.getByRole('region', { name: 'Résultat réel à fin avril' })
+  await expect(cartes).toContainText(/10\sk€/)
+  await expect(cartes).toContainText('17,5')                   // % FP : 35 000 / 200 000
+  await expect(page.getByLabel('Achats de marchandises HT : janvier à avril')).toHaveCount(0)
+  expect(await textesTropPetits(page)).toEqual([])
+  if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
 })
 
 test('quadrimestre enregistré repris ; sans caisse, la marge reste à calculer', async ({ page }) => {
@@ -103,7 +116,7 @@ test('plan de trésorerie : solde réel fin avril face au prévu, puis projectio
     { store_name: MAGASINS[0], annee: N, quadrimestre: 1, achats: 130_000, variation_stock: 8_000, charges_externes: 30_000, impots_taxes: 3_000, personnel: 35_000, tresorerie: 25_000 },
   ]
   await seConnecter(page, { role: 'franchise', magasins: [magasin], reel, quadrimestres })
-  await ouvrir(page, 'Quadrimestres')
+  await ouvrir(page, 'Trésorerie')
   const section = page.getByRole('region', { name: `Plan de trésorerie ${N}` })
   await expect(section).toContainText(/Trésorerie fin avril25\sk€/)
   await expect(section.getByRole('img', { name: new RegExp(`^Trésorerie de fin de mois ${N} : point bas`) })).toBeVisible()
@@ -118,10 +131,6 @@ test('plan de trésorerie : solde réel fin avril face au prévu, puis projectio
   expect(projetees.slice(0, 3).every((t) => t === '')).toBe(true)
   // Par quadrimestre : décaissé réel déduit dès que le début, l'encaissé des 4 mois et la fin sont connus
   await expect(section.getByRole('table', { name: `Trésorerie ${N} par quadrimestre` })).toBeVisible()
-  // La trésorerie saisie change : le plan suit sans enregistrer
-  await page.getByLabel('Trésorerie en fin de période : janvier à avril').fill('35000')
-  await expect(section).toContainText(/Trésorerie fin avril35\sk€/)
-  expect(lire((await tableau.getByRole('row', { name: /^Trésorerie projetée/ }).getByRole('cell').allTextContents())[4])).toBe(35_000)
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await section.screenshot({ path: `captures/${info.project.name}-plan-tresorerie.png` })
@@ -135,7 +144,7 @@ test('cumul face au budget et à la même période de l’an passé, ligne par l
     ({ store_name: MAGASINS[0], annee, quadrimestre: 1, achats, variation_stock: variation, charges_externes: externes, impots_taxes: impots, personnel, tresorerie: null })
   await seConnecter(page, { role: 'franchise', magasins: [magasin], reel: [...reel, ...reelN1],
     quadrimestres: [q(N, 130_000, 8_000, 30_000, 3_000, 35_000), q(N - 1, 100_000, 4_000, 28_000, 3_000, 31_000)] })
-  await ouvrir(page, 'Quadrimestres')
+  await ouvrir(page, 'Comptes du quadrimestre')
   const tableau = page.getByRole('table', { name: `Cumul ${N} face au budget et à ${N - 1}` })
   await expect(tableau.getByRole('columnheader', { name: 'Écart au budget' })).toBeVisible()
   // CA 200 000 contre 160 000 : + 25 % ; marge 78 000 contre 64 000 (100 000 − 4 000 retirés de 160 000) ; EBE 10 000 contre 2 000

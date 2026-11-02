@@ -22,7 +22,7 @@ test('trois espaces : le magasin ouvert reste le même, chaque espace a ses page
 
   await ouvrir(page, 'Point de départ')
   await expect(page).toHaveURL(new RegExp(`/magasins/${encodeURIComponent(MAGASINS[0])}/depart$`))
-  await expect(page.getByRole('tablist', { name: /^Étapes du budget/ }).getByRole('tab')).toHaveCount(6)
+  await expect(page.getByRole('tablist', { name: /^Étapes du budget/ }).getByRole('tab')).toHaveCount(4)
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-espace-budget.png`, fullPage: true })
@@ -37,7 +37,7 @@ test('trois espaces : le magasin ouvert reste le même, chaque espace a ses page
     const menu = page.getByRole('navigation', { name: 'Menu principal' })
     await expect(menu.getByRole('link')).toHaveText([/^Imports de caisse/, /^Réel du mois/, /^Comptes du quadrimestre/, /^Frais \d{4}/, /^Paramètres réseau/])
     await page.getByRole('group', { name: 'Espaces' }).getByRole('link', { name: 'Suivi' }).click()
-    await expect(menu.getByRole('link')).toHaveText([/^Réel du réseau/, /^Synthèse/, /^Face au budget/, /^Paramètres réseau/])
+    await expect(menu.getByRole('link')).toHaveText([/^Réel du réseau/, /^Synthèse/, /^Face au budget/, /^Trésorerie/, /^Paramètres réseau/])
     await expect(page).toHaveURL(/\/synthese$/)
   }
 })
@@ -48,7 +48,8 @@ test('une adresse rouverte affiche la même partie ; un ancien lien est redirig�
   await ouvrir(page, 'Équipe')
   await expect(page).toHaveURL(/\/equipe$/)
   await page.reload()
-  await expect(page.getByRole('tab', { name: /^2 · Équipe/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { name: /^1 · Hypothèses/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('heading', { level: 2, name: /^Équipe \d{4}/ })).toBeVisible()
   // Ancienne adresse sans partie : la synthèse
   await page.goto(`/#/magasins/${encodeURIComponent(MAGASINS[0])}`)
   await expect(page).toHaveURL(/\/synthese$/)

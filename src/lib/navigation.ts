@@ -22,33 +22,46 @@ export function partiesDe(espace: Espace, annee: number = new Date().getFullYear
   if (espace === 'budget') {
     return [
       { cle: 'depart', libelle: '0 · Point de départ' },
-      { cle: 'budget', libelle: '1 · Chiffre d’affaires' },
-      { cle: 'equipe', libelle: '2 · Équipe' },
-      { cle: 'fraisBudget', libelle: '3 · Frais' },
-      { cle: 'resultat', libelle: '4 · Résultat et trésorerie' },
-      { cle: 'echanges', libelle: '5 · Échanges et validation' },
+      { cle: 'budget', libelle: '1 · Hypothèses' },
+      { cle: 'resultat', libelle: '2 · Résultat et trésorerie' },
+      { cle: 'echanges', libelle: '3 · Échanges et validation' },
     ]
   }
   return [
     { cle: 'synthese', libelle: 'Synthèse' },
     { cle: 'suivi', libelle: 'Face au budget' },
+    { cle: 'tresorerie', libelle: 'Trésorerie' },
   ]
 }
+
+// Lot 37 (Joseph, 02/11/2026) : les hypothèses du budget se lisent en cartes par thème ; chaque carte ouvre un tableau
+// court du thème. Ces thèmes ont leur adresse mais restent sous l'étape « 1 · Hypothèses ».
+export const THEMES: Partie[] = [
+  { cle: 'ventes', libelle: 'Ventes' },
+  { cle: 'calendrier', libelle: 'Calendrier' },
+  { cle: 'equipe', libelle: 'Équipe' },
+  { cle: 'fraisBudget', libelle: 'Frais' },
+  { cle: 'tresoBudget', libelle: 'Trésorerie' },
+]
+const CLES_THEMES = THEMES.map((t) => t.cle)
+export const estTheme = (cle: string) => CLES_THEMES.includes(cle)
+// Étape ou partie du menu à mettre en avant pour une partie (un thème : l'étape des hypothèses)
+export const etapeDe = (cle: string) => (estTheme(cle) ? 'budget' : cle)
 
 export const PARTIE_PAR_DEFAUT: Record<Espace, string> = { donnees: 'reel', budget: 'depart', suivi: 'synthese' }
 
 // Anciennes clés (liens, alertes, « à faire ») : la partie qui les montre désormais, et la section où défiler
-const ANCIENNES: Record<string, string> = { calendrier: 'budget', atterrissage: 'depart', plan: 'synthese' }
+const ANCIENNES: Record<string, string> = { atterrissage: 'depart', plan: 'synthese' }
 export const partieDe = (cle: string) => ANCIENNES[cle] ?? cle
 export const sectionDe = (cle: string) => (ANCIENNES[cle] && cle !== 'atterrissage' ? cle : null)
 
 const DONNEES = ['reel', 'quadrimestres', 'frais']
-const BUDGET = ['depart', 'budget', 'equipe', 'fraisBudget', 'resultat', 'echanges']
+const BUDGET = ['depart', 'budget', 'resultat', 'echanges', ...CLES_THEMES]
 export function espaceDe(cle: string): Espace {
   const p = partieDe(cle)
   return DONNEES.includes(p) ? 'donnees' : BUDGET.includes(p) ? 'budget' : 'suivi'
 }
-export const partieConnue = (cle: string) => [...DONNEES, ...BUDGET, 'synthese', 'suivi'].includes(partieDe(cle))
+export const partieConnue = (cle: string) => [...DONNEES, ...BUDGET, 'synthese', 'suivi', 'tresorerie'].includes(partieDe(cle))
 
 // Pages du réseau : l'espace auquel elles appartiennent (les paramètres n'en changent pas)
 export function espaceDePage(chemin: string): Espace | null {

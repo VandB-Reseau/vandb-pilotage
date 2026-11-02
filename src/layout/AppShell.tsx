@@ -34,12 +34,12 @@ import TrendingUpOutlined from '@mui/icons-material/TrendingUpOutlined'
 import LeaderboardOutlined from '@mui/icons-material/LeaderboardOutlined'
 import { GardeSaisie } from '../components/GardeSaisie'
 import { Logo } from '../components/Logo'
-import { RechercheMagasin } from '../components/RechercheMagasin'
+import { RechercheMagasin, SelecteurMagasin } from '../components/RechercheMagasin'
 import { useAuth } from '../auth/AuthContext'
 import { estDirecteur, estEquipe, roleLibelle } from '../auth/roles'
 import { installerChampSuivant } from '../lib/champSuivant'
 import { lienMagasin } from '../lib/format'
-import { ESPACES, PARTIE_PAR_DEFAUT, espaceDe, espaceDePage, magasinDeChemin, partieDe, partiesDe, type Espace } from '../lib/navigation'
+import { ESPACES, PARTIE_PAR_DEFAUT, espaceDe, espaceDePage, etapeDe, magasinDeChemin, partieDe, partiesDe, type Espace } from '../lib/navigation'
 import { anneeBudget } from '../data/pilotage'
 import { MenuMagasin } from './menuMagasin'
 import { brandStripe } from '../theme/theme'
@@ -148,9 +148,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         {reseau[espace].map(lien)}
         {magasin && (
           <>
-            {sousTitre(magasin)}
+            {sousTitre('Magasin')}
+            <Box sx={{ mb: 0.5 }}><SelecteurMagasin magasin={magasin} /></Box>
             {parties.map((p) => (
-              <ListItemButton key={p.cle} component={RouterLink} to={lienMagasin(magasin, p.cle)} selected={partieActive === p.cle}
+              <ListItemButton key={p.cle} component={RouterLink} to={lienMagasin(magasin, p.cle)} selected={partieActive !== null && etapeDe(partieActive) === p.cle}
                 data-sans-garde={libre(p.cle) ? '' : undefined} sx={{ minHeight: 48, mb: 0.25, pl: 2 }}>
                 <ListItemText primary={
                   <Badge variant="dot" color="warning" invisible={!pastilles[p.cle] || fiche?.nom !== magasin} sx={{ '& .MuiBadge-dot': { right: -8, top: 4 } }}>{p.libelle}</Badge>

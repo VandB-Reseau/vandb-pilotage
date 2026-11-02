@@ -158,7 +158,7 @@ test('synthèse et atterrissage : réel des mois passés, saisonnalité de l’a
 test('le Directeur propose le budget de l’an prochain à partir de l’atterrissage', async ({ page }) => {
   const ecritures = await seConnecter(page, { reel: reelPour(MAGASINS[2]), tickets: ticketsPour(MAGASINS[2]), frais: [loyer(MAGASINS[2])] })
   await page.getByText(MAGASINS[2], { exact: true }).last().click()
-  await ouvrir(page, 'Hypothèses')
+  await ouvrir(page, 'Cartes des hypothèses')
   await expect(page.getByText(`Pas encore de budget ${B}`)).toBeVisible()
   await page.getByRole('button', { name: `Voir l’atterrissage ${N}` }).click()
   await page.getByRole('button', { name: `Proposer le budget ${B}` }).click()
@@ -170,7 +170,7 @@ test('le Directeur propose le budget de l’an prochain à partir de l’atterri
   expect(envoi.base.frais.map((f) => f.code)).toEqual(['loyer'])
   expect(envoi.base.caMensuelReference[11]).toBeCloseTo(65_000, 6)
   await expect(page.getByRole('button', { name: `Mettre à jour la proposition ${B}` })).toBeVisible()
-  await ouvrir(page, 'Hypothèses')
+  await ouvrir(page, 'Cartes des hypothèses')
   await expect(page.getByRole('region', { name: 'Indicateurs clés' })).toBeVisible()
 })
 

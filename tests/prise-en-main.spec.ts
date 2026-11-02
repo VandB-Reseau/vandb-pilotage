@@ -74,6 +74,7 @@ test('le franchisé ouvre l’aide d’une hypothèse et voit d’où viennent s
   await page.keyboard.press('Escape')
 
   // CA : Cave 200 000 × 1,03 (tickets), Bar 300 000 × 1,03, Extérieur 100 000
+  await ouvrir(page, 'Cartes des hypothèses')
   await page.getByRole('button', { name: 'Comment c’est calculé : Chiffre d’affaires HT' }).click()
   const calcul = page.getByRole('table', { name: 'Calcul : Chiffre d’affaires HT 2027' })
   await expect(calcul.getByRole('row', { name: /^CA 2026 attendu/ }).first()).toContainText(/200\s000\s€/)
