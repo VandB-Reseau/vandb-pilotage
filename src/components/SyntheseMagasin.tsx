@@ -20,7 +20,10 @@ import { Panne } from './Panne'
 import { PlusLoin } from './PlusLoin'
 import { atterrissageDe, chargerBudgets, chargerReel, chargerSecours, hypothesesDe, type DonneesBudgets } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
-import { ecartPts, milliers, montant, MOIS_LONGS, taux } from '../lib/format'
+import { ecartMontant, ecartPts, enChiffres, milliers, montant, MOIS_LONGS, taux } from '../lib/format'
+import { niveauEcart } from '../moteur/visuel'
+import { LignesTendance, type LigneTendance } from './LignesTendance'
+import { COULEUR_BARRE } from './Tableau'
 import { usePreference } from '../lib/preferences'
 import { calculerBudget } from '../moteur/budget'
 import { cumul, cumulApres, santeMagasin } from '../moteur/sante'
@@ -86,6 +89,23 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteE
   ].filter((x): x is { onglet: string; texte: string; action: string } => !!x)
 
   const n = moisDuReel(donnees.n.lignes, donnees.n.tickets)
+  const n1 = moisDuReel(donnees.n1.lignes, donnees.n1.tickets)
+  // Refonte visuelle (2/11/2026) : jauges (R4), lignes de tendance (T3), barres du réel dans le contour du budget (R1),
+  // trajectoire cumulée et atterrissage chiffré (R2), mois en cours surligné
+  const seuil = parametres.alertes.ecartCA
+  const enCours = annee === new Date().getFullYear() ? new Date().getMonth() : null
+  const reelN = n.map((m, i) => (i < s.moisRealises ? m.caHT : null))
+  const ticketsN = n.map((m, i) => (i < s.moisRealises && m.tickets > 0 ? m.tickets : null))
+  const ticketsN1 = n1.map((m) => (m.tickets > 0 ? m.tickets : null))
+  const lignesTendance: LigneTendance[] = suivi && budgetN ? [
+    { libelle: 'Chiffre d’affaires HT', reel: reelN, reference: budgetN.mois.map((m) => m.ca), nomReference: 'au budget' },
+    { libelle: 'Marge commerciale', reel: suivi.mois.map((l) => l.margeReel), reference: suivi.mois.map((l) => (l.margeReel === null ? null : l.margeBudget)), nomReference: 'au budget' },
+    { libelle: 'Tickets', reel: ticketsN, reference: ticketsN1, nomReference: `à ${annee - 1}`, format: (v) => enChiffres(Math.round(v)) },
+  ] : [
+    { libelle: 'Chiffre d’affaires HT', reel: reelN, reference: s.serieN1, nomReference: `à ${annee - 1}` },
+    { libelle: 'Tickets', reel: ticketsN, reference: ticketsN1, nomReference: `à ${annee - 1}`, format: (v) => enChiffres(Math.round(v)) },
+  ]
+  const finAtterri = cumulApres(s.serieN, s.projection)[11]
   return (
     <Stack spacing={3}>
       {(visiteEtActions || budgetN) && (
@@ -107,11 +127,13 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteE
           libelle={`CA HT à fin ${finMois}`} aide="caCumule" valeur={milliers(s.caCumule)} serie={s.serieN}
           ecart={ecartCA !== null ? { texte: `${taux(Math.abs(ecartCA))} face au budget`, hausse: ecartCA >= 0, favorable: ecartCA >= 0 }
             : s.evolution === null ? undefined : { texte: `${taux(Math.abs(s.evolution))} sur ${annee - 1}`, hausse: s.evolution >= 0, favorable: s.evolution >= 0 }}
+          jauge={suivi ? { valeur: s.caCumule, cible: suivi.cumul.caBudget, niveau: niveauEcart(s.caCumule, suivi.cumul.caBudget, seuil), libelle: `CA réel face au budget à fin ${finMois}` } : undefined}
           detail={[suivi && `Budget à date : ${milliers(suivi.cumul.caBudget)}`, suivi && evolution, `Atterrissage ${annee} : ${milliers(b.ca)}`].filter(Boolean).join(' · ')}
         />
         <Indicateur
           libelle="Marge commerciale" aide="margeTheorique" valeur={s.tauxMarge === null ? 'Non connue' : taux(s.tauxMarge)}
           ecart={ecartMarge === null ? undefined : { texte: `${ecartPts(Math.abs(ecartMarge)).replace('+', '')} face au budget`, hausse: ecartMarge >= 0, favorable: ecartMarge >= 0 }}
+          jauge={suivi && s.tauxMarge !== null ? { valeur: s.tauxMarge, cible: suivi.cumul.tauxMargeBudget, niveau: niveauEcart(s.tauxMarge, suivi.cumul.tauxMargeBudget, seuil), libelle: 'Taux de marge face au budget' } : undefined}
           detail={s.tauxMarge === null ? 'Marge absente des chiffres de caisse'
             : suivi ? `Budget : ${taux(suivi.cumul.tauxMargeBudget)} · ${milliers(s.margeCumulee)} à fin ${finMois}` : `${milliers(s.margeCumulee)} à fin ${finMois}`}
         />
@@ -132,6 +154,8 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteE
         </Alert>
       ))}
 
+      <LignesTendance titre={`Tendance ${annee} à fin ${finMois}`} lignes={lignesTendance} seuil={seuil} />
+
       {quoiFaire}
 
       <PlusLoin contenu={contenu}>
@@ -146,7 +170,8 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteE
         {vue === 'cumul' ? (
           <GraphiqueMois
             titre={`Chiffre d’affaires ${annee} cumulé : réel jusqu’à ${finMois}, projection ensuite${budgetN ? ', comparé au budget' : ''} et à ${annee - 1}`}
-            format={montant} formatAxe={milliers}
+            format={montant} formatAxe={milliers} moisEnCours={enCours}
+            note={finAtterri == null ? undefined : `Atterrissage ${annee} : ${milliers(finAtterri)}${budgetN ? `, ${ecartMontant(finAtterri - budgetN.ca)} face au budget de ${milliers(budgetN.ca)}` : ''}`}
             series={[
               ...(budgetN ? [{ nom: `Budget ${annee}`, valeurs: cumul(budgetN.mois.map((m) => m.ca)), forme: 'ligne' as const, couleur: brand.orange }] : []),
               { nom: `Réel ${annee - 1}`, valeurs: cumul(s.serieN1), forme: 'ligne', couleur: brand.vert },
@@ -156,13 +181,14 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteE
           />
         ) : (
           <GraphiqueMois
-            titre={`Chiffre d’affaires ${annee} : réel jusqu’à ${finMois}, projection ensuite, comparé à ${annee - 1}`}
-            format={montant} formatAxe={milliers}
+            titre={`Chiffre d’affaires ${annee} : réel jusqu’à ${finMois}${budgetN ? ' dans le contour du budget' : ''}, projection ensuite, comparé à ${annee - 1}`}
+            format={montant} formatAxe={milliers} moisEnCours={enCours}
             series={[
-              { nom: `Réel ${annee}`, valeurs: s.serieN, forme: 'barre', couleur: 'var(--mui-palette-text-primary)' },
+              { nom: `Réel ${annee}`, valeurs: s.serieN, forme: 'barre', couleur: brand.vert,
+                couleurs: budgetN ? s.serieN.map((v, i) => { const niv = niveauEcart(v, budgetN.mois[i].ca, seuil); return niv ? COULEUR_BARRE[niv] : null }) : undefined },
               { nom: 'Projection', valeurs: s.projection, forme: 'barre', couleur: brand.beige },
-              { nom: `Réel ${annee - 1}`, valeurs: s.serieN1, forme: 'ligne', couleur: brand.vert },
-              ...(budgetN ? [{ nom: `Budget ${annee}`, valeurs: budgetN.mois.map((m) => m.ca), forme: 'ligne' as const, couleur: brand.orange, pointille: true }] : []),
+              ...(budgetN ? [{ nom: `Budget ${annee}`, valeurs: budgetN.mois.map((m) => m.ca), forme: 'contour' as const, couleur: 'var(--mui-palette-text-secondary)' }] : []),
+              { nom: `Réel ${annee - 1}`, valeurs: s.serieN1, forme: 'ligne', couleur: brand.or },
             ]}
           />
         )}

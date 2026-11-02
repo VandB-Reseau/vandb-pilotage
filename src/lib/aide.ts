@@ -341,6 +341,22 @@ export const AIDE = {
     quoi: 'Les consignes payées aux fournisseurs avec les achats, et remboursées quand les vides sont rendus. Hors compte de résultat.',
     calcul: 'Versées : achats × taux de consigne de l’univers. Remboursées : après l’écoulement du fût et le délai de remboursement, moins la démarque de consignes.',
   },
+  planTresorerie: {
+    titre: 'Plan de trésorerie',
+    quoi: 'La banque de l’année, réel face au prévu. Le solde réel se suit au quadrimestre ; l’encaissé de la caisse, chaque mois.',
+    remplir: 'Le solde réel se saisit avec le quadrimestre, ligne « Trésorerie en fin de période ».',
+    calcul: 'Prévu : trésorerie du budget de l’année (ou de l’atterrissage, sans budget). Après le dernier solde réel : ce solde, puis les flux de l’atterrissage. Pastille : vert au prévu ou mieux, jaune-or dans le seuil d’alerte, brique au-delà.',
+  },
+  decaisseDeduit: {
+    titre: 'Décaissé du quadrimestre',
+    quoi: 'Tout ce qui est sorti de la banque sur la période : fournisseurs, salaires, frais, TVA, emprunts.',
+    calcul: 'Trésorerie de début + encaissé en caisse − trésorerie de fin. Comparé aux décaissements prévus, consignes remboursées déduites. On voit l’écart global, pas le poste qui dérape.',
+  },
+  pontEBE: {
+    titre: 'Du budget au réel',
+    quoi: 'Ce qui explique l’écart entre l’EBE budgété et l’EBE réel des quadrimestres saisis, poste par poste.',
+    calcul: 'Chiffre d’affaires : écart de CA × taux de marge du budget. Taux de marge : écart de taux × CA réel. Personnel, charges externes, impôts et taxes : budget − réel. La somme des marches fait l’écart d’EBE.',
+  },
   tresorerieGlissante: {
     titre: 'Trésorerie prévue',
     quoi: 'La banque des mois à venir, en partant de la trésorerie réelle du dernier quadrimestre.',

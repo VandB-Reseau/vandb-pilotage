@@ -130,7 +130,7 @@ export function ReelAnnee({ magasin, annee, peutSaisir, apresEnregistrement }: {
             <Typography variant="h2" sx={{ px: 2.5, pt: 2, pb: 1 }}>CA HT par famille</Typography>
             <TableContainer>
               <Table className="colonne-fixe" size="small" aria-label={`Réel ${annee} par famille et par mois`}
-                sx={{ '& td, & th': { py: 0.75, px: 1, fontSize: '0.8125rem', whiteSpace: 'nowrap' }, '& td:first-of-type, & th:first-of-type': { pl: 2.5, minWidth: 200 } }}>
+                sx={{ ...styleTableau, '& td:first-of-type, & th:first-of-type': { pl: 2.5, minWidth: 200 } }}>
                 <TableHead>
                   <TableRow>
                     <TableCell><Box component="span" sx={{ fontWeight: 400 }}>En euros</Box></TableCell>
@@ -173,14 +173,14 @@ export function ReelAnnee({ magasin, annee, peutSaisir, apresEnregistrement }: {
                       </Fragment>
                     )
                   })}
-                  <TableRow sx={{ bgcolor: 'background.default', '& td': { fontWeight: 700, bgcolor: 'background.default' } }}>
+                  <TableRow className="ligne-forte" sx={{ '& td': { fontWeight: 700 } }}>
                     <TableCell>Chiffre d’affaires HT</TableCell>
                     {s.parMois.map((m) => <TableCell key={m.mois} align="right">{m.caHT ? enChiffres(Math.round(m.caHT)) : ''}</TableCell>)}
                     <TableCell align="right">{montant(s.caHT)}</TableCell>
                     <TableCell align="right">{taux(1)}</TableCell>
                     <TableCell align="right">{taux(s.tauxMarge)}</TableCell>
                   </TableRow>
-                  <TableRow sx={{ bgcolor: 'background.default', '& td': { fontWeight: 700, bgcolor: 'background.default' } }}>
+                  <TableRow className="ligne-forte" sx={{ '& td': { fontWeight: 700 } }}>
                     <TableCell>Marge théorique</TableCell>
                     {s.parMois.map((m) => <TableCell key={m.mois} align="right">{m.caHT ? enChiffres(Math.round(m.margeHT)) : ''}</TableCell>)}
                     <TableCell align="right">{montant(s.margeHT)}</TableCell>

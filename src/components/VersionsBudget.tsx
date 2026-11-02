@@ -13,6 +13,7 @@ import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
+import { styleTableau } from '../theme/tableau'
 import BookmarkAddOutlined from '@mui/icons-material/BookmarkAddOutlined'
 import DeleteOutlined from '@mui/icons-material/DeleteOutlined'
 import RestoreOutlined from '@mui/icons-material/RestoreOutlined'
@@ -111,7 +112,7 @@ export function VersionsBudget({ ligne, d, annee, parametres, budget, ajustement
         ) : (
           <TableContainer>
             <Table size="small" className="colonne-fixe" aria-label={`Versions du budget ${annee}`}
-              sx={{ '& td, & th': { px: 1.25, whiteSpace: 'nowrap', verticalAlign: 'top' }, '& td:first-of-type, & th:first-of-type': { pl: 2.5, minWidth: 200 } }}>
+              sx={{ ...styleTableau, '& td, & th': { ...styleTableau['& td, & th'], verticalAlign: 'top' }, '& td:first-of-type, & th:first-of-type': { pl: 2.5, minWidth: 200 } }}>
               <TableHead>
                 <TableRow>
                   <TableCell><Box component="span" sx={{ fontWeight: 400 }}>En euros HT</Box></TableCell>
@@ -138,7 +139,7 @@ export function VersionsBudget({ ligne, d, annee, parametres, budget, ajustement
               </TableHead>
               <TableBody>
                 {lignes.map((l) => (
-                  <TableRow key={l.cle} sx={l.fort ? { bgcolor: 'background.default', '& td': { bgcolor: 'background.default', fontWeight: 700 } } : undefined}>
+                  <TableRow key={l.cle} className={l.fort ? 'ligne-forte' : undefined} sx={l.fort ? { '& td': { fontWeight: 700 } } : undefined}>
                     <TableCell>{l.libelle}</TableCell>
                     {l.valeurs.map((v, i) => {
                       const e = l.ecarts[i]

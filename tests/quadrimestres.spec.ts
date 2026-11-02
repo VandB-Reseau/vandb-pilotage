@@ -98,28 +98,33 @@ test('le Directeur importe le fichier des comptables : code caisse ou nom du mag
   ])
 })
 
-test('trésorerie glissante : fin avril saisie, puis mai à décembre selon l’atterrissage', async ({ page, isMobile }, info) => {
+test('plan de trésorerie : solde réel fin avril face au prévu, puis projection jusqu’à décembre', async ({ page, isMobile }, info) => {
   const quadrimestres: QuadrimestreSimule[] = [
     { store_name: MAGASINS[0], annee: N, quadrimestre: 1, achats: 130_000, variation_stock: 8_000, charges_externes: 30_000, impots_taxes: 3_000, personnel: 35_000, tresorerie: 25_000 },
   ]
   await seConnecter(page, { role: 'franchise', magasins: [magasin], reel, quadrimestres })
   await ouvrir(page, 'Quadrimestres')
-  const section = page.getByRole('region', { name: 'Trésorerie prévue jusqu’à décembre' })
+  const section = page.getByRole('region', { name: `Plan de trésorerie ${N}` })
   await expect(section).toContainText(/Trésorerie fin avril25\sk€/)
-  const tableau = section.getByRole('table', { name: `Trésorerie prévue ${N} mois par mois` })
-  await expect(tableau.getByRole('columnheader')).toHaveText(['En euros', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.'])
-  // Chaque fin de mois = la précédente + la variation du mois
-  const lire = (t: string) => Number(t.replace(/[\s  +]/g, '').replace('−', '-').replace('€', ''))
-  const flux = (await tableau.getByRole('row').nth(1).getByRole('cell').allTextContents()).slice(1).map(lire)
-  const fins = (await tableau.getByRole('row').nth(2).getByRole('cell').allTextContents()).slice(1).map(lire)
-  expect(Math.abs(fins[0] - (25_000 + flux[0]))).toBeLessThanOrEqual(1)
-  expect(Math.abs(fins[7] - (fins[6] + flux[7]))).toBeLessThanOrEqual(1)
-  // La trésorerie saisie change : la prévision suit sans enregistrer
+  await expect(section.getByRole('img', { name: new RegExp(`^Trésorerie de fin de mois ${N} : point bas`) })).toBeVisible()
+  const tableau = section.getByRole('table', { name: `Plan de trésorerie ${N} mois par mois` })
+  await expect(tableau.getByRole('columnheader')).toHaveCount(13)
+  // Fin avril : le solde réel, face au prévu ; projection ensuite : chaque fin de mois = la précédente + le flux prévu
+  const lire = (t: string) => Number(t.replace(/[\s  +]/g, '').replace('−', '-').replace('€', ''))
+  const fin = tableau.getByRole('row', { name: /^Trésorerie en fin de mois/ })
+  await expect(fin.getByRole('cell').nth(4)).toContainText(/^25\s000\s*prévu/)
+  const projetees = (await tableau.getByRole('row', { name: /^Trésorerie projetée/ }).getByRole('cell').allTextContents()).slice(1)
+  expect(lire(projetees[3])).toBe(25_000)
+  expect(projetees.slice(0, 3).every((t) => t === '')).toBe(true)
+  // Par quadrimestre : décaissé réel déduit dès que le début, l'encaissé des 4 mois et la fin sont connus
+  await expect(section.getByRole('table', { name: `Trésorerie ${N} par quadrimestre` })).toBeVisible()
+  // La trésorerie saisie change : le plan suit sans enregistrer
   await page.getByLabel('Trésorerie en fin de période : janvier à avril').fill('35000')
   await expect(section).toContainText(/Trésorerie fin avril35\sk€/)
+  expect(lire((await tableau.getByRole('row', { name: /^Trésorerie projetée/ }).getByRole('cell').allTextContents())[4])).toBe(35_000)
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
-  await section.screenshot({ path: `captures/${info.project.name}-tresorerie-glissante.png` })
+  await section.screenshot({ path: `captures/${info.project.name}-plan-tresorerie.png` })
 })
 
 test('cumul face au budget et à la même période de l’an passé, ligne par ligne', async ({ page, isMobile }, info) => {

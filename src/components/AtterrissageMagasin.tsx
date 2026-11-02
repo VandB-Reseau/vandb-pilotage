@@ -133,7 +133,7 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
       </Stack>
 
       <CompteResultatMois
-        lignes={compteResultat(b, h, parametres)} projeteA={r.moisRealises}
+        lignes={compteResultat(b, h, parametres)} projeteA={r.moisRealises} moisEnCours={annee === new Date().getFullYear() ? new Date().getMonth() : null}
         titre={`Compte de résultat ${annee}`} libelleTableau={`Atterrissage ${annee} mois par mois`}
         entete={
           <Typography variant="body2" color="text.secondary">

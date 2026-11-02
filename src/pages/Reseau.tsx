@@ -36,6 +36,8 @@ import { maSemaine } from '../moteur/semaine'
 import { ligneReseau, totalReseau, type LigneReseau, type MoisReel } from '../moteur/suivi'
 import { ficheVisite } from '../moteur/visite'
 import { styleTableau } from '../theme/tableau'
+import { niveauEcart } from '../moteur/visuel'
+import { Pastille } from '../components/Tableau'
 
 type Cle = 'magasin' | 'moisRealises' | 'ca' | 'evolution' | 'ecartBudget' | 'tauxMarge' | 'panierCave' | 'ticketsCave' | 'panierBar' | 'ticketsBar' | 'personnelSurMarge' | 'caParHeure' | 'loyerSurCA' | 'ebeSurCA'
 type Colonne = { cle: Exclude<Cle, 'magasin'>; libelle: string; texte: (v: number) => string; rouge?: (v: number) => boolean }
@@ -85,7 +87,7 @@ export function Reseau() {
       }
     })
     const trie = (l: string[]) => [...new Set(l)].sort((a, b) => a.localeCompare(b, 'fr'))
-    return { magasins, alertes, actions, groupes: d.groupes, coachs: trie(Object.values(reel.coachs)), rrs: trie(Object.values(reel.rrs).flat()) }
+    return { magasins, alertes, actions, seuil: parametres.alertes.ecartCA, groupes: d.groupes, coachs: trie(Object.values(reel.coachs)), rrs: trie(Object.values(reel.rrs).flat()) }
   }, [annee])
 
   // Filtres et tri gardés dans l'adresse : le retour depuis une fiche les retrouve
@@ -153,7 +155,10 @@ export function Reseau() {
 
   const cellule = (c: Colonne, v: number | null, fort = false) => (
     <TableCell key={c.cle} align="right" sx={{ whiteSpace: 'nowrap', fontWeight: fort ? 700 : 400, color: v !== null && c.rouge?.(v) ? 'error.main' : v === null ? 'text.disabled' : undefined }}>
-      {v === null ? '–' : c.texte(v)}
+      {v === null ? '–' : c.cle === 'ecartBudget' ? (
+        // Refonte T2 (2/11/2026) : pastille de l'écart au budget, mêmes couleurs que dans la fiche du magasin
+        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}><Pastille niveau={niveauEcart(1 + v, 1, donnees.seuil)} />{c.texte(v)}</Box>
+      ) : c.texte(v)}
     </TableCell>
   )
   const champ = { '& .MuiInputBase-root': { minHeight: 48 }, '& .MuiSelect-nativeInput': { height: 48 } }
@@ -242,7 +247,7 @@ export function Reseau() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                <TableRow sx={{ bgcolor: 'background.default', '& td': { bgcolor: 'background.default' } }}>
+                <TableRow className="ligne-forte" sx={{ '& td': { fontWeight: 700 } }}>
                   <TableCell sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{filtre ? 'Total de la sélection' : 'Total du réseau'}</TableCell>
                   {donnees.coachs.length > 0 && <TableCell sx={surPC} />}
                   {donnees.rrs.length > 0 && <TableCell sx={surPC} />}
