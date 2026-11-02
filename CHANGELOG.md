@@ -17,6 +17,12 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 - Frais de l'année (« 2026 en cours ») : un seul tableau, un groupe repliable par thème avec son sous-total, à la place
   des encarts. Le compte de résultat détaille les charges externes par les mêmes thèmes, puis ligne par ligne.
 
+### % FP à la place de « Masse salariale / marge »
+
+- Sans migration.
+- Dans tous les tableaux et chiffres clés (liste des magasins, vue Réseau, synthèse, quadrimestres, comparaison au
+  réseau, export Excel), l'indicateur devient « % FP » : frais de personnel ÷ CA HT. Le détail par la marge disparaît.
+
 ### Lot 34 — Équipe et frais dans l'année en cours, frais par thème, tableaux harmonisés
 
 - Sans migration.

@@ -241,15 +241,10 @@ export const AIDE = {
     quoi: 'La productivité de l’équipe : ce que rapporte une heure de présence.',
     calcul: 'CA HT ÷ heures travaillées de l’équipe (heures par semaine de chaque poste, extras compris). Sur l’année : CA total ÷ heures totales.',
   },
-  masseSurCA: {
-    titre: 'Masse salariale / CA',
-    quoi: 'La part du chiffre d’affaires consacrée à l’équipe. Le rapport à la marge reste dans la productivité.',
-    calcul: 'Frais de personnel (gérant compris) ÷ CA HT.',
-  },
-  masseSurMarge: {
-    titre: 'Masse salariale / marge',
-    quoi: 'La part de la marge mangée par l’équipe : le premier ratio de rentabilité d’un magasin.',
-    calcul: 'Frais de personnel (gérant compris) ÷ marge commerciale.',
+  pctFP: {
+    titre: '% FP (frais de personnel)',
+    quoi: 'La part du chiffre d’affaires consacrée à l’équipe. Plus il est bas, plus l’équipe est productive.',
+    calcul: 'Frais de personnel (gérant compris) ÷ CA HT. Sur le réel : masse salariale de l’équipe des mois réalisés ÷ CA HT des mêmes mois.',
   },
   masseChargee: {
     titre: 'Masse salariale chargée',

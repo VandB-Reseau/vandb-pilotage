@@ -341,7 +341,7 @@ export function Magasin() {
           <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap' }} component="section" aria-label="Indicateurs clés">
             <Indicateur libelle="Chiffre d’affaires HT" valeur={milliers(b.ca)} detail={`Atterrissage de l’année en cours : ${milliers(b.atterrissage)}`} info={<DetailCalcul quoi="ca" budget={b} annee={annee} />} />
             <Indicateur libelle="Marge commerciale" valeur={taux(b.tauxMarge)} detail={milliers(b.marge)} info={<DetailCalcul quoi="marge" budget={b} annee={annee} />} />
-            <Indicateur libelle="Masse salariale / CA" aide="masseSurCA" valeur={taux(b.ratios.personnelSurCA)} detail={`${taux(b.ratios.personnelSurMarge)} de la marge`} />
+            <Indicateur libelle="% FP" aide="pctFP" valeur={taux(b.ratios.pctFP)} detail={`${milliers(b.personnel)} de masse salariale`} />
             <Indicateur libelle="EBE" valeur={milliers(b.ebe)} detail={`${taux(b.ratios.ebeSurCA)} du CA`} info={<DetailCalcul quoi="ebe" budget={b} annee={annee} />} />
             <Indicateur libelle="Résultat net" aide="resultatNet" valeur={milliers(b.resultatNet)} detail={`Impôt : ${milliers(b.impot)}`} />
           </Stack>
