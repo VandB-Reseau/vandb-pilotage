@@ -1,3 +1,4 @@
+import { fraisDuBudget, type ChoixFrais } from './fraisBudget'
 import type { Tranche } from './projection'
 import { universLibelle, type AjustementCA, type ResultatFamille, type ChoixRythme, type Famille, type Hypotheses, type TempsFort, type Travaux, type Univers, type UniversTickets } from './types'
 
@@ -32,6 +33,9 @@ export interface Cibles {
   rythme?: Partial<Record<UniversTickets, ChoixRythme>>   // magasin seulement : rythme de sortie confirmé ou écarté
   tempsForts?: TempsFort[]                            // magasin seulement
   ajustementsCA?: AjustementCA[]                      // magasin seulement : clients gagnés ou perdus, concurrent, horaires
+  // Lot 35 : magasin seulement, frais du budget ligne par ligne (code de la ligne, ou amortissements, interets,
+  // remboursementCapital) ; une ligne sans choix suit l'inflation des frais
+  fraisBudget?: Record<string, ChoixFrais>
 }
 // Panier selon l'ancienneté : en plus de la hausse tarifaire
 export interface ValeursMillesime { evolutionFlux?: Partial<Record<UniversTickets, number>>; evolutionPanier?: Partial<Record<UniversTickets, number>> }
@@ -151,7 +155,7 @@ export function appliquerCibles(base: Hypotheses, niveaux: NiveauCibles[]): { hy
       // Avec l'équipe, la hausse s'applique au brut de chacun (la réduction générale en dépend) ; sinon aux salaires chargés
       ...(base.equipe?.length ? { hausseSalaires: tauxHausse } : {}),
       personnel: base.equipe?.length ? base.personnel : { ...base.personnel, salairesMensuels: base.personnel.salairesMensuels.map((s) => s * (1 + tauxHausse)) },
-      frais: base.frais.map((l) => (defini(l.annuel) ? { ...l, annuel: l.annuel * (1 + tauxInflation) } : l)),
+      ...fraisDuBudget(base, niveaux.find((n) => n.niveau === 'magasin')?.cibles?.fraisBudget, tauxInflation),
     },
     provenance,
   }
@@ -211,7 +215,7 @@ export function valeurHeritee(niveauxAuDessus: NiveauCibles[], cle: string): { v
 
 // Ajustements d'un magasin repris sur un autre : tout sauf ce qui est propre à chaque magasin (travaux, trésorerie de
 // départ, rythme de sortie, temps forts, clients gagnés ou perdus), dont ceux du magasin visé restent
-const PROPRES = ['travaux', 'tresorerieDepart', 'rythme', 'tempsForts', 'ajustementsCA'] as const
+const PROPRES = ['travaux', 'tresorerieDepart', 'rythme', 'tempsForts', 'ajustementsCA', 'fraisBudget'] as const
 export function ajustementsCopies(source: Cibles, cible: Cibles): Cibles {
   const copie = structuredClone(source)
   for (const k of PROPRES) delete copie[k]

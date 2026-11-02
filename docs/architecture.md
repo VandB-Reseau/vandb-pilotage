@@ -150,6 +150,10 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
 33. Lot 33 : `fraisDepuisFEC` (`src/moteur/fec.ts`) et `saisieAvecFEC` (`src/moteur/saisieFrais.ts`), BFR dans `tresorerieBudget`,
    saisonnalité par univers (`caMensuelUnivers`), compte de résultat mensuel jusqu'à la trésorerie dégagée ; tests dans
    `tests/moteur/lot33.spec.ts` et `tests/lot33.spec.ts`. Migration `0018_validation_rr.sql` (le RR valide).
+35. Lot 35 : `Personne.hausses` (hausses datées, `facteurHausses` dans `equipe.ts`), `changementsEquipe.ts` (changements de
+   l'année et leur effet), `fraisBudget.ts` (frais du budget ligne par ligne, `Cibles.fraisBudget`, appliqués par
+   `appliquerCibles`). Écrans `FraisBudget` (étape 3 du budget), `EquipeMagasin` (étape 2, changements et graphique),
+   `FraisMagasin` en un tableau par thème ; compte de résultat à deux niveaux de détail. Migration `0019_hausses_equipe.sql`.
 
 ## Rôles
 

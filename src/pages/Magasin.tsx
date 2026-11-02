@@ -34,6 +34,7 @@ import { EtatVide } from '../components/EtatVide'
 import { Indicateur } from '../components/Indicateur'
 import { Panne } from '../components/Panne'
 import { EquipeMagasin } from '../components/EquipeMagasin'
+import { FraisBudget } from '../components/FraisBudget'
 import { FraisMagasin } from '../components/FraisMagasin'
 import { useGarde, useSaisieEnCours } from '../components/GardeSaisie'
 import { PastilleStatut } from '../components/PastilleStatut'
@@ -52,7 +53,7 @@ import { FamillesReseau } from '../components/FamillesReseau'
 import { SyntheseMagasin } from '../components/SyntheseMagasin'
 import { HypothesesUnivers } from '../components/HypothesesUnivers'
 import {
-  anneeBudget, changerStatut, chargerBudgets, chargerParametres, chargerReel, enregistrerAjustements, hypothesesDe, niveauxDe, statutLibelle, valeursSansCible,
+  anneeBudget, avecEquipeEtFrais, changerStatut, chargerBudgets, chargerParametres, chargerReel, enregistrerAjustements, hypothesesDe, niveauxDe, statutLibelle, valeursSansCible,
 } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { nombreChangements, reelEnRetard } from '../lib/aFaire'
@@ -77,10 +78,11 @@ function LibelleOnglet({ texte, manque, detail }: { texte: string; manque: boole
 }
 // Lot 27 : espaces de la fiche ; chaque partie (ancien onglet) appartient à un espace. « budget » : les hypothèses.
 type Espace = 'synthese' | 'annee' | 'budget'
-// 29/10/2026 (Joseph) : l'équipe et les frais sont ceux du magasin aujourd'hui, saisis dans l'année en cours ; le budget les reprend
-const PARTIES_ANNEE = ['reel', 'equipe', 'frais', 'suivi', 'atterrissage', 'quadrimestres']
+// 29/10/2026 (Joseph) : les frais sont ceux du magasin aujourd'hui, saisis dans l'année en cours ; le budget les reprend.
+// Lot 35 (02/11/2026) : l'équipe redevient une étape du budget (changements datés), les frais du budget une autre
+const PARTIES_ANNEE = ['reel', 'frais', 'suivi', 'atterrissage', 'quadrimestres']
 // Lot 30 (E1) : 10 onglets deviennent 6 ; une ancienne partie s'affiche dans l'onglet qui la regroupe, sous la première
-const REGROUPEES: Record<string, string> = { calendrier: 'budget', frais: 'equipe', atterrissage: 'suivi', quadrimestres: 'reel' }
+const REGROUPEES: Record<string, string> = { calendrier: 'budget', atterrissage: 'suivi', quadrimestres: 'reel' }
 const ongletDe = (o: string) => REGROUPEES[o] ?? o
 const espaceDe = (o: string): Espace => (o === 'synthese' ? 'synthese' : PARTIES_ANNEE.includes(o) ? 'annee' : 'budget')
 type Partie = { cle: string; libelle: string; manque?: boolean; detail?: string }
@@ -166,6 +168,10 @@ export function Magasin() {
   const modifie = JSON.stringify(brouillon) !== JSON.stringify(ligne.ajustements)
   const peutAjuster = (directeur || profil?.role === 'franchise') && !!ligne.base && ligne.statut !== 'valide'
   const nbEcarts = resolu ? ecarts(resolu.provenance).length : 0
+  // Lot 35 : frais du budget à partir des frais de l'année en cours ; inflation des frais pour les lignes sans choix
+  const baseFrais = ligne.base ? avecEquipeEtFrais(ligne.base, d.equipes[ligne.magasin], d.frais[ligne.magasin]) : null
+  const inflation = resolu?.provenance.find((x) => x.cle === 'inflationFrais')?.valeur ?? 0
+  const fraisModifies = Object.keys(brouillon.fraisBudget ?? {}).length
   const enregistrable = poidsValides(brouillon.poidsMois)
   // Effet des travaux : même budget sans eux
   const tresorerie = b && resolu ? tresorerieBudget(b, resolu.hypotheses, parametres, parametres.tresorerie, brouillon.tresorerieDepart ?? 0) : null
@@ -217,13 +223,15 @@ export function Magasin() {
   const reelRetard = !!reel.donnees && reelEnRetard(syntheseReel(reel.donnees.lignes, reel.donnees.tickets).moisRenseignes)
   const partiesAnnee: Partie[] = [
     { cle: 'reel', libelle: 'Réel', manque: reelRetard, detail: 'en retard' },
-    { cle: 'equipe', libelle: 'Équipe et frais', manque: !d.equipes[ligne.magasin]?.length || !d.frais[ligne.magasin]?.length, detail: 'à renseigner' },
+    { cle: 'frais', libelle: 'Frais', manque: !d.frais[ligne.magasin]?.length, detail: 'à renseigner' },
     { cle: 'suivi', libelle: 'Où on va' },
   ]
   const partiesBudget: Partie[] = [
     { cle: 'budget', libelle: '1 · Chiffre d’affaires' },
-    { cle: 'resultat', libelle: '2 · Résultat et trésorerie' },
-    { cle: 'echanges', libelle: '3 · Échanges et versions' },
+    { cle: 'equipe', libelle: '2 · Équipe', manque: !d.equipes[ligne.magasin]?.length, detail: 'à renseigner' },
+    { cle: 'fraisBudget', libelle: '3 · Frais' },
+    { cle: 'resultat', libelle: '4 · Résultat et trésorerie' },
+    { cle: 'echanges', libelle: '5 · Échanges et versions' },
   ]
   // Budget : la partie affichée ; les autres parties du budget restent dans la page pour l'impression
   const partie = (cle: string) => (onglet === ongletDe(cle) ? undefined : 'partie-cachee')
@@ -309,19 +317,16 @@ export function Magasin() {
           </Stack>
         </Stack>
       ) : onglet === 'equipe' ? (
-        <Stack spacing={5}>
         <EquipeMagasin
           key={ligne.magasin} magasin={ligne.magasin} equipe={d.equipes[ligne.magasin] ?? []} annee={anneeEnCours} anneeBudget={annee}
           hausse={resolu?.hypotheses.hausseSalaires ?? valeurHeritee(niveauxDe(ligne, d, brouillon), 'hausseSalaires')?.valeur ?? 0}
           charges={donnees.parametresN.charges} chargesBudget={parametres.charges}
           peutSaisir={peutSaisir} apresEnregistrement={recharger} caAnnee={b?.atterrissage} caBudget={b?.ca} ebeBudget={b?.ebe}
         />
-        <Box id="partie-frais" sx={{ scrollMarginTop: 80 }}>
-          <FraisMagasin key={ligne.magasin} magasin={ligne.magasin} lignes={d.frais[ligne.magasin] ?? []} annee={anneeEnCours} peutSaisir={peutSaisir} apresEnregistrement={recharger}
-            tauxSurCA={{ publicite: parametres.tauxPublicite, redevance: parametres.tauxRedevance }}
-            budget={b ? { annee, ca: b.ca, ebe: b.ebe } : undefined} />
-        </Box>
-        </Stack>
+      ) : onglet === 'frais' ? (
+        <FraisMagasin key={ligne.magasin} magasin={ligne.magasin} lignes={d.frais[ligne.magasin] ?? []} annee={anneeEnCours} peutSaisir={peutSaisir} apresEnregistrement={recharger}
+          tauxSurCA={{ publicite: parametres.tauxPublicite, redevance: parametres.tauxRedevance }}
+          budget={b ? { annee, ca: b.ca, ebe: b.ebe } : undefined} />
       ) : (<Stack spacing={3}>
 
       {message && (
@@ -429,17 +434,25 @@ export function Magasin() {
                 onChange={(l) => setBrouillon(({ ajustementsCA: _, ...reste }) => (l ? { ...reste, ajustementsCA: l } : reste))} />
             </Stack>
           )}
+          {ligne.base && baseFrais && (
+            <Box className={partie('fraisBudget')}>
+              <FraisBudget base={baseFrais} choix={brouillon.fraisBudget} inflation={inflation} annee={annee} anneeEnCours={anneeEnCours} lectureSeule={!peutAjuster}
+                tauxSurCA={{ publicite: parametres.tauxPublicite, redevance: parametres.tauxRedevance }}
+                onChange={(c) => setBrouillon(({ fraisBudget: _, ...reste }) => (c ? { ...reste, fraisBudget: c } : reste))} />
+            </Box>
+          )}
           <Stack spacing={3} className={partie('resultat')}>
             {resolu && (
               <Card component="section" aria-label={`Équipe et frais ${annee}`} sx={{ px: 2.5, py: 2, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                 <Box sx={{ flex: 1, minWidth: 260 }}>
                   <Typography variant="h3" sx={{ fontSize: '1rem' }}>Équipe et frais {annee}</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {`Masse salariale ${milliers(b.personnel)} : équipe ${anneeEnCours} + hausse des salaires de ${taux(resolu.hypotheses.hausseSalaires ?? 0)}. `}
-                    {`Frais ${milliers(b.chargesExternes + b.impotsTaxes - b.redevance - b.publicite)} : frais ${anneeEnCours} + inflation de ${taux(valeurHeritee(niveauxDe(ligne, d, brouillon), 'inflationFrais')?.valeur ?? 0)}.`}
+                    {`Masse salariale ${milliers(b.personnel)} : équipe, changements prévus et hausse des salaires de ${taux(resolu.hypotheses.hausseSalaires ?? 0)}. `}
+                    {`Frais ${milliers(b.chargesExternes + b.impotsTaxes - b.redevance - b.publicite)} : ${fraisModifies === 0 ? 'frais' : `${fraisModifies} ligne${fraisModifies > 1 ? 's' : ''} choisie${fraisModifies > 1 ? 's' : ''}, les autres frais`} ${anneeEnCours} + inflation de ${taux(inflation)}.`}
                   </Typography>
                 </Box>
-                <Button variant="outlined" onClick={() => garde(() => aller('equipe'))} sx={{ minHeight: 48 }}>Modifier dans {anneeEnCours} en cours</Button>
+                <Button variant="outlined" onClick={() => aller('equipe')} sx={{ minHeight: 48 }}>Voir l’équipe</Button>
+                <Button variant="outlined" onClick={() => aller('fraisBudget')} sx={{ minHeight: 48 }}>Voir les frais</Button>
               </Card>
             )}
             {resolu && <CompteResultatMois lignes={compteResultat(b, resolu.hypotheses, parametres)} titre={`Compte de résultat ${annee}`} libelleTableau={`Budget ${annee} mois par mois`} />}

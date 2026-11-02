@@ -302,7 +302,7 @@ export async function enregistrerParametres(annee: number, parametres: Parametre
 export type { ParametresCharges }
 
 // ── Équipe (lot 3)
-interface LigneEquipe { id: number; store_name: string; poste: string; categorie: Categorie; heures_hebdo: number; brut_mensuel: number; primes: unknown; entree: string | null; sortie: string | null; heures_saisie?: string | null; enveloppe?: boolean | null; taux_horaire?: number | null }
+interface LigneEquipe { id: number; store_name: string; poste: string; categorie: Categorie; heures_hebdo: number; brut_mensuel: number; primes: unknown; entree: string | null; sortie: string | null; heures_saisie?: string | null; enveloppe?: boolean | null; taux_horaire?: number | null; hausses?: unknown }
 const versPersonne = (l: LigneEquipe): Personne => ({
   id: l.id, poste: l.poste, categorie: l.categorie, heuresHebdo: Number(l.heures_hebdo), brutMensuel: Number(l.brut_mensuel),
   primes: Array.isArray(l.primes) ? (l.primes as { mois: number; montant: number }[]).map((x) => ({ mois: Number(x.mois), montant: Number(x.montant) })) : [],
@@ -310,6 +310,8 @@ const versPersonne = (l: LigneEquipe): Personne => ({
   ...(l.heures_saisie === 'mois' ? { heuresSaisie: 'mois' as const } : {}),
   ...(l.enveloppe ? { enveloppe: true } : {}),
   ...(l.taux_horaire ? { tauxHoraire: Number(l.taux_horaire) } : {}),
+  // Lot 35, migration 0019 : hausses de salaire datées
+  ...(Array.isArray(l.hausses) && l.hausses.length ? { hausses: (l.hausses as { mois: string; taux: number }[]).map((h) => ({ mois: String(h.mois).slice(0, 7), taux: Number(h.taux) })) } : {}),
 })
 
 // Toutes les lignes d'une table, par pages : l'API renvoie au plus 1 000 lignes par appel
@@ -339,6 +341,7 @@ export async function enregistrerPersonne(magasin: string, p: Personne) {
     entree: p.entree ? `${p.entree}-01` : null, sortie: p.sortie ? `${p.sortie}-01` : null,
     heures_saisie: p.heuresSaisie ?? 'semaine', enveloppe: !!p.enveloppe,   // lot 26, migration 0015
     ...(p.tauxHoraire ? { taux_horaire: p.tauxHoraire } : {}),             // extras, migration 0017
+    hausses: p.hausses ?? [],                                              // lot 35, migration 0019
   }
   if (p.id) verifier(await pilotage().from('equipe').update(ligne).eq('id', p.id))
   else verifier(await pilotage().from('equipe').insert(ligne))
