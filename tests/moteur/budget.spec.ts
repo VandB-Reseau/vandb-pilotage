@@ -61,7 +61,7 @@ test('compte de résultat jusqu’à la trésorerie dégagée', () => {
   proche(b.resultatNet, 25_143)
   proche(b.capaciteAutofinancement, 49_143)
   proche(b.tresorerieDegagee, 19_143)
-  proche(b.ratios.personnelSurMarge, 216_000 / 367_300)
+  proche(b.ratios.pctFP, 216_000 / 640_000)       // % FP : 33,75 %
   proche(b.mois[0].productivite!, 48_000 / 880)
 })
 

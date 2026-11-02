@@ -65,15 +65,14 @@ test('réseau : indicateurs à date de chaque magasin et total pondéré par le 
   expect(la.panierBar).toBeNull()                  // pas de tickets au Bar
   proche(la.ticketsCave, 0.25)                     // 1 000 tickets / 800 l'an dernier − 1
   expect(la.ticketsBar).toBeNull()
-  // Marge de tout le CA : 40 000 × 16 000 / 37 000 = 640 000 / 37 ; équipe 6 000 €
-  proche(la.personnelSurMarge, 6_000 / (640_000 / 37))
-  // EBE : 640 000 / 37 − redevance et publicité 1 200 − loyer 2 000 − énergie 400 − équipe 6 000
+  proche(la.pctFP, 6_000 / 40_000)                // % FP : équipe 6 000 € sur 40 000 € de CA HT
+  // EBE : marge estimée 40 000 × 16 000 / 37 000 = 640 000 / 37 − redevance et publicité 1 200 − loyer 2 000 − énergie 400 − équipe 6 000
   proche(la.ebeSurCA, (640_000 / 37 - 9_600) / 40_000)
   // CA par heure (lot 28) : 35 h par semaine × 52 / 12 semaines par mois, 2 mois
   proche(la.caParHeure, 40_000 / (35 * 52 / 12 * 2))
 
   // Sans an dernier, budget, équipe ni frais : seuls CA et marge
-  expect(lb).toMatchObject({ ca: 20_000, evolution: null, ecartBudget: null, tauxMarge: 0.5, panierCave: null, ticketsCave: null, personnelSurMarge: null, caParHeure: null, ebeSurCA: null })
+  expect(lb).toMatchObject({ ca: 20_000, evolution: null, ecartBudget: null, tauxMarge: 0.5, panierCave: null, ticketsCave: null, pctFP: null, caParHeure: null, ebeSurCA: null })
   expect(lc.moisRealises).toBe(0)
 
   const t = totalReseau([la, lb, lc])
@@ -84,7 +83,7 @@ test('réseau : indicateurs à date de chaque magasin et total pondéré par le 
   proche(t.tauxMarge, 26_000 / 57_000)
   proche(t.panierCave, 21.6)
   proche(t.ticketsCave, 0.25)                      // seulement les magasins qui ont des tickets l'an dernier
-  proche(t.personnelSurMarge, la.personnelSurMarge!)
+  proche(t.pctFP, la.pctFP!)
   proche(t.ebeSurCA, la.ebeSurCA!)
   proche(t.caParHeure, la.caParHeure!)             // seulement les magasins dont l'équipe est connue
 })
