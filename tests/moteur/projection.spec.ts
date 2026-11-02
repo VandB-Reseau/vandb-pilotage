@@ -105,18 +105,21 @@ test('ajustements datés : client gagné en euros par mois, concurrent en part d
 
 test('trésorerie : Extérieur payé avant la vente, temps forts au mois saisi, opérations du réseau avancées', () => {
   const b = calculerBudget(sansEvolution, parametresParDefaut)
-  // Janvier : achats Cave et Bar de décembre (200 000 × 62 % + 300 000 × 25 %) × 10 %, Extérieur de février 100 000 × 60 % × 7,5 %
+  // Janvier : achats Cave et Bar de janvier (livrés et facturés en décembre, payés à 30 jours fin de mois), Extérieur de
+  // février 100 000 × 60 % × 7,5 %
   const p = paiementsAchats(b, tresorerieParDefaut)
-  proche(p[0], 19_900 + 4_500)
+  proche(p[0], b.mois[0].univers!.cave.achats + b.mois[0].univers!.bar.achats + 4_500)
+  // Sans avance de livraison : achats Cave et Bar de décembre (200 000 × 62 % + 300 000 × 25 %) × 10 %
+  proche(paiementsAchats(b, { ...tresorerieParDefaut, avanceLivraison: 0 })[0], 19_900 + 4_500)
   proche(somme(p), somme(b.mois.map((m) => m.achats)))
-  // Foire aux vins : la moitié des achats Cave et Bar de septembre (19 900) payée en juillet plutôt qu'en octobre
+  // Foire aux vins : la moitié des achats Cave et Bar de septembre (19 900) payée en juillet plutôt qu'en septembre
   const op = paiementsAchats(b, { ...tresorerieParDefaut, operations: [{ nom: 'Foire aux vins', mois: 9, moisPaiement: 7, part: 0.5 }] })
   proche(op[6] - p[6], 9_950)
-  proche(op[9] - p[9], -9_950)
+  proche(op[8] - p[8], -9_950)
   // Oktoberfest : 9 000 d'achats payés en mai, sortis du flux habituel de l'Extérieur
   const tf = calculerBudget({ ...sansEvolution, tempsForts: [oktoberfest] }, parametresParDefaut)
   const pt = paiementsAchats(tf, tresorerieParDefaut)
-  proche(pt[4], tf.mois[5].univers!.exterieur.achats - 9_000 + tf.mois[3].univers!.cave.achats + tf.mois[3].univers!.bar.achats + 9_000)
+  proche(pt[4], tf.mois[5].univers!.exterieur.achats - 9_000 + tf.mois[4].univers!.cave.achats + tf.mois[4].univers!.bar.achats + 9_000)
   // Sur l'année, la trésorerie varie toujours de la trésorerie dégagée
   const t = tresorerieBudget(tf, { ...sansEvolution, tempsForts: [oktoberfest] }, parametresParDefaut, tresorerieParDefaut, 10_000)
   proche(t.fin - 10_000, tf.tresorerieDegagee)

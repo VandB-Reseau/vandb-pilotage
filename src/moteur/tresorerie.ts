@@ -8,7 +8,10 @@ import { UNIVERS, type Budget, type Hypotheses, type Univers } from './types'
 // trésorerie de départ).
 
 export interface ParametresTresorerie {
-  delaiFournisseurs: number   // en mois : 1 = 30 jours fin de mois (achats de janvier payés fin février)
+  delaiFournisseurs: number   // en mois après la livraison : 1 = 30 jours fin de mois (livré en janvier, payé fin février)
+  // Livraison des marchandises Cave et Bar avant le mois de la vente, en mois (Joseph, 2/11/2026 : livré un mois avant,
+  // donc à 30 jours fin de mois on paie le mois où l'on vend le stock reçu). Absent des paramètres enregistrés avant : 1.
+  avanceLivraison?: number
   delaiRedevance: number      // redevance et publicité, facturées sur le CA du mois
   tvaVentes: number           // TVA moyenne sur le CA (alcool à 20 %, restauration à 10 %)
   tvaAchats: number           // TVA sur les achats de marchandises
@@ -37,6 +40,7 @@ export interface OperationReseau { nom: string; mois: number; moisPaiement: numb
 // Valeurs par défaut (lot 10, 28/10/2026), à confirmer par Joseph : pratiques courantes, modifiables dans Paramètres réseau
 export const tresorerieParDefaut: ParametresTresorerie = {
   delaiFournisseurs: 1,
+  avanceLivraison: 1,
   delaiRedevance: 1,
   tvaVentes: 0.19,
   tvaAchats: 0.2,
@@ -86,7 +90,7 @@ export interface Tresorerie {
 export interface BFR {
   stock: number               // achats HT de l'année × jours de stock ÷ 365
   consignes: number           // consignes versées, pas encore remboursées
-  fournisseurs: number        // achats TTC des derniers mois, payés l'an prochain (délai des fournisseurs)
+  fournisseurs: number        // achats TTC livrés (facturés) en fin d’année, payés l’an prochain (délai des fournisseurs)
   tva: number                 // TVA due, pas encore reversée (négative : crédit à recevoir)
   cotisations: number         // part du coût du personnel de décembre payée en janvier
   redevance: number           // redevance et publicité TTC pas encore payées
@@ -99,22 +103,43 @@ const somme = (l: number[]) => l.reduce((a, b) => a + b, 0)
 const decale = (l: number[], i: number, delai: number) => l[(((i - Math.round(delai)) % 12) + 12) % 12]
 const SANS_TVA = new Set(['banque_assurances', 'impots_taxes'])
 
+export const avanceLivraison = (t: ParametresTresorerie) => t.avanceLivraison ?? 1
+
+// Achats HT livrés chaque mois, qui portent la TVA déductible et la dette fournisseurs : Cave et Bar livrés avant le mois
+// de la vente (avance de livraison) ; Extérieur et temps forts au mois de la vente.
+export function livraisonsAchats(b: Budget, t: ParametresTresorerie): number[] {
+  const livraisons = Array(12).fill(0)
+  const livrer = (mois: number, montant: number) => { livraisons[((Math.round(mois) % 12) + 12) % 12] += montant }
+  const avance = avanceLivraison(t)
+  b.mois.forEach((m, j) => {
+    if (!m.univers) { livrer(j - avance, m.achats); return }
+    for (const u of UNIVERS) {
+      const courant = m.univers[u].achats - m.univers[u].achatsTempsForts
+      livrer(u === 'exterieur' ? j : j - avance, courant)
+      livrer(j, m.univers[u].achatsTempsForts)
+    }
+  })
+  return livraisons
+}
+
 // Achats HT payés chaque mois (mois de 0 à 11, régime établi : ce qui tombe hors de l'année revient au même mois).
-// Délai des fournisseurs, sauf l'Extérieur payé avant la vente ; temps forts au mois saisi sur leur ligne ; opérations du
-// réseau : la part avancée des achats Cave et Bar du mois de vente part au mois de paiement.
+// Cave et Bar : livrés avant la vente puis payés au délai des fournisseurs (livré un mois avant et payé à 30 jours fin de
+// mois : payé le mois de la vente) ; l'Extérieur payé avant la vente ; temps forts au mois saisi sur leur ligne ;
+// opérations du réseau : la part avancée des achats Cave et Bar du mois de vente part au mois de paiement.
 export function paiementsAchats(b: Budget, t: ParametresTresorerie): number[] {
   const paiements = Array(12).fill(0)
   const payer = (mois: number, montant: number) => { paiements[((Math.round(mois) % 12) + 12) % 12] += montant }
   const operations = (t.operations ?? []).filter((o) => o.mois >= 1 && o.mois <= 12 && o.moisPaiement >= 1 && o.moisPaiement <= 12 && o.part > 0)
+  const delai = t.delaiFournisseurs - avanceLivraison(t)
   b.mois.forEach((m, j) => {
-    if (!m.univers) { payer(j + t.delaiFournisseurs, m.achats); return }
+    if (!m.univers) { payer(j + delai, m.achats); return }
     // Opérations du réseau (en magasin : Cave et Bar) ; des parts qui dépassent 100 % sont ramenées à 100 %
     const ops = operations.filter((o) => o.mois === j + 1)
     const totalPart = somme(ops.map((o) => o.part)), echelle = totalPart > 1 ? 1 / totalPart : 1
     for (const u of UNIVERS) {
       const courant = m.univers[u].achats - m.univers[u].achatsTempsForts
       if (u === 'exterieur') { payer(j - (t.avanceExterieur ?? 0), courant); continue }
-      payer(j + t.delaiFournisseurs, courant * (1 - totalPart * echelle))
+      payer(j + delai, courant * (1 - totalPart * echelle))
       for (const o of ops) payer(o.moisPaiement - 1, courant * o.part * echelle)
     }
   })
@@ -125,6 +150,7 @@ export function paiementsAchats(b: Budget, t: ParametresTresorerie): number[] {
 export function tresorerieBudget(b: Budget, h: Hypotheses, p: { tauxRedevance: number; tauxPublicite: number }, t: ParametresTresorerie, debut = 0): Tresorerie {
   const ca = b.mois.map((m) => m.ca)
   const achats = b.mois.map((m) => m.achats)
+  const livraisons = livraisonsAchats(b, t)
   const paiements = paiementsAchats(b, t)
   const chargesTempsForts = b.mois.map((m) => m.autresChargesTempsForts ?? 0)
   const redevance = ca.map((c) => c * (p.tauxRedevance + p.tauxPublicite))
@@ -136,8 +162,8 @@ export function tresorerieBudget(b: Budget, h: Hypotheses, p: { tauxRedevance: n
   const moisTravaux = h.travaux?.investissement ? Math.max(0, h.travaux.activite?.findIndex((a) => a < 1) ?? 0) : -1
   const investissement = Array.from({ length: 12 }, (_, i) => (i === moisTravaux ? Math.max(0, h.travaux!.investissement) : 0))
 
-  // TVA due au titre de chaque mois : collectée sur les ventes, déduite sur les achats, les frais et les travaux du mois
-  const tvaDue = ca.map((c, i) => c * t.tvaVentes - achats[i] * t.tvaAchats - (redevance[i] + fraisAvecTva[i] + chargesTempsForts[i] + investissement[i]) * t.tvaFrais)
+  // TVA due au titre de chaque mois : collectée sur les ventes, déduite sur les achats livrés, les frais et les travaux du mois
+  const tvaDue = ca.map((c, i) => c * t.tvaVentes - livraisons[i] * t.tvaAchats - (redevance[i] + fraisAvecTva[i] + chargesTempsForts[i] + investissement[i]) * t.tvaFrais)
   const tvaPayee = (i: number) => {
     if (!t.tvaTrimestrielle) return decale(tvaDue, i, 1)
     // Trimestre payé le mois suivant sa fin : avril, juillet, octobre, janvier
@@ -178,7 +204,7 @@ export function tresorerieBudget(b: Budget, h: Hypotheses, p: { tauxRedevance: n
   const derniers = (l: number[], n: number) => somme(l.slice(12 - Math.max(0, Math.min(12, Math.round(n)))))
   const stock = somme(achats) * (t.stockJours ?? 0) / 365
   const consignes = mois[11].consignesEnAttente
-  const fournisseurs = derniers(achats, t.delaiFournisseurs) * (1 + t.tvaAchats)
+  const fournisseurs = derniers(livraisons, t.delaiFournisseurs) * (1 + t.tvaAchats)
   const tva = derniers(tvaDue, t.tvaTrimestrielle ? 3 : 1)
   const cotisations = personnel[11] * t.partCotisations
   const redevanceDue = derniers(redevance, t.delaiRedevance) * (1 + t.tvaFrais)
