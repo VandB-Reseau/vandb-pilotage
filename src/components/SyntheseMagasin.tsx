@@ -30,11 +30,13 @@ import { cumul, cumulApres, santeMagasin } from '../moteur/sante'
 import { moisDuReel, suiviBudget } from '../moteur/suivi'
 import type { ParametresReseau } from '../moteur/types'
 import { brand } from '../theme/theme'
+import { ecartExplique } from '../moteur/ecartExplique'
+import { EcartExpliqueCarte } from './EcartExpliqueCarte'
 
 // Santé du magasin en un coup d'œil : cumul de l'année face au budget de l'année (lot 27) et à l'an dernier, marge,
 // masse salariale, résultat attendu ; CA cumulé ou mois par mois. Lot 30 (E2) : trois blocs, où on en est (les chiffres),
 // quoi faire (À faire, alertes, plan d'action) et, replié, pour aller plus loin (graphique, leviers, face au réseau)
-export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteEtActions, proposerAction, quoiFaire, plusLoin }: {
+export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteEtActions, proposerAction, quoiFaire, plusLoin, conclusion, detail }: {
   magasin: string
   d: DonneesBudgets
   annee: number
@@ -44,6 +46,8 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteE
   proposerAction?: (intitule: string) => void   // leviers commerciaux → plan d'action (lot 28)
   quoiFaire?: ReactNode
   plusLoin?: ReactNode                          // face au réseau, familles : seulement pour le siège
+  conclusion?: ReactNode                        // lot 41 : la phrase du suivi face au budget, en tête
+  detail?: ReactNode                            // lot 41 : graphique et mois par mois face au budget, comptes du quadrimestre
 }) {
   const { donnees, erreur, chargement, recharger } = useChargement(
     () => Promise.all([chargerReel(magasin, annee), chargerReel(magasin, annee - 1), chargerSecours(magasin, annee), chargerBudgets(annee).catch(() => null)])
@@ -69,6 +73,7 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteE
           action={<Button variant="contained" onClick={() => allerA('reel')} sx={{ minHeight: 48 }}>Voir le réel</Button>}
         />
         {quoiFaire}
+        {detail}
         {plusLoin && <PlusLoin contenu="(face au réseau)">{plusLoin}</PlusLoin>}
       </Stack>
     )
@@ -106,6 +111,7 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteE
     { libelle: 'Tickets', reel: ticketsN, reference: ticketsN1, nomReference: `à ${annee - 1}`, format: (v) => enChiffres(Math.round(v)) },
   ]
   const finAtterri = cumulApres(s.serieN, s.projection)[11]
+  const explique = suivi && budgetN ? ecartExplique(donnees.n.lignes, donnees.n.tickets, budgetN, suivi) : null
   return (
     <Stack spacing={3}>
       {(visiteEtActions || budgetN) && (
@@ -122,6 +128,7 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteE
           )}
         </Box>
       )}
+      {conclusion}
       <Box component="section" aria-label={`Santé du magasin à fin ${finMois}`} sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' } }}>
         <Indicateur
           libelle={`CA HT à fin ${finMois}`} aide="caCumule" valeur={milliers(s.caCumule)} serie={s.serieN}
@@ -154,9 +161,13 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteE
         </Alert>
       ))}
 
+      {explique && <EcartExpliqueCarte e={explique} />}
+
       <LignesTendance titre={`Tendance ${annee} à fin ${finMois}`} lignes={lignesTendance} seuil={seuil} />
 
       {quoiFaire}
+
+      {detail}
 
       <PlusLoin contenu={contenu}>
       <Card component="section" aria-label={`Chiffre d’affaires ${annee}`} sx={{ p: { xs: 2, md: 3 } }}>

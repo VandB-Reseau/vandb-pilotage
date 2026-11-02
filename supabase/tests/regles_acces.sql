@@ -43,7 +43,7 @@ INSERT INTO pilotage.reel_mensuel (store_name, mois, univers, famille, ca_ht) VA
 SELECT pg_temp.attendre('Directeur : tous les magasins', (SELECT cardinality(pilotage.mes_magasins())), 3);
 SELECT pg_temp.attendre('Directeur : tous les budgets', (SELECT count(*) FROM pilotage.budgets), 3);
 SELECT pg_temp.attendre('Directeur : tableau des magasins', (SELECT jsonb_array_length(pilotage.magasins_du_compte(2027))), 3);
-SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 21);
+SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 22);
 -- Frais : le Directeur saisit partout
 INSERT INTO pilotage.frais (store_name, code, libelle, rubrique, annuel) VALUES ('Lille', 'loyer', 'Locations immobilières', 'immobilier', 60000), ('Nice', 'loyer', 'Locations immobilières', 'immobilier', 40000);
 SELECT pg_temp.attendre('Directeur : tous les frais', (SELECT count(*) FROM pilotage.frais), 2);
@@ -100,6 +100,12 @@ SELECT pg_temp.attendre('Directeur : pose la base des magasins', (SELECT count(*
 SELECT pg_temp.attendre('Directeur : une version par création et par changement de base', (SELECT count(*) FROM pilotage.versions_budget), 6);
 WITH m AS (UPDATE pilotage.budgets SET hypotheses = hypotheses RETURNING 1) SELECT count(*) FROM m;
 SELECT pg_temp.attendre('Directeur : pas de version sans changement de statut, de base ou d''ajustements', (SELECT count(*) FROM pilotage.versions_budget), 6);
+-- Lot 41 (0022) : la position du siège suit les ajustements écrits par le Directeur
+SELECT pg_temp.attendre('Directeur : position du siège posée à la création', (SELECT count(*) FROM pilotage.budgets WHERE ajustements_siege = '{}'::jsonb), 3);
+WITH m AS (UPDATE pilotage.budgets SET ajustements = '{"inflationFrais":0.01}' WHERE store_name = 'Nice' RETURNING ajustements_siege)
+SELECT pg_temp.attendre('Directeur : ses ajustements deviennent la position du siège', (SELECT count(*) FROM m WHERE ajustements_siege = '{"inflationFrais":0.01}'::jsonb), 1);
+WITH m AS (UPDATE pilotage.budgets SET ajustements_siege = '{"x":1}', envoye_le = now() WHERE store_name = 'Nice' RETURNING ajustements_siege, envoye_le)
+SELECT pg_temp.attendre('Directeur : n''écrit ni la position du siège à la main ni la date d''envoi', (SELECT count(*) FROM m WHERE ajustements_siege = '{"inflationFrais":0.01}'::jsonb AND envoye_le IS NULL), 1);
 SELECT pg_temp.attendre('Directeur : n''écrit pas de version à la main', pg_temp.refuse('INSERT INTO pilotage.versions_budget (store_name, annee, statut) VALUES (''Lille'', 2027, ''valide'')'), 1);
 INSERT INTO pilotage.echanges_budget (store_name, annee, sujet, texte, auteur_role, auteur_nom) VALUES
   ('Lille', 2027, 'ca', 'Proposition : +3 % sur la Cave.', 'franchise', 'Usurpé'), ('Nice', 2027, 'general', 'Budget proposé.', NULL, NULL);
@@ -280,11 +286,11 @@ SELECT pg_temp.attendre('Franchisé : ne touche pas aux quadrimestres d''un autr
 SELECT pg_temp.attendre('Franchisé : pas les frais d''un autre magasin', pg_temp.refuse('INSERT INTO pilotage.frais (store_name, code, libelle, rubrique, annuel) VALUES (''Nice'', ''cfe'', ''CFE'', ''impots_taxes'', 1)'), 1);
 SELECT pg_temp.attendre('Franchisé : ne lit pas les codes caisse', (SELECT count(*) FROM pilotage.codes_caisse), 0);
 WITH m AS (UPDATE pilotage.budgets SET hypotheses = '{"v":2}' WHERE store_name = 'Lille' RETURNING statut)
-SELECT pg_temp.attendre('Franchisé : sa modification met le budget en discussion', (SELECT count(*) FROM m WHERE statut = 'en_discussion'), 1);
+SELECT pg_temp.attendre('Franchisé : enregistrer garde le budget proposé (lot 41)', (SELECT count(*) FROM m WHERE statut = 'propose'), 1);
 SELECT pg_temp.attendre('Franchisé : ne valide pas', (SELECT count(*) FROM pilotage.budgets WHERE statut = 'valide'), 0);
 SELECT pg_temp.attendre('Franchisé : ne change pas la proposition', pg_temp.refuse('UPDATE pilotage.budgets SET proposition = ''{"v":9}'' WHERE store_name = ''Lille'''), 1);
 WITH m AS (UPDATE pilotage.budgets SET statut = 'valide', parametres = '{"tauxRedevance":0}' WHERE store_name = 'Lille' RETURNING statut, parametres)
-SELECT pg_temp.attendre('Franchisé : « valide » redevient « en discussion », sans paramètres figés', (SELECT count(*) FROM m WHERE statut = 'en_discussion' AND parametres IS NULL), 1);
+SELECT pg_temp.attendre('Franchisé : « valide » ne passe pas, sans paramètres figés', (SELECT count(*) FROM m WHERE statut = 'propose' AND parametres IS NULL), 1);
 WITH m AS (UPDATE pilotage.budgets SET hypotheses = '{}' WHERE store_name = 'Nice' RETURNING 1)
 SELECT pg_temp.attendre('Franchisé : rien sur un autre magasin', (SELECT count(*) FROM m), 0);
 SELECT pg_temp.attendre('Franchisé : ne crée pas de budget', pg_temp.refuse('INSERT INTO pilotage.budgets (store_name, annee, proposition, hypotheses) VALUES (''Lille'', 2028, ''{}'', ''{}'')'), 1);
@@ -296,8 +302,12 @@ SELECT pg_temp.attendre('Franchisé : ne lit pas les cibles directement', (SELEC
 SELECT pg_temp.attendre('Franchisé : reçoit les cibles du réseau avec son budget', (SELECT count(*) FROM (SELECT pilotage.budgets_du_compte(2027)->'reseau' AS r) x WHERE r IS NOT NULL AND r <> 'null'::jsonb), 1);
 SELECT pg_temp.attendre('Franchisé : seulement le groupe de son magasin', (SELECT jsonb_array_length(pilotage.budgets_du_compte(2027)->'groupes')), 1);
 SELECT pg_temp.attendre('Franchisé : ne change pas la base', pg_temp.refuse('UPDATE pilotage.budgets SET base = ''{"b":9}'' WHERE store_name = ''Lille'''), 1);
-WITH m AS (UPDATE pilotage.budgets SET ajustements = '{"hausseSalaires":0.01}' WHERE store_name = 'Lille' RETURNING statut)
-SELECT pg_temp.attendre('Franchisé : ses ajustements mettent le budget en discussion', (SELECT count(*) FROM m WHERE statut = 'en_discussion'), 1);
+WITH m AS (UPDATE pilotage.budgets SET ajustements = '{"hausseSalaires":0.01}', ajustements_siege = '{"hausseSalaires":0.01}' WHERE store_name = 'Lille' RETURNING statut, ajustements_siege)
+SELECT pg_temp.attendre('Franchisé : ses ajustements gardent le budget proposé, la position du siège ne bouge pas', (SELECT count(*) FROM m WHERE statut = 'propose' AND ajustements_siege = '{}'::jsonb), 1);
+WITH m AS (UPDATE pilotage.budgets SET statut = 'en_discussion', envoye_le = '2000-01-01' WHERE store_name = 'Lille' RETURNING statut, envoye_le)
+SELECT pg_temp.attendre('Franchisé : l''envoi au siège met en discussion, daté par la base', (SELECT count(*) FROM m WHERE statut = 'en_discussion' AND envoye_le > now() - interval '1 minute'), 1);
+WITH m AS (UPDATE pilotage.budgets SET statut = 'propose', ajustements = '{"hausseSalaires":0.02}' WHERE store_name = 'Lille' RETURNING statut)
+SELECT pg_temp.attendre('Franchisé : ne remet pas le budget au statut proposé', (SELECT count(*) FROM m WHERE statut = 'en_discussion'), 1);
 SELECT pg_temp.attendre('Franchisé : sa version tracée à son nom', (SELECT count(*) FROM pilotage.versions_budget WHERE auteur_role = 'franchise' AND auteur_nom = 'Franchisé Test' AND statut = 'en_discussion'), 2);
 SELECT pg_temp.attendre('Franchisé : versions de son magasin seulement', (SELECT count(*) FROM pilotage.versions_budget WHERE store_name <> 'Lille'), 0);
 SELECT pg_temp.attendre('Franchisé : échanges de son magasin seulement', (SELECT count(*) FROM pilotage.echanges_budget WHERE store_name <> 'Lille'), 0);

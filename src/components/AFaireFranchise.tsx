@@ -23,7 +23,7 @@ const tache = (t: TacheFranchise): { texte: string; action: string; onglet: stri
     case 'reel': return { texte: `Réel de ${MOIS_LONGS[t.mois]} à saisir`, action: 'Saisir', onglet: 'reel', icone: <EventBusyOutlined /> }
     case 'quadrimestre': return { texte: `Quadrimestre ${quadrimestreLibelle[t.quadrimestre].toLowerCase()} ${t.annee} à saisir`, action: 'Saisir', onglet: 'quadrimestres', annee: t.annee, icone: <ReceiptLongOutlined /> }
     case 'budget': return {
-      texte: `${t.statut === 'propose' ? `Budget ${t.annee} proposé par le siège, à relire` : `Budget ${t.annee} en discussion`}${t.avant ? ` : à valider avant le ${jour(t.avant)}` : ''}`,
+      texte: `${t.statut === 'propose' ? `Budget ${t.annee} proposé par le siège, à relire puis à envoyer au siège` : `Budget ${t.annee} envoyé au siège, en discussion`}${t.avant ? ` : à valider avant le ${jour(t.avant)}` : ''}`,
       action: 'Voir', onglet: 'budget', icone: <RequestQuoteOutlined />,
     }
     case 'equipe': return { texte: 'Équipe à renseigner', action: 'Renseigner', onglet: 'equipe', icone: <GroupsOutlined /> }

@@ -55,7 +55,7 @@ test('budget : trésorerie mois par mois, le franchisé saisit sa trésorerie de
   await section.screenshot({ path: `captures/${info.project.name}-tresorerie.png` })
 
   await page.getByRole('button', { name: 'Enregistrer les ajustements' }).click()
-  await expect(page.getByText('Ajustements enregistrés : le budget est en discussion avec le siège.')).toBeVisible()
+  await expect(page.getByText('Ajustements enregistrés. Envoie-les au siège quand ils sont prêts (étape 3).')).toBeVisible()
   const envoi = ecritures.find((e) => e.table === 'budgets' && e.methode === 'PATCH')?.corps as { ajustements: Record<string, unknown> }
   expect(envoi.ajustements.tresorerieDepart).toBe(20_000)
 })

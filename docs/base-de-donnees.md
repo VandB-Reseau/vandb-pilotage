@@ -4,7 +4,7 @@ Même base Supabase que l'app réseau. Le pilotage n'écrit que dans le schéma 
 fonctions (`mon_role()`, `est_directeur()`, `magasins_visibles()`, `mes_magasins()`, `json_sur()`) et ses tables `perimetre_equipe`
 et `app_config` (lue seulement : fiche des Responsables Régionaux, clé `drs_data`).
 
-Mis à jour le 02/11/2026 (migration `0021`).
+Mis à jour le 02/11/2026 (migration `0022`).
 
 ## Principes
 
@@ -21,7 +21,7 @@ Mis à jour le 02/11/2026 (migration `0021`).
 | `parametres_reseau` | Paramètres de l'année : `valeur` jsonb (`tauxRedevance`, `tauxPublicite`, `impot`, `tvaPanier`, `charges` : taux de charges patronales par catégorie et paramètres de la réduction générale ; `tresorerie` : délais de paiement en mois (`delaiFournisseurs` compté après la livraison), `avanceLivraison` (mois de livraison et de facturation des marchandises Cave et Bar avant la vente ; 1 si absente), TVA des ventes, des achats et des frais, `tvaTrimestrielle`, `partCotisations`, `consignes` : part des achats par univers, `ecoulement` et `remboursement` en mois, `demarque` (part des consignes jamais remboursée, en charge externe du budget ; 0 si absente), `avanceExterieur` (mois d'avance des achats Extérieur sur la vente), `operations` (`[{nom, mois, moisPaiement, part}]` : opérations du réseau dont une part des achats Cave et Bar du mois est payée à un autre mois) ; `alertes` : seuils `ecartCA`, `baisseMarge` en points, `moisRetard`, `tresorerie` en euros) | `annee` | Comptes ouverts, et le contrôle de gestion (0021) | Directeur et contrôle de gestion (0021) ; chaque changement est journalisé |
 | `controle_gestion` | Comptes du contrôle de gestion désignés par le Directeur (0021) : `user_id` (compte de connexion), `email`, `ajoute_le`, `ajoute_par`. Avec le Directeur, ils modifient les paramètres réseau, même sans rôle dans l'app réseau | `user_id` | Directeur et contrôle de gestion | Ajout : Directeur par `ajouter_controle_gestion`. Retrait : Directeur |
 | `journal_parametres` | Journal des paramètres réseau (0021) : une ligne par rubrique de `parametres_reseau.valeur` modifiée (`annee`, `rubrique`, `avant`, `apres`, `par`, `par_email`, `le`) | `id` | Directeur, contrôle de gestion, RR | Déclencheur `journal_parametres` seul |
-| `budgets` | Budget d'un magasin pour une année : `statut` (`propose`, `en_discussion`, `valide`), `base` (réalisé importé du prévisionnel), `ajustements` (écarts du magasin aux cibles, format `Cibles`, dont saisonnalité, travaux, `tresorerieDepart` et `fraisBudget` : frais du budget ligne par ligne, même montant, hausse en % ou nouveau montant), `proposition` (base proposée par le siège), `hypotheses` (hypothèses calculées au dernier enregistrement, figées à la validation), `valide_le`, `parametres` (copie des paramètres réseau de l'année faite à la validation, vide hors budget validé, 0020) | `store_name`, `annee` | Magasins du compte | Création et suppression : Directeur. Modification : Directeur, RR (validation et réouverture seulement, 0018) et franchisé sur leurs magasins |
+| `budgets` | Budget d'un magasin pour une année : `statut` (`propose`, `en_discussion`, `valide`), `base` (réalisé importé du prévisionnel), `ajustements` (écarts du magasin aux cibles, format `Cibles`, dont saisonnalité, travaux, `tresorerieDepart` et `fraisBudget` : frais du budget ligne par ligne, même montant, hausse en % ou nouveau montant), `proposition` (base proposée par le siège), `hypotheses` (hypothèses calculées au dernier enregistrement, figées à la validation), `valide_le`, `ajustements_siege` (0022 : photo des `ajustements` écrite par le Directeur, la position du siège face à laquelle se lisent les changements du magasin), `envoye_le` (0022 : date du dernier envoi au siège par le franchisé), `parametres` (copie des paramètres réseau de l'année faite à la validation, vide hors budget validé, 0020) | `store_name`, `annee` | Magasins du compte | Création et suppression : Directeur. Modification : Directeur, RR (validation et réouverture seulement, 0018) et franchisé sur leurs magasins |
 | `reel_mensuel` | Réel par mois (1er du mois), univers (`cave`, `bar`, `exterieur`) et famille : `ca_ht`, `ca_ttc`, `marge_ht` (marge théorique de la caisse), `maj_par`. La colonne `tickets` de `0001` n'est plus utilisée (voir `reel_tickets`) | `store_name`, `mois`, `univers`, `famille` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
 | `reel_tickets` | Tickets par mois et univers (un ticket ne se compte pas par famille) : `tickets`, `maj_par` | `store_name`, `mois`, `univers` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
 | `codes_caisse` | Code magasin de la caisse (fichiers de la DSI) → nom du magasin, un code par magasin | `code` | Équipe | Directeur |
@@ -44,10 +44,14 @@ Mis à jour le 02/11/2026 (migration `0021`).
 ## Circuit du budget (déclencheur `garde_budget`)
 
 - Le Directeur crée le budget (proposition du siège) et peut tout modifier ; passer en `valide` date `valide_le`.
-- Un franchisé modifie les `hypotheses` de ses magasins : le budget passe `en_discussion`. Il ne touche ni à la
-  `proposition`, ni au statut `valide`, ni à un budget déjà validé.
-- Un franchisé modifie les `ajustements` de ses magasins (même effet) ; la `base` n'est modifiable que par le Directeur
-  (déclencheur `garde_base`, distinct pour que rejouer `0001` seule ne le retire pas).
+- Un franchisé modifie les `hypotheses` et les `ajustements` de ses magasins sans changer le statut (0022). Il passe
+  le budget `en_discussion` en l'envoyant au siège : `statut` `en_discussion` avec `envoye_le` changé ; la base date
+  alors `envoye_le` elle-même. Il ne touche ni à la `proposition`, ni au statut `valide`, ni à un budget déjà validé,
+  ni à `ajustements_siege`. La `base` n'est modifiable que par le Directeur (déclencheur `garde_base`, distinct pour
+  que rejouer `0001` seule ne le retire pas).
+- Position du siège (0022) : à la création et à chaque écriture des `ajustements` par le Directeur, la base copie les
+  `ajustements` dans `ajustements_siege`. Personne ne l'écrit soi-même. Au passage de 0022, les budgets existants ont
+  reçu les ajustements de la dernière version écrite par le Directeur, à défaut leurs ajustements du moment.
 - Le RR valide un budget proposé ou en discussion de ses magasins, ou rouvre un budget validé (0018). Il ne change
   que le `statut` et, à la validation, la photo des `hypotheses` ; ni `proposition`, ni `base`, ni `ajustements`.
   Il ne crée ni ne supprime de budget.
@@ -76,7 +80,7 @@ Mis à jour le 02/11/2026 (migration `0021`).
 | `pilotage.peut_parametrer()` | Vrai pour le Directeur et les comptes du contrôle de gestion : modifient les paramètres réseau (0021) |
 | `pilotage.mes_droits()` | `{ parametrer, controle_gestion }` : droits du compte propres au pilotage, lus par l'app à la connexion (0021) |
 | `pilotage.ajouter_controle_gestion(email)` | Directeur seul : désigne un compte de connexion existant comme contrôle de gestion ; faux si aucun compte n'a cet email (0021) |
-| `pilotage.budgets_du_compte(annee)` | `{ magasins, reseau, groupes }` : budgets du compte (base, ajustements, hypothèses, groupe, paramètres figés depuis 0020), cibles du réseau, groupes utiles au compte avec leurs cibles |
+| `pilotage.budgets_du_compte(annee)` | `{ magasins, reseau, groupes }` : budgets du compte (base, ajustements, hypothèses, groupe, paramètres figés depuis 0020, position du siège et date d’envoi depuis 0022), cibles du réseau, groupes utiles au compte avec leurs cibles |
 
 ## Rejouer les migrations
 

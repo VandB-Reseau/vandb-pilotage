@@ -33,19 +33,22 @@ import { CaseReelPrevu, COULEUR_BARRE, EnTeteMois, LegendePastilles } from './Ta
 // « Où on va », l'atterrissage dit déjà qu'il n'y a pas de réel.
 // Refonte visuelle (2/11/2026) : jauges sur les chiffres clés (R4), barres du réel dans le contour du budget avec l'an
 // dernier en trait (R1) ou trajectoire cumulée jusqu'à l'atterrissage (R2), tableau à cases réel / prévu (T1, T2).
-export function SuiviBudget({ magasin, annee, allerA, muetSansReel }: { magasin: string; annee: number; allerA: (onglet: string) => void; muetSansReel?: boolean }) {
+// Lot 41 (proposition 5) : dans « Où en est le magasin », la conclusion se lit en haut (vue « conclusion ») et le
+// graphique avec le détail mois par mois plus bas (vue « detail ») ; sans budget à suivre, le détail le dit, la conclusion se tait.
+export function SuiviBudget({ magasin, annee, allerA, muetSansReel, vue: partie = 'complet' }: { magasin: string; annee: number; allerA: (onglet: string) => void; muetSansReel?: boolean; vue?: 'complet' | 'conclusion' | 'detail' }) {
   const { donnees, erreur, chargement, recharger } = useChargement(
     () => Promise.all([chargerBudgets(annee), chargerParametres(annee), chargerReel(magasin, annee), chargerReel(magasin, annee - 1), chargerSecours(magasin, annee).catch(() => undefined)])
       .then(([d, p, reel, reelN1, secours]) => ({ d, parametres: p.parametres, reel, reelN1, secours })),
     [magasin, annee])
   const [vue, setVue] = usePreference<'mois' | 'cumul'>('suivi', 'mois', ['mois', 'cumul'])
 
-  if (chargement && !donnees) return <Skeleton variant="rounded" height={320} />
-  if (erreur || !donnees) return <Panne quoi={`Le suivi du budget ${annee}`} recharger={recharger} />
+  if (chargement && !donnees) return partie === 'complet' ? <Skeleton variant="rounded" height={320} /> : null
+  if (erreur || !donnees) return partie === 'conclusion' ? null : <Panne quoi={`Le suivi du budget ${annee}`} recharger={recharger} />
 
   const ligne = donnees.d.magasins.find((l) => l.magasin === magasin)
   const h = ligne?.statut ? hypothesesDe(ligne, donnees.d) : null
   if (!ligne || !h) {
+    if (partie === 'conclusion') return null
     return (
       <EtatVide
         titre={`Pas de budget ${annee} à suivre`}
@@ -56,7 +59,7 @@ export function SuiviBudget({ magasin, annee, allerA, muetSansReel }: { magasin:
   const b = calculerBudget(h.hypotheses, parametresDuBudget(ligne, donnees.parametres))
   const s = suiviBudget(moisDuReel(donnees.reel.lignes, donnees.reel.tickets), b)
   if (s.moisRealises === 0) {
-    if (muetSansReel) return null
+    if (muetSansReel || partie !== 'complet') return null
     return (
       <EtatVide
         titre={`Pas encore de réel ${annee}`}
@@ -87,13 +90,17 @@ export function SuiviBudget({ magasin, annee, allerA, muetSansReel }: { magasin:
       : `Sur la marge, le CA pèse le plus : ${ecartMilliers(effets.effetCA)}, contre ${ecartMilliers(effets.effetTaux)} pour le taux.`,
   ].join('').trim()
 
+  const phrase = (
+    <Box component="p" aria-label="Conclusion" sx={{ m: 0, pl: 2, py: 0.5, borderLeft: 4, borderColor: totalMarge < 0 || c.ecartCA < 0 ? 'error.main' : 'success.main', fontSize: '1.0625rem', fontWeight: 700, maxWidth: '80ch' }}>
+      {conclusion}
+    </Box>
+  )
+  if (partie === 'conclusion') return phrase
   return (
-    <Stack spacing={3}>
+    <Stack spacing={3} id={partie === 'detail' ? 'partie-suivi' : undefined} sx={{ scrollMarginTop: 80 }}>
       {/* Lot 38 (D3) : la conclusion d'abord, calculée par le moteur ; le détail mois par mois est replié */}
-      <Box component="p" aria-label="Conclusion" sx={{ m: 0, pl: 2, py: 0.5, borderLeft: 4, borderColor: totalMarge < 0 || c.ecartCA < 0 ? 'error.main' : 'success.main', fontSize: '1.0625rem', fontWeight: 700, maxWidth: '80ch' }}>
-        {conclusion}
-      </Box>
-      <Box component="section" aria-label={`Réel face au budget à fin ${finMois}`} sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(3, 1fr)' } }}>
+      {partie === 'complet' && phrase}
+      {partie === 'complet' && <Box component="section" aria-label={`Réel face au budget à fin ${finMois}`} sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(3, 1fr)' } }}>
         <Indicateur
           libelle={`CA HT à fin ${finMois}`} aide="caCumule" valeur={milliers(c.caReel)}
           ecart={c.ecartCAPart === null ? undefined : { texte: `${ecartTaux(c.ecartCAPart)} sur le budget`, hausse: c.ecartCAPart >= 0, favorable: c.ecartCAPart >= 0 }}
@@ -110,9 +117,10 @@ export function SuiviBudget({ magasin, annee, allerA, muetSansReel }: { magasin:
           libelle="Écart de marge" aide="ecartBudget" valeur={c.ecartMarge === null ? 'Non connu' : ecartMilliers(c.ecartMarge)}
           detail={c.ecartMarge === null ? 'Marge absente des chiffres de caisse' : `Budget des mêmes mois : ${milliers(c.margeBudget)}`}
         />
-      </Box>
+      </Box>}
 
-      <Card component="section" aria-label={`Réel et budget ${annee}, graphique`} sx={{ p: { xs: 2, md: 3 } }}>
+      {/* Lot 41 : sur « Où en est le magasin », le graphique est celui de la synthèse ; le détail garde le tableau */}
+      {partie === 'complet' && <Card component="section" aria-label={`Réel et budget ${annee}, graphique`} sx={{ p: { xs: 2, md: 3 } }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', mb: 2 }}>
           <Typography variant="h2" sx={{ flex: 1, minWidth: 200 }}>Chiffre d’affaires {annee} face au budget</Typography>
           <ToggleButtonGroup exclusive size="small" value={vue} onChange={(_, v: 'mois' | 'cumul' | null) => v && setVue(v)} aria-label="Affichage du suivi" className="pas-a-l-impression">
@@ -142,7 +150,7 @@ export function SuiviBudget({ magasin, annee, allerA, muetSansReel }: { magasin:
             ]}
           />
         )}
-      </Card>
+      </Card>}
 
       <Repliable titre="Mois par mois" nom={`Réel et budget ${annee} mois par mois`} droite={<LegendePastilles seuil={seuil} />}>
         <TableContainer>

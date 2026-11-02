@@ -27,9 +27,9 @@ export function partiesDe(espace: Espace, annee: number = new Date().getFullYear
       { cle: 'echanges', libelle: '3 · Échanges et validation' },
     ]
   }
+  // Lot 41 (proposition 5) : Synthèse et Face au budget ne font plus qu'une page
   return [
-    { cle: 'synthese', libelle: 'Synthèse' },
-    { cle: 'suivi', libelle: 'Face au budget' },
+    { cle: 'synthese', libelle: 'Où en est le magasin' },
     { cle: 'tresorerie', libelle: 'Trésorerie' },
   ]
 }
@@ -51,7 +51,7 @@ export const etapeDe = (cle: string) => (estTheme(cle) ? 'budget' : cle)
 export const PARTIE_PAR_DEFAUT: Record<Espace, string> = { donnees: 'reel', budget: 'depart', suivi: 'synthese' }
 
 // Anciennes clés (liens, alertes, « à faire ») : la partie qui les montre désormais, et la section où défiler
-const ANCIENNES: Record<string, string> = { atterrissage: 'depart', plan: 'synthese' }
+const ANCIENNES: Record<string, string> = { atterrissage: 'depart', plan: 'synthese', suivi: 'synthese' }
 export const partieDe = (cle: string) => ANCIENNES[cle] ?? cle
 export const sectionDe = (cle: string) => (ANCIENNES[cle] && cle !== 'atterrissage' ? cle : null)
 
@@ -61,7 +61,7 @@ export function espaceDe(cle: string): Espace {
   const p = partieDe(cle)
   return DONNEES.includes(p) ? 'donnees' : BUDGET.includes(p) ? 'budget' : 'suivi'
 }
-export const partieConnue = (cle: string) => [...DONNEES, ...BUDGET, 'synthese', 'suivi', 'tresorerie'].includes(partieDe(cle))
+export const partieConnue = (cle: string) => [...DONNEES, ...BUDGET, 'synthese', 'tresorerie'].includes(partieDe(cle))
 
 // Pages du réseau : l'espace auquel elles appartiennent (les paramètres n'en changent pas)
 export function espaceDePage(chemin: string): Espace | null {

@@ -13,6 +13,8 @@ export interface MagasinSimule {
   ajustements?: Record<string, unknown>
   groupe_id?: number | null
   parametres?: Record<string, unknown> | null // paramètres figés à la validation (lot 38)
+  ajustements_siege?: Record<string, unknown> | null // lot 41 : position du siège (0022)
+  envoye_le?: string | null
 }
 export type QuadrimestreSimule = { store_name: string; annee: number; quadrimestre: number; achats: number | null; variation_stock: number | null; charges_externes: number | null; impots_taxes: number | null; personnel: number | null; tresorerie: number | null }
 export type PartSimulee = { store_name: string; annee: number; univers: string; part: number }
@@ -167,8 +169,16 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
       const m = magasins.find((x) => x.magasin === nom)
       if (table === 'budgets' && m) {
         const c = corps as Record<string, unknown>
+        const creation = !m.statut && 'base' in c
         Object.assign(m, { ...('base' in c ? { base: c.base } : {}), ...('ajustements' in c ? { ajustements: c.ajustements } : {}), ...('hypotheses' in c ? { hypotheses: c.hypotheses } : {}) })
-        m.statut = (c.statut as MagasinSimule['statut']) ?? (options.role === 'franchise' ? 'en_discussion' : m.statut)
+        // Comme garde_budget (0022) : le franchisé enregistre sans changer le statut, l'envoi le met en discussion ;
+        // la position du siège suit les ajustements écrits par le Directeur
+        if (options.role === 'franchise') {
+          if (c.statut === 'en_discussion' && 'envoye_le' in c) { m.statut = 'en_discussion'; m.envoye_le = '2026-11-03T09:00:00Z' }
+        } else {
+          m.statut = (c.statut as MagasinSimule['statut']) ?? m.statut
+          if ((options.role ?? 'directeur') === 'directeur' && ('ajustements' in c || creation)) m.ajustements_siege = structuredClone(m.ajustements ?? {})
+        }
         m.maj_le = '2026-10-26T22:00:00Z'
       }
       if (table === 'cibles_reseau') reseau = (corps as { valeur: Record<string, unknown> }).valeur
@@ -352,12 +362,13 @@ export async function zonesTropPetites(page: Page, min = 48): Promise<string[]> 
 const PARTIES: [string, { espace: string; libelle: RegExp; theme?: string }][] = [
   ['Réel', { espace: 'Données', libelle: /^Réel du mois/ }],
   ['Quadrimestres', { espace: 'Données', libelle: /^Comptes du quadrimestre/ }],
-  ['Comptes du quadrimestre', { espace: 'Suivi', libelle: /^Face au budget/ }],
+  ['Comptes du quadrimestre', { espace: 'Suivi', libelle: /^Où en est le magasin/ }],
   ['Frais du budget', { espace: 'Budget', libelle: /^1 · Hypothèses/, theme: 'Frais' }],
   ['Frais', { espace: 'Données', libelle: /^Frais \d{4}/ }],
-  ['Suivi du budget', { espace: 'Suivi', libelle: /^Face au budget/ }],
-  ['Où on va', { espace: 'Suivi', libelle: /^Face au budget/ }],
-  ['Synthèse', { espace: 'Suivi', libelle: /^Synthèse/ }],
+  ['Suivi du budget', { espace: 'Suivi', libelle: /^Où en est le magasin/ }],
+  ['Où on va', { espace: 'Suivi', libelle: /^Où en est le magasin/ }],
+  ['Synthèse', { espace: 'Suivi', libelle: /^Où en est le magasin/ }],
+  ['Où en est le magasin', { espace: 'Suivi', libelle: /^Où en est le magasin/ }],
   ['Trésorerie du budget', { espace: 'Budget', libelle: /^1 · Hypothèses/, theme: 'Trésorerie' }],
   ['Trésorerie', { espace: 'Suivi', libelle: /^Trésorerie/ }],
   ['Atterrissage', { espace: 'Budget', libelle: /^0 · Point de départ/ }],

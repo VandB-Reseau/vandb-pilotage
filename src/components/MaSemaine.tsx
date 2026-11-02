@@ -26,18 +26,26 @@ const libelleCourt = (a: Alerte) => ('univers' in a ? `${typeAlerteLibelle[a.typ
 const rouge = (v: number) => (v > 0 ? { color: 'error.main', fontWeight: 700 } : undefined)
 
 // « Ma semaine » (lot 29) : où aller en premier, magasin par magasin ; par Coach pour le RR et le Directeur
+// Lot 41 (proposition 6) : en tête, les magasins à appeler (alerte, action en retard ou au moins 1 000 € de marge en jeu),
+// le plus d'euros en jeu d'abord ; les magasins dans les clous sont repliés
 export function MaSemaine({ lignes, avecCoachs, etat }: { lignes: LigneSemaine<Alerte>[]; avecCoachs: boolean; etat?: object }) {
   const [tout, setTout] = useState(false)
+  const [clous, setClous] = useState(false)
   if (!lignes.length) return null
-  const vues = tout ? lignes : lignes.slice(0, PREMIERS)
+  const aAppeler = lignes.filter((l) => l.aAppeler)
+  const dansLesClous = lignes.length - aAppeler.length
+  const liste = clous ? lignes : aAppeler
+  const vues = tout ? liste : liste.slice(0, PREMIERS)
   const coachs = avecCoachs ? parCoach(lignes) : []
   const tableau = { '& td, & th': { whiteSpace: 'nowrap', px: 1.25 }, '& td:first-of-type, & th:first-of-type': { pl: 2.5 } }
   return (
     <Card component="section" aria-label="Ma semaine" sx={{ mb: 4 }}>
       <Box sx={{ px: 2.5, pt: 2, pb: 1 }}>
-        <Typography variant="h2">Ma semaine <Aide sujet="semaine" /></Typography>
+        <Typography variant="h2">Ma semaine : {aAppeler.length ? `${aAppeler.length === 1 ? '1 magasin' : `${aAppeler.length} magasins`} à appeler` : 'rien d’urgent'} <Aide sujet="semaine" /></Typography>
       </Box>
-      <TableContainer>
+      {liste.length === 0 ? (
+        <Typography color="text.secondary" sx={{ px: 2.5, pb: 1 }}>Tous les magasins de la sélection sont dans les clous : pas d’alerte, pas d’action en retard, moins de 1 000 € de marge en jeu.</Typography>
+      ) : <TableContainer>
         <Table size="small" aria-label="Magasins par marge en jeu" sx={tableau}>
           <TableHead>
             <TableRow>
@@ -72,12 +80,17 @@ export function MaSemaine({ lignes, avecCoachs, etat }: { lignes: LigneSemaine<A
             ))}
           </TableBody>
         </Table>
-      </TableContainer>
-      {lignes.length > PREMIERS && (
-        <Box sx={{ px: 1.5, py: 0.5 }}>
-          <Button onClick={() => setTout((x) => !x)} aria-expanded={tout} sx={{ minHeight: 48 }}>{tout ? 'Voir moins' : `Voir les ${lignes.length} magasins`}</Button>
-        </Box>
-      )}
+      </TableContainer>}
+      <Box sx={{ px: 1.5, py: 0.5, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        {liste.length > PREMIERS && (
+          <Button onClick={() => setTout((x) => !x)} aria-expanded={tout} sx={{ minHeight: 48 }}>{tout ? 'Voir moins' : `Voir les ${liste.length} magasins`}</Button>
+        )}
+        {dansLesClous > 0 && (
+          <Button onClick={() => setClous((x) => !x)} aria-expanded={clous} sx={{ minHeight: 48 }}>
+            {clous ? 'Ne garder que les magasins à appeler' : `${dansLesClous === 1 ? '1 magasin dans les clous' : `${dansLesClous} magasins dans les clous`}, à voir aussi`}
+          </Button>
+        )}
+      </Box>
       {coachs.length > 1 && (
         <TableContainer sx={{ mt: 2 }}>
           <Table size="small" aria-label="Marge en jeu par Coach" sx={tableau}>
