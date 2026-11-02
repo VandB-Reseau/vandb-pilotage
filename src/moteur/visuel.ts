@@ -56,6 +56,7 @@ export interface MoisPlan {
 export interface QuadrimestrePlan {
   q: Quadrimestre
   debut: number | null; fin: number | null
+  debutPrevu: number          // solde prévu en début de période (départ du prévu, puis fin prévue du quadrimestre d'avant)
   encReel: number | null; encPrevu: number
   decReel: number | null; decPrevu: number
   finPrevue: number
@@ -91,7 +92,7 @@ export function planTresorerie(prevue: Tresorerie, encaissementsReels: (number |
     const encReel = encs.every((v) => v !== null) ? somme(encs as number[]) : null
     const finPrevue = mois[ms[3]].finPrevue
     return {
-      q, debut, fin, encReel, encPrevu: somme(ms.map((i) => mois[i].encPrevu)),
+      q, debut, debutPrevu: q === 1 ? prevue.debut : mois[ms[0] - 1].finPrevue, fin, encReel, encPrevu: somme(ms.map((i) => mois[i].encPrevu)),
       decReel: debut !== null && fin !== null && encReel !== null ? debut + encReel - fin : null,
       decPrevu: somme(ms.map((i) => mois[i].decPrevu)),
       finPrevue, ecart: fin === null ? null : fin - finPrevue,

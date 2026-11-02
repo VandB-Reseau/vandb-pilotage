@@ -102,7 +102,7 @@ export function PlanTresorerieAnnee({ annee, plan, prevue, seuil, enCours, sourc
 
       <Typography variant="h3" sx={{ px: 2.5, pt: 2.5, pb: 1 }}>Par quadrimestre</Typography>
       <TableContainer>
-        <Table size="small" className="colonne-fixe" aria-label={`Trésorerie ${annee} par quadrimestre`} sx={styleTableau}>
+        <Table size="small" aria-label={`Trésorerie ${annee} par quadrimestre`} sx={{ ...styleTableau, minWidth: 560 }}>
           <TableHead>
             <TableRow>
               <TableCell sx={{ minWidth: 220 }}><Box component="span" sx={{ fontWeight: 400 }}>En euros TTC</Box></TableCell>
@@ -112,7 +112,7 @@ export function PlanTresorerieAnnee({ annee, plan, prevue, seuil, enCours, sourc
           <TableBody>
             <TableRow>
               <TableCell>Trésorerie en début de période</TableCell>
-              {plan.quadrimestres.map((q) => <TableCell key={q.q} align="right">{q.debut === null ? '' : entier(q.debut)}</TableCell>)}
+              {plan.quadrimestres.map((q) => <CaseReelPrevu key={q.q} reel={q.debut} prevu={q.debutPrevu} niveau={niveauEcart(q.debut, q.debutPrevu, seuil)} format={entier} />)}
             </TableRow>
             <TableRow>
               <TableCell>Encaissé en caisse</TableCell>

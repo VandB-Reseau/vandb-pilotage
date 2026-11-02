@@ -34,6 +34,7 @@ type Commun = {
 }
 
 const gris = { color: 'text.secondary' }
+const dixieme = (v: number) => Math.round(v * 1000) / 1000
 
 // Ligne d'une hypothèse
 function Ligne({ nom, aide, avant, origine, champ, apres }: { nom: string; aide?: keyof typeof AIDE; avant?: ReactNode; origine: ReactNode; champ: ReactNode; apres?: ReactNode }) {
@@ -95,7 +96,7 @@ export function HypotheseCle({ cle, nom, libelle, quoi, aide, avant, apres, cibl
   const source = `${niveauLibelle[herite?.source ?? 'base']} ${taux(auDessusValeur)}`
   return (
     <Ligne nom={nom} aide={aide} avant={avant} apres={apres}
-      champ={<ChampTaux largeur={84} libelle={libelle} valeur={propre} heritee={auDessusValeur} desactive={lectureSeule} onChange={(v) => onChange(ecrireCible(cibles, cle, v))} />}
+      champ={<ChampTaux largeur={96} libelle={libelle} valeur={propre} heritee={auDessusValeur} desactive={lectureSeule} onChange={(v) => onChange(ecrireCible(cibles, cle, v))} />}
       origine={propre !== undefined && !lectureSeule
         ? <Reprendre quoi={quoi} texte={source} onClick={() => onChange(ecrireCible(cibles, cle, undefined))} />
         : source}
@@ -123,10 +124,13 @@ export function HypothesesUnivers({ familles, flux, annee, ...commun }: Props) {
     const nom = type === 'marge' ? 'Marge visée' : 'Démarque'
     const ca = somme(l.map((f) => f.caRealise))
     const perte = somme(l.map((f) => f.objectif * (f.demarque ?? 0)))
+    const margeConnue = somme(l.map((f) => f.margeRealisee))
     return (
       <Ligne key={type} nom={nom} aide={type === 'marge' ? 'margeUnivers' : 'demarqueUnivers'}
-        avant={type === 'marge' && ca ? taux(somme(l.map((f) => f.margeRealisee)) / ca) : undefined}
-        champ={<ChampTaux largeur={84} libelle={`${nom} : ${nomU}`} valeur={regle ? moyenne : undefined} heritee={moyenne} desactive={lectureSeule}
+        // Marge de l'année en cours inconnue (réel importé sans marge) : un tiret, pas 0 %
+        avant={type === 'marge' && ca && margeConnue ? taux(margeConnue / ca) : undefined}
+        // Moyenne des familles arrondie au dixième de point : « 38,0 % », jamais « 38,0214 » coupé dans le champ
+        champ={<ChampTaux largeur={96} libelle={`${nom} : ${nomU}`} valeur={regle ? dixieme(moyenne) : undefined} heritee={dixieme(moyenne)} desactive={lectureSeule}
           onChange={(v) => onChange(ecrireUnivers(cibles, familles, u, type, v))} />}
         apres={type === 'marge' ? `${milliers(somme(l.map((f) => f.objectif * f.margeCible)))} avant démarque` : (perte ? `${milliers(perte)} perdus` : 'Aucune perte prévue')}
         origine={regle && !lectureSeule

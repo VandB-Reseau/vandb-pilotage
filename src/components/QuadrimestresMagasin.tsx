@@ -169,7 +169,7 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir, vue = 'saisie
     </TableRow>
   )
   const saisie = (c: Champ) => (
-    <TableRow key={c} className={classeLigne(c)}>
+    <TableRow key={c} className={c === 'tresorerie' ? undefined : classeLigne(c)}>
       <TableCell>{LIBELLES[c]}</TableCell>
       {QUADRIMESTRES.map((q) => (
         <TableCell key={q} align="right" sx={{ py: 0.5 }}>
