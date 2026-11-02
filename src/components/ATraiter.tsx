@@ -72,7 +72,7 @@ export function ATraiter({ items, annee, directeur, filtrer, etat }: {
               <Box sx={{ flex: 1, minWidth: 200, display: 'flex', flexWrap: 'wrap', columnGap: 1.5, alignItems: 'baseline' }}>
                 <Typography component="span" sx={{ fontWeight: 600 }}>{texte(x)}</Typography>
                 {x.cle === 'actions' && x.magasins.slice(0, PREMIERS).map((m) => (
-                  <Link key={m} component={RouterLink} to={lienMagasin(m)} state={{ ...etat, onglet: 'synthese' }} sx={{ display: 'inline-flex', alignItems: 'center', minHeight: 48 }}>{m}</Link>
+                  <Link key={m} component={RouterLink} to={lienMagasin(m)} state={etat} sx={{ display: 'inline-flex', alignItems: 'center', minHeight: 48 }}>{m}</Link>
                 ))}
                 {x.cle === 'actions' && x.magasins.length > PREMIERS && (
                   <Typography component="span" color="text.secondary">et {pluriel(x.magasins.length - PREMIERS, 'autre', 'autres')}</Typography>

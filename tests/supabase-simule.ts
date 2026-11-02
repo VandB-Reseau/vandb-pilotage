@@ -306,21 +306,52 @@ export async function zonesTropPetites(page: Page, min = 48): Promise<string[]> 
   }, min)
 }
 
-// Fiche magasin (lot 27) : une partie s'ouvre depuis son espace (année en cours ou budget)
-// Lot 30 : les anciennes parties s'ouvrent dans l'onglet qui les regroupe
-// Lot 35 : l'équipe et les frais du budget sont des étapes du budget ; les frais de l'année restent dans l'année en cours
-const PARTIES_ANNEE = ['Réel', 'Suivi du budget', 'Atterrissage', 'Quadrimestres', 'Où on va', 'Frais']
-const ONGLET_DE: Record<string, string> = {
-  'Réel': 'Réel', 'Quadrimestres': 'Réel', 'Suivi du budget': 'Où on va', 'Atterrissage': 'Où on va',
-  'Hypothèses': '1 · Chiffre d’affaires', 'Calendrier': '1 · Chiffre d’affaires', 'Équipe': '2 · Équipe', 'Frais du budget': '3 · Frais', 'Frais': 'Frais',
-  'Résultat': '4 · Résultat', 'Échanges': '5 · Échanges',
-}
+// Fiche magasin (lot 36) : une partie s'ouvre en choisissant son espace (Données, Budget, Suivi), puis la partie dans le
+// menu de gauche (PC) ou dans les onglets de la page (téléphone). Les anciens noms des tests restent acceptés.
+const PARTIES: [string, { espace: string; libelle: RegExp }][] = [
+  ['Réel', { espace: 'Données', libelle: /^Réel du mois/ }],
+  ['Quadrimestres', { espace: 'Données', libelle: /^Comptes du quadrimestre/ }],
+  ['Frais du budget', { espace: 'Budget', libelle: /^3 · Frais/ }],
+  ['Frais', { espace: 'Données', libelle: /^Frais \d{4}/ }],
+  ['Suivi du budget', { espace: 'Suivi', libelle: /^Face au budget/ }],
+  ['Où on va', { espace: 'Suivi', libelle: /^Face au budget/ }],
+  ['Synthèse', { espace: 'Suivi', libelle: /^Synthèse/ }],
+  ['Atterrissage', { espace: 'Budget', libelle: /^0 · Point de départ/ }],
+  ['Point de départ', { espace: 'Budget', libelle: /^0 · Point de départ/ }],
+  ['Hypothèses', { espace: 'Budget', libelle: /^1 · Chiffre d’affaires/ }],
+  ['Calendrier', { espace: 'Budget', libelle: /^1 · Chiffre d’affaires/ }],
+  ['Équipe', { espace: 'Budget', libelle: /^2 · Équipe/ }],
+  ['Résultat', { espace: 'Budget', libelle: /^4 · Résultat/ }],
+  ['Échanges', { espace: 'Budget', libelle: /^5 · Échanges/ }],
+]
 export async function ouvrir(page: Page, partie: string) {
-  const annee = PARTIES_ANNEE.some((p) => partie.startsWith(p)) && !partie.startsWith('Frais du budget')
-  const cle = Object.keys(ONGLET_DE).find((k) => partie.startsWith(k))
-  const onglet = cle ? ONGLET_DE[cle] : partie
-  await page.getByRole('tablist', { name: 'Vues du magasin' }).getByRole('tab', { name: annee ? /^\d{4} en cours/ : /^Budget \d{4}/ }).click()
-  await page.getByRole('tablist', { name: annee ? /^Parties de l’année/ : /^Parties du budget/ }).getByRole('tab', { name: new RegExp(`^${onglet}`) }).click()
+  const cible = PARTIES.find(([k]) => partie.startsWith(k))?.[1]
+  if (!cible) throw new Error(`Partie inconnue : ${partie}`)
+  await page.waitForURL(/#\/magasins\//)
+  const telephone = (page.viewportSize()?.width ?? 1440) < 900
+  const espaces = telephone ? page.getByRole('navigation', { name: 'Espaces du pilotage' }) : page.getByRole('group', { name: 'Espaces' })
+  const bouton = espaces.getByRole('link', { name: cible.espace })
+  const lien = telephone ? page.locator('main').getByRole('tab', { name: cible.libelle }) : page.getByRole('navigation', { name: 'Menu principal' }).getByRole('link', { name: cible.libelle })
+  // Juste après l'ouverture de la fiche, le premier clic peut partir avant la fin du chargement : on recommence alors
+  for (let essai = 0; ; essai++) {
+    const courant = telephone ? (await bouton.getAttribute('class'))?.includes('Mui-selected') : (await bouton.getAttribute('aria-current')) === 'true'
+    if (!courant) await bouton.click()
+    try { await lien.click({ timeout: essai < 2 ? 5_000 : undefined }); return } catch (e) { if (essai >= 2) throw e }
+  }
+}
+
+// Pages du réseau (lot 36) : chacune dans son espace ; sur téléphone, le menu s'ouvre par l'icône en haut à gauche
+const ESPACE_DE_PAGE: Record<string, string> = { 'Réel du réseau': 'Suivi', 'Imports de caisse': 'Données', 'Hypothèses du réseau': 'Budget', 'Campagne': 'Budget' }
+export async function allerVers(page: Page, nom: string) {
+  const telephone = (page.viewportSize()?.width ?? 1440) < 900
+  if (telephone) await page.getByRole('button', { name: 'Ouvrir le menu' }).click()
+  const espace = ESPACE_DE_PAGE[nom]
+  const bouton = page.getByRole('group', { name: 'Espaces' }).getByRole('link', { name: espace ?? 'Budget' })
+  if (espace && (await bouton.getAttribute('aria-current')) !== 'true') {
+    await bouton.click()
+    if (telephone) await page.getByRole('button', { name: 'Ouvrir le menu' }).click()
+  }
+  await page.getByRole('navigation', { name: 'Menu principal' }).getByRole('link', { name: nom }).click()
 }
 
 // Synthèse du magasin (lot 30) : déplie « Pour aller plus loin » (graphique, leviers, face au réseau, familles)

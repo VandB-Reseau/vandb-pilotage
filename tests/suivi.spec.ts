@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { MAGASINS } from './donnees-fictives'
-import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type TicketsSimules, type VenteSimulee } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type TicketsSimules, type VenteSimulee, allerVers } from './supabase-simule'
 
 // Réel face au budget sur la fiche magasin, et vue réseau. Données fictives uniquement : dépôt public.
 // Budget du magasin fictif (tests/donnees-fictives.ts) : 640 000 € de CA, 48 000 € en janvier et en février, marge 57,4 %.
@@ -72,7 +72,7 @@ test('fiche magasin : sans budget de l’année, le suivi le dit', async ({ page
 
 test('vue réseau : classement, total, tri, filtre par Coach et retour', async ({ page, isMobile }, info) => {
   await seConnecter(page, { reel, tickets, coachs })
-  await page.getByRole('link', { name: 'Réseau' }).first().click()
+  await allerVers(page, 'Réel du réseau')
   await expect(page.getByRole('heading', { level: 1, name: 'Réseau' })).toBeVisible()
   const chiffres = page.getByRole('region', { name: `Réseau ${N} en chiffres` })
   await expect(chiffres).toContainText(/124\sk€/)
@@ -114,7 +114,7 @@ test('vue réseau : classement, total, tri, filtre par Coach et retour', async (
 
 test('vue réseau : le Coach y accède, sans réel elle le dit', async ({ page }) => {
   await seConnecter(page, { role: 'coach' })
-  await page.getByRole('link', { name: 'Réseau' }).first().click()
+  await allerVers(page, 'Réel du réseau')
   await expect(page.getByText(`Pas encore de réel ${N}`)).toBeVisible()
   await expect(page.getByLabel('Coach', { exact: true })).toHaveCount(0)
 })

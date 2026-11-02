@@ -3,7 +3,7 @@ import { calculerBudget } from '../src/moteur/budget'
 import { parametresParDefaut } from '../src/moteur/parametres'
 import { tresorerieBudget } from '../src/moteur/tresorerie'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule, allerVers } from './supabase-simule'
 
 // Trésorerie du budget : section du budget, paramètres réseau, point bas dans la liste. Données fictives : dépôt public.
 // Les montants attendus viennent du moteur, vérifié à la main dans tests/moteur/tresorerie.spec.ts.
@@ -76,7 +76,7 @@ test('budget validé : trésorerie en lecture seule, départ enregistré repris,
 
 test('paramètres réseau : le Directeur règle délais et TVA de la trésorerie', async ({ page, isMobile }) => {
   const ecritures = await seConnecter(page, { role: 'directeur' })
-  await page.getByRole('link', { name: /Paramètres/ }).first().click()
+  await allerVers(page, 'Paramètres réseau')
   const section = page.getByRole('region', { name: 'Trésorerie' })
   await section.getByRole('button', { name: /^Trésorerie \d{4} : ouvrir$/ }).click()
   const enregistrer = section.getByRole('button', { name: 'Enregistrer' })

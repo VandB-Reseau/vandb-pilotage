@@ -23,7 +23,7 @@ export default function App() {
       <AppShell>
         <Routes>
           <Route path="/" element={<Magasins />} />
-          <Route path="/magasins/:nom" element={<Magasin />} />
+          <Route path="/magasins/:nom/:partie?" element={<Magasin />} />
           {estEquipe(profil) && <Route path="/reseau" element={<Reseau />} />}
           {estDirecteur(profil) && <Route path="/hypotheses" element={<Hypotheses />} />}
           {estDirecteur(profil) && <Route path="/imports" element={<Imports />} />}

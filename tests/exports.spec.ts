@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { expect, test, type Page } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
 import { celluleXml, lireClasseur } from './lecture-xlsx'
-import { seConnecter, textesTropPetits, zonesTropPetites, type VenteSimulee } from './supabase-simule'
+import { seConnecter, textesTropPetits, zonesTropPetites, type VenteSimulee, ouvrir, allerVers } from './supabase-simule'
 
 // Export Excel, impression et filtre par Responsable Régional. Données fictives uniquement : dépôt public.
 
@@ -30,7 +30,7 @@ async function telechargement(page: Page, bouton: string) {
 
 test('vue réseau : filtre par Responsable Régional, export de la sélection', async ({ page, isMobile }, info) => {
   await seConnecter(page, { reel, coachs, rrs })
-  await page.getByRole('link', { name: 'Réseau' }).first().click()
+  await allerVers(page, 'Réel du réseau')
   const tableau = page.getByRole('table', { name: `Réel ${N} par magasin` })
   const lignes = tableau.getByRole('row')
   await expect(lignes).toHaveCount(6)
@@ -60,7 +60,7 @@ test('vue réseau : filtre par Responsable Régional, export de la sélection', 
 
 test('vue réseau : le RR et le Coach n’ont pas de filtre par RR', async ({ page }) => {
   await seConnecter(page, { role: 'rr', reel, coachs })
-  await page.getByRole('link', { name: 'Réseau' }).first().click()
+  await allerVers(page, 'Réel du réseau')
   await expect(page.getByRole('table', { name: `Réel ${N} par magasin` })).toBeVisible()
   await expect(page.getByLabel('Responsable Régional')).toHaveCount(0)
   await expect(page.getByRole('columnheader', { name: 'Responsable Régional' })).toHaveCount(0)
@@ -69,7 +69,7 @@ test('vue réseau : le RR et le Coach n’ont pas de filtre par RR', async ({ pa
 test('vue réseau imprimée : sans menu ni filtres, sélection et date en tête', async ({ page, isMobile }, info) => {
   test.skip(isMobile, 'impression depuis le PC')
   await seConnecter(page, { reel, coachs, rrs })
-  await page.getByRole('link', { name: 'Réseau' }).first().click()
+  await allerVers(page, 'Réel du réseau')
   await page.getByLabel('Coach', { exact: true }).click()
   await page.getByRole('option', { name: 'Coach Sud' }).click()
   await page.emulateMedia({ media: 'print' })
@@ -82,8 +82,8 @@ test('vue réseau imprimée : sans menu ni filtres, sélection et date en tête'
 
 test('budget : export Excel du compte de résultat et des hypothèses, impression', async ({ page, isMobile }, info) => {
   await seConnecter(page, { role: 'franchise', magasins: [{ magasin: MAGASINS[0], statut: 'valide', hypotheses: magasinFictif, base: magasinFictif, ajustements: {}, maj_le: null }] })
-  await page.getByRole('tab', { name: /^Budget/ }).click()
-  const annee = Number((await page.getByRole('tab', { name: /^Budget/ }).textContent())?.match(/\d{4}/)?.[0])
+  await ouvrir(page, 'Hypothèses')
+  const annee = Number((await page.getByRole('tablist', { name: /^Étapes du budget/ }).getAttribute('aria-label'))?.match(/\d{4}/)?.[0])
 
   const { nom, fichiers } = await telechargement(page, 'Exporter en Excel')
   expect(nom).toBe(`Budget ${annee} - ${MAGASINS[0]}.xlsx`)
@@ -104,7 +104,8 @@ test('budget : export Excel du compte de résultat et des hypothèses, impressio
     return
   }
   await page.emulateMedia({ media: 'print' })
-  await expect(page.getByRole('tablist', { name: 'Vues du magasin' })).toBeHidden()
+  await expect(page.getByRole('tablist', { name: /^Étapes du budget/ })).toBeHidden()
+  await expect(page.getByRole('group', { name: 'Espaces' })).toBeHidden()
   await expect(page.getByRole('group', { name: 'Actions sur le budget' }).or(page.getByLabel('Actions sur le budget'))).toBeHidden()
   await expect(page.getByText(new RegExp(`Budget ${annee} · imprimé le`))).toBeVisible()
   await expect(page.getByRole('table', { name: `Budget ${annee} mois par mois` })).toBeVisible()

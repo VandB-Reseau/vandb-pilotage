@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule } from './supabase-simule'
+import { seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule, ouvrir } from './supabase-simule'
 
 // Lot 31 : hypothèses réglées par univers, détail par famille à la demande. Données fictives : dépôt public.
 // Sans cible, Cave : Bière 200 000 € à 36 % de marge.
@@ -19,7 +19,7 @@ test.afterEach(async ({ page }) => {
 
 test('hypothèses par univers : marge et démarque de la Cave en un champ, familles repliées', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { role: 'franchise', magasins: magasins() })
-  await page.getByRole('tab', { name: /^Budget/ }).click()
+  await ouvrir(page, 'Hypothèses')
   const cave = page.getByRole('region', { name: 'Hypothèses du magasin' }).getByRole('region', { name: 'Cave' })
   await expect(cave.getByRole('group', { name: 'Tickets (Cave)' })).toBeVisible()
   await expect(cave.getByRole('table')).toHaveCount(0)

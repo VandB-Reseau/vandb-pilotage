@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type FraisSimule, type TicketsSimules, type VenteSimulee, plusLoin } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type FraisSimule, type TicketsSimules, type VenteSimulee, plusLoin, allerVers } from './supabase-simule'
 
 // Lot 28 : alertes tickets et panier, fiche de visite, leviers commerciaux, campagne des budgets, CA par heure,
 // barre d'enregistrement des frais. Données fictives uniquement : dépôt public.
@@ -112,7 +112,7 @@ test('campagne des budgets : avancement par Responsable Régional, dates dans Pa
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
 
-  await page.getByRole('link', { name: /Paramètres/ }).click()
+  await allerVers(page, 'Paramètres réseau')
   const dates = page.getByRole('region', { name: 'Campagne des budgets' })
   // Section repliée (lot 30) : le résumé donne les trois dates
   await expect(dates).toContainText('Proposition avant le 01/01, retour avant le 02/01, validation avant le 03/01')
@@ -138,7 +138,7 @@ test('campagne : le franchisé voit la date de validation de son budget', async 
 test('vue Réseau : CA par heure travaillée avec sa médiane', async ({ page, isMobile }) => {
   test.skip(isMobile, 'colonne du tableau PC')
   await seConnecter(page, { reel, tickets })
-  await page.getByRole('link', { name: /Réseau/ }).first().click()
+  await allerVers(page, 'Réel du réseau')
   const tableau = page.getByRole('table', { name: /^Réel \d{4} par magasin$/ })
   await expect(tableau.getByRole('columnheader', { name: 'CA par heure travaillée' })).toBeVisible()
 })

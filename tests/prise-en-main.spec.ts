@@ -59,7 +59,7 @@ test('un franchisé avec un seul magasin n’a pas de recherche', async ({ page 
 
 test('le franchisé ouvre l’aide d’une hypothèse et voit d’où viennent son CA et son EBE', async ({ page, isMobile }, info) => {
   await seConnecter(page, { role: 'franchise', magasins: magasins.slice(0, 1), reseau })
-  await page.getByRole('tab', { name: /^Budget/ }).click()
+  await ouvrir(page, 'Hypothèses')
 
   await page.getByRole('button', { name: 'Aide : Évolution du nombre de tickets' }).first().click()
   const aide = page.getByRole('dialog', { name: 'Évolution du nombre de tickets' })

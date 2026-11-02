@@ -31,7 +31,7 @@ test('une saisie en cours n’est jamais perdue sans confirmation', async ({ pag
   await page.getByLabel('Locations immobilières', { exact: true }).fill('48000')
 
   // Changer d'espace : on reste, la saisie est intacte (Équipe et Frais sont dans l'année en cours depuis le 29/10/2026)
-  await page.getByRole('tablist', { name: 'Vues du magasin' }).getByRole('tab', { name: /^Budget \d{4}/ }).click()
+  await (isMobile ? page.getByRole('navigation', { name: 'Espaces du pilotage' }) : page.getByRole('group', { name: 'Espaces' })).getByRole('link', { name: 'Budget' }).click()
   const garde = page.getByRole('dialog', { name: 'Modifications non enregistrées' })
   await expect(garde).toBeVisible()
   expect(await textesTropPetits(page)).toEqual([])
@@ -88,7 +88,7 @@ test('d’un magasin au suivant, dans la liste filtrée, en restant sur le même
   await ouvrir(page, 'Frais')
   await page.getByRole('link', { name: 'Magasin suivant : Les Ormes' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Les Ormes' })).toBeVisible()
-  await expect(page.getByRole('tab', { name: /^Frais/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(page).toHaveURL(/\/frais$/)
   await expect(page.getByText('Pas encore de frais')).toBeVisible()
   // Le précédent de Port-Navalo, dans la liste filtrée, est Saint-Aubin-des-Prés (Valcourt, en discussion, n'y est pas)
   await page.getByRole('link', { name: 'Magasin précédent : Port-Navalo' }).click()
@@ -98,16 +98,14 @@ test('d’un magasin au suivant, dans la liste filtrée, en restant sur le même
 test('les onglets signalent ce qui manque', async ({ page }) => {
   await seConnecter(page, { magasins: sept, frais: [loyer(MAGASINS[0])] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await expect(page.getByRole('tab', { name: /^Budget \d+$/ })).toBeVisible()
-  await page.getByRole('tab', { name: /^Budget \d+$/ }).click()
-  // Budget en 5 étapes (lot 35) ; l'équipe manquante est signalée dans le budget, les frais dans l'année en cours
-  await expect(page.getByRole('tablist', { name: /^Parties du budget/ }).getByRole('tab')).toHaveText([/^1 · Chiffre d’affaires/, /^2 · Équipe/, /^3 · Frais/, /^4 · Résultat et trésorerie/, /^5 · Échanges et versions/])
+  await ouvrir(page, 'Hypothèses')
+  // Budget en 6 étapes (lot 36) ; l'équipe manquante est signalée dans le budget
+  await expect(page.getByRole('tablist', { name: /^Étapes du budget/ }).getByRole('tab')).toHaveText([/^0 · Point de départ/, /^1 · Chiffre d’affaires/, /^2 · Équipe/, /^3 · Frais/, /^4 · Résultat et trésorerie/, /^5 · Échanges et validation/])
   await expect(page.getByRole('tab', { name: '2 · Équipe (à renseigner)' })).toBeVisible()
-  await page.getByRole('tab', { name: /^Budget \d+$/ }).click()
   await page.getByRole('link', { name: `Magasin suivant : ${MAGASINS[1]}` }).click()
   await page.getByRole('link', { name: `Magasin suivant : ${MAGASINS[2]}` }).click()
-  // Directeur : budget à proposer
-  await expect(page.getByRole('tab', { name: /^Budget \d+ \(à proposer\)$/ })).toBeVisible()
+  // Directeur : budget à proposer, depuis le point de départ
+  await expect(page.getByRole('tab', { name: '0 · Point de départ (budget à proposer)' })).toBeVisible()
 })
 
 test('un franchisé avec un seul magasin arrive sur sa fiche', async ({ page }) => {

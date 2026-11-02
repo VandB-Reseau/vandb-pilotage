@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { seConnecter, textesTropPetits, zonesTropPetites, type FraisSimule, type MagasinSimule, type PersonneSimulee, type QuadrimestreSimule, type VenteSimulee, plusLoin } from './supabase-simule'
+import { seConnecter, textesTropPetits, zonesTropPetites, type FraisSimule, type MagasinSimule, type PersonneSimulee, type QuadrimestreSimule, type VenteSimulee, plusLoin, ouvrir } from './supabase-simule'
 
 // Espace franchisé : en tête de la fiche, ce qu'il a à faire, chaque ligne mène à l'onglet. Données fictives : dépôt public.
 // Le jour est figé au 15 octobre : réel de septembre attendu, quadrimestres de janvier à avril et de mai à août.
@@ -44,12 +44,12 @@ test('le franchisé voit ce qu’il a à faire et y va en un clic, sans la compa
   await page.screenshot({ path: `captures/${info.project.name}-espace-franchise.png`, fullPage: true })
 
   await liste.getByRole('button', { name: `Saisir : Quadrimestre mai à août ${N} à saisir` }).click()
-  // Lot 30 : les quadrimestres sont sous le réel, dans l'onglet Réel, et la page défile jusqu'à eux
-  await expect(page.getByRole('tab', { name: /^Réel/ })).toHaveAttribute('aria-selected', 'true')
+  // Lot 36 : les quadrimestres ont leur page dans l'espace Données
+  await expect(page).toHaveURL(/\/quadrimestres$/)
   await expect(page.getByRole('heading', { name: 'Quadrimestres comptables' })).toBeInViewport()
-  await page.getByRole('tab', { name: 'Synthèse' }).click()
+  await ouvrir(page, 'Synthèse')
   await aFaire(page).getByRole('button', { name: 'Saisir : Réel de septembre à saisir' }).click()
-  await expect(page.getByRole('tab', { name: /Réel/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(page).toHaveURL(/\/reel$/)
 })
 
 test('tout est à jour : une seule ligne rassurante', async ({ page }) => {
@@ -63,6 +63,6 @@ test('tout est à jour : une seule ligne rassurante', async ({ page }) => {
 test('l’équipe ne voit pas la liste du franchisé', async ({ page }) => {
   await seConnecter(page, { role: 'directeur', magasins: [magasin], reel })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await expect(page.getByRole('tab', { name: 'Synthèse' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page).toHaveURL(/\/synthese$/)
   await expect(aFaire(page)).toHaveCount(0)
 })

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type ActionSimulee, type MagasinSimule, type VenteSimulee, plusLoin } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type ActionSimulee, type MagasinSimule, type VenteSimulee, plusLoin, allerVers } from './supabase-simule'
 
 // Lot 29 : économie du franchisé, familles face au réseau, « Ma semaine » dans la vue Réseau. Données fictives : dépôt public.
 const N = new Date().getFullYear()
@@ -68,20 +68,20 @@ test('familles face au réseau : poids, marge et médianes à partir de trois ma
 test('familles face au réseau : cachées sous trois magasins et pour le franchisé', async ({ page }) => {
   await seConnecter(page)
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await expect(page.getByRole('tablist', { name: 'Vues du magasin' })).toBeVisible()
+  await expect(page).toHaveURL(/\/magasins\/.+\/synthese$/)
   await plusLoin(page)
   await expect(page.getByRole('region', { name: 'Familles face au réseau' })).toHaveCount(0)
 })
 
 test('franchisé : pas de comparaison des familles', async ({ page }) => {
   await seConnecter(page, { role: 'franchise', magasins: troisMagasins.slice(0, 1) })
-  await expect(page.getByRole('tablist', { name: 'Vues du magasin' })).toBeVisible()
+  await expect(page).toHaveURL(/\/magasins\/.+\/synthese$/)
   await expect(page.getByRole('region', { name: 'Familles face au réseau' })).toHaveCount(0)
 })
 
 test('ma semaine : magasins par marge en jeu, actions en retard, par Coach', async ({ page, isMobile }, info) => {
   await seConnecter(page, { reel, coachs, actions: [action] })
-  await page.getByRole('link', { name: /Réseau/ }).first().click()
+  await allerVers(page, 'Réel du réseau')
   const semaine = page.getByRole('region', { name: 'Ma semaine' })
   const lignes = semaine.getByRole('table', { name: 'Magasins par marge en jeu' }).getByRole('row')
   await expect(lignes.nth(1)).toContainText(MAGASINS[0])
@@ -94,5 +94,5 @@ test('ma semaine : magasins par marge en jeu, actions en retard, par Coach', asy
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-ma-semaine.png`, fullPage: true })
   await lignes.nth(1).getByRole('link', { name: MAGASINS[0] }).click()
-  await expect(page.getByRole('tablist', { name: 'Vues du magasin' })).toBeVisible()
+  await expect(page).toHaveURL(/\/magasins\/.+\/synthese$/)
 })

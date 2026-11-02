@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule, type VenteSimulee, plusLoin } from './supabase-simule'
+import { seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule, type VenteSimulee, plusLoin, allerVers } from './supabase-simule'
 
 // Comparaison aux médianes : fiche magasin et vue Réseau. Données fictives : dépôt public.
 // Budgets : 640 000 € de CA chacun, loyers de 60 000, 40 000 et 80 000 € (9,4 %, 6,3 %, 12,5 % du CA) ;
@@ -41,7 +41,7 @@ test('fiche magasin : face à la médiane des budgets, puis du réel', async ({ 
 
 test('vue Réseau : ligne de la médiane et colonne loyer / CA', async ({ page }) => {
   await seConnecter(page, { magasins, reel })
-  await page.getByRole('link', { name: /Réseau/ }).first().click()
+  await allerVers(page, 'Réel du réseau')
   const tableau = page.getByRole('table', { name: `Réel ${N} par magasin` })
   await expect(tableau.getByRole('columnheader', { name: 'Loyer / CA' })).toBeVisible()
   await expect(tableau.getByRole('row', { name: /Médiane du réseau/ })).toContainText('40,0')
@@ -50,7 +50,7 @@ test('vue Réseau : ligne de la médiane et colonne loyer / CA', async ({ page }
 test('le franchisé ne voit pas la comparaison', async ({ page }) => {
   await seConnecter(page, { role: 'franchise', magasins, reel })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await expect(page.getByRole('tab', { name: 'Synthèse' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page).toHaveURL(/\/synthese$/)
   await plusLoin(page)
   await expect(page.getByRole('region', { name: 'Face au réseau', exact: true })).toHaveCount(0)
 })

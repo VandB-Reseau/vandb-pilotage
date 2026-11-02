@@ -32,7 +32,8 @@ export function GardeSaisie({ children }: { children: ReactNode }) {
     const clic = (e: MouseEvent) => {
       if (!enCours.current.size || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return
       const lien = (e.target as HTMLElement | null)?.closest<HTMLAnchorElement>('a[href^="#/"]')
-      if (!lien) return
+      // Lot 36 : lien marqué « sans garde » (étape suivante du budget) : les ajustements en cours restent en mémoire
+      if (!lien || lien.hasAttribute('data-sans-garde')) return
       e.preventDefault()
       const cible = lien.getAttribute('href')!.slice(1)
       setAttente(() => () => navigate(cible))

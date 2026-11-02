@@ -12,7 +12,8 @@ export const taux = (v: number) => pourcent.format(v)
 export const MOIS = ['Janv.', 'Févr.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.']
 export const MOIS_LONGS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
 
-export const lienMagasin = (nom: string) => `/magasins/${encodeURIComponent(nom)}`
+// Fiche d'un magasin, à une partie précise si demandée (lot 36 : chaque partie a son adresse)
+export const lienMagasin = (nom: string, partie = 'synthese') => `/magasins/${encodeURIComponent(nom)}/${partie}`
 
 // Instant ISO en heure locale : « 21/10 à 14h32 »
 export function dateHeure(iso: string): string {
