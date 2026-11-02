@@ -5,6 +5,21 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Refonte visuelle — tableaux plus souples, réel face au prévu, trésorerie
+
+- Sans migration. Choix de Joseph (2/11/2026) : toutes les propositions sauf le solde bancaire mensuel (la trésorerie
+  réelle se pilote au quadrimestre).
+- Tableaux aérés : sans bandes grises, lignes de total sous un filet, mois en cours surligné, ligne survolée teintée.
+- Cases réel / prévu : le réel en gras avec une pastille (vert au budget ou mieux, jaune-or dans le seuil d'alerte CA,
+  brique au-delà), le prévu dessous, l'écart au survol. « Où on va », cumul des quadrimestres, plan de trésorerie ;
+  pastille sur l'écart au budget de la vue Réseau.
+- Graphiques : réel dans le contour du budget, l'an dernier en trait ; vue cumulée avec l'atterrissage chiffré ; jauges
+  sur le CA et le taux de marge ; lignes de tendance (CA, marge, tickets) sur la Synthèse.
+- Pont d'écart de l'EBE dans les quadrimestres : du budget au réel, poste par poste.
+- Plan de trésorerie de l'année dans les quadrimestres : encaissé en caisse chaque mois, solde réel aux fins de
+  quadrimestre face au prévu, projection jusqu'à décembre, décaissé du quadrimestre déduit. Le graphique de trésorerie du
+  budget montre encaissements, décaissements et solde.
+
 ### Lot 35 — Équipe et frais du budget en étapes, changements datés, frais 2027 ligne par ligne
 
 - **Base : migration `0019_hausses_equipe.sql` à passer avant d'enregistrer un poste** (colonne `hausses` de `equipe`).

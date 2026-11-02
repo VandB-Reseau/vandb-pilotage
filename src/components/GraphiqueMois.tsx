@@ -6,16 +6,21 @@ import { useTheme } from '@mui/material/styles'
 import { MOIS, MOIS_LONGS } from '../lib/format'
 
 // Graphique sur 12 mois : barres (réel, projection) et lignes (an dernier), sans cadre ;
-// au survol d'un mois, une infobulle détaille chaque série
-export interface Serie { nom: string; valeurs: (number | null)[]; forme: 'barre' | 'ligne'; couleur: string; pointille?: boolean }
+// au survol d'un mois, une infobulle détaille chaque série.
+// Refonte R1 (2/11/2026) : « contour » = barre vide (le budget) dans laquelle se lit la barre du réel, en pointillé les mois
+// sans réel ; « couleurs » colore chaque barre (brique au-delà du seuil d'écart) ; mois en cours surligné.
+export interface Serie { nom: string; valeurs: (number | null)[]; forme: 'barre' | 'ligne' | 'contour'; couleur: string; pointille?: boolean; couleurs?: (string | null)[] }
+export const FOND_MOIS_EN_COURS = 'rgba(248, 187, 9, 0.18)'
 
 const HAUT = 220, BAS = 28, GAUCHE = 52
 
-export function GraphiqueMois({ titre, series, format, formatAxe }: {
+export function GraphiqueMois({ titre, series, format, formatAxe, moisEnCours, note }: {
   titre: string
   series: Serie[]
   format: (v: number) => string
   formatAxe: (v: number) => string
+  moisEnCours?: number | null
+  note?: string                     // phrase écrite au-dessus du graphique (R2 : écart de fin d'année)
 }) {
   const theme = useTheme()
   const boite = useRef<HTMLDivElement>(null)
@@ -40,11 +45,14 @@ export function GraphiqueMois({ titre, series, format, formatAxe }: {
   const y = (v: number) => HAUT - (v / haut) * (HAUT - 12)
   const barres = series.filter((s) => s.forme === 'barre')
   const lignes = series.filter((s) => s.forme === 'ligne')
+  const contours = series.filter((s) => s.forme === 'contour')
+  const sansBarre = (i: number) => barres.every((s) => s.valeurs[i] === null || s.valeurs[i] === undefined)
   const largeurBarre = Math.min(28, colonne * 0.56)
   const texte = theme.palette.text.secondary
 
   return (
     <Box ref={boite} sx={{ position: 'relative' }} onMouseLeave={() => setSurvol(null)}>
+      {note && <Typography variant="body2" sx={{ fontWeight: 700, mb: 1 }}>{note}</Typography>}
       <svg role="img" aria-label={titre} width={largeur} height={HAUT + BAS} style={{ display: 'block' }}>
         {Array.from({ length: Math.round(haut / pas) + 1 }, (_, k) => k * pas).map((v) => (
           <g key={v}>
@@ -52,9 +60,14 @@ export function GraphiqueMois({ titre, series, format, formatAxe }: {
             <text x={GAUCHE - 8} y={y(v) + 4} textAnchor="end" fontSize={12} fill={texte}>{formatAxe(v)}</text>
           </g>
         ))}
+        {moisEnCours != null && <rect data-en-cours x={GAUCHE + colonne * moisEnCours + 2} y={0} width={colonne - 4} height={HAUT + BAS} rx={6} fill={FOND_MOIS_EN_COURS} />}
         {survol !== null && <rect x={GAUCHE + colonne * survol} y={0} width={colonne} height={HAUT} fill={theme.palette.action.hover} />}
         {barres.map((s) => s.valeurs.map((v, i) => v !== null && v > 0 && (
-          <rect key={`${s.nom}-${i}`} x={x(i) - largeurBarre / 2} y={y(v)} width={largeurBarre} height={HAUT - y(v)} rx={4} fill={s.couleur} />
+          <rect key={`${s.nom}-${i}`} x={x(i) - largeurBarre / 2} y={y(v)} width={largeurBarre} height={HAUT - y(v)} rx={4} fill={s.couleurs?.[i] ?? s.couleur} />
+        )))}
+        {contours.map((s) => s.valeurs.map((v, i) => v !== null && v > 0 && (
+          <rect key={`${s.nom}-${i}`} x={x(i) - largeurBarre / 2} y={y(v)} width={largeurBarre} height={HAUT - y(v)} rx={4} fill="none"
+            stroke={s.couleur} strokeWidth={1.5} strokeDasharray={sansBarre(i) ? '4 3' : undefined} />
         )))}
         {lignes.map((s) => {
           const pts = s.valeurs.map((v, i) => (v === null ? null : `${x(i).toFixed(1)},${y(v).toFixed(1)}`))
@@ -66,7 +79,7 @@ export function GraphiqueMois({ titre, series, format, formatAxe }: {
             </g>
           )
         })}
-        {MOIS.map((m, i) => <text key={m} x={x(i)} y={HAUT + 18} textAnchor="middle" fontSize={12} fill={texte}>{m}</text>)}
+        {MOIS.map((m, i) => <text key={m} x={x(i)} y={HAUT + 18} textAnchor="middle" fontSize={12} fill={i === moisEnCours ? theme.palette.text.primary : texte} fontWeight={i === moisEnCours ? 700 : 400}>{m}</text>)}
         {MOIS.map((m, i) => (
           <rect key={`zone-${m}`} data-mois={i + 1} x={GAUCHE + colonne * i} y={0} width={colonne} height={HAUT + BAS} fill="transparent"
             onMouseEnter={() => setSurvol(i)} onMouseMove={() => setSurvol(i)} onClick={() => setSurvol(i)} />
@@ -82,7 +95,7 @@ export function GraphiqueMois({ titre, series, format, formatAxe }: {
           <Typography variant="subtitle2" sx={{ textTransform: 'capitalize', mb: 0.5 }}>{MOIS_LONGS[survol]}</Typography>
           {series.filter((s) => s.valeurs[survol] !== null).map((s) => (
             <Box key={s.nom} sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: '0.8125rem' }}>
-              <Box component="span" sx={{ width: 10, height: 10, borderRadius: s.forme === 'barre' ? '3px' : '50%', bgcolor: s.couleur, flexShrink: 0 }} />
+              <Box component="span" sx={{ width: 10, height: 10, borderRadius: s.forme === 'ligne' ? '50%' : '3px', flexShrink: 0, ...(s.forme === 'contour' ? { border: `1.5px solid ${s.couleur}` } : { bgcolor: s.couleurs?.[survol] ?? s.couleur }) }} />
               <Box component="span" sx={{ flex: 1, color: 'text.secondary' }}>{s.nom}</Box>
               <Box component="span" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{format(s.valeurs[survol]!)}</Box>
             </Box>
@@ -93,7 +106,7 @@ export function GraphiqueMois({ titre, series, format, formatAxe }: {
       <Box sx={{ display: 'flex', gap: 2.5, flexWrap: 'wrap', mt: 1, pl: `${GAUCHE}px` }}>
         {series.filter((s) => s.valeurs.some((v) => v !== null)).map((s) => (
           <Box key={s.nom} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, fontSize: '0.8125rem', color: 'text.secondary' }}>
-            <Box component="span" sx={{ width: s.forme === 'barre' ? 10 : 16, height: s.forme === 'barre' ? 10 : 2, borderRadius: s.forme === 'barre' ? '3px' : 0, bgcolor: s.couleur }} />
+            <Box component="span" sx={{ width: s.forme === 'ligne' ? 16 : 10, height: s.forme === 'ligne' ? 2 : 10, borderRadius: s.forme === 'ligne' ? 0 : '3px', ...(s.forme === 'contour' ? { border: `1.5px solid ${s.couleur}` } : { bgcolor: s.couleur }) }} />
             {s.nom}
           </Box>
         ))}

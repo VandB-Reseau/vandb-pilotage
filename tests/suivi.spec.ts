@@ -42,10 +42,14 @@ test('fiche magasin : le réel face au budget, mois par mois', async ({ page, is
 
   const tableau = page.getByRole('table', { name: `Réel face au budget ${N} mois par mois` })
   const ligne = (nom: string) => tableau.getByRole('row').filter({ has: page.getByRole('cell', { name: nom, exact: true }) })
-  await expect(ligne('CA HT réel')).toContainText(/50\s000.*44\s000.*94\s000\s€/)
+  // Refonte T2 : une case = le réel, sa pastille, le budget dessous (janvier au-dessus du budget, février à −8,3 %)
+  await expect(ligne('CA HT')).toContainText(/50\s000\s*prévu 48\s000, au prévu ou mieux.*44\s000\s*prévu 48\s000, nettement en dessous du prévu.*94\s000\s*prévu 96\s000/)
   await expect(ligne('Écart de CA')).toContainText(/\+2\s000.*[-−]4\s000.*[-−]2\s000\s€/)
-  // Février : marge incomplète, pas d'écart de marge ; janvier : 26 000 − 27 547,5
-  await expect(ligne('Écart de marge')).toContainText(/[-−]1\s54[78]/)  // −1 547,5 arrondi
+  // Février : marge incomplète, pas de marge réelle ; janvier : 26 000 face à 27 547,5 (−5,6 % : au-delà du seuil de 5 %)
+  await expect(ligne('Marge')).toContainText(/26\s000\s*prévu 27\s54[78], nettement en dessous du prévu/)
+  await expect(page.getByLabel('Légende des pastilles').first()).toContainText('jusqu’à 5 % en dessous')
+  // R4 : jauge du CA face au budget
+  await expect(cartes.getByRole('meter', { name: 'CA réel face au budget à fin février' })).toBeVisible()
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-suivi-budget.png`, fullPage: true })
@@ -54,6 +58,9 @@ test('fiche magasin : le réel face au budget, mois par mois', async ({ page, is
   const bulle = page.getByRole('tooltip')
   await expect(bulle).toContainText(/Réel\s*44\s000\s€/)
   await expect(bulle).toContainText(/Budget\s*48\s000\s€/)
+  // R2 : vue cumulée, l'atterrissage chiffré face au budget de l'année
+  await page.getByRole('button', { name: 'Cumulé' }).click()
+  await expect(page.getByRole('region', { name: `Réel et budget ${N}, graphique` })).toContainText(/Atterrissage \d{4} : .* face au budget de 640\sk€/)
 })
 
 test('fiche magasin : sans budget de l’année, le suivi le dit', async ({ page }) => {

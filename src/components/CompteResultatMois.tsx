@@ -17,6 +17,7 @@ import { COLONNES, regrouperCompte } from '../moteur/periodes'
 import type { SujetAide } from '../lib/aide'
 import { Aide } from './Aide'
 import { ChoixPeriode, usePeriode } from './ChoixPeriode'
+import { styleTableau } from '../theme/tableau'
 
 // Lot 32 : picto (i) sur chaque ligne calculée (pas sur le CA ni les rubriques qui ne font qu'additionner des frais)
 const AIDE_LIGNE: Record<string, SujetAide> = {
@@ -28,12 +29,13 @@ const AIDE_LIGNE: Record<string, SujetAide> = {
 // Compte de résultat sur 12 mois : rubriques repliées, dépliables d'un clic ; titres et libellés figés au défilement.
 // « projeteA » : à partir de ce mois (0 = janvier), les colonnes sont des projections, en gris.
 // Lot 27 : par mois, par quadrimestre ou sur l'année seule, en euros ou en k€ (choix gardé dans le navigateur).
-export function CompteResultatMois({ lignes, titre, libelleTableau, projeteA, entete }: {
+export function CompteResultatMois({ lignes, titre, libelleTableau, projeteA, entete, moisEnCours }: {
   lignes: LigneCompte[]
   titre: string
   libelleTableau: string
   projeteA?: number
   entete?: React.ReactNode
+  moisEnCours?: number | null       // refonte T1 : colonne du mois en cours surlignée (vue par mois)
 }) {
   const [ouvertes, setOuvertes] = useState<Set<string>>(new Set())
   const choix = usePeriode('compte')
@@ -51,6 +53,7 @@ export function CompteResultatMois({ lignes, titre, libelleTableau, projeteA, en
   const visible = (l: { parent?: string }) => { let p = l.parent; while (p) { if (!ouvertes.has(p)) return false; p = parentDe.get(p) } return true }
   // Colonne projetée : tous ses mois sont après le dernier mois réalisé
   const projete = (c: number[]) => projeteA !== undefined && c[0] >= projeteA
+  const enCours = (c: number[]) => (periode === 'mois' && moisEnCours != null && c[0] === moisEnCours ? 'en-cours' : undefined)
 
   return (
     <Card component="section" aria-label={titre}>
@@ -65,12 +68,12 @@ export function CompteResultatMois({ lignes, titre, libelleTableau, projeteA, en
         )}
       </Box>
       <TableContainer>
-        <Table size="small" className="colonne-fixe" aria-label={libelleTableau} sx={{ '& td, & th': { py: 0.75, px: 1, fontSize: '0.8125rem' }, '& td:first-of-type, & th:first-of-type': { pl: 2.5 } }}>
+        <Table size="small" className="colonne-fixe" aria-label={libelleTableau} sx={styleTableau}>
           <TableHead>
             <TableRow>
               <TableCell sx={{ minWidth: 210 }}><Box component="span" sx={{ fontWeight: 400 }}>{unite === 'milliers' ? 'En k€' : 'En euros'}</Box></TableCell>
               {colonnes.map((c) => (
-                <TableCell key={c[0]} align="right" sx={projete(c) ? { color: 'text.disabled', fontStyle: 'italic' } : undefined}
+                <TableCell key={c[0]} align="right" className={enCours(c)} sx={projete(c) ? { color: 'text.disabled', fontStyle: 'italic' } : undefined}
                   aria-label={projete(c) ? `${enTete(c)} (projection)` : undefined}>{enTete(c)}</TableCell>
               ))}
               <TableCell align="right">Total</TableCell>
@@ -81,10 +84,9 @@ export function CompteResultatMois({ lignes, titre, libelleTableau, projeteA, en
             {regrouperCompte(lignes, periode).filter(visible).map((l) => {
               const parent = parents.has(l.cle)
               const style = { fontWeight: l.fort ? 700 : 400, whiteSpace: 'nowrap' as const, ...(l.parent ? { color: 'text.secondary' } : {}) }
-              const fond = l.fort ? { bgcolor: 'background.default' } : undefined
               return (
-                <TableRow key={l.cle} sx={fond}>
-                  <TableCell sx={{ ...style, ...fond, pl: l.parent ? `${20 + 20 * profondeur(l)}px !important` : undefined }}>
+                <TableRow key={l.cle} className={l.fort ? 'ligne-forte' : undefined}>
+                  <TableCell sx={{ ...style, pl: l.parent ? `${20 + 20 * profondeur(l)}px !important` : undefined }}>
                     {parent ? (
                       <ButtonBase onClick={() => basculer(l.cle)} aria-expanded={ouvertes.has(l.cle)} aria-label={`${l.libelle} : ${ouvertes.has(l.cle) ? 'replier' : 'détailler'}`}
                         sx={{ font: 'inherit', gap: 0.5, ml: -0.75, px: 0.5, borderRadius: 1, minHeight: { xs: 48, md: 28 }, '&:hover': { bgcolor: 'action.hover' } }}>
@@ -95,7 +97,7 @@ export function CompteResultatMois({ lignes, titre, libelleTableau, projeteA, en
                     {AIDE_LIGNE[l.cle] && <Aide sujet={AIDE_LIGNE[l.cle]} compact />}
                   </TableCell>
                   {l.mois.map((v, i) => (
-                    <TableCell key={i} align="right" sx={{ ...style, ...(projete(colonnes[i]) ? { color: 'text.secondary' } : {}), ...(v !== null && v < 0 && l.fort ? { color: 'error.main' } : {}) }}>
+                    <TableCell key={i} align="right" className={enCours(colonnes[i])} sx={{ ...style, ...(projete(colonnes[i]) ? { color: 'text.secondary' } : {}), ...(v !== null && v < 0 && l.fort ? { color: 'error.main' } : {}) }}>
                       {v === null ? '' : l.indicateur ? enChiffres(Math.round(v) || 0) : affiche(v)}
                     </TableCell>
                   ))}

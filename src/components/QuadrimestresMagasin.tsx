@@ -24,8 +24,12 @@ import { useChargement } from '../data/useChargement'
 import { nombreChangements } from '../lib/aFaire'
 import { nombre } from '../import/caisse'
 import { lireFEC, texteDuFEC } from '../import/fec'
-import { ecartMontant, ecartPts, ecartTaux, enChiffres, milliers, montant, MOIS, MOIS_LONGS, taux } from '../lib/format'
+import { ecartMontant, ecartPts, ecartTaux, enChiffres, milliers, montant, taux } from '../lib/format'
 import { tresorerieBudget, tresorerieGlissante } from '../moteur/tresorerie'
+import { niveauEcart, planTresorerie, pontEBE } from '../moteur/visuel'
+import { PlanTresorerieAnnee } from './PlanTresorerieAnnee'
+import { PontEcartEBE } from './PontEcartEBE'
+import { LegendePastilles, Pastille } from './Tableau'
 import { calculerBudget } from '../moteur/budget'
 import { comparaisonPeriode, memePeriode, moisDuQuadrimestre, QUADRIMESTRES, quadrimestreLibelle, resultatsQuadrimestres, type Quadrimestre, type ResultatQuadrimestre, type SaisieQuadrimestre } from '../moteur/quadrimestre'
 import { BoutonModele } from './BoutonModele'
@@ -99,10 +103,21 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
   ]
   // Trésorerie glissante : dernière trésorerie saisie, puis les flux de l'atterrissage jusqu'à décembre
   const qTreso = [...QUADRIMESTRES].reverse().find((q) => lues[q]?.tresorerie != null)
-  const atterri = qTreso && qTreso < 3 ? atterrissageDe({ n: donnees.reel, n1: donnees.reelN1 }, annee, donnees.d.equipes[magasin], donnees.d.frais[magasin], donnees.parametres, donnees.secours) : null
-  const glissante = atterri && qTreso
+  const atterri = moisCaisse.some((m) => m.caHT > 0) ? atterrissageDe({ n: donnees.reel, n1: donnees.reelN1 }, annee, donnees.d.equipes[magasin], donnees.d.frais[magasin], donnees.parametres, donnees.secours) : null
+  const glissante = atterri && qTreso && qTreso < 3
     ? tresorerieGlissante(tresorerieBudget(atterri.budget, atterri.hypotheses, donnees.parametres, donnees.parametres.tresorerie), { montant: lues[qTreso]!.tresorerie!, mois: qTreso * 4 - 1 })
     : null
+  // Refonte P1 et P2 (2/11/2026) : plan de trésorerie de l'année, réel au quadrimestre face au prévu (budget de l'année,
+  // sinon atterrissage). Départ réel : trésorerie de fin d'année dernière saisie au 3e quadrimestre, sinon celle du budget.
+  const debutReel = donnees.saisiesN1[3]?.tresorerie ?? ligne?.ajustements?.tresorerieDepart ?? null
+  const prevue = budget && h
+    ? tresorerieBudget(budget, h.hypotheses, donnees.parametres, donnees.parametres.tresorerie, ligne?.ajustements?.tresorerieDepart ?? debutReel ?? 0)
+    : atterri ? tresorerieBudget(atterri.budget, atterri.hypotheses, donnees.parametres, donnees.parametres.tresorerie, debutReel ?? 0) : null
+  const enCours = annee === new Date().getFullYear() ? new Date().getMonth() : null
+  const seuil = donnees.parametres.alertes.ecartCA
+  const plan = prevue ? planTresorerie(prevue, moisCaisse.map((m) => (m.caHT > 0 ? m.caTTC : null)),
+    Object.fromEntries(QUADRIMESTRES.map((q) => [q, lues[q]?.tresorerie ?? null])), debutReel, glissante, enCours ?? (annee < new Date().getFullYear() ? 11 : -1)) : null
+  const pont = cumul ? pontEBE(cumul) : null
 
   const lireFichierFEC = async (f: File) => {
     setMessage(null)
@@ -137,7 +152,7 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
 
   const vide = <TableCell align="right" sx={{ color: 'text.disabled' }}>–</TableCell>
   const calcul = (libelle: string, f: (r: ResultatQuadrimestre) => number | null, texte: (v: number) => string, o: { fort?: boolean; rouge?: boolean } = {}) => (
-    <TableRow sx={o.fort ? { bgcolor: 'background.default', '& td': { bgcolor: 'background.default', fontWeight: 700 } } : undefined}>
+    <TableRow className={o.fort ? 'ligne-forte' : undefined} sx={o.fort ? { '& td': { fontWeight: 700 } } : undefined}>
       <TableCell>{libelle}</TableCell>
       {colonnes.map((r, i) => {
         const v = r ? f(r) : null
@@ -234,9 +249,12 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
 
       {comparaison && (
         <Card component="section" aria-label={`Cumul à fin ${fin} face au budget et à ${annee - 1}`}>
-          <Typography variant="h2" sx={{ px: 2.5, pt: 2, pb: 1 }}>Cumul à fin {fin} : budget et {annee - 1}</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2.5, pt: 2, pb: 1 }}>
+            <Typography variant="h2" sx={{ flex: 1 }}>Cumul à fin {fin} : budget et {annee - 1}</Typography>
+            <LegendePastilles seuil={seuil} />
+          </Box>
           <TableContainer>
-            <Table size="small" className="colonne-fixe" aria-label={`Cumul ${annee} face au budget et à ${annee - 1}`} sx={{ '& td, & th': { px: 1.25, whiteSpace: 'nowrap' }, '& td:first-of-type, & th:first-of-type': { pl: 2.5, minWidth: 200 } }}>
+            <Table size="small" className="colonne-fixe" aria-label={`Cumul ${annee} face au budget et à ${annee - 1}`} sx={{ ...styleTableau, '& td:first-of-type, & th:first-of-type': { pl: 2.5, minWidth: 200 } }}>
               <TableHead>
                 <TableRow>
                   <TableCell><Box component="span" sx={{ fontWeight: 400 }}>En euros HT</Box></TableCell>
@@ -253,9 +271,11 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
                   const favorable = (v: number) => (l.charge ? v <= 0 : v >= 0)
                   const tiret = <Box component="span" sx={{ color: 'text.disabled' }}>–</Box>
                   return (
-                    <TableRow key={l.cle} sx={fort ? { bgcolor: 'background.default', '& td': { bgcolor: 'background.default', fontWeight: 700 } } : undefined}>
+                    <TableRow key={l.cle} className={fort ? 'ligne-forte' : undefined}>
                       <TableCell>{l.libelle}</TableCell>
-                      <TableCell align="right">{l.reel === null ? tiret : montant(l.reel)}</TableCell>
+                      <TableCell align="right">{l.reel === null ? tiret : (
+                        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}><Pastille niveau={niveauEcart(l.reel, l.budget, seuil, l.charge)} />{montant(l.reel)}</Box>
+                      )}</TableCell>
                       <TableCell align="right">{l.budget === null ? tiret : montant(l.budget)}</TableCell>
                       <TableCell align="right" sx={l.ecartBudget === null ? undefined : { color: favorable(l.ecartBudget) ? 'success.dark' : 'error.main' }}>{l.ecartBudget === null ? tiret : ecartMontant(l.ecartBudget)}</TableCell>
                       <TableCell align="right">{l.n1 === null ? tiret : montant(l.n1)}</TableCell>
@@ -269,39 +289,9 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir }: { magasin: 
         </Card>
       )}
 
-      {glissante && (
-        <Card component="section" aria-label="Trésorerie prévue jusqu’à décembre">
-          <Box sx={{ px: 2.5, pt: 2, pb: 1 }}>
-            <Typography variant="h2">Trésorerie prévue jusqu’à décembre</Typography>
-          </Box>
-          <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap', px: 2.5, pb: 1.5 }}>
-            <Indicateur libelle={`Trésorerie fin ${MOIS_LONGS[glissante.depart.mois]}`} valeur={milliers(glissante.depart.montant)} detail="Saisie au quadrimestre" />
-            <Indicateur libelle="Point bas prévu" aide="pointBas" valeur={milliers(glissante.pointBas.montant)}
-              detail={`${MOIS_LONGS[glissante.pointBas.mois].charAt(0).toUpperCase()}${MOIS_LONGS[glissante.pointBas.mois].slice(1)}${glissante.moisNegatifs ? `, ${glissante.moisNegatifs} mois à découvert` : ''}`} />
-            <Indicateur libelle="Trésorerie fin décembre prévue" aide="tresorerieGlissante" valeur={milliers(glissante.fin)} detail="Selon l’atterrissage de l’année" />
-          </Stack>
-          <TableContainer>
-            <Table size="small" aria-label={`Trésorerie prévue ${annee} mois par mois`} sx={styleTableau}>
-              <TableHead>
-                <TableRow>
-                  <TableCell><Box component="span" sx={{ fontWeight: 400 }}>En euros</Box></TableCell>
-                  {glissante.mois.map((m) => <TableCell key={m.mois} align="right">{MOIS[m.mois]}</TableCell>)}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                <TableRow>
-                  <TableCell>Variation du mois</TableCell>
-                  {glissante.mois.map((m) => <TableCell key={m.mois} align="right">{ecartMontant(m.flux)}</TableCell>)}
-                </TableRow>
-                <TableRow sx={{ '& td': { fontWeight: 700, bgcolor: 'background.default' } }}>
-                  <TableCell>Trésorerie en fin de mois</TableCell>
-                  {glissante.mois.map((m) => <TableCell key={m.mois} align="right" sx={m.fin < 0 ? { color: 'error.main' } : undefined}>{enChiffres(Math.round(m.fin))}</TableCell>)}
-                </TableRow>
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Card>
-      )}
+      {pont && <PontEcartEBE pont={pont} periode={`à fin ${fin}`} />}
+
+      {plan && prevue && <PlanTresorerieAnnee annee={annee} plan={plan} prevue={prevue} seuil={seuil} enCours={enCours} source={budget ? 'budget' : 'atterrissage'} />}
       {peutSaisir && modifie && (
         <BarreEnregistrement
           changements={nombreChangements(vers(donnees.saisies), textes)} occupe={occupe} desactive={!lisible || negatif}

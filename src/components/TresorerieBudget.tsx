@@ -20,6 +20,7 @@ import { GraphiqueTresorerie } from './GraphiqueTresorerie'
 import { ChampNombre } from './ChampNombre'
 import { Indicateur } from './Indicateur'
 import { Aide } from './Aide'
+import { styleTableau } from '../theme/tableau'
 import type { SujetAide } from '../lib/aide'
 
 // Trésorerie du budget mois par mois : encaissements, décaissements (montants TTC, délais de paiement compris), solde
@@ -105,7 +106,7 @@ export function TresorerieBudget({ tresorerie: t, annee, depart, onDepart, lectu
         {detail && <ChoixPeriode quoi={`Trésorerie ${annee}`} {...choix} />}
       </Box>
       {detail && <TableContainer>
-        <Table size="small" className="colonne-fixe" aria-label={`Trésorerie ${annee} mois par mois`} sx={{ '& td, & th': { py: 0.75, px: 1, fontSize: '0.8125rem', whiteSpace: 'nowrap' }, '& td:first-of-type, & th:first-of-type': { pl: 2.5 } }}>
+        <Table size="small" className="colonne-fixe" aria-label={`Trésorerie ${annee} mois par mois`} sx={styleTableau}>
           <TableHead>
             <TableRow>
               <TableCell sx={{ minWidth: 220 }}><Box component="span" sx={{ fontWeight: 400 }}>{unite === 'milliers' ? 'En k€ TTC' : 'En euros TTC'}</Box></TableCell>
@@ -116,10 +117,9 @@ export function TresorerieBudget({ tresorerie: t, annee, depart, onDepart, lectu
           <TableBody>
             {lignes.map((l) => {
               const signe = l.sortie ? -1 : 1
-              const fond = l.fort ? { bgcolor: 'background.default' } : undefined
               return (
-                <TableRow key={l.cle} sx={fond}>
-                  <TableCell sx={{ fontWeight: l.fort ? 700 : 400, ...fond }}>{l.libelle}{l.aide && <Aide sujet={l.aide} compact />}</TableCell>
+                <TableRow key={l.cle} className={l.fort ? 'ligne-forte' : undefined}>
+                  <TableCell sx={{ fontWeight: l.fort ? 700 : 400 }}>{l.libelle}{l.aide && <Aide sujet={l.aide} compact />}</TableCell>
                   {regrouper(t.mois.map((m) => m[l.cle]), periode).map((v, i) => (
                     <TableCell key={i} align="right" sx={{ fontWeight: l.fort ? 700 : 400, ...(l.cle === 'flux' ? rouge(v) : {}) }}>
                       {affiche(signe * v)}
@@ -129,8 +129,8 @@ export function TresorerieBudget({ tresorerie: t, annee, depart, onDepart, lectu
                 </TableRow>
               )
             })}
-            <TableRow sx={{ bgcolor: 'background.default' }}>
-              <TableCell sx={{ fontWeight: 700, bgcolor: 'background.default' }}>Trésorerie en fin de mois</TableCell>
+            <TableRow className="ligne-forte">
+              <TableCell sx={{ fontWeight: 700 }}>Trésorerie en fin de mois</TableCell>
               {regrouper(t.mois.map((m) => m.fin), periode, 'dernier').map((v, i) => <TableCell key={i} align="right" sx={{ fontWeight: 700, ...rouge(v) }}>{affiche(v)}</TableCell>)}
               <TableCell align="right" sx={{ fontWeight: 700, ...rouge(t.fin) }}>{affiche(t.fin)}</TableCell>
             </TableRow>

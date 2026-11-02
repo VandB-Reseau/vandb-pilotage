@@ -7,10 +7,14 @@ import ArrowUpwardOutlined from '@mui/icons-material/ArrowUpwardOutlined'
 import type { SujetAide } from '../lib/aide'
 import { Aide } from './Aide'
 import { Courbe } from './Courbe'
+import { COULEUR_NIVEAU } from './Tableau'
+import type { NiveauEcart } from '../moteur/visuel'
 
 // Carte de chiffre clé : libellé discret, valeur en grand, écart coloré (vert si favorable, rouge sinon), courbe facultative.
 // Lot 32 : picto (i) à côté du libellé, l'aide du calcul (aide) ou le calcul détaillé avec les chiffres du magasin (info)
-export function Indicateur({ libelle, valeur, detail, ecart, serie, action, aide, info }: {
+// Refonte R4 (2/11/2026) : jauge facultative, le réel rempli à la couleur de sa pastille, un trait noir au niveau du budget
+// (le budget est aux 4/5 de la jauge, pour voir aussi un dépassement)
+export function Indicateur({ libelle, valeur, detail, ecart, serie, action, aide, info, jauge }: {
   libelle: string
   valeur: string
   detail?: string
@@ -19,6 +23,7 @@ export function Indicateur({ libelle, valeur, detail, ecart, serie, action, aide
   action?: ReactNode
   aide?: SujetAide
   info?: ReactNode
+  jauge?: { valeur: number; cible: number; niveau: NiveauEcart | null; libelle: string }
 }) {
   return (
     <Card sx={{ p: 2.5, flex: '1 1 200px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -36,6 +41,13 @@ export function Indicateur({ libelle, valeur, detail, ecart, serie, action, aide
           </Box>
         )}
       </Box>
+      {jauge && jauge.cible > 0 && (
+        <Box role="meter" aria-label={jauge.libelle} aria-valuemin={0} aria-valuemax={Math.round(jauge.cible * 1.25)} aria-valuenow={Math.round(Math.max(0, jauge.valeur))}
+          sx={{ position: 'relative', height: 10, borderRadius: 5, bgcolor: 'divider', my: 0.75 }}>
+          <Box sx={{ position: 'absolute', inset: 0, right: 'auto', width: `${Math.max(0, Math.min(1, jauge.valeur / (jauge.cible * 1.25))) * 100}%`, borderRadius: 5, bgcolor: jauge.niveau ? COULEUR_NIVEAU[jauge.niveau] : 'text.secondary' }} />
+          <Box sx={{ position: 'absolute', top: -4, bottom: -4, left: 'calc(80% - 1.5px)', width: 3, borderRadius: 2, bgcolor: 'text.primary' }} />
+        </Box>
+      )}
       {detail && <Typography variant="caption" color="text.secondary">{detail}</Typography>}
       {serie && <Box sx={{ mt: 'auto', pt: 1 }}><Courbe valeurs={serie} /></Box>}
       {action}
