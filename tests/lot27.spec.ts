@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type ActionSimulee, type MagasinSimule } from './supabase-simule'
+import { anneeEnTete, ouvrir, partieAffichee, partiesAffichees, seConnecter, textesTropPetits, zonesTropPetites, type ActionSimulee, type MagasinSimule } from './supabase-simule'
 
 // Lot 27, sprint ergonomie : fiche en trois espaces, barre d'enregistrement, compte de résultat par période,
 // trésorerie en barres, liste des magasins triable, « À traiter ». Données fictives uniquement : dépôt public.
@@ -21,9 +21,8 @@ test('fiche en trois espaces ; la barre d’enregistrement montre l’effet avan
   // Lot 36 : la fiche s'ouvre sur le suivi ; le budget est un espace à part, en 4 étapes (0 : point de départ)
   await expect(page).toHaveURL(/\/synthese$/)
   await ouvrir(page, 'Hypothèses')
-  const parties = page.getByRole('tablist', { name: /^Étapes du budget/ })
-  await expect(parties.getByRole('tab', { name: /^1 · Hypothèses/ })).toHaveAttribute('aria-selected', 'true')
-  await expect(parties.getByRole('tab')).toHaveCount(4)
+  await partieAffichee(page, /^1 · Hypothèses/)
+  await expect(partiesAffichees(page)).toHaveCount(4)
 
   const barre = page.getByRole('region', { name: 'Changements non enregistrés' })
   await expect(barre).toHaveCount(0)
@@ -50,7 +49,7 @@ test('compte de résultat par quadrimestre en milliers d’euros ; trésorerie e
   await seConnecter(page, { magasins: [propose] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Résultat et trésorerie')
-  const annee = Number((await page.getByRole('tablist', { name: /^Étapes du budget/ }).getAttribute('aria-label'))?.match(/\d{4}/)?.[0])
+  const annee = await anneeEnTete(page)
   const tableau = page.getByRole('table', { name: `Budget ${annee} mois par mois` })
   await expect(tableau.getByRole('columnheader')).toHaveCount(15)            // libellé, 12 mois, total, part du CA
 

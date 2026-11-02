@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule } from './supabase-simule'
+import { ouvrir, partieAffichee, partiesAffichees, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule } from './supabase-simule'
 
 // Lot 37 (Joseph, 02/11/2026) : budget en 4 étapes ; toutes les hypothèses sur une page en cartes par thème (H2), chaque
 // carte ouvre un tableau court (année en cours, siège, choix du magasin, année du budget) ; la trésorerie de l'année et
@@ -20,7 +20,7 @@ test('hypothèses en cartes : chaque carte ouvre son tableau, les changements re
   await seConnecter(page, { role: 'franchise', magasins: [propose] })
   await ouvrir(page, 'Cartes des hypothèses')
   await expect(page).toHaveURL(/\/budget$/)
-  await expect(page.getByRole('tablist', { name: /^Étapes du budget/ }).getByRole('tab'))
+  await expect(partiesAffichees(page))
     .toHaveText([/^0 · Point de départ/, /^1 · Hypothèses/, /^2 · Résultat et trésorerie/, /^3 · Échanges et validation/])
   const main = page.locator('main')
   for (const t of ['Ventes', 'Calendrier', 'Équipe', 'Frais', 'Trésorerie', 'Résultat']) {
@@ -36,7 +36,7 @@ test('hypothèses en cartes : chaque carte ouvre son tableau, les changements re
   await main.getByRole('region', { name: 'Ventes', exact: true }).getByRole('link').click()
   await expect(page).toHaveURL(/\/ventes$/)
   await expect(page.getByRole('heading', { level: 2, name: /^Ventes \d{4}/ })).toBeVisible()
-  await expect(page.getByRole('tab', { name: /^1 · Hypothèses/ })).toHaveAttribute('aria-selected', 'true')
+  await partieAffichee(page, /^1 · Hypothèses/)
   const cave = page.getByRole('table', { name: /^Hypothèses \d{4} : Cave/ })
   await expect(cave.getByRole('columnheader')).toHaveText(isMobile ? [/^Hypothèse/, /^Siège propose/, /^Choix du magasin/, /^\d{4}$/] : [/^Hypothèse/, /^\d{4}$/, /^Siège propose/, /^Choix du magasin/, /^\d{4}$/])
   await expect(cave.getByRole('row', { name: /^Tickets/ })).toContainText(/10\s000/)

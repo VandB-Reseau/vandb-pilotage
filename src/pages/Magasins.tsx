@@ -30,7 +30,7 @@ import { EtatVide } from '../components/EtatVide'
 import { Indicateur } from '../components/Indicateur'
 import { Panne } from '../components/Panne'
 import { PastilleStatut } from '../components/PastilleStatut'
-import { anneeBudget, chargerActions, chargerAlertes, chargerBudgets, chargerParametres, hypothesesDe } from '../data/pilotage'
+import { anneeBudget, chargerActions, chargerAlertes, chargerBudgets, chargerParametres, hypothesesDe, parametresDuBudget } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { aTraiter, correspond, filtrerMagasins, FILTRES, type Filtre } from '../lib/aFaire'
 import { dateHeure, lienMagasin, milliers, taux } from '../lib/format'
@@ -93,10 +93,11 @@ export function Magasins() {
         groupes: d.groupes, alertes, actions, campagne: campagneDe(parametres, annee),
         magasins: d.magasins.map((l) => {
           const h = hypothesesDe(l, d)
-          const budget = h ? calculerBudget(h.hypotheses, parametres) : null
+          const pL = parametresDuBudget(l, parametres)
+          const budget = h ? calculerBudget(h.hypotheses, pL) : null
           return {
             ...l, groupe: l.groupeId ? groupes.get(l.groupeId) ?? '' : '', budget,
-            pointBas: budget && h ? tresorerieBudget(budget, h.hypotheses, parametres, parametres.tresorerie, l.ajustements?.tresorerieDepart ?? 0).pointBas.montant : null,
+            pointBas: budget && h ? tresorerieBudget(budget, h.hypotheses, pL, pL.tresorerie, l.ajustements?.tresorerieDepart ?? 0).pointBas.montant : null,
             aEquipe: !!d.equipes[l.magasin]?.length, aFrais: !!d.frais[l.magasin]?.length,
           }
         }),

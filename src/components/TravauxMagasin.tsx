@@ -13,7 +13,7 @@ import Typography from '@mui/material/Typography'
 import ConstructionOutlined from '@mui/icons-material/ConstructionOutlined'
 import DeleteOutlined from '@mui/icons-material/DeleteOutlined'
 import { nombre } from '../import/caisse'
-import { ecartMontant, enChiffres, milliers, MOIS } from '../lib/format'
+import { ecartMilliers, enChiffres, milliers, MOIS } from '../lib/format'
 import type { Travaux } from '../moteur/types'
 import { ChampNombre } from './ChampNombre'
 import { ChampTaux } from './ChampTaux'
@@ -48,7 +48,7 @@ export function TravauxMagasin({ travaux, onChange, lectureSeule, effetCA, dotat
     <Card component="section" aria-label="Travaux">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2.5, pt: 2, pb: 1 }}>
         <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}><Typography variant="h2">Travaux</Typography><Aide sujet="travaux" /></Box>
-        <Typography variant="body2" color="text.secondary">CA de l’année : {ecartMontant(effetCA)} · Dotation : {milliers(dotation)}</Typography>
+        <Typography variant="body2" color="text.secondary">CA de l’année : {ecartMilliers(effetCA)} · Dotation : {milliers(dotation)}</Typography>
         {!lectureSeule && (
           <Button size="small" color="inherit" className="pas-a-l-impression" startIcon={<DeleteOutlined />} onClick={() => onChange(undefined)} sx={{ minHeight: 48 }}>Retirer les travaux</Button>
         )}

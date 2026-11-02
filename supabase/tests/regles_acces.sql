@@ -42,7 +42,7 @@ INSERT INTO pilotage.reel_mensuel (store_name, mois, univers, famille, ca_ht) VA
 SELECT pg_temp.attendre('Directeur : tous les magasins', (SELECT cardinality(pilotage.mes_magasins())), 3);
 SELECT pg_temp.attendre('Directeur : tous les budgets', (SELECT count(*) FROM pilotage.budgets), 3);
 SELECT pg_temp.attendre('Directeur : tableau des magasins', (SELECT jsonb_array_length(pilotage.magasins_du_compte(2027))), 3);
-SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 19);
+SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 20);
 -- Frais : le Directeur saisit partout
 INSERT INTO pilotage.frais (store_name, code, libelle, rubrique, annuel) VALUES ('Lille', 'loyer', 'Locations immobilières', 'immobilier', 60000), ('Nice', 'loyer', 'Locations immobilières', 'immobilier', 40000);
 SELECT pg_temp.attendre('Directeur : tous les frais', (SELECT count(*) FROM pilotage.frais), 2);
@@ -208,11 +208,16 @@ SELECT pg_temp.attendre('RR : ne change pas les ajustements en validant', pg_tem
 SELECT pg_temp.attendre('RR : ne change pas la proposition', pg_temp.refuse('UPDATE pilotage.budgets SET statut = ''valide'', proposition = ''{"v":9}'' WHERE store_name = ''Arras'''), 1);
 WITH m AS (UPDATE pilotage.budgets SET statut = 'valide' WHERE store_name = 'Nice' RETURNING 1)
 SELECT pg_temp.attendre('RR : ne valide pas hors de ses magasins', (SELECT count(*) FROM m), 0);
-WITH m AS (UPDATE pilotage.budgets SET statut = 'valide', hypotheses = '{"v":5}' WHERE store_name = 'Arras' RETURNING valide_le)
-SELECT pg_temp.attendre('RR : valide un budget de ses magasins et date la validation', (SELECT count(*) FROM m WHERE valide_le IS NOT NULL), 1);
+WITH m AS (UPDATE pilotage.budgets SET statut = 'valide', hypotheses = '{"v":5}' WHERE store_name = 'Arras' RETURNING valide_le, parametres)
+SELECT pg_temp.attendre('RR : valide un budget de ses magasins, date la validation et fige les paramètres de l''année',
+  (SELECT count(*) FROM m WHERE valide_le IS NOT NULL AND parametres = (SELECT valeur FROM pilotage.parametres_reseau WHERE annee = 2027)), 1);
+SELECT pg_temp.attendre('Budget validé : sa copie des paramètres n''est pas réécrite',
+  (SELECT count(*) FROM pilotage.budgets WHERE store_name = 'Arras' AND parametres = (SELECT valeur FROM pilotage.parametres_reseau WHERE annee = 2027)), 1);
+SELECT pg_temp.attendre('Budgets du compte : paramètres figés du budget validé', (SELECT count(*) FROM jsonb_array_elements(pilotage.budgets_du_compte(2027)->'magasins') e WHERE e->>'magasin' = 'Arras' AND e->'parametres' IS NOT NULL AND e->'parametres' <> 'null'::jsonb), 1);
 SELECT pg_temp.attendre('RR : ne retouche pas un budget validé', pg_temp.refuse('UPDATE pilotage.budgets SET hypotheses = ''{"v":6}'' WHERE store_name = ''Arras'''), 1);
 WITH m AS (UPDATE pilotage.budgets SET statut = 'en_discussion', hypotheses = '{"v":7}' WHERE store_name = 'Arras' RETURNING statut, valide_le, hypotheses)
 SELECT pg_temp.attendre('RR : rouvre la discussion sans toucher aux hypothèses', (SELECT count(*) FROM m WHERE statut = 'en_discussion' AND valide_le IS NULL AND hypotheses = '{"v":5}'), 1);
+SELECT pg_temp.attendre('Budget rouvert : il suit de nouveau les paramètres du moment', (SELECT count(*) FROM pilotage.budgets WHERE store_name = 'Arras' AND parametres IS NULL), 1);
 SELECT pg_temp.attendre('RR : ne crée pas de budget', pg_temp.refuse('INSERT INTO pilotage.budgets (store_name, annee, proposition, hypotheses) VALUES (''Lille'', 2028, ''{}'', ''{}'')'), 1);
 WITH m AS (DELETE FROM pilotage.budgets RETURNING 1)
 SELECT pg_temp.attendre('RR : ne supprime pas de budget', (SELECT count(*) FROM m), 0);
@@ -255,8 +260,8 @@ WITH m AS (UPDATE pilotage.budgets SET hypotheses = '{"v":2}' WHERE store_name =
 SELECT pg_temp.attendre('Franchisé : sa modification met le budget en discussion', (SELECT count(*) FROM m WHERE statut = 'en_discussion'), 1);
 SELECT pg_temp.attendre('Franchisé : ne valide pas', (SELECT count(*) FROM pilotage.budgets WHERE statut = 'valide'), 0);
 SELECT pg_temp.attendre('Franchisé : ne change pas la proposition', pg_temp.refuse('UPDATE pilotage.budgets SET proposition = ''{"v":9}'' WHERE store_name = ''Lille'''), 1);
-WITH m AS (UPDATE pilotage.budgets SET statut = 'valide' WHERE store_name = 'Lille' RETURNING statut)
-SELECT pg_temp.attendre('Franchisé : « valide » redevient « en discussion »', (SELECT count(*) FROM m WHERE statut = 'en_discussion'), 1);
+WITH m AS (UPDATE pilotage.budgets SET statut = 'valide', parametres = '{"tauxRedevance":0}' WHERE store_name = 'Lille' RETURNING statut, parametres)
+SELECT pg_temp.attendre('Franchisé : « valide » redevient « en discussion », sans paramètres figés', (SELECT count(*) FROM m WHERE statut = 'en_discussion' AND parametres IS NULL), 1);
 WITH m AS (UPDATE pilotage.budgets SET hypotheses = '{}' WHERE store_name = 'Nice' RETURNING 1)
 SELECT pg_temp.attendre('Franchisé : rien sur un autre magasin', (SELECT count(*) FROM m), 0);
 SELECT pg_temp.attendre('Franchisé : ne crée pas de budget', pg_temp.refuse('INSERT INTO pilotage.budgets (store_name, annee, proposition, hypotheses) VALUES (''Lille'', 2028, ''{}'', ''{}'')'), 1);

@@ -55,6 +55,8 @@ const impression = {
   '.impression-seule': { display: 'none' },
   // Parties du budget masquées à l'écran (lot 27) : imprimées avec la partie affichée, pour garder le budget complet sur papier
   '.partie-cachee': { display: 'none !important' },
+  // Détail replié (lot 38) : caché à l'écran, imprimé
+  '.repli-ferme': { display: 'none' },
   '@page': { size: 'A4 landscape', margin: '10mm' },
   // Fiche de visite (lot 28) : A4 portrait, seule sur la page imprimée
   '@page fiche': { size: 'A4 portrait', margin: '12mm' },
@@ -64,6 +66,7 @@ const impression = {
     '.pas-a-l-impression, .MuiTabs-root, .MuiAlert-root, .MuiIconButton-root, .MuiTableSortLabel-icon': { display: 'none !important' },
     '.impression-seule': { display: 'inline' },
     '.partie-cachee': { display: 'block !important' },
+    '.repli-ferme': { display: 'block !important' },
     main: { marginLeft: '0 !important', padding: '0 !important', maxWidth: 'none !important' },
     '.MuiCard-root': { boxShadow: 'none !important', border: '1px solid #d6d6d6', overflow: 'visible !important' },
     '.MuiTableContainer-root': { overflow: 'visible !important' },
@@ -124,7 +127,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const actif = (chemin: string) => !fiche && (chemin === '/' ? pathname === '/' : pathname.startsWith(chemin))
 
   const lien = (d: Destination) => (
-    <ListItemButton key={d.chemin} component={RouterLink} to={d.chemin} selected={actif(d.chemin)} sx={{ minHeight: 48, mb: 0.25 }}>
+    <ListItemButton key={d.chemin} component={RouterLink} to={d.chemin} selected={actif(d.chemin)} aria-current={actif(d.chemin) ? 'page' : undefined} sx={{ minHeight: 48, mb: 0.25 }}>
       <ListItemIcon sx={{ minWidth: 40 }}>{d.icone}</ListItemIcon>
       <ListItemText primary={d.nom} />
     </ListItemButton>
@@ -151,7 +154,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             {sousTitre('Magasin')}
             <Box sx={{ mb: 0.5 }}><SelecteurMagasin magasin={magasin} /></Box>
             {parties.map((p) => (
-              <ListItemButton key={p.cle} component={RouterLink} to={lienMagasin(magasin, p.cle)} selected={partieActive !== null && etapeDe(partieActive) === p.cle}
+              <ListItemButton key={p.cle} component={RouterLink} to={lienMagasin(magasin, p.cle)} selected={partieActive !== null && etapeDe(partieActive) === p.cle} aria-current={partieActive !== null && etapeDe(partieActive) === p.cle ? 'page' : undefined}
                 data-sans-garde={libre(p.cle) ? '' : undefined} sx={{ minHeight: 48, mb: 0.25, pl: 2 }}>
                 <ListItemText primary={
                   <Badge variant="dot" color="warning" invisible={!pastilles[p.cle] || fiche?.nom !== magasin} sx={{ '& .MuiBadge-dot': { right: -8, top: 4 } }}>{p.libelle}</Badge>

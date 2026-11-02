@@ -1,4 +1,9 @@
+import { useState } from 'react'
 import Box from '@mui/material/Box'
+import IconButton from '@mui/material/IconButton'
+import Popover from '@mui/material/Popover'
+import Typography from '@mui/material/Typography'
+import InfoOutlined from '@mui/icons-material/InfoOutlined'
 import TableCell from '@mui/material/TableCell'
 import Tooltip from '@mui/material/Tooltip'
 import { ecartMontant, ecartTaux, MOIS } from '../lib/format'
@@ -66,14 +71,24 @@ export function CaseReelPrevu({ reel, prevu, niveau, format, enCours, fort, char
 // Barres du réel dans les graphiques : mêmes couleurs que les pastilles (couleurs CSS, pas des clés du thème)
 export const COULEUR_BARRE: Record<NiveauEcart, string> = { favorable: brand.vert, leger: brand.or, fort: 'var(--mui-palette-error-main)' }
 
-// Légende des pastilles, le seuil étant celui de l'alerte CA (Paramètres réseau)
+// Légende des pastilles, le seuil étant celui de l'alerte CA (Paramètres réseau). Lot 38 (D5) : derrière une icône (i),
+// comme toute l'aide, au lieu d'être répétée au-dessus de chaque tableau.
 export function LegendePastilles({ seuil }: { seuil: number }) {
+  const [ancre, setAncre] = useState<HTMLElement | null>(null)
   const pct = `${Math.round(seuil * 100)} %`
   return (
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', fontSize: '0.8125rem', color: 'text.secondary' }} aria-label="Légende des pastilles">
-      {([['favorable', 'au budget ou mieux'], ['leger', `jusqu’à ${pct} en dessous`], ['fort', `plus de ${pct} en dessous`]] as const).map(([n, t]) => (
-        <Box key={n} component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}><Pastille niveau={n} />{t}</Box>
-      ))}
-    </Box>
+    <>
+      <IconButton aria-label="Légende des pastilles" className="pas-a-l-impression" onClick={(e) => { e.stopPropagation(); setAncre(e.currentTarget) }}
+        sx={{ width: { xs: 48, md: 32 }, height: { xs: 48, md: 32 }, color: 'text.secondary' }}>
+        <InfoOutlined sx={{ fontSize: 18 }} />
+      </IconButton>
+      <Popover open={!!ancre} anchorEl={ancre} onClose={() => setAncre(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        slotProps={{ paper: { role: 'dialog', 'aria-label': 'Légende des pastilles', sx: { p: 2, display: 'flex', flexDirection: 'column', gap: 1 } } }}>
+        <Typography variant="subtitle1" component="p" sx={{ fontWeight: 700 }}>Légende des pastilles</Typography>
+        {([['favorable', 'au budget ou mieux'], ['leger', `jusqu’à ${pct} en dessous`], ['fort', `plus de ${pct} en dessous`]] as const).map(([n, t]) => (
+          <Box key={n} component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, fontSize: '0.875rem' }}><Pastille niveau={n} />{t}</Box>
+        ))}
+      </Popover>
+    </>
   )
 }

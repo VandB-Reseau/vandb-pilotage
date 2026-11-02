@@ -94,6 +94,13 @@ export const theme = createTheme({
     overline: { fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.06em' },
   },
   components: {
+    // Fond des lignes clés des tableaux (lot 38) : vert canard très clair, plus soutenu en mode sombre
+    MuiCssBaseline: {
+      styleOverrides: {
+        ':root': { '--fond-ligne-cle': 'rgba(58, 143, 141, 0.10)' },
+        '@media (prefers-color-scheme: dark)': { ':root': { '--fond-ligne-cle': 'rgba(95, 179, 176, 0.18)' } },
+      },
+    },
     MuiChip: {
       variants: (['warning', 'info', 'success'] as const).map((couleur) => ({
         props: { variant: 'filled' as const, color: couleur },

@@ -146,6 +146,8 @@ test('cumul face au budget et à la même période de l’an passé, ligne par l
     quadrimestres: [q(N, 130_000, 8_000, 30_000, 3_000, 35_000), q(N - 1, 100_000, 4_000, 28_000, 3_000, 31_000)] })
   await ouvrir(page, 'Comptes du quadrimestre')
   const tableau = page.getByRole('table', { name: `Cumul ${N} face au budget et à ${N - 1}` })
+  // Lot 38 : le cumul est replié sous le pont d'EBE
+  await page.getByRole('button', { name: /^Cumul à fin avril/ }).click()
   await expect(tableau.getByRole('columnheader', { name: 'Écart au budget' })).toBeVisible()
   // CA 200 000 contre 160 000 : + 25 % ; marge 78 000 contre 64 000 (100 000 − 4 000 retirés de 160 000) ; EBE 10 000 contre 2 000
   const ligneN1 = (nom: string) => tableau.getByRole('row').filter({ has: page.getByRole('cell', { name: nom, exact: true }) })

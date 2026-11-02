@@ -8,7 +8,7 @@ import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import Typography from '@mui/material/Typography'
-import { ecartMontant, enChiffres, milliers, MOIS, MOIS_LONGS, QUADRIMESTRES_COURTS } from '../lib/format'
+import { ecartMilliers, enChiffres, milliers, MOIS, MOIS_LONGS, QUADRIMESTRES_COURTS } from '../lib/format'
 import type { Tresorerie } from '../moteur/tresorerie'
 import { niveauEcart, type PlanTresorerie } from '../moteur/visuel'
 import { styleTableau } from '../theme/tableau'
@@ -44,7 +44,7 @@ export function PlanTresorerieAnnee({ annee, plan, prevue, seuil, enCours, sourc
       <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap', px: 2.5, py: 1.5 }} aria-label="Trésorerie en bref">
         <Indicateur
           libelle={r ? `Trésorerie fin ${MOIS_LONGS[r.mois]}` : 'Trésorerie réelle'} valeur={r ? milliers(r.montant) : 'À saisir'}
-          ecart={r ? { texte: `${ecartMontant(r.ecart)} sur le prévu`, hausse: r.ecart >= 0, favorable: r.ecart >= 0 } : undefined}
+          ecart={r ? { texte: `${ecartMilliers(r.ecart)} sur le prévu`, hausse: r.ecart >= 0, favorable: r.ecart >= 0 } : undefined}
           detail={r ? `Prévu : ${milliers(r.prevu)} · saisie au quadrimestre` : 'Saisie avec le quadrimestre, ligne « Trésorerie en fin de période »'}
         />
         {plan.pointBas && (
@@ -53,7 +53,7 @@ export function PlanTresorerieAnnee({ annee, plan, prevue, seuil, enCours, sourc
         )}
         <Indicateur
           libelle="Fin décembre" aide="tresorerieGlissante" valeur={milliers(finProjetee ?? prevue.fin)}
-          ecart={finProjetee !== null ? { texte: `${ecartMontant(finProjetee - prevue.fin)} sur le prévu`, hausse: finProjetee >= prevue.fin, favorable: finProjetee >= prevue.fin } : undefined}
+          ecart={finProjetee !== null ? { texte: `${ecartMilliers(finProjetee - prevue.fin)} sur le prévu`, hausse: finProjetee >= prevue.fin, favorable: finProjetee >= prevue.fin } : undefined}
           detail={finProjetee !== null ? `Projeté depuis le dernier solde réel · prévu ${milliers(prevue.fin)}` : 'Prévu'}
         />
       </Stack>

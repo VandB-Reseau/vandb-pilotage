@@ -56,7 +56,7 @@ import { SyntheseMagasin } from '../components/SyntheseMagasin'
 import { HypotheseCle, HypothesesUnivers, TableauHypotheses } from '../components/HypothesesUnivers'
 import { HypothesesCartes } from '../components/HypothesesCartes'
 import {
-  anneeBudget, avecEquipeEtFrais, changerStatut, chargerBudgets, chargerParametres, chargerReel, enregistrerAjustements, hypothesesDe, niveauxDe, statutLibelle, valeursSansCible,
+  anneeBudget, avecEquipeEtFrais, changerStatut, chargerBudgets, chargerParametres, chargerReel, enregistrerAjustements, hypothesesDe, niveauxDe, parametresDuBudget, statutLibelle, valeursSansCible,
 } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { nombreChangements, reelEnRetard } from '../lib/aFaire'
@@ -135,6 +135,8 @@ export function Magasin() {
   const garde = useGarde()
   // Réel de l'année : pastille de l'onglet si le dernier mois terminé manque (gardé en mémoire pour les onglets Réel et Atterrissage)
   const reel = useChargement(() => chargerReel(nom, anneeEnCours), [nom, anneeEnCours])
+  // Lot 38 (D2) : statut du budget de l'année en cours, affiché dans l'en-tête du Suivi
+  const budgetsN = useChargement(() => chargerBudgets(anneeEnCours), [anneeEnCours])
   // Magasins de la liste d'où l'on vient (filtres compris), pour passer au précédent ou au suivant
   const state = location.state as { liste?: string[]; retour?: string; depuis?: { chemin: string; nom: string } } | null
 
@@ -185,7 +187,9 @@ export function Magasin() {
     return <Box>{retour}<EtatVide titre="Ce magasin n’est pas dans ton périmètre" texte="Il n’apparaît pas parmi les magasins rattachés à ton compte. Reviens à la liste pour choisir un de tes magasins." /></Box>
   }
 
-  const { d, parametres } = donnees
+  const { d } = donnees
+  // Lot 38 : un budget validé se calcule avec les paramètres réseau du jour de sa validation
+  const parametres = parametresDuBudget(ligne, donnees.parametres)
   const resolu = hypothesesDe(ligne, d, brouillon)
   const b = resolu ? calculerBudget(resolu.hypotheses, parametres) : null
   const modifie = JSON.stringify(brouillon) !== JSON.stringify(ligne.ajustements)
@@ -287,21 +291,62 @@ export function Magasin() {
         />
   ) : null
 
+  // Lot 38 (D1) : passer d'une étape du budget à la suivante sans remonter en haut de page
+  const allerEtape = (cle: string) => (espace === 'budget' && onglet !== 'equipe' && onglet !== 'depart' ? aller(cle) : garde(() => aller(cle)))
+  const iEtape = espace === 'budget' && !themeOuvert ? parties.findIndex((x) => x.cle === etapeDe(onglet)) : -1
+  const etapeAvant = iEtape > 0 ? parties[iEtape - 1] : null
+  const etapeApres = iEtape >= 0 && iEtape < parties.length - 1 ? parties[iEtape + 1] : null
+  const sansNumero = (t: string) => t.replace(/^\d · /, '')
+  const piedEtapes = iEtape >= 0 ? (
+    <Box component="nav" aria-label="Étape précédente ou suivante" className="pas-a-l-impression" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mt: 4, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+      {etapeAvant && (
+        <Button variant="text" startIcon={<ChevronLeftOutlined />} onClick={() => allerEtape(etapeAvant.cle)} sx={{ minHeight: 48 }}>{sansNumero(etapeAvant.libelle)}</Button>
+      )}
+      <Box sx={{ flex: 1 }} />
+      <Typography variant="body2" color="text.secondary">Étape {iEtape} sur {parties.length - 1}</Typography>
+      {etapeApres && (
+        <Button variant="contained" endIcon={<ChevronRightOutlined />} onClick={() => allerEtape(etapeApres.cle)} sx={{ minHeight: 48 }}>
+          Étape suivante : {sansNumero(etapeApres.libelle)}
+        </Button>
+      )}
+    </Box>
+  ) : null
+  // Lot 38 (D2) : statut du budget de l'espace affiché (budget en préparation, ou budget de l'année suivie) et actions
+  const ligneN = budgetsN.donnees?.magasins.find((l) => l.magasin === ligne.magasin)
+  const statutEntete = espace === 'budget' ? { annee, statut: ligne.statut }
+    : espace === 'suivi' && ligneN ? { annee: anneeEnCours, statut: ligneN.statut } : null
+  const actionsEntete = espace === 'budget' && b ? (
+    <Stack direction="row" useFlexGap spacing={1} className="pas-a-l-impression" aria-label="Exporter ou imprimer le budget">
+      <Button variant="outlined" startIcon={<FileDownloadOutlined />} onClick={exporter} sx={{ minHeight: 48 }}>Exporter en Excel</Button>
+      <Button variant="outlined" startIcon={<PrintOutlined />} onClick={() => window.print()} sx={{ minHeight: 48, display: { xs: 'none', md: 'inline-flex' } }}>Imprimer</Button>
+    </Stack>
+  ) : null
+
   return (
     <Box>
       {retour}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+      {/* Lot 38 (D2) : un en-tête unique, nom, budget et son statut, actions ; le statut ne se répète plus dans la page */}
+      <Box component="header" sx={{ display: 'flex', alignItems: 'center', columnGap: 2, rowGap: 1, flexWrap: 'wrap', mb: espace === 'budget' && ligne.base ? 0.5 : 3 }}>
         <Typography variant="h1">{ligne.magasin}</Typography>
-        <PastilleStatut statut={ligne.statut} />
+        {statutEntete && (
+          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="body1" color="text.secondary" component="span">Budget {statutEntete.annee}</Typography>
+            <PastilleStatut statut={statutEntete.statut} />
+          </Box>
+        )}
+        {actionsEntete && <Box sx={{ flex: 1 }} />}
+        {actionsEntete}
       </Box>
-      <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5, mb: 2, minHeight: '1.5em' }}>
-        {espace === 'budget' && ligne.base ? `${nbEcarts === 0 ? 'Aucun écart' : nbEcarts === 1 ? '1 écart' : `${nbEcarts} écarts`} aux cibles du siège` : ''}
-        {espace === 'budget' && <Box component="span" className="impression-seule">{ligne.base ? ' · ' : ''}Budget {annee} · imprimé le {new Date().toLocaleDateString('fr-FR')}</Box>}
-      </Typography>
+      {espace === 'budget' && ligne.base && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+          {`${nbEcarts === 0 ? 'Aucun écart' : nbEcarts === 1 ? '1 écart' : `${nbEcarts} écarts`} aux cibles du siège`}
+          <Box component="span" className="impression-seule"> · imprimé le {new Date().toLocaleDateString('fr-FR')}</Box>
+        </Typography>
+      )}
 
-      {/* Lot 36 : les parties sont dans le menu de gauche ; les étapes du budget restent en tête de page, et sur téléphone toutes les parties */}
-      {(espace === 'budget' || telephone) && (
-        <Tabs value={etapeDe(onglet)} onChange={(_, v: string) => (espace === 'budget' && onglet !== 'equipe' && onglet !== 'depart' ? aller(v) : garde(() => aller(v)))} variant="scrollable" scrollButtons="auto"
+      {/* Lot 38 (D1) : sur PC, les parties ne sont que dans le menu de gauche ; sur téléphone (menu replié), en onglets */}
+      {telephone && (
+        <Tabs value={etapeDe(onglet)} onChange={(_, v: string) => allerEtape(v)} variant="scrollable" scrollButtons="auto"
           aria-label={espace === 'budget' ? `Étapes du budget ${annee}` : espace === 'donnees' ? 'Données du magasin' : 'Suivi du magasin'} className="pas-a-l-impression" sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
           {parties.map((x) => (
             <Tab key={x.cle} value={x.cle} onClick={themeOuvert && x.cle === 'budget' ? () => (onglet === 'equipe' ? garde(() => aller('budget')) : aller('budget')) : undefined} label={manques[x.cle] ? <LibelleOnglet texte={x.libelle} manque detail={manques[x.cle]!.detail} /> : x.libelle} sx={{ minHeight: 48 }} />
@@ -404,7 +449,7 @@ export function Magasin() {
             <Indicateur libelle="Résultat net" aide="resultatNet" valeur={milliers(b.resultatNet)} detail={`Impôt : ${milliers(b.impot)}`} />
           </Stack>
 
-          <Stack direction="row" useFlexGap spacing={1.5} className="pas-a-l-impression" sx={{ flexWrap: 'wrap' }} aria-label="Actions sur le budget">
+          {(peutValider && ligne.base) || (directeur && ligne.base && !copie) ? <Stack direction="row" useFlexGap spacing={1.5} className="pas-a-l-impression" sx={{ flexWrap: 'wrap' }} aria-label="Actions sur le budget">
             {peutValider && ligne.base && ligne.statut !== 'valide' && (
               <Button variant={modifie ? 'outlined' : 'contained'} color="success" startIcon={<CheckCircleOutlined />} disabled={occupe || !enregistrable} sx={{ minHeight: 48 }}
                 onClick={() => resolu && void agir(async () => {
@@ -425,10 +470,7 @@ export function Magasin() {
                 Copier vers d’autres magasins
               </Button>
             )}
-            <Box sx={{ flex: 1, display: { xs: 'none', md: 'block' } }} />
-            <Button variant="outlined" startIcon={<FileDownloadOutlined />} onClick={exporter} sx={{ minHeight: 48 }}>Exporter en Excel</Button>
-            <Button variant="outlined" startIcon={<PrintOutlined />} onClick={() => window.print()} sx={{ minHeight: 48, display: { xs: 'none', md: 'inline-flex' } }}>Imprimer</Button>
-          </Stack>
+          </Stack> : null}
           {copie && <CopieHypotheses source={ligne.magasin} magasins={destinations.map((l) => l.magasin)} occupe={occupe} onCopier={copier} onFermer={() => setCopie(false)} />}
         </>
       )}
@@ -529,6 +571,7 @@ export function Magasin() {
 
       {barreBudget}
       </Stack>)}
+      {piedEtapes}
     </Box>
   )
 }

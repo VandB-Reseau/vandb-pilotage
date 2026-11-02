@@ -19,16 +19,17 @@ import { useSaisieEnCours } from './GardeSaisie'
 import { ImportFEC, type FichierFEC } from './ImportFEC'
 import { Indicateur } from './Indicateur'
 import { Panne } from './Panne'
-import { atterrissageDe, chargerBudgets, chargerParametres, chargerQuadrimestres, chargerReel, chargerSecours, enregistrerQuadrimestres, hypothesesDe } from '../data/pilotage'
+import { atterrissageDe, chargerBudgets, chargerParametres, chargerQuadrimestres, chargerReel, chargerSecours, enregistrerQuadrimestres, hypothesesDe, parametresDuBudget } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { nombreChangements } from '../lib/aFaire'
 import { nombre } from '../import/caisse'
 import { lireFEC, texteDuFEC } from '../import/fec'
-import { ecartMontant, ecartPts, ecartTaux, enChiffres, lienMagasin, milliers, montant, taux } from '../lib/format'
+import { ecartMilliers, ecartMontant, ecartPts, ecartTaux, enChiffres, lienMagasin, milliers, montant, taux } from '../lib/format'
 import { tresorerieBudget, tresorerieGlissante } from '../moteur/tresorerie'
 import { niveauEcart, planTresorerie, pontEBE } from '../moteur/visuel'
 import { PlanTresorerieAnnee } from './PlanTresorerieAnnee'
 import { PontEcartEBE } from './PontEcartEBE'
+import { Repliable } from './Repliable'
 import { LegendePastilles, Pastille } from './Tableau'
 import { calculerBudget } from '../moteur/budget'
 import { comparaisonPeriode, memePeriode, moisDuQuadrimestre, QUADRIMESTRES, quadrimestreLibelle, resultatsQuadrimestres, type Quadrimestre, type ResultatQuadrimestre, type SaisieQuadrimestre } from '../moteur/quadrimestre'
@@ -38,7 +39,7 @@ import { Aide } from './Aide'
 import { EtatVide } from './EtatVide'
 import { Link as RouterLink } from 'react-router-dom'
 import { moisDuReel } from '../moteur/suivi'
-import { styleTableau } from '../theme/tableau'
+import { classeLigne, styleTableau } from '../theme/tableau'
 
 type Champ = keyof SaisieQuadrimestre
 type Textes = Record<Quadrimestre, Record<Champ, string>>
@@ -88,7 +89,8 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir, vue = 'saisie
 
   const ligne = donnees.d.magasins.find((l) => l.magasin === magasin)
   const h = ligne?.statut ? hypothesesDe(ligne, donnees.d) : null
-  const budget = h ? calculerBudget(h.hypotheses, donnees.parametres) : null
+  const pBudget = parametresDuBudget(ligne, donnees.parametres)
+  const budget = h ? calculerBudget(h.hypotheses, pBudget) : null
   const moisCaisse = moisDuReel(donnees.reel.lignes, donnees.reel.tickets)
   const { parQuadrimestre, cumul, dernier, moisCumul } = resultatsQuadrimestres(moisCaisse, lues, budget)
   // Cumul face au budget et à la même période de l'an passé
@@ -116,7 +118,7 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir, vue = 'saisie
   // sinon atterrissage). Départ réel : trésorerie de fin d'année dernière saisie au 3e quadrimestre, sinon celle du budget.
   const debutReel = donnees.saisiesN1[3]?.tresorerie ?? ligne?.ajustements?.tresorerieDepart ?? null
   const prevue = budget && h
-    ? tresorerieBudget(budget, h.hypotheses, donnees.parametres, donnees.parametres.tresorerie, ligne?.ajustements?.tresorerieDepart ?? debutReel ?? 0)
+    ? tresorerieBudget(budget, h.hypotheses, pBudget, pBudget.tresorerie, ligne?.ajustements?.tresorerieDepart ?? debutReel ?? 0)
     : atterri ? tresorerieBudget(atterri.budget, atterri.hypotheses, donnees.parametres, donnees.parametres.tresorerie, debutReel ?? 0) : null
   const enCours = annee === new Date().getFullYear() ? new Date().getMonth() : null
   const seuil = donnees.parametres.alertes.ecartCA
@@ -156,8 +158,8 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir, vue = 'saisie
   }
 
   const vide = <TableCell align="right" sx={{ color: 'text.disabled' }}>–</TableCell>
-  const calcul = (libelle: string, f: (r: ResultatQuadrimestre) => number | null, texte: (v: number) => string, o: { fort?: boolean; rouge?: boolean } = {}) => (
-    <TableRow className={o.fort ? 'ligne-forte' : undefined} sx={o.fort ? { '& td': { fontWeight: 700 } } : undefined}>
+  const calcul = (libelle: string, f: (r: ResultatQuadrimestre) => number | null, texte: (v: number) => string, o: { fort?: boolean; rouge?: boolean; cle?: string } = {}) => (
+    <TableRow className={o.cle ? classeLigne(o.cle) : o.fort ? 'ligne-forte' : undefined} sx={o.fort ? { '& td': { fontWeight: 700 } } : undefined}>
       <TableCell>{libelle}</TableCell>
       {colonnes.map((r, i) => {
         const v = r ? f(r) : null
@@ -167,7 +169,7 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir, vue = 'saisie
     </TableRow>
   )
   const saisie = (c: Champ) => (
-    <TableRow key={c}>
+    <TableRow key={c} className={classeLigne(c)}>
       <TableCell>{LIBELLES[c]}</TableCell>
       {QUADRIMESTRES.map((q) => (
         <TableCell key={q} align="right" sx={{ py: 0.5 }}>
@@ -184,11 +186,7 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir, vue = 'saisie
   const fin = dernier ? quadrimestreLibelle[dernier].split(' à ')[1] : ''
 
   const comparaisonCarte = comparaison && (
-        <Card component="section" aria-label={`Cumul à fin ${fin} face au budget et à ${annee - 1}`}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2.5, pt: 2, pb: 1 }}>
-            <Typography variant="h2" sx={{ flex: 1 }}>Cumul à fin {fin} : budget et {annee - 1}</Typography>
-            <LegendePastilles seuil={seuil} />
-          </Box>
+        <Repliable titre={`Cumul à fin ${fin} : budget et ${annee - 1}`} nom={`Cumul à fin ${fin} face au budget et à ${annee - 1}`} droite={<LegendePastilles seuil={seuil} />}>
           <TableContainer>
             <Table size="small" className="colonne-fixe" aria-label={`Cumul ${annee} face au budget et à ${annee - 1}`} sx={{ ...styleTableau, '& td:first-of-type, & th:first-of-type': { pl: 2.5, minWidth: 200 } }}>
               <TableHead>
@@ -203,11 +201,10 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir, vue = 'saisie
               </TableHead>
               <TableBody>
                 {comparaison.map((l) => {
-                  const fort = l.cle === 'ca' || l.cle === 'marge' || l.cle === 'ebe'
                   const favorable = (v: number) => (l.charge ? v <= 0 : v >= 0)
                   const tiret = <Box component="span" sx={{ color: 'text.disabled' }}>–</Box>
                   return (
-                    <TableRow key={l.cle} className={fort ? 'ligne-forte' : undefined}>
+                    <TableRow key={l.cle} className={classeLigne(l.cle)}>
                       <TableCell>{l.libelle}</TableCell>
                       <TableCell align="right">{l.reel === null ? tiret : (
                         <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}><Pastille niveau={niveauEcart(l.reel, l.budget, seuil, l.charge)} />{montant(l.reel)}</Box>
@@ -222,7 +219,7 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir, vue = 'saisie
               </TableBody>
             </Table>
           </TableContainer>
-        </Card>
+        </Repliable>
       )
   const versSaisie = (
     <Button component={RouterLink} to={lienMagasin(magasin, 'quadrimestres')} variant="contained" sx={{ minHeight: 48 }}>Saisir les comptes du quadrimestre</Button>
@@ -237,7 +234,7 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir, vue = 'saisie
         <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap' }} component="section" aria-label={`Résultat réel à fin ${fin}`}>
           <Indicateur
             libelle={`EBE réel à fin ${fin}`} aide="ebeReel" valeur={milliers(cumul.ebe)}
-            ecart={cumul.ecartEBE === null ? undefined : { texte: `${ecartMontant(cumul.ecartEBE)} sur le budget`, hausse: cumul.ecartEBE >= 0, favorable: cumul.ecartEBE >= 0 }}
+            ecart={cumul.ecartEBE === null ? undefined : { texte: `${ecartMilliers(cumul.ecartEBE)} sur le budget`, hausse: cumul.ecartEBE >= 0, favorable: cumul.ecartEBE >= 0 }}
             detail={cumul.ebeSurCA === null ? undefined : `${taux(cumul.ebeSurCA)} du CA`}
           />
           <Indicateur
@@ -248,8 +245,8 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir, vue = 'saisie
         </Stack>
       )}
 
-        {comparaisonCarte}
         {pont && <PontEcartEBE pont={pont} periode={`à fin ${fin}`} />}
+        {comparaisonCarte}
       </Stack>
     )
   }
@@ -293,10 +290,10 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir, vue = 'saisie
               </TableRow>
             </TableHead>
             <TableBody>
-              {calcul('CA HT de la caisse', (r) => r.ca, euros, { fort: true })}
+              {calcul('CA HT de la caisse', (r) => r.ca, euros, { fort: true, cle: 'ca' })}
               {saisie('achats')}
               {saisie('variationStock')}
-              {calcul('Marge réelle', (r) => r.marge, euros, { fort: true })}
+              {calcul('Marge réelle', (r) => r.marge, euros, { fort: true, cle: 'marge' })}
               {calcul('Taux de marge réel', (r) => r.tauxMarge, taux)}
               {calcul('Taux de marge théorique de la caisse', (r) => r.tauxMargeCaisse, taux)}
               {calcul('Écart à la marge de la caisse (démarque)', (r) => r.ecartMargeCaisse, ecartPts, { rouge: true })}
@@ -304,7 +301,7 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir, vue = 'saisie
               {saisie('chargesExternes')}
               {saisie('impotsTaxes')}
               {saisie('personnel')}
-              {calcul('EBE réel', (r) => r.ebe, euros, { fort: true, rouge: true })}
+              {calcul('EBE réel', (r) => r.ebe, euros, { fort: true, rouge: true, cle: 'ebe' })}
               {calcul('EBE / CA', (r) => r.ebeSurCA, taux)}
               {calcul('EBE du budget', (r) => r.budget?.ebe ?? null, euros)}
               {calcul('Écart d’EBE au budget', (r) => r.ecartEBE, ecartMontant, { rouge: true })}

@@ -26,6 +26,7 @@ export interface LigneMagasin {
   base: Hypotheses | null        // réalisé du magasin, importé de son prévisionnel
   ajustements: Cibles            // écarts du magasin aux cibles du siège
   figees: Hypotheses | null      // hypothèses enregistrées (celles qui font foi une fois le budget validé)
+  parametres?: Partial<ParametresReseau> | null // paramètres réseau copiés à la validation (lot 38, migration 0020)
   groupeId: number | null
   majLe: string | null
 }
@@ -70,7 +71,7 @@ export const chargerBudgets = (annee: number): Promise<DonneesBudgets> => memo(`
 async function lireBudgets(annee: number): Promise<DonneesBudgets> {
   const [{ data, error }, equipes, frais, ouvertures] = await Promise.all([pilotage().rpc('budgets_du_compte', { p_annee: annee }), chargerEquipes(), chargerFrais(), chargerOuvertures()])
   if (error || !objet(data) || !Array.isArray(data.magasins)) throw new ErreurChargement()
-  const lignes = data.magasins as { magasin: string; statut: Statut | null; base: unknown; ajustements: unknown; hypotheses: unknown; maj_le: string | null; groupe_id: number | null }[]
+  const lignes = data.magasins as { magasin: string; statut: Statut | null; base: unknown; ajustements: unknown; hypotheses: unknown; maj_le: string | null; groupe_id: number | null; parametres?: unknown }[]
   return {
     annee, ouvertures,
     magasins: lignes.map((l) => ({
@@ -78,6 +79,7 @@ async function lireBudgets(annee: number): Promise<DonneesBudgets> {
       base: hypothesesValides(l.base) ? l.base : null,
       ajustements: objet(l.ajustements) ? (l.ajustements as Cibles) : {},
       figees: hypothesesValides(l.hypotheses) ? l.hypotheses : null,
+      parametres: l.statut === 'valide' && objet(l.parametres) ? (l.parametres as Partial<ParametresReseau>) : null,
       groupeId: l.groupe_id ?? null, majLe: l.maj_le,
     })),
     reseau: objet(data.reseau) ? (data.reseau as Cibles) : null,
@@ -158,24 +160,30 @@ export const chargerParametres = (annee: number): Promise<{ parametres: Parametr
 async function lireParametres(annee: number): Promise<{ parametres: ParametresReseau; enregistres: boolean }> {
   const { data, error } = await pilotage().from('parametres_reseau').select('valeur').eq('annee', annee).maybeSingle()
   if (error) throw new ErreurChargement()
-  const v = (data?.valeur ?? {}) as Partial<ParametresReseau>
+  return { parametres: completerParametres((data?.valeur ?? {}) as Partial<ParametresReseau>), enregistres: !!data }
+}
+
+// Paramètres enregistrés complétés par les valeurs par défaut (une valeur absente reprend celle par défaut)
+export function completerParametres(v: Partial<ParametresReseau>): ParametresReseau {
   return {
-    parametres: {
-      ...parametresParDefaut, ...v,
-      impot: { ...parametresParDefaut.impot, ...v.impot },
-      tvaPanier: { ...parametresParDefaut.tvaPanier, ...v.tvaPanier },
-      tresorerie: {
-        ...parametresParDefaut.tresorerie, ...v.tresorerie,
-        consignes: { ...parametresParDefaut.tresorerie.consignes!, ...v.tresorerie?.consignes },
-      },
-      alertes: { ...parametresParDefaut.alertes, ...v.alertes },
-      charges: {
-        taux: { ...parametresParDefaut.charges.taux, ...v.charges?.taux },
-        reduction: { ...parametresParDefaut.charges.reduction, ...v.charges?.reduction },
-      },
+    ...parametresParDefaut, ...v,
+    impot: { ...parametresParDefaut.impot, ...v.impot },
+    tvaPanier: { ...parametresParDefaut.tvaPanier, ...v.tvaPanier },
+    tresorerie: {
+      ...parametresParDefaut.tresorerie, ...v.tresorerie,
+      consignes: { ...parametresParDefaut.tresorerie.consignes!, ...v.tresorerie?.consignes },
     },
-    enregistres: !!data,
+    alertes: { ...parametresParDefaut.alertes, ...v.alertes },
+    charges: {
+      taux: { ...parametresParDefaut.charges.taux, ...v.charges?.taux },
+      reduction: { ...parametresParDefaut.charges.reduction, ...v.charges?.reduction },
+    },
   }
+}
+
+// Lot 38 : un budget validé se calcule avec les paramètres du jour de sa validation ; les autres avec ceux du moment
+export function parametresDuBudget(ligne: Pick<LigneMagasin, 'statut' | 'parametres'> | null | undefined, parametres: ParametresReseau): ParametresReseau {
+  return ligne?.statut === 'valide' && ligne.parametres ? completerParametres(ligne.parametres) : parametres
 }
 
 // Valeur de chaque hypothèse sans aucune cible : le réalisé du magasin (sa marge, l'évolution de ses tickets)
@@ -190,7 +198,7 @@ export function consoliderBudgets(d: DonneesBudgets, parametres: ParametresResea
     if (!magasins.includes(l.magasin)) continue
     const h = hypothesesDe(l, d)
     if (!h) continue
-    const b = calculerBudget(h.hypotheses, parametres)
+    const b = calculerBudget(h.hypotheses, parametresDuBudget(l, parametres))
     ca += b.ca
     ebe += b.ebe
     n++
@@ -423,11 +431,12 @@ async function entreesAlertes(aujourdhui: Date): Promise<{ entrees: EntreeAlerte
     const hB = lB?.statut ? hypothesesDe(lB, dB) : null
     // Point bas du budget : seulement si la trésorerie de départ est saisie (partir de zéro alerterait à tort)
     const depart = lB?.ajustements?.tresorerieDepart
-    const point = hB && depart !== undefined ? tresorerieBudget(calculerBudget(hB.hypotheses, pB), hB.hypotheses, pB, pB.tresorerie, depart).pointBas : null
+    const pL = parametresDuBudget(lB, pB)
+    const point = hB && depart !== undefined ? tresorerieBudget(calculerBudget(hB.hypotheses, pL), hB.hypotheses, pL, pL.tresorerie, depart).pointBas : null
     const q = [...QUADRIMESTRES].reverse().find((x) => quadrimestres[l.magasin]?.[x]?.tresorerie != null)
     return {
       magasin: l.magasin, n: reel.magasins[l.magasin]?.n ?? douze(), n1: reel.magasins[l.magasin]?.n1 ?? douze(),
-      budget: h ? calculerBudget(h.hypotheses, parametres) : null,
+      budget: h ? calculerBudget(h.hypotheses, parametresDuBudget(l, parametres)) : null,
       moisTermines: reelCommence ? aujourdhui.getMonth() : 0,
       tresorerieReelle: q ? { montant: quadrimestres[l.magasin]![q]!.tresorerie!, quadrimestre: q } : null,
       tresorerieBudget: point ? { montant: point.montant, mois: point.mois, annee: aB } : null,
@@ -462,14 +471,14 @@ export async function chargerComparaison(aujourdhui = new Date()): Promise<{ ann
       const h = l.statut ? hypothesesDe(l, d) : null
       const frais = d.frais[l.magasin]
       const ligne = ligneReseau({
-        magasin: l.magasin, n: r.n, n1: r.n1 ?? douze(), budget: h ? calculerBudget(h.hypotheses, parametres) : null,
+        magasin: l.magasin, n: r.n, n1: r.n1 ?? douze(), budget: h ? calculerBudget(h.hypotheses, parametresDuBudget(l, parametres)) : null,
         equipe: d.equipes[l.magasin], frais: frais?.length ? fraisDepuisLignes(frais).frais : undefined,
       }, p)
       return ligne.moisRealises ? [{ magasin: l.magasin, groupeId: l.groupeId, ratios: ratiosDuReel(ligne) }] : []
     }),
     budget: dB.magasins.flatMap((l) => {
       const h = l.statut ? hypothesesDe(l, dB) : null
-      return h ? [{ magasin: l.magasin, groupeId: l.groupeId, ratios: ratiosDuBudget(calculerBudget(h.hypotheses, pB), h.hypotheses) }] : []
+      return h ? [{ magasin: l.magasin, groupeId: l.groupeId, ratios: ratiosDuBudget(calculerBudget(h.hypotheses, parametresDuBudget(l, pB)), h.hypotheses) }] : []
     }),
     // Familles du réalisé de l'année en cours, base des budgets de l'an prochain (lot 29)
     familles: dB.magasins.flatMap((l) => {

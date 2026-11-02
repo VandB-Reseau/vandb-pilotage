@@ -89,6 +89,22 @@ export function suiviBudget(mois: MoisReel[], budget: Budget): Suivi {
   }
 }
 
+// Lot 38 (D3) : ce qui explique l'écart de marge à date, pour la phrase de conclusion de « Face au budget ». Sur les mois
+// dont la marge est complète (le même périmètre que l'écart de marge), avec t = marge budgétée ÷ CA budgété de ces mois :
+// marge réelle − marge budgétée = (CA réel − CA budget) × t [effet du CA] + (marge réelle − CA réel × t) [effet du taux].
+// Sans aucun mois de marge complète, seul l'effet du CA sur tous les mois réalisés se calcule.
+export interface EffetsMarge { effetCA: number; effetTaux: number | null; principal: 'ca' | 'taux' }
+export function effetsSurLaMarge(s: Suivi): EffetsMarge {
+  const faits = s.mois.slice(0, s.moisRealises)
+  const avecMarge = faits.filter((l) => l.margeReel !== null)
+  if (!avecMarge.length) return { effetCA: s.cumul.ecartCA * s.cumul.tauxMargeBudget, effetTaux: null, principal: 'ca' }
+  const caReel = somme(avecMarge.map((l) => l.caReel ?? 0)), caBudget = somme(avecMarge.map((l) => l.caBudget))
+  const t = ratio(somme(avecMarge.map((l) => l.margeBudget)), caBudget)
+  const effetCA = (caReel - caBudget) * t
+  const effetTaux = somme(avecMarge.map((l) => l.margeReel!)) - caReel * t
+  return { effetCA, effetTaux, principal: Math.abs(effetTaux) > Math.abs(effetCA) ? 'taux' : 'ca' }
+}
+
 // ── Réseau : chaque magasin à la fin de son dernier mois réalisé
 export interface EntreeReseau {
   magasin: string

@@ -17,7 +17,7 @@ import { COLONNES, regrouperCompte } from '../moteur/periodes'
 import type { SujetAide } from '../lib/aide'
 import { Aide } from './Aide'
 import { ChoixPeriode, usePeriode } from './ChoixPeriode'
-import { styleTableau } from '../theme/tableau'
+import { classeLigne, styleTableau } from '../theme/tableau'
 
 // Lot 32 : picto (i) sur chaque ligne calculée (pas sur le CA ni les rubriques qui ne font qu'additionner des frais)
 const AIDE_LIGNE: Record<string, SujetAide> = {
@@ -85,7 +85,7 @@ export function CompteResultatMois({ lignes, titre, libelleTableau, projeteA, en
               const parent = parents.has(l.cle)
               const style = { fontWeight: l.fort ? 700 : 400, whiteSpace: 'nowrap' as const, ...(l.parent ? { color: 'text.secondary' } : {}) }
               return (
-                <TableRow key={l.cle} className={l.fort ? 'ligne-forte' : undefined}>
+                <TableRow key={l.cle} className={classeLigne(l.cle, l.fort)}>
                   <TableCell sx={{ ...style, pl: l.parent ? `${20 + 20 * profondeur(l)}px !important` : undefined }}>
                     {parent ? (
                       <ButtonBase onClick={() => basculer(l.cle)} aria-expanded={ouvertes.has(l.cle)} aria-label={`${l.libelle} : ${ouvertes.has(l.cle) ? 'replier' : 'détailler'}`}

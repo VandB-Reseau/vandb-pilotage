@@ -24,7 +24,7 @@ import { MaSemaine } from '../components/MaSemaine'
 import { EtatVide } from '../components/EtatVide'
 import { Indicateur } from '../components/Indicateur'
 import { Panne } from '../components/Panne'
-import { chargerActions, chargerAlertes, chargerBudgets, chargerParametres, chargerReelDuCompte, hypothesesDe } from '../data/pilotage'
+import { chargerActions, chargerAlertes, chargerBudgets, chargerParametres, chargerReelDuCompte, hypothesesDe, parametresDuBudget } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { feuilleReseau } from '../lib/exports'
 import { ecartTaux, lienMagasin, milliers, MOIS, taux } from '../lib/format'
@@ -74,7 +74,7 @@ export function Reseau() {
       const h = l.statut ? hypothesesDe(l, d) : null
       const frais = d.frais[l.magasin]
       const n = reel.magasins[l.magasin]?.n ?? douze(), n1 = reel.magasins[l.magasin]?.n1 ?? douze()
-      const budget = h ? calculerBudget(h.hypotheses, parametres) : null
+      const budget = h ? calculerBudget(h.hypotheses, parametresDuBudget(l, parametres)) : null
       return {
         // Fiche de visite du magasin (lot 28), pour « Ma semaine » (lot 29)
         fiche: ficheVisite({ n, n1, budget }, parametres.tvaPanier),

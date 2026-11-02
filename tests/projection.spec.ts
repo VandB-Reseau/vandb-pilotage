@@ -99,7 +99,7 @@ test('le franchisé prévoit un temps fort et un client gagné : la base perd l�
   await expect(tf).toContainText(/CA 2026 retiré : 12\sk€ · CA 2027 ajouté : 15\sk€/)
   await expect(tf.getByLabel('Extras de personnel : Oktoberfest')).toHaveCount(0)
   await tf.getByLabel('Autres charges : Oktoberfest').fill('2 200')
-  await expect(tf).toContainText(/Charges : 2\sk€/)
+  await expect(tf).toContainText(/Charges : 2,2\sk€/)
 
   // Une association gagnée : 1 000 € par mois toute l'année
   await page.getByRole('button', { name: 'Ajouter un client gagné ou perdu' }).click()
@@ -109,7 +109,7 @@ test('le franchisé prévoit un temps fort et un client gagné : la base perd l�
   await ouvrir(page, 'Résultat et trésorerie')
   await expect(ca).toContainText(/607\s000\s€/)
   await ouvrir(page, 'Calendrier')
-  await expect(clients).toContainText(/CA 2027 : \+12\s000\s€/)
+  await expect(clients).toContainText(/CA 2027 : \+12\sk€/)
   // En part du CA : − 10 % sur le Bar d'octobre à décembre (300 000 × 30 % × 10 %)
   await clients.getByLabel('Univers : Association sportive').selectOption('bar')
   await clients.getByLabel('Unité : Association sportive').selectOption('taux')

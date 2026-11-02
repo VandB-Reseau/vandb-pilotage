@@ -53,6 +53,7 @@ test('quadrimestres : pastilles face au budget, pont d’écart de l’EBE, plan
   await expect(pont).toContainText(/le poste qui pèse le plus/)
   // La somme des marches est l'écart d'EBE : on part de l'EBE budgété, on arrive aux 7 000 € réels
   await expect(pont.getByRole('img', { name: /budgétés à 7\sk€ réels : chiffre d’affaires/ })).toBeVisible()
+  await page.getByRole('button', { name: /^Cumul à fin avril/ }).click()
   await expect(page.getByRole('table', { name: `Cumul ${N} face au budget et à ${N - 1}` })).toBeVisible()
   await page.screenshot({ path: `captures/${info.project.name}-pont.png`, fullPage: true })
   await ouvrir(page, 'Trésorerie')
