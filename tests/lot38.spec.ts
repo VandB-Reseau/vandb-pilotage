@@ -45,7 +45,11 @@ test('budget : une seule navigation, l’étape suivante en bas de page, un en-t
   for (const nom of [/^Chiffre d’affaires HT/, /^Marge commerciale/, /^Frais de personnel/, /^Excédent brut d’exploitation/]) {
     await expect(compte.getByRole('row', { name: nom })).toHaveClass(/ligne-cle/)
   }
-  await expect(compte.getByRole('row', { name: /^Résultat net/ })).not.toHaveClass(/ligne-cle/)
+  // 2/11/2026 : résultat d'exploitation, résultat net et trésorerie dégagée aussi ; pas les intérêts
+  for (const nom of [/^Résultat d’exploitation/, /^Résultat net/, /^Trésorerie dégagée après emprunts/]) {
+    await expect(compte.getByRole('row', { name: nom })).toHaveClass(/ligne-cle/)
+  }
+  await expect(compte.getByRole('row', { name: /^Intérêts/ })).not.toHaveClass(/ligne-cle/)
   await page.screenshot({ path: `captures/${info.project.name}-lot38-resultat.png`, fullPage: true })
   await page.getByRole('navigation', { name: 'Étape précédente ou suivante' }).getByRole('button', { name: 'Hypothèses' }).click()
   await expect(page).toHaveURL(/\/budget$/)

@@ -5,7 +5,8 @@
 export const FOND_EN_COURS = 'rgba(248, 187, 9, 0.16)'
 // Fond des lignes clés : vert canard de la charte, très clair (variable définie dans le thème, clair et sombre)
 export const FOND_CLE = 'var(--fond-ligne-cle)'
-export const LIGNES_CLES = ['ca', 'marge', 'personnel', 'ebe']
+// 2/11/2026 (Joseph) : aussi résultat d'exploitation, résultat net et trésorerie dégagée après emprunts
+export const LIGNES_CLES = ['ca', 'marge', 'personnel', 'ebe', 'exploitation', 'net', 'tresorerie']
 export const classeLigne = (cle: string, fort?: boolean) => (LIGNES_CLES.includes(cle) ? 'ligne-cle' : fort ? 'ligne-forte' : undefined)
 export const styleTableau = {
   '& td, & th': { py: 1, px: 1.25, fontSize: '0.8125rem', whiteSpace: 'nowrap' },

@@ -11,7 +11,7 @@ const lire = (t: string): number | undefined | null => {
 }
 
 // Saisie d'un pourcentage (« 3,5 » pour 3,5 %). Vide : la valeur du niveau au-dessus s'applique, affichée en grisé.
-export function ChampTaux({ libelle, valeur, heritee, onChange, desactive, largeur = 120, sansUnite, marque }: {
+export function ChampTaux({ libelle, valeur, heritee, onChange, desactive, largeur = 120, sansUnite, marque, compact }: {
   libelle: string
   valeur: number | undefined
   heritee?: number
@@ -20,6 +20,7 @@ export function ChampTaux({ libelle, valeur, heritee, onChange, desactive, large
   largeur?: number
   sansUnite?: boolean // colonne déjà titrée en %
   marque?: boolean    // valeur propre au magasin, différente de la proposition : soulignée (lot 27)
+  compact?: boolean   // tableau des hypothèses : 36 px de haut sur PC, 48 px sur téléphone
 }) {
   const [texte, setTexte] = useState(enTexte(valeur))
   // Valeur changée ailleurs (retour à la cible) : le champ suit
@@ -42,7 +43,7 @@ export function ChampTaux({ libelle, valeur, heritee, onChange, desactive, large
         input: sansUnite ? undefined : { endAdornment: <InputAdornment position="end">%</InputAdornment> },
       }}
       sx={{
-        width: largeur, '& input': { height: 48, boxSizing: 'border-box', py: 0, px: sansUnite ? 1 : undefined },
+        width: largeur, '& input': { height: compact ? { xs: 48, md: 36 } : 48, boxSizing: 'border-box', py: 0, px: sansUnite ? 1 : undefined },
         ...(marque && !erreur ? { '& .MuiOutlinedInput-notchedOutline': { borderColor: 'warning.main', borderWidth: 2 } } : {}),
       }}
     />

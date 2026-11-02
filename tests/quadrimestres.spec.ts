@@ -123,9 +123,11 @@ test('plan de trésorerie : solde réel fin avril face au prévu, puis projectio
   const tableau = section.getByRole('table', { name: `Plan de trésorerie ${N} mois par mois` })
   await expect(tableau.getByRole('columnheader')).toHaveCount(13)
   // Fin avril : le solde réel, face au prévu ; projection ensuite : chaque fin de mois = la précédente + le flux prévu
-  const lire = (t: string) => Number(t.replace(/[\s  +]/g, '').replace('−', '-').replace('€', ''))
+  const lire = (t: string) => Number(t.replace(/[\s  +]/g, '').replace('−', '-').replace('€', '').replace(',', '.')) * 1000 // k€
   const fin = tableau.getByRole('row', { name: /^Trésorerie en fin de mois/ })
-  await expect(fin.getByRole('cell').nth(4)).toContainText(/^25\s000\s*prévu/)
+  // T1 (2/11/2026) : un chiffre par case en k€ ; fin avril, le solde réel
+  await expect(fin.getByRole('cell').nth(4)).toHaveText(/^25\s*réel$/)
+  await expect(fin.getByRole('cell').nth(4)).toHaveAttribute('title', /^Réel 25\s000 €, prévu/)
   const projetees = (await tableau.getByRole('row', { name: /^Trésorerie projetée/ }).getByRole('cell').allTextContents()).slice(1)
   expect(lire(projetees[3])).toBe(25_000)
   expect(projetees.slice(0, 3).every((t) => t === '')).toBe(true)
