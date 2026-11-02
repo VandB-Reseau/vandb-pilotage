@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import type { Hypotheses } from '../src/moteur/types'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule, allerVers } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule, allerVers, ongletParametres } from './supabase-simule'
 
 // Projection du CA (lot 24) : rythme de sortie, ancienneté, temps forts, clients gagnés ou perdus, opérations du réseau.
 // Données fictives : dépôt public. Les montants viennent du moteur, vérifié à la main dans tests/moteur/projection.spec.ts.
@@ -165,8 +165,8 @@ test('le Directeur fixe la hausse tarifaire et les valeurs par ancienneté ; le 
 test('paramètres réseau : achats de l’Extérieur payés avant la vente, opérations du réseau', async ({ page, isMobile }) => {
   const ecritures = await seConnecter(page, { role: 'directeur' })
   await allerVers(page, 'Paramètres réseau')
+  await ongletParametres(page, 'Trésorerie')
   const section = page.getByRole('region', { name: 'Trésorerie' })
-  await section.getByRole('button', { name: /^Trésorerie \d{4} : ouvrir$/ }).click()
   await expect(page.getByLabel('Avance des achats de l’Extérieur')).toHaveValue('1')
   await section.getByRole('button', { name: 'Ajouter une opération' }).click()
   await page.getByLabel('Nom de l’opération 1').fill('Foire aux vins')

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule, type PersonneSimulee, allerVers } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule, type PersonneSimulee, allerVers, ongletParametres } from './supabase-simule'
 
 // Équipe et masse salariale : postes sans nom, coût chargé avec la réduction générale, effet sur le budget.
 // Données fictives uniquement : dépôt public. Paramètres par défaut : employé 35 %, gérant TNS 33 %, SMIC 21 876,40 €.
@@ -88,8 +88,8 @@ test('le Directeur prévoit une prime et un départ, retire un poste ; le tablea
 test('le Directeur ajuste les taux de charges du réseau', async ({ page, isMobile }) => {
   const ecritures = await seConnecter(page)
   await allerVers(page, 'Paramètres réseau')
+  await ongletParametres(page, 'Équipe')
   const charges = page.getByRole('region', { name: 'Charges sociales' })
-  await charges.getByRole('button', { name: /^Charges sociales \d{4} : ouvrir$/ }).click()
   await expect(charges.getByLabel('Charges patronales : Employé')).toHaveValue('35')
   await expect(charges.getByLabel('Réduction générale : taux dégressif')).toHaveValue('37,81')
   await expect(charges.getByLabel('SMIC annuel brut')).toHaveValue('21876,4')

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type FraisSimule, type TicketsSimules, type VenteSimulee, plusLoin, allerVers } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type FraisSimule, type TicketsSimules, type VenteSimulee, plusLoin, allerVers, ongletParametres } from './supabase-simule'
 
 // Lot 28 : alertes tickets et panier, fiche de visite, leviers commerciaux, campagne des budgets, CA par heure,
 // barre d'enregistrement des frais. Données fictives uniquement : dépôt public.
@@ -113,10 +113,8 @@ test('campagne des budgets : avancement par Responsable Régional, dates dans Pa
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
 
   await allerVers(page, 'Paramètres réseau')
+  await ongletParametres(page, 'Alertes et campagne')
   const dates = page.getByRole('region', { name: 'Campagne des budgets' })
-  // Section repliée (lot 30) : le résumé donne les trois dates
-  await expect(dates).toContainText('Proposition avant le 01/01, retour avant le 02/01, validation avant le 03/01')
-  await dates.getByRole('button', { name: /^Campagne des budgets \d{4} : ouvrir$/ }).click()
   await expect(dates.getByLabel('Budgets validés avant le')).toHaveValue('2020-01-03')
   await dates.getByLabel('Budgets validés avant le').fill('2020-01-01')
   await expect(dates.getByText('Les trois dates se suivent')).toBeVisible()

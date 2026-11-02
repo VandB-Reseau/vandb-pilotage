@@ -51,7 +51,14 @@ export interface OptionsSimulation {
   versionsNommees?: VersionNommeeSimulee[]
   panne?: boolean
   panneEcriture?: boolean
+  // Lot 39 : paramètres d'autres années (l'année absente reprend « parametres »), contrôle de gestion, journal
+  parametresAnnees?: Record<number, Record<string, unknown> | null>
+  parametreur?: boolean
+  controleGestion?: { user_id: string; email: string; ajoute_le: string }[]
+  journal?: JournalSimule[]
+  comptesConnus?: string[] // emails de comptes de connexion existants
 }
+export type JournalSimule = { id: number; annee: number; rubrique: string; avant: unknown; apres: unknown; par_email: string | null; le: string }
 
 export type VersionNommeeSimulee = { id: number; store_name: string; annee: number; nom: string; base: unknown; ajustements: Record<string, unknown>; auteur: string | null; auteur_role: string | null; auteur_nom: string | null; cree_le: string }
 
@@ -85,7 +92,11 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
   let versionsNommees = structuredClone(options.versionsNommees ?? [])
   // Auteur posé par la base, comme le déclencheur de 0011
   const nomDuRole: Record<string, string | null> = { directeur: null, coach: 'Coach Nord', rr: 'RR Nord', franchise: 'Franchise Test' }
-  let parametres = options.parametres === null ? null : options.parametres ?? { tauxRedevance: 0.02, tauxPublicite: 0.01 }
+  const parametres = options.parametres === null ? null : options.parametres ?? { tauxRedevance: 0.02, tauxPublicite: 0.01 }
+  const parametresAnnees = new Map<number, Record<string, unknown> | null>(Object.entries(options.parametresAnnees ?? {}).map(([a, v]) => [Number(a), v]))
+  const parametresDe = (annee: number) => (parametresAnnees.has(annee) ? parametresAnnees.get(annee)! : parametres)
+  let controleGestion = structuredClone(options.controleGestion ?? [])
+  const journal = structuredClone(options.journal ?? [])
   // Filtres PostgREST utilisés par l'app : eq, gte, lte, in
   const filtrer = <T extends Record<string, unknown>>(lignes: T[], params: URLSearchParams) => lignes.filter((l) => [...params.entries()].every(([k, v]) => {
     if (k === 'select' || k === 'order' || k === 'offset' || k === 'limit') return true
@@ -115,6 +126,10 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
     if (options.panne) return route.fulfill({ status: 500, json: { message: 'indisponible' } })
     const schema = req.headers()['accept-profile'] ?? req.headers()['content-profile']
     if (schema !== 'pilotage') return route.fulfill({ status: 404, json: { message: 'schéma inattendu' } })
+    if (url.pathname === '/rest/v1/rpc/mes_droits') {
+      const controle = options.parametreur && options.role !== 'directeur'
+      return route.fulfill({ json: { parametrer: options.role === undefined || options.role === 'directeur' || !!options.parametreur, controle_gestion: !!controle } })
+    }
     if (url.pathname === '/rest/v1/rpc/budgets_du_compte') return route.fulfill({ json: { magasins, reseau, groupes } })
     // Réel totalisé par magasin et par mois, comme pilotage.reel_du_compte
     if (url.pathname === '/rest/v1/rpc/reel_du_compte') {
@@ -240,7 +255,27 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
           versionsNommees.push({ ...v, id: Math.max(0, ...versionsNommees.map((x) => x.id)) + 1, auteur: '00000000-0000-0000-0000-000000000001', auteur_role: options.role ?? 'directeur', auteur_nom: nomDuRole[options.role ?? 'directeur'] ?? null, cree_le: new Date().toISOString() })
         }
       }
-      if (table === 'parametres_reseau') parametres = (corps as { valeur: Record<string, unknown> }).valeur
+      if (table === 'parametres_reseau') {
+        // Comme le déclencheur journal_parametres : une ligne par rubrique changée
+        const { annee, valeur } = corps as { annee: number; valeur: Record<string, unknown> }
+        const avant = parametresDe(annee) ?? {}
+        for (const k of new Set([...Object.keys(avant), ...Object.keys(valeur)])) {
+          if (JSON.stringify(avant[k]) !== JSON.stringify(valeur[k])) {
+            journal.push({ id: journal.length + 1, annee, rubrique: k, avant: avant[k] ?? null, apres: valeur[k] ?? null, par_email: COMPTE.email, le: new Date().toISOString() })
+          }
+        }
+        parametresAnnees.set(annee, valeur)
+      }
+      if (table === 'rpc/ajouter_controle_gestion') {
+        const email = (corps as { p_email: string }).p_email.trim().toLowerCase()
+        const connu = (options.comptesConnus ?? []).includes(email)
+        if (connu && !controleGestion.some((c) => c.email === email)) controleGestion.push({ user_id: `compte-${email}`, email, ajoute_le: new Date().toISOString() })
+        return route.fulfill({ json: connu })
+      }
+      if (table === 'controle_gestion' && req.method() === 'DELETE') {
+        const id = new URLSearchParams(filtre).get('user_id')?.replace(/^eq\./, '')
+        controleGestion = controleGestion.filter((c) => c.user_id !== id)
+      }
       if (table === 'groupe_magasins' && m) m.groupe_id = req.method() === 'DELETE' ? null : (corps as { groupe_id: number }).groupe_id
       return route.fulfill({ status: 204, body: '' })
     }
@@ -258,8 +293,12 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
     if (table === 'ouvertures') return route.fulfill({ json: ouvertures })
     if (table === 'versions_nommees') return route.fulfill({ json: filtrer(versionsNommees, url.searchParams).sort((a, b) => a.cree_le.localeCompare(b.cree_le)) })
     if (table === 'codes_caisse') return route.fulfill({ json: [...codes].sort((a, b) => a.code.localeCompare(b.code)) })
+    if (table === 'journal_parametres') return route.fulfill({ json: filtrer(journal, url.searchParams).sort((a, b) => b.le.localeCompare(a.le)) })
+    if (table === 'controle_gestion') return route.fulfill({ json: [...controleGestion].sort((a, b) => a.email.localeCompare(b.email)) })
     if (url.pathname === '/rest/v1/parametres_reseau') {
-      const lignes = parametres === null ? [] : [{ valeur: parametres }]
+      const annee = Number(url.searchParams.get('annee')?.replace(/^eq\./, ''))
+      const valeur = parametresDe(annee)
+      const lignes = valeur === null ? [] : [{ valeur }]
       const objet = (req.headers()['accept'] ?? '').includes('vnd.pgrst.object')
       if (objet) return lignes.length ? route.fulfill({ json: lignes[0] }) : route.fulfill({ status: 406, json: { code: 'PGRST116', message: 'no rows' } })
       return route.fulfill({ json: lignes })
@@ -383,4 +422,9 @@ export async function allerVers(page: Page, nom: string) {
 export async function plusLoin(page: Page) {
   const bouton = page.getByRole('region', { name: 'Pour aller plus loin' }).getByRole('button', { name: /^Pour aller plus loin/ })
   if ((await bouton.getAttribute('aria-expanded')) !== 'true') await bouton.click()
+}
+
+// Paramètres réseau (lot 39) : un onglet par rubrique
+export async function ongletParametres(page: Page, nom: 'Franchise et impôts' | 'Équipe' | 'Trésorerie' | 'Alertes et campagne' | 'Journal' | 'Accès') {
+  await page.getByRole('tablist', { name: 'Rubriques des paramètres' }).getByRole('tab', { name: nom }).click()
 }

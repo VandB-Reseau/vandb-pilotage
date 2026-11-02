@@ -5,6 +5,18 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 39 — Paramètres réseau modifiables depuis l'app, journal et contrôle de gestion
+
+- **Base : migration `0021_parametrage.sql` à passer.** Comptes du contrôle de gestion désignés par le Directeur ; avec
+  lui, ils modifient les paramètres réseau. Chaque changement de paramètre est journalisé (qui, quand, avant, après).
+- Paramètres réseau en onglets : Franchise et impôts, Équipe, Trésorerie, Alertes et campagne, Journal, Accès.
+- Redevance, publicité, impôt sur les sociétés et TVA du panier modifiables, avec des bornes ; avant d'enregistrer,
+  l'effet sur l'EBE des budgets pas encore validés (les budgets validés gardent leurs paramètres).
+- Choix de l'année (en cours, budgétée, suivante) et « Copier vers l'année suivante » (sans les dates de campagne).
+- Onglet Accès (Directeur) : ajouter ou retirer un compte du contrôle de gestion par son email. Un compte du contrôle de
+  gestion sans rôle dans l'app réseau n'a que les paramètres.
+- Les Responsables Régionaux consultent les paramètres et le journal, sans rien modifier.
+
 ### Lot 38 — Plus simple à lire ; budgets validés à l'abri des changements de paramètres
 
 - **Base : migration `0020_parametres_figes.sql` à passer.** Un budget validé garde les paramètres réseau du jour de sa

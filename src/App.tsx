@@ -2,7 +2,7 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import CircularProgress from '@mui/material/CircularProgress'
 import { useAuth } from './auth/AuthContext'
-import { estDirecteur, estEquipe } from './auth/roles'
+import { estDirecteur, estEquipe, seulementParametres, voitParametres } from './auth/roles'
 import { AppShell } from './layout/AppShell'
 import { Connexion } from './pages/Connexion'
 import { Hypotheses } from './pages/Hypotheses'
@@ -22,12 +22,12 @@ export default function App() {
     <HashRouter>
       <AppShell>
         <Routes>
-          <Route path="/" element={<Magasins />} />
+          <Route path="/" element={seulementParametres(profil) ? <Navigate to="/parametres" replace /> : <Magasins />} />
           <Route path="/magasins/:nom/:partie?" element={<Magasin />} />
           {estEquipe(profil) && <Route path="/reseau" element={<Reseau />} />}
           {estDirecteur(profil) && <Route path="/hypotheses" element={<Hypotheses />} />}
           {estDirecteur(profil) && <Route path="/imports" element={<Imports />} />}
-          {estDirecteur(profil) && <Route path="/parametres" element={<Parametres />} />}
+          {voitParametres(profil) && <Route path="/parametres" element={<Parametres />} />}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppShell>

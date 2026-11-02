@@ -158,13 +158,19 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
    `effetsSurLaMarge` (`src/moteur/suivi.ts`, conclusion de « Face au budget »), `Repliable` (détail replié, imprimé),
    `classeLigne` (`src/theme/tableau.ts`, lignes clés CA, marge, personnel, EBE), `ecartMilliers` (`src/lib/format.ts`).
    Tests `tests/moteur/suivi.spec.ts` et `tests/lot38.spec.ts`. Migration `0020_parametres_figes.sql`.
+39. Lot 39 : Paramètres réseau en onglets (`src/pages/Parametres.tsx` : Franchise et impôts, Équipe, Trésorerie, Alertes et
+   campagne, Journal, Accès), choix de l'année et copie vers l'année suivante (`copierParametres`, sans les dates de campagne),
+   journal lisible (`src/lib/parametrage.ts`), droits `peutParametrer`, `voitParametres`, `seulementParametres`
+   (`src/auth/roles.ts`, lus par `mes_droits`). Tests `tests/moteur/parametrage.spec.ts` et `tests/lot39.spec.ts`.
+   Migration `0021_parametrage.sql`.
 
 ## Rôles
 
 | Rôle | Voit | Écrit |
 | --- | --- | --- |
 | Directeur de réseau | Tous les magasins, hypothèses, paramètres, imports | Paramètres, cibles, groupes, budgets (valide, rouvre), réel (import et saisie), codes caisse, équipes, charges sociales |
-| Responsable Régional, Coach | Magasins de leur périmètre, vue Réseau limitée à ce périmètre | Réel, équipe et frais de leurs magasins |
+| Contrôle de gestion (0021) | Paramètres réseau et leur journal | Paramètres réseau |
+| Responsable Régional, Coach | Magasins de leur périmètre, vue Réseau limitée à ce périmètre ; le RR lit aussi les paramètres réseau et leur journal | Réel, équipe et frais de leurs magasins |
 | Franchisé | Ses magasins, avec les cibles qui s'y appliquent | Ajustements de son budget tant qu'il n'est pas validé, réel et équipe de ses magasins |
 
 ## Plan par lots

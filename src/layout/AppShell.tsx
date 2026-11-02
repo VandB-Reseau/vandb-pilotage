@@ -36,7 +36,7 @@ import { GardeSaisie } from '../components/GardeSaisie'
 import { Logo } from '../components/Logo'
 import { RechercheMagasin, SelecteurMagasin } from '../components/RechercheMagasin'
 import { useAuth } from '../auth/AuthContext'
-import { estDirecteur, estEquipe, roleLibelle } from '../auth/roles'
+import { estDirecteur, estEquipe, libelleProfil, seulementParametres, voitParametres } from '../auth/roles'
 import { installerChampSuivant } from '../lib/champSuivant'
 import { lienMagasin } from '../lib/format'
 import { ESPACES, PARTIE_PAR_DEFAUT, espaceDe, espaceDePage, etapeDe, magasinDeChemin, partieDe, partiesDe, type Espace } from '../lib/navigation'
@@ -135,7 +135,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const sousTitre = (t: string) => (
     <ListSubheader disableSticky sx={{ bgcolor: 'transparent', lineHeight: '32px', fontSize: '0.75rem', fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'text.secondary', px: 1 }}>{t}</ListSubheader>
   )
-  const contenuMenu = (
+  const contenuMenu = seulementParametres(profil) ? (
+    <List component="nav" aria-label="Menu principal" dense disablePadding>
+      {sousTitre('Réglages')}
+      {lien({ chemin: '/parametres', nom: 'Paramètres réseau', icone: <TuneOutlined /> })}
+    </List>
+  ) : (
     <>
       <Box role="group" aria-label="Espaces" sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.5, p: 0.5, mb: 1, borderRadius: 2, bgcolor: 'action.hover' }}>
         {ESPACES.map((e) => (
@@ -166,12 +171,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         {!magasin && profil?.role !== 'franchise' && (
           <Typography variant="body2" color="text.secondary" sx={{ px: 1, py: 1.5 }}>Ouvre un magasin pour voir ses pages.</Typography>
         )}
-        {estDirecteur(profil) && sousTitre('Réglages')}
-        {estDirecteur(profil) && lien({ chemin: '/parametres', nom: 'Paramètres réseau', icone: <TuneOutlined /> })}
+        {voitParametres(profil) && sousTitre('Réglages')}
+        {voitParametres(profil) && lien({ chemin: '/parametres', nom: 'Paramètres réseau', icone: <TuneOutlined /> })}
       </List>
     </>
   )
-  const avecMenu = !!profil && profil.role !== 'aucun'
+  const avecMenu = !!profil && (profil.role !== 'aucun' || seulementParametres(profil))
 
   return (
     <GardeSaisie>
@@ -197,7 +202,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Menu anchorEl={menuCompte} open={!!menuCompte} onClose={() => setMenuCompte(null)}>
             <Box sx={{ px: 2, py: 1 }}>
               <Typography variant="subtitle2">{profil?.nom}</Typography>
-              <Typography variant="caption" color="text.secondary">{profil ? roleLibelle[profil.role] : ''}</Typography>
+              <Typography variant="caption" color="text.secondary">{profil ? libelleProfil(profil) : ''}</Typography>
             </Box>
             <Divider />
             <MenuItem onClick={() => { setMenuCompte(null); void deconnexion() }} sx={{ minHeight: 48 }}>

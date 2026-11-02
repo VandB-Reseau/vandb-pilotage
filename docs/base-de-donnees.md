@@ -4,7 +4,7 @@ Même base Supabase que l'app réseau. Le pilotage n'écrit que dans le schéma 
 fonctions (`mon_role()`, `est_directeur()`, `magasins_visibles()`, `mes_magasins()`, `json_sur()`) et ses tables `perimetre_equipe`
 et `app_config` (lue seulement : fiche des Responsables Régionaux, clé `drs_data`).
 
-Mis à jour le 02/11/2026 (migration `0020`).
+Mis à jour le 02/11/2026 (migration `0021`).
 
 ## Principes
 
@@ -18,7 +18,9 @@ Mis à jour le 02/11/2026 (migration `0020`).
 
 | Table | Contenu | Clé | Lecture | Écriture |
 | --- | --- | --- | --- | --- |
-| `parametres_reseau` | Paramètres de l'année : `valeur` jsonb (`tauxRedevance`, `tauxPublicite`, `impot`, `tvaPanier`, `charges` : taux de charges patronales par catégorie et paramètres de la réduction générale ; `tresorerie` : délais de paiement en mois (`delaiFournisseurs` compté après la livraison), `avanceLivraison` (mois de livraison et de facturation des marchandises Cave et Bar avant la vente ; 1 si absente), TVA des ventes, des achats et des frais, `tvaTrimestrielle`, `partCotisations`, `consignes` : part des achats par univers, `ecoulement` et `remboursement` en mois, `demarque` (part des consignes jamais remboursée, en charge externe du budget ; 0 si absente), `avanceExterieur` (mois d'avance des achats Extérieur sur la vente), `operations` (`[{nom, mois, moisPaiement, part}]` : opérations du réseau dont une part des achats Cave et Bar du mois est payée à un autre mois) ; `alertes` : seuils `ecartCA`, `baisseMarge` en points, `moisRetard`, `tresorerie` en euros) | `annee` | Comptes ouverts | Directeur |
+| `parametres_reseau` | Paramètres de l'année : `valeur` jsonb (`tauxRedevance`, `tauxPublicite`, `impot`, `tvaPanier`, `charges` : taux de charges patronales par catégorie et paramètres de la réduction générale ; `tresorerie` : délais de paiement en mois (`delaiFournisseurs` compté après la livraison), `avanceLivraison` (mois de livraison et de facturation des marchandises Cave et Bar avant la vente ; 1 si absente), TVA des ventes, des achats et des frais, `tvaTrimestrielle`, `partCotisations`, `consignes` : part des achats par univers, `ecoulement` et `remboursement` en mois, `demarque` (part des consignes jamais remboursée, en charge externe du budget ; 0 si absente), `avanceExterieur` (mois d'avance des achats Extérieur sur la vente), `operations` (`[{nom, mois, moisPaiement, part}]` : opérations du réseau dont une part des achats Cave et Bar du mois est payée à un autre mois) ; `alertes` : seuils `ecartCA`, `baisseMarge` en points, `moisRetard`, `tresorerie` en euros) | `annee` | Comptes ouverts, et le contrôle de gestion (0021) | Directeur et contrôle de gestion (0021) ; chaque changement est journalisé |
+| `controle_gestion` | Comptes du contrôle de gestion désignés par le Directeur (0021) : `user_id` (compte de connexion), `email`, `ajoute_le`, `ajoute_par`. Avec le Directeur, ils modifient les paramètres réseau, même sans rôle dans l'app réseau | `user_id` | Directeur et contrôle de gestion | Ajout : Directeur par `ajouter_controle_gestion`. Retrait : Directeur |
+| `journal_parametres` | Journal des paramètres réseau (0021) : une ligne par rubrique de `parametres_reseau.valeur` modifiée (`annee`, `rubrique`, `avant`, `apres`, `par`, `par_email`, `le`) | `id` | Directeur, contrôle de gestion, RR | Déclencheur `journal_parametres` seul |
 | `budgets` | Budget d'un magasin pour une année : `statut` (`propose`, `en_discussion`, `valide`), `base` (réalisé importé du prévisionnel), `ajustements` (écarts du magasin aux cibles, format `Cibles`, dont saisonnalité, travaux, `tresorerieDepart` et `fraisBudget` : frais du budget ligne par ligne, même montant, hausse en % ou nouveau montant), `proposition` (base proposée par le siège), `hypotheses` (hypothèses calculées au dernier enregistrement, figées à la validation), `valide_le`, `parametres` (copie des paramètres réseau de l'année faite à la validation, vide hors budget validé, 0020) | `store_name`, `annee` | Magasins du compte | Création et suppression : Directeur. Modification : Directeur, RR (validation et réouverture seulement, 0018) et franchisé sur leurs magasins |
 | `reel_mensuel` | Réel par mois (1er du mois), univers (`cave`, `bar`, `exterieur`) et famille : `ca_ht`, `ca_ttc`, `marge_ht` (marge théorique de la caisse), `maj_par`. La colonne `tickets` de `0001` n'est plus utilisée (voir `reel_tickets`) | `store_name`, `mois`, `univers`, `famille` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
 | `reel_tickets` | Tickets par mois et univers (un ticket ne se compte pas par famille) : `tickets`, `maj_par` | `store_name`, `mois`, `univers` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
@@ -57,6 +59,12 @@ Mis à jour le 02/11/2026 (migration `0020`).
 - Les Coachs lisent sans écrire. Le franchisé ne lit pas les tables de groupes et de cibles : il les reçoit par
   `budgets_du_compte()`, limitées au réseau et au groupe de ses magasins.
 
+## Journal des paramètres (déclencheur `journal_parametres`, 0021)
+
+- Après chaque création ou modification d'une ligne de `parametres_reseau`, une ligne par rubrique de premier niveau
+  (`tauxRedevance`, `impot`, `charges`…) dont la valeur a changé, avec l'ancienne et la nouvelle valeur, le compte et son
+  email. Personne n'écrit dans le journal à la main.
+
 ## Fonctions
 
 | Fonction | Rôle |
@@ -65,6 +73,9 @@ Mis à jour le 02/11/2026 (migration `0020`).
 | `pilotage.magasins_du_compte(annee)` | Magasins du compte avec statut, hypothèses et date du budget de l'année (lot 0, remplacée dans l'app par la suivante) |
 | `pilotage.remplacer_reel(ventes, tickets)` | Import ou saisie du réel : vide puis réécrit chaque couple magasin et mois reçu (ventes et tickets à part). Droits de l'appelant (`SECURITY INVOKER`) : une ligne hors périmètre fait échouer tout l'appel. Renvoie le nombre de lignes de ventes |
 | `pilotage.reel_du_compte(annee)` | `{ mois, coachs, rrs }` : réel des magasins du compte (mêmes magasins que la lecture du réel), totalisé par magasin et par mois pour l'année et la précédente (`ca`, `marge`, `ca_marge` = CA des lignes dont la marge est connue, `ttc`, `tickets`, et pour la Cave et le Bar séparés `ttc_cave`, `ttc_bar`, `tickets_cave`, `tickets_bar` depuis 0013) ; `coachs` : Coach de chaque magasin, pour le Directeur et le RR seulement ; `rrs` : noms des Responsables Régionaux de chaque magasin (identifiants de `perimetre_equipe.rrs` reliés à la fiche `drs_data` d'`app_config`), pour le Directeur seulement (0007). Sert à la vue réseau |
+| `pilotage.peut_parametrer()` | Vrai pour le Directeur et les comptes du contrôle de gestion : modifient les paramètres réseau (0021) |
+| `pilotage.mes_droits()` | `{ parametrer, controle_gestion }` : droits du compte propres au pilotage, lus par l'app à la connexion (0021) |
+| `pilotage.ajouter_controle_gestion(email)` | Directeur seul : désigne un compte de connexion existant comme contrôle de gestion ; faux si aucun compte n'a cet email (0021) |
 | `pilotage.budgets_du_compte(annee)` | `{ magasins, reseau, groupes }` : budgets du compte (base, ajustements, hypothèses, groupe, paramètres figés depuis 0020), cibles du réseau, groupes utiles au compte avec leurs cibles |
 
 ## Rejouer les migrations

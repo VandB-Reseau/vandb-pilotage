@@ -26,6 +26,18 @@ async function lireRole(): Promise<Role> {
   }
 }
 
+// Droits propres au pilotage (lot 39) : paramétrage, contrôle de gestion. Fonction absente (migration 0021 pas encore
+// passée) ou injoignable : aucun droit de plus que le rôle.
+async function lireDroits(): Promise<{ parametreur: boolean; controleGestion: boolean }> {
+  try {
+    const { data, error } = await supabase.schema('pilotage').rpc('mes_droits')
+    const d = !error && data && typeof data === 'object' ? (data as { parametrer?: unknown; controle_gestion?: unknown }) : {}
+    return { parametreur: d.parametrer === true, controleGestion: d.controle_gestion === true }
+  } catch {
+    return { parametreur: false, controleGestion: false }
+  }
+}
+
 // « joseph.martin@… » → « Joseph »
 function nomDepuisEmail(email: string): string {
   const prenom = email.split('@')[0].split(/[._-]/)[0]
@@ -42,7 +54,7 @@ function messageErreur(message: string): string {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
-  const [role, setRole] = useState<{ user: string; role: Role } | null>(null)
+  const [role, setRole] = useState<{ user: string; role: Role; parametreur: boolean; controleGestion: boolean } | null>(null)
   const [chargement, setChargement] = useState(true)
 
   useEffect(() => {
@@ -58,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!utilisateur) { setRole(null); return }
     let actif = true
-    lireRole().then((r) => { if (actif) { setRole({ user: utilisateur, role: r }); setChargement(false) } })
+    Promise.all([lireRole(), lireDroits()]).then(([r, d]) => { if (actif) { setRole({ user: utilisateur, role: r, ...d }); setChargement(false) } })
     return () => { actif = false }
   }, [utilisateur])
 
@@ -66,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const email = session?.user.email ?? ''
   const value: AuthState = {
     session,
-    profil: session && pret && role ? { id: session.user.id, email, nom: nomDepuisEmail(email), role: role.role } : null,
+    profil: session && pret && role ? { id: session.user.id, email, nom: nomDepuisEmail(email), role: role.role, parametreur: role.parametreur, controleGestion: role.controleGestion } : null,
     chargement: chargement || !pret,
     connexion: async (adresse, motDePasse) => {
       try {

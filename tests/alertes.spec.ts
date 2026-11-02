@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { MAGASINS } from './donnees-fictives'
-import { seConnecter, textesTropPetits, zonesTropPetites, type QuadrimestreSimule, type VenteSimulee, allerVers } from './supabase-simule'
+import { seConnecter, textesTropPetits, zonesTropPetites, type QuadrimestreSimule, type VenteSimulee, allerVers, ongletParametres } from './supabase-simule'
 
 // Alertes : accueil, vue Réseau, fiche magasin, seuils dans Paramètres réseau. Données fictives : dépôt public.
 // Budget validé du premier magasin : 48 000 € de CA en janvier (tests/suivi.spec.ts).
@@ -61,9 +61,9 @@ test('fiche magasin : ses alertes en tête de la synthèse', async ({ page }) =>
 test('paramètres réseau : le Directeur règle les seuils, les alertes suivent', async ({ page, isMobile }) => {
   const ecritures = await seConnecter(page, { reel, quadrimestres })
   await allerVers(page, 'Paramètres réseau')
+  await ongletParametres(page, 'Alertes et campagne')
   const section = page.getByRole('region', { name: 'Alertes' })
   await expect(section).toContainText('Valeurs par défaut')
-  await section.getByRole('button', { name: 'Alertes : ouvrir' }).click()
   const enregistrer = section.getByRole('button', { name: 'Enregistrer' })
   await expect(page.getByLabel('Baisse du taux de marge')).toHaveValue('1')
   await expect(enregistrer).toBeDisabled()
