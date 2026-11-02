@@ -236,7 +236,7 @@ export function calculerBudget(h: Hypotheses, p: ParametresReseau): Budget {
     chargesExternes: total('chargesExternes'), impotsTaxes: total('impotsTaxes'), personnel, ebe,
     resultatExploitation: total('resultatExploitation'), resultatAvantImpot, impot, resultatNet, capaciteAutofinancement,
     tresorerieDegagee: capaciteAutofinancement - h.remboursementCapital,
-    ratios: { personnelSurMarge: ratio(personnel, marge), personnelSurCA: ratio(personnel, ca), ebeSurCA: ratio(ebe, ca) },
+    ratios: { pctFP: ratio(personnel, ca), ebeSurCA: ratio(ebe, ca) },
     flux,
     sortie,
     detailCA,

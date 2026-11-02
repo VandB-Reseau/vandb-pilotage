@@ -41,7 +41,7 @@ test('le franchisé ajoute un vendeur au SMIC : coût chargé, réduction géné
   await page.getByRole('region', { name: 'Changements non enregistrés' }).getByRole('button', { name: /^Enregistrer (le poste|les primes)$/ }).click()
   await expect(page.getByText('Vendeur 1 enregistré dans l’équipe.')).toBeVisible()
   expect(ecritures.find((e) => e.table === 'equipe')?.corps).toEqual({
-    store_name: MAGASINS[0], poste: 'Vendeur 1', categorie: 'employe', heures_hebdo: 35, heures_saisie: 'semaine', enveloppe: false, brut_mensuel: 1823.03, primes: [], entree: null, sortie: null,
+    store_name: MAGASINS[0], poste: 'Vendeur 1', categorie: 'employe', heures_hebdo: 35, heures_saisie: 'semaine', enveloppe: false, brut_mensuel: 1823.03, primes: [], hausses: [], entree: null, sortie: null,
   })
   // Au SMIC, la réduction couvre 33,77 points sur 35 : 21 876,36 × 1,0123 ; l'an prochain, + 2 % de salaires
   const ligne = page.getByRole('table', { name: 'Postes et coût chargé' }).getByRole('row', { name: /Vendeur 1/ })

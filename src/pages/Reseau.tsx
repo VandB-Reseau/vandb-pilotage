@@ -39,7 +39,7 @@ import { styleTableau } from '../theme/tableau'
 import { niveauEcart } from '../moteur/visuel'
 import { Pastille } from '../components/Tableau'
 
-type Cle = 'magasin' | 'moisRealises' | 'ca' | 'evolution' | 'ecartBudget' | 'tauxMarge' | 'panierCave' | 'ticketsCave' | 'panierBar' | 'ticketsBar' | 'personnelSurMarge' | 'caParHeure' | 'loyerSurCA' | 'ebeSurCA'
+type Cle = 'magasin' | 'moisRealises' | 'ca' | 'evolution' | 'ecartBudget' | 'tauxMarge' | 'panierCave' | 'ticketsCave' | 'panierBar' | 'ticketsBar' | 'pctFP' | 'caParHeure' | 'loyerSurCA' | 'ebeSurCA'
 type Colonne = { cle: Exclude<Cle, 'magasin'>; libelle: string; texte: (v: number) => string; rouge?: (v: number) => boolean }
 
 const euros = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -53,7 +53,7 @@ const COLONNES: Colonne[] = [
   { cle: 'ticketsCave', libelle: 'Tickets Cave sur l’an dernier', texte: ecartTaux, rouge: (v) => v < 0 },
   { cle: 'panierBar', libelle: 'Panier Bar TTC', texte: (v) => euros.format(v) },
   { cle: 'ticketsBar', libelle: 'Tickets Bar sur l’an dernier', texte: ecartTaux, rouge: (v) => v < 0 },
-  { cle: 'personnelSurMarge', libelle: 'Masse salariale / marge', texte: taux },
+  { cle: 'pctFP', libelle: '% FP', texte: taux },
   { cle: 'caParHeure', libelle: 'CA par heure travaillée', texte: (v) => euros.format(v) },
   { cle: 'loyerSurCA', libelle: 'Loyer / CA', texte: taux },
   { cle: 'ebeSurCA', libelle: 'EBE / CA', texte: taux, rouge: (v) => v < 0 },
@@ -183,7 +183,7 @@ export function Reseau() {
         />
         <Indicateur libelle="Taux de marge" aide="margeTheorique" valeur={total.tauxMarge === null ? 'Non connu' : taux(total.tauxMarge)} detail={[total.panierCave === null ? '' : `Panier Cave ${euros.format(total.panierCave)}`, total.panierBar === null ? '' : `Bar ${euros.format(total.panierBar)}`].filter(Boolean).join(' · ') || undefined} />
         <Indicateur
-          libelle="Masse salariale / marge" aide="masseSurMarge" valeur={total.personnelSurMarge === null ? 'À renseigner' : taux(total.personnelSurMarge)}
+          libelle="% FP" aide="pctFP" valeur={total.pctFP === null ? 'À renseigner' : taux(total.pctFP)}
           detail={total.ebeSurCA === null ? 'Équipe et frais à renseigner' : `EBE à date : ${taux(total.ebeSurCA)} du CA`}
         />
       </Box>
@@ -241,7 +241,7 @@ export function Reseau() {
                   {donnees.groupes.length > 0 && <TableCell sx={surPC}>Groupe</TableCell>}
                   {COLONNES.map((c) => (
                     <TableCell key={c.cle} align="right" sortDirection={tri === c.cle ? sens : false} sx={{ whiteSpace: 'normal', minWidth: 96, verticalAlign: 'bottom' }}>
-                      <TableSortLabel active={tri === c.cle} direction={tri === c.cle ? sens : 'desc'} onClick={() => trier(c.cle)} sx={{ minHeight: { xs: 48, md: 36 } }}>{c.libelle}</TableSortLabel>
+                      <TableSortLabel active={tri === c.cle} direction={tri === c.cle ? sens : 'desc'} onClick={() => trier(c.cle)} sx={{ minHeight: { xs: 48, md: 36 } }}>{c.cle === 'pctFP' ? <abbr title="Frais de personnel ÷ CA HT" style={{ textDecoration: 'none' }}>{c.libelle}</abbr> : c.libelle}</TableSortLabel>
                     </TableCell>
                   ))}
                 </TableRow>

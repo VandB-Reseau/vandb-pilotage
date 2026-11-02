@@ -241,15 +241,10 @@ export const AIDE = {
     quoi: 'La productivité de l’équipe : ce que rapporte une heure de présence.',
     calcul: 'CA HT ÷ heures travaillées de l’équipe (heures par semaine de chaque poste, extras compris). Sur l’année : CA total ÷ heures totales.',
   },
-  masseSurCA: {
-    titre: 'Masse salariale / CA',
-    quoi: 'La part du chiffre d’affaires consacrée à l’équipe. Le rapport à la marge reste dans la productivité.',
-    calcul: 'Frais de personnel (gérant compris) ÷ CA HT.',
-  },
-  masseSurMarge: {
-    titre: 'Masse salariale / marge',
-    quoi: 'La part de la marge mangée par l’équipe : le premier ratio de rentabilité d’un magasin.',
-    calcul: 'Frais de personnel (gérant compris) ÷ marge commerciale.',
+  pctFP: {
+    titre: '% FP (frais de personnel)',
+    quoi: 'La part du chiffre d’affaires consacrée à l’équipe. Plus il est bas, plus l’équipe est productive.',
+    calcul: 'Frais de personnel (gérant compris) ÷ CA HT. Sur le réel : masse salariale de l’équipe des mois réalisés ÷ CA HT des mêmes mois.',
   },
   masseChargee: {
     titre: 'Masse salariale chargée',
@@ -314,7 +309,7 @@ export const AIDE = {
   fournisseurs: {
     titre: 'Fournisseurs de marchandises',
     quoi: 'Le paiement des achats de marchandises.',
-    calcul: 'Achats HT × (1 + TVA des achats), payés selon le délai fournisseurs (30 jours fin de mois par défaut) ; certains achats payés à l’avance (Extérieur, opérations du réseau).',
+    calcul: 'Achats HT × (1 + TVA des achats). Cave et Bar : livrés et facturés un mois avant la vente, payés à 30 jours fin de mois, donc le mois de la vente (réglages dans Paramètres réseau) ; certains achats payés à l’avance (Extérieur, opérations du réseau).',
   },
   fraisTreso: {
     titre: 'Frais, redevance et publicité',
@@ -329,7 +324,7 @@ export const AIDE = {
   tvaTreso: {
     titre: 'TVA reversée',
     quoi: 'La TVA encaissée sur les ventes moins celle payée sur les achats et les frais.',
-    calcul: 'TVA collectée − TVA déductible, reversée le mois suivant (ou chaque trimestre selon Paramètres réseau). Négative : crédit de TVA.',
+    calcul: 'TVA collectée sur les ventes du mois − TVA déductible sur les achats livrés et les frais du mois, reversée le mois suivant (ou chaque trimestre selon Paramètres réseau). Négative : crédit de TVA.',
   },
   empruntsTreso: {
     titre: 'Emprunts',
@@ -393,6 +388,17 @@ export const AIDE = {
     quoi: 'Pré-remplit les frais à partir des comptes de charges du comptable : chaque compte va sur sa ligne de la grille du réseau.',
     remplir: 'Demande au cabinet le FEC de la dernière année complète, ou de l’année en cours. Il est lu dans le navigateur et n’est pas enregistré. Coche les lignes à reprendre, puis enregistre les frais.',
     calcul: 'Somme des comptes de chaque ligne × 12 ÷ mois couverts par le fichier. Restent hors des frais : achats et stock, personnel, formation continue et taxe d’apprentissage (dans la masse salariale), royalties (calculées sur le CA), charges exceptionnelles, impôt sur les bénéfices.',
+  },
+  fraisBudget: {
+    titre: 'Frais du budget',
+    quoi: 'Les frais de l’an prochain, ligne par ligne, à partir de ceux de cette année.',
+    remplir: 'Pour chaque ligne : même montant, hausse en %, ou nouveau montant. Le « + » d’un thème ajoute une ligne qui n’existe pas cette année.',
+    calcul: 'Sans choix, une ligne suit l’inflation des frais. Les frais en % du CA, la redevance et la publicité suivent le CA du budget.',
+  },
+  changementsEquipe: {
+    titre: 'Changements de l’année',
+    quoi: 'Ce qui fait bouger la masse salariale dans l’année : hausse générale, hausses d’un poste, arrivées, départs, primes.',
+    calcul: 'Effet = coût chargé de l’année avec le changement − coût sans lui (charges et réduction de cotisations recalculées).',
   },
   fraisAnnee: {
     titre: 'Frais de l’année',

@@ -43,11 +43,11 @@ test('le Coach renseigne les frais : lignes courantes, part du CA, emprunts, lig
   const chiffres = page.getByRole('region', { name: 'Frais en chiffres' })
   await expect(chiffres).toContainText(/60\sk€/)
   await expect(chiffres).toContainText(/4,3\s%\sdu CA/)              // énergie 1,3 % + publicité franchise 1 % + royalties 2 %
-  // Un encart par thème ; publicité franchise et royalties calculées sur le CA ; totaux des blocs de l'onglet FFBUD
-  await expect(page.getByRole('region', { name: 'Immobilier' })).toContainText(/60\s000\s€/)
-  await expect(page.getByRole('table', { name: 'Frais : Redevances du réseau' }).getByRole('row', { name: /^Royalties/ })).toContainText(/2,0\s%\sdu CA/)
+  // Un groupe par thème dans un seul tableau (lot 35) ; publicité franchise et royalties calculées sur le CA ; totaux des blocs de l'onglet FFBUD
+  await expect(page.getByRole('rowgroup', { name: 'Immobilier' })).toContainText(/60\s000\s€/)
+  await expect(page.getByRole('rowgroup', { name: 'Redevances du réseau' }).getByRole('row', { name: /^Royalties/ })).toContainText(/2,0\s%\sdu CA/)
   await expect(page.getByLabel('Budget communication annuel', { exact: true })).toBeVisible()
-  const blocs = page.getByRole('table', { name: /^Frais \d{4} par bloc$/ })
+  const blocs = page.getByRole('rowgroup', { name: 'Totaux' })
   await expect(blocs.getByRole('row', { name: /^Total des charges externes/ })).toContainText(/60\s000\s€ \+ 4,3\s%\sdu CA/)
   await expect(blocs.getByRole('row', { name: /^Intérêts et charges assimilées/ })).toContainText(/1\s200\s€/)
   expect(await textesTropPetits(page)).toEqual([])
@@ -152,7 +152,7 @@ test('synthèse et atterrissage : réel des mois passés, saisonnalité de l’a
 
   await page.getByRole('tab', { name: 'Synthèse' }).click()
   await page.getByRole('button', { name: 'Renseigner l’équipe' }).click()
-  await expect(page.getByRole('tab', { name: /^Équipe et frais/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { name: /^2 · Équipe/ })).toHaveAttribute('aria-selected', 'true')
 })
 
 test('le Directeur propose le budget de l’an prochain à partir de l’atterrissage', async ({ page }) => {

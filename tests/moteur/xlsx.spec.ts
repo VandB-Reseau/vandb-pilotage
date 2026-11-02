@@ -68,7 +68,7 @@ test('budget : totaux et parts du CA en formules, marge recalculée famille par 
 
 test('réseau : une ligne par magasin, total de la sélection, colonnes Coach et RR à la demande', () => {
   const ligne = (magasin: string, ca: number, rrs: string[]): LigneExportReseau => ({
-    magasin, moisRealises: 2, ca, evolution: 0.1, ecartBudget: -0.05, tauxMarge: 0.4, panierCave: 30, ticketsCave: 0.02, panierBar: null, ticketsBar: null, personnelSurMarge: null, ebeSurCA: null,
+    magasin, moisRealises: 2, ca, evolution: 0.1, ecartBudget: -0.05, tauxMarge: 0.4, panierCave: 30, ticketsCave: 0.02, panierBar: null, ticketsBar: null, pctFP: null, ebeSurCA: null,
     sommes: { ca, caN1: ca / 1.1, caBudget: ca / 0.95, marge: 0.4 * ca, caAvecMarge: ca, ttc: 0, tickets: 0, personnel: 0, marge100: 0, ebe: 0, caEbe: 0 },
     coach: 'Coach Nord', rrs, groupe: '',
   } as unknown as LigneExportReseau)

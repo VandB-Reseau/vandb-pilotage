@@ -47,6 +47,10 @@ export function CompteResultatMois({ lignes, titre, libelleTableau, projeteA, en
   const ca = lignes.find((l) => l.cle === 'ca')?.total ?? 0
   const toutOuvert = parents.size > 0 && [...parents].every((p) => ouvertes.has(p))
   const basculer = (cle: string) => setOuvertes((o) => { const n = new Set(o); if (n.has(cle)) n.delete(cle); else n.add(cle); return n })
+  // Lot 35 : deux niveaux de détail (charges externes, puis thème, puis ligne) ; une ligne se voit si tous ses parents sont ouverts
+  const parentDe = new Map(lignes.map((l) => [l.cle, l.parent]))
+  const profondeur = (l: { parent?: string }) => { let n = 0, p = l.parent; while (p) { n++; p = parentDe.get(p) } return n }
+  const visible = (l: { parent?: string }) => { let p = l.parent; while (p) { if (!ouvertes.has(p)) return false; p = parentDe.get(p) } return true }
   // Colonne projetée : tous ses mois sont après le dernier mois réalisé
   const projete = (c: number[]) => projeteA !== undefined && c[0] >= projeteA
   const enCours = (c: number[]) => (periode === 'mois' && moisEnCours != null && c[0] === moisEnCours ? 'en-cours' : undefined)
@@ -77,12 +81,12 @@ export function CompteResultatMois({ lignes, titre, libelleTableau, projeteA, en
             </TableRow>
           </TableHead>
           <TableBody>
-            {regrouperCompte(lignes, periode).filter((l) => !l.parent || ouvertes.has(l.parent)).map((l) => {
+            {regrouperCompte(lignes, periode).filter(visible).map((l) => {
               const parent = parents.has(l.cle)
               const style = { fontWeight: l.fort ? 700 : 400, whiteSpace: 'nowrap' as const, ...(l.parent ? { color: 'text.secondary' } : {}) }
               return (
                 <TableRow key={l.cle} className={l.fort ? 'ligne-forte' : undefined}>
-                  <TableCell sx={{ ...style, pl: l.parent ? '40px !important' : undefined }}>
+                  <TableCell sx={{ ...style, pl: l.parent ? `${20 + 20 * profondeur(l)}px !important` : undefined }}>
                     {parent ? (
                       <ButtonBase onClick={() => basculer(l.cle)} aria-expanded={ouvertes.has(l.cle)} aria-label={`${l.libelle} : ${ouvertes.has(l.cle) ? 'replier' : 'détailler'}`}
                         sx={{ font: 'inherit', gap: 0.5, ml: -0.75, px: 0.5, borderRadius: 1, minHeight: { xs: 48, md: 28 }, '&:hover': { bgcolor: 'action.hover' } }}>

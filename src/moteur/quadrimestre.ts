@@ -35,7 +35,7 @@ export interface ResultatQuadrimestre {
   personnel: number | null
   ebe: number | null
   ebeSurCA: number | null
-  personnelSurMarge: number | null
+  pctFP: number | null
   tresorerie: number | null
   budget: { ca: number; marge: number; chargesExternes: number; impotsTaxes: number; personnel: number; ebe: number } | null
   ecartEBE: number | null
@@ -65,7 +65,7 @@ export function resultatPeriode(mois: number[], reel: MoisReel[], saisies: Saisi
     tauxMargeBudget: b ? ratio(b.marge, b.ca) : null, tauxMargeCaisse,
     ecartMargeCaisse: tauxMarge !== null && tauxMargeCaisse !== null ? tauxMarge - tauxMargeCaisse : null,
     chargesExternes, impotsTaxes, personnel, ebe, ebeSurCA: ebe === null ? null : ratio(ebe, ca),
-    personnelSurMarge: personnel === null || marge === null ? null : ratio(personnel, marge),
+    pctFP: personnel === null ? null : ratio(personnel, ca),
     // Trésorerie : celle de la dernière période saisie
     tresorerie: [...saisies].reverse().find((s) => s.tresorerie !== null)?.tresorerie ?? null,
     budget: b, ecartEBE: ebe !== null && b ? ebe - b.ebe : null,

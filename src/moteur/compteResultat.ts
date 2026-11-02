@@ -1,4 +1,4 @@
-import { blocDe, LIGNES_SUR_CA, lignesFrais, rubriqueLibelle } from './parametres'
+import { blocDe, LIGNES_SUR_CA, lignesFrais, rubriqueLibelle, THEMES_FRAIS } from './parametres'
 import { UNIVERS, universLibelle, type Budget, type Hypotheses } from './types'
 
 // Compte de résultat sur 12 mois, ligne par ligne, prêt à afficher : rubriques dépliables (détail par univers ou par ligne de frais).
@@ -38,8 +38,18 @@ export function compteResultat(b: Budget, h: Hypotheses, p: { tauxRedevance: num
   const impots = dansBloc('impots_taxes')
   const autres = dansBloc('autres_charges')
   const totalAutres = autres.reduce((t, l) => t.map((v, i) => v + montantFrais(l)[i]), Array(12).fill(0) as number[])
-  const detailFrais = (l: Hypotheses['frais'][number], parent: string) =>
-    ligne(`${parent}/${l.code}`, l.libelle || rubriqueLibelle[l.rubrique], negatif(montantFrais(l)), { parent })
+  const detailFrais = (l: Hypotheses['frais'][number], prefixe: string, parent = prefixe) =>
+    ligne(`${prefixe}/${l.code}`, l.libelle || rubriqueLibelle[l.rubrique], negatif(montantFrais(l)), { parent })
+
+  // Lot 35 (Joseph, 02/11/2026 : « les frais classés partout ») : charges externes détaillées par thème, comme l'onglet
+  // Frais, puis ligne par ligne sous chaque thème
+  const themesExternes = THEMES_FRAIS.flatMap((r) => {
+    const dans = externes.filter((l) => l.rubrique === r)
+    if (!dans.length) return []
+    const cle = `externes/theme/${r}`
+    const total = dans.reduce((t, l) => t.map((v, i) => v + montantFrais(l)[i]), Array(12).fill(0) as number[])
+    return [ligne(cle, rubriqueLibelle[r], negatif(total), { parent: 'externes' }), ...dans.map((l) => detailFrais(l, 'externes', cle))]
+  })
 
   const amort = Array(12).fill(-b.amortissements / 12)
   const interets = Array(12).fill(-h.interets / 12)
@@ -59,9 +69,11 @@ export function compteResultat(b: Budget, h: Hypotheses, p: { tauxRedevance: num
     ligne('achats', 'Achats consommés HT', negatif(b.mois.map((m) => m.achats))),
     ligne('marge', 'Marge commerciale', b.mois.map((m) => m.marge), { fort: true }),
     ligne('externes', 'Charges externes', negatif(b.mois.map((m, i) => m.chargesExternes - totalAutres[i]))),
-    ...externes.map((l) => detailFrais(l, 'externes')),
-    ligne('externes/publicite', LIGNES_SUR_CA.publicite.libelle, negatif(ca.map((c) => c * p.tauxPublicite)), { parent: 'externes' }),
-    ligne('externes/redevance', LIGNES_SUR_CA.redevance.libelle, negatif(ca.map((c) => c * p.tauxRedevance)), { parent: 'externes' }),
+    ...themesExternes,
+    ...externes.filter((l) => !THEMES_FRAIS.includes(l.rubrique)).map((l) => detailFrais(l, 'externes')),
+    ligne('externes/theme/reseau', 'Redevances du réseau', negatif(ca.map((c) => c * (p.tauxPublicite + p.tauxRedevance))), { parent: 'externes' }),
+    ligne('externes/publicite', LIGNES_SUR_CA.publicite.libelle, negatif(ca.map((c) => c * p.tauxPublicite)), { parent: 'externes/theme/reseau' }),
+    ligne('externes/redevance', LIGNES_SUR_CA.redevance.libelle, negatif(ca.map((c) => c * p.tauxRedevance)), { parent: 'externes/theme/reseau' }),
     ...(evenements.some((v) => v) ? [ligne('externes/evenements', 'Charges des événements', negatif(evenements), { parent: 'externes' })] : []),
     ...(b.mois.some((m) => m.demarqueConsignes) ? [ligne('externes/consignes', 'Démarque de consignes', negatif(b.mois.map((m) => m.demarqueConsignes ?? 0)), { parent: 'externes' })] : []),
     ligne('impots', 'Impôts et taxes', negatif(b.mois.map((m) => m.impotsTaxes))),

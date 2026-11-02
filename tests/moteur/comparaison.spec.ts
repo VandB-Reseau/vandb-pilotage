@@ -5,7 +5,7 @@ import { parametresParDefaut } from '../../src/moteur/parametres'
 import { magasinFictif } from '../donnees-fictives'
 
 // Médianes et rangs sur des magasins fictifs : chaque résultat se vérifie à la main.
-const r = (personnelSurMarge: number | null, ebeSurCA: number | null): Ratios => ({ tauxMarge: null, personnelSurMarge, loyerSurCA: null, panierCave: null, panierBar: null, ebeSurCA })
+const r = (pctFP: number | null, ebeSurCA: number | null): Ratios => ({ tauxMarge: null, pctFP, loyerSurCA: null, panierCave: null, panierBar: null, ebeSurCA })
 
 test('médiane : valeur du milieu, moyenne des deux du milieu, valeurs absentes ignorées', () => {
   expect(mediane([3, 1, 2])).toBe(2)
@@ -13,11 +13,11 @@ test('médiane : valeur du milieu, moyenne des deux du milieu, valeurs absentes 
   expect(mediane([])).toBeNull()
   const l = [r(0.5, 0.08), r(0.6, null), r(0.4, 0.1), r(0.7, 0.02)]
   const m = medianes(l)
-  expect(m.personnelSurMarge).toBeCloseTo(0.55, 10)   // (0,5 + 0,6) / 2
+  expect(m.pctFP).toBeCloseTo(0.55, 10)   // (0,5 + 0,6) / 2
   expect(m.ebeSurCA).toBe(0.08)                       // 0,02 ; 0,08 ; 0,10
   expect(m.nb.ebeSurCA).toBe(3)
   // Masse salariale : la plus basse est la meilleure ; EBE : le plus haut
-  expect(rang(0.6, l, 'personnelSurMarge')).toEqual({ rang: 3, sur: 4 })
+  expect(rang(0.6, l, 'pctFP')).toEqual({ rang: 3, sur: 4 })
   expect(rang(0.1, l, 'ebeSurCA')).toEqual({ rang: 1, sur: 3 })
   expect(rang(null, l, 'ebeSurCA')).toBeNull()
 })
@@ -26,7 +26,7 @@ test('ratios du budget du magasin fictif', () => {
   const b = calculerBudget(magasinFictif, parametresParDefaut)
   const x = ratiosDuBudget(b, magasinFictif)
   expect(x.tauxMarge).toBeCloseTo(367_300 / 640_000, 10)          // 57,4 %
-  expect(x.personnelSurMarge).toBeCloseTo(216_000 / 367_300, 10)  // 58,8 %
+  expect(x.pctFP).toBeCloseTo(216_000 / 640_000, 10)              // % FP : 33,75 %
   expect(x.loyerSurCA).toBeCloseTo(60_000 / 640_000, 10)          // 9,4 %
   expect(x.panierCave).toBe(24)                                   // panier réalisé de la Cave, sans évolution visée
   expect(x.panierBar).toBeNull()                                  // pas de tickets au Bar

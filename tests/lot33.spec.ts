@@ -22,8 +22,8 @@ test.afterEach(async ({ page }) => {
 test('frais : un encart par thème, lignes reprises du FEC ramenées à l’année', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { role: 'franchise', magasins: magasins(), frais: [loyer] })
   await ouvrir(page, 'Frais')
-  await expect(page.getByRole('region', { name: 'Immobilier' })).toContainText(/60\s000\s€/)
-  await expect(page.getByRole('region', { name: 'Redevances du réseau' })).toContainText(/3,0\s%\sdu CA/)
+  await expect(page.getByRole('rowgroup', { name: 'Immobilier' })).toContainText(/60\s000\s€/)
+  await expect(page.getByRole('rowgroup', { name: 'Redevances du réseau' })).toContainText(/3,0\s%\sdu CA/)
   // FEC fictif de janvier à mai : 5 mois, chaque compte × 12 ÷ 5
   await page.getByLabel('FEC pour les frais').setInputFiles({ name: 'FEC.txt', mimeType: 'text/plain', buffer: Buffer.from(fecFictif(2026)) })
   const reprise = page.getByRole('region', { name: 'Frais repris du FEC' })

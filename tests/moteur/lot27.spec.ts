@@ -64,8 +64,8 @@ test('total de la liste : ratios sur les sommes, pas moyenne des ratios', () => 
   const t = totalBudgets([b(600_000, 240_000, 108_000, 60_000), b(400_000, 120_000, 72_000, 8_000)])
   expect(t).toMatchObject({ magasins: 2, ca: 1_000_000, marge: 360_000, ebe: 68_000 })
   expect(t.tauxMarge).toBeCloseTo(0.36, 9)                         // 360 000 / 1 000 000
-  expect(t.personnelSurMarge).toBeCloseTo(0.5, 9)                  // 180 000 / 360 000
+  expect(t.pctFP).toBeCloseTo(0.18, 9)                             // % FP : 180 000 / 1 000 000
   expect(t.ebeSurCA).toBeCloseTo(0.068, 9)                         // 68 000 / 1 000 000
   // Moyenne des taux de marge : (40 % + 30 %) / 2 = 35 %, faux ; 360 / 1 000 = 36 %
-  expect(totalBudgets([])).toEqual({ magasins: 0, ca: 0, marge: 0, ebe: 0, tauxMarge: 0, personnelSurMarge: 0, ebeSurCA: 0 })
+  expect(totalBudgets([])).toEqual({ magasins: 0, ca: 0, marge: 0, ebe: 0, tauxMarge: 0, pctFP: 0, ebeSurCA: 0 })
 })

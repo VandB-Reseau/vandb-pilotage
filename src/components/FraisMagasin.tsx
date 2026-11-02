@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import ButtonBase from '@mui/material/ButtonBase'
 import Card from '@mui/material/Card'
 import IconButton from '@mui/material/IconButton'
 import InputAdornment from '@mui/material/InputAdornment'
@@ -12,10 +13,13 @@ import Stack from '@mui/material/Stack'
 import Table from '@mui/material/Table'
 import TableBody from '@mui/material/TableBody'
 import TableCell from '@mui/material/TableCell'
+import TableContainer from '@mui/material/TableContainer'
+import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import AddOutlined from '@mui/icons-material/AddOutlined'
+import ChevronRightOutlined from '@mui/icons-material/ChevronRightOutlined'
 import DeleteOutlined from '@mui/icons-material/DeleteOutlined'
 import PlaylistAddOutlined from '@mui/icons-material/PlaylistAddOutlined'
 import { BarreEnregistrement } from './BarreEnregistrement'
@@ -25,6 +29,7 @@ import { useSaisieEnCours } from './GardeSaisie'
 import { Indicateur } from './Indicateur'
 import { RepriseFraisFEC } from './RepriseFraisFEC'
 import { enregistrerFrais } from '../data/pilotage'
+import { styleTableau } from '../theme/tableau'
 import { nombre } from '../import/caisse'
 import { nombreChangements } from '../lib/aFaire'
 import { milliers, miseEnForme, montant, taux } from '../lib/format'
@@ -36,6 +41,7 @@ import {
   type ChampFrais, type Mode, type SaisieFrais,
 } from '../moteur/saisieFrais'
 
+const visuellementCache = { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' } as const
 
 // Montant d'une ligne de frais : par an en euros, ou en part du CA
 function ChampFraisLigne({ ligne, onChange }: { ligne: ChampFrais; onChange: (l: Partial<ChampFrais>) => void }) {
@@ -95,6 +101,8 @@ export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregist
   const [saisie, setSaisie] = useState<SaisieFrais>(() => saisieDepuisLignes(lignes))
   const [message, setMessage] = useState<{ gravite: 'success' | 'error'; texte: string; details?: string[] } | null>(null)
   const [occupe, setOccupe] = useState(false)
+  const [replies, setReplies] = useState<Set<string>>(new Set())
+  const basculer = (cle: string) => setReplies((o) => { const n = new Set(o); if (n.has(cle)) n.delete(cle); else n.add(cle); return n })
   // Après un enregistrement (ou un changement de magasin), la saisie repart des lignes enregistrées
   const empreinte = JSON.stringify(lignes)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -167,22 +175,22 @@ export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregist
   const interets = INTERETS.reduce((a, k) => a + valeurFinance(k), 0)
   const enMontant = (annuel: number, part: number) => `${montant(annuel)}${part ? ` + ${taux(part)} du CA` : ''}`
   const enTexteLigne = (l: ChampFrais) => (l.mode === 'taux' ? `${l.valeur} % du CA` : montant(nombre(l.valeur) ?? 0))
-  const cellule = { py: 0.5, px: 1.5, borderBottom: 0 }
+  const colonnes = peutSaisir ? 3 : 2
   const ligneTexte = (cle: string, libelle: string, valeur: string) => (
     <TableRow key={cle}>
-      <TableCell sx={cellule}>{libelle}</TableCell>
-      <TableCell align="right" sx={{ ...cellule, whiteSpace: 'nowrap', color: 'text.secondary' }}>{valeur}</TableCell>
-      {peutSaisir && <TableCell sx={{ ...cellule, width: 48 }} />}
+      <TableCell sx={{ pl: '40px !important' }}>{libelle}</TableCell>
+      <TableCell align="right" sx={{ color: 'text.secondary' }}>{valeur}</TableCell>
+      {peutSaisir && <TableCell />}
     </TableRow>
   )
   const ligneSaisie = (l: ChampFrais) => (
     <TableRow key={l.code}>
-      <TableCell sx={cellule}>{l.libelle}</TableCell>
-      <TableCell align="right" sx={{ ...cellule, whiteSpace: 'nowrap' }}>
+      <TableCell sx={{ pl: '40px !important' }}>{l.libelle}</TableCell>
+      <TableCell align="right" sx={{ py: '2px !important' }}>
         {peutSaisir ? <ChampFraisLigne ligne={l} onChange={(x) => changer(l.code, x)} /> : enTexteLigne(l)}
       </TableCell>
       {peutSaisir && (
-        <TableCell align="right" sx={{ ...cellule, width: 48, pl: 0 }}>
+        <TableCell align="right" sx={{ width: 48, py: '0 !important' }}>
           <IconButton aria-label={`Retirer ${l.libelle}`} onClick={() => setSaisie((s) => ({ ...s, lignes: s.lignes.filter((x) => x.code !== l.code) }))}
             sx={{ width: { xs: 48, md: 36 }, height: { xs: 48, md: 36 } }}>
             <DeleteOutlined fontSize="small" />
@@ -193,35 +201,46 @@ export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregist
   )
   const ligneFinance = (k: keyof SaisieFrais['finances']) => peutSaisir ? (
     <TableRow key={k}>
-      <TableCell sx={cellule}>{LIBELLES_FINANCES[k]}</TableCell>
-      <TableCell align="right" sx={{ ...cellule, whiteSpace: 'nowrap' }}>
+      <TableCell sx={{ pl: '40px !important' }}>{LIBELLES_FINANCES[k]}</TableCell>
+      <TableCell align="right" sx={{ py: '2px !important' }}>
         <ChampNombre libelle={LIBELLES_FINANCES[k]} valeur={saisie.finances[k]} largeur={190} unite="€ par an" onChange={(v) => setSaisie((s) => ({ ...s, finances: { ...s.finances, [k]: v } }))} />
       </TableCell>
-      <TableCell sx={{ ...cellule, width: 48 }} />
+      <TableCell />
     </TableRow>
   ) : ligneTexte(k, LIBELLES_FINANCES[k], montant(valeurFinance(k)))
-  // Un encart par thème de frais (29/10/2026, Joseph) : plusieurs côte à côte, total du thème en tête
-  // Encarts en colonnes (sans trou entre eux, 29/10/2026) ; « + » dans chaque thème pour y ajouter une ligne de la grille
-  const encart = (cle: string, libelle: string, total: string, lignesEncart: React.ReactNode[], ajout?: React.ReactNode) => (
-    <Card key={cle} component="section" aria-label={libelle} sx={{ breakInside: 'avoid', mb: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, pt: 0.75, pb: lignesEncart.length ? 0.25 : 0.75, minHeight: 48 }}>
-        <Typography component="h3" sx={{ fontWeight: 700, fontSize: '0.9375rem', flex: 1 }}>{libelle}</Typography>
-        <Typography sx={{ fontWeight: 700, fontSize: '0.875rem', whiteSpace: 'nowrap' }}>{total}</Typography>
-        {ajout}
-      </Box>
-      {lignesEncart.length > 0 && <Table size="small" aria-label={`Frais : ${libelle}`} sx={{ mb: 0.75 }}><TableBody>{lignesEncart}</TableBody></Table>}
-    </Card>
-  )
+  // Lot 35 (Joseph, 02/11/2026 : encarts « moches ») : un seul tableau, un groupe repliable par thème avec son sous-total
+  // et son « + », dans l'ordre des thèmes ; le même classement que le compte de résultat
+  const groupe = (cle: string, libelle: string, total: string, lignesGroupe: React.ReactNode[], ajout?: React.ReactNode) => {
+    const replie = replies.has(cle)
+    return (
+      <TableBody key={cle} aria-label={libelle}>
+        {/* Thème encore vide : en retrait, seulement là pour son « + » */}
+        <TableRow sx={lignesGroupe.length ? { bgcolor: 'background.default' } : undefined}>
+          <TableCell sx={lignesGroupe.length ? { fontWeight: 700 } : { color: 'text.secondary' }}>
+            <ButtonBase onClick={() => basculer(cle)} aria-expanded={!replie} aria-label={`${libelle} : ${replie ? 'détailler' : 'replier'}`}
+              sx={{ font: 'inherit', gap: 0.5, ml: -0.75, px: 0.5, borderRadius: 1, minHeight: { xs: 48, md: 32 }, '&:hover': { bgcolor: 'action.hover' } }}>
+              <ChevronRightOutlined sx={{ fontSize: 18, transform: replie ? 'none' : 'rotate(90deg)', color: 'text.secondary' }} />
+              {libelle}
+            </ButtonBase>
+          </TableCell>
+          <TableCell align="right" sx={{ fontWeight: 700 }}>{total}</TableCell>
+          {peutSaisir && <TableCell align="right" sx={{ width: 48, py: '0 !important' }}>{ajout}</TableCell>}
+        </TableRow>
+        {!replie && lignesGroupe}
+      </TableBody>
+    )
+  }
   const themes = THEMES_FRAIS.map((r) => ({ r, dans: saisie.lignes.filter((l) => l.rubrique === r), libres: disponibles.filter((l) => l.rubrique === r) }))
     .filter((x) => x.dans.length || (peutSaisir && x.libres.length))
   const totalTheme = (dans: ChampFrais[]) => {
     const x = totauxFrais({ ...saisie, lignes: dans })
-    return enMontant(x.annuel, x.taux)
+    return dans.length ? enMontant(x.annuel, x.taux) : ''
   }
   const ligneTotal = (libelle: string, valeur: string, fort = false) => (
     <TableRow key={libelle}>
-      <TableCell sx={{ ...cellule, fontWeight: fort ? 700 : 400 }}>{libelle}</TableCell>
-      <TableCell align="right" sx={{ ...cellule, fontWeight: fort ? 700 : 400, whiteSpace: 'nowrap' }}>{valeur}</TableCell>
+      <TableCell sx={{ fontWeight: fort ? 700 : 400 }}>{libelle}</TableCell>
+      <TableCell align="right" sx={{ fontWeight: fort ? 700 : 400 }}>{valeur}</TableCell>
+      {peutSaisir && <TableCell />}
     </TableRow>
   )
   return (
@@ -233,24 +252,37 @@ export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregist
         <Indicateur libelle="Amortissements" aide="amortissements" valeur={milliers(valeurFinance('amortissements'))} />
       </Stack>
 
-      <Box component="section" aria-label="Frais par thème" sx={{ columnCount: { xs: 1, md: 2, xl: 3 }, columnGap: 2, mb: -2 }}>
-        {themes.map(({ r, dans, libres }) => encart(r, rubriqueLibelle[r], dans.length ? totalTheme(dans) : '', dans.map(ligneSaisie),
-          peutSaisir && libres.length > 0 && <AjoutTheme theme={rubriqueLibelle[r]} lignes={libres} onAjouter={(code) => setSaisie((s) => ajouterLigne(s, code))} />))}
-        {encart('reseau', 'Redevances du réseau', `${taux(surCA)} du CA`, (['publicite', 'redevance'] as const).map((k) => ligneTexte(k, LIGNES_SUR_CA[k].libelle, `${taux(tauxSurCA[k])} du CA`)))}
-        {encart('hors-ebe', 'Sous l’excédent brut d’exploitation', montant(valeurFinance('amortissements') + interets),
-          [ligneFinance('amortissements'), ...INTERETS.map(ligneFinance), ligneFinance('remboursementCapital')])}
-        <Card component="section" aria-label="Totaux" sx={{ breakInside: 'avoid', mb: 2 }}>
-          <Typography component="h3" sx={{ fontWeight: 700, fontSize: '0.9375rem', px: 1.5, pt: 1.25, pb: 0.5 }}>Totaux</Typography>
-          <Table size="small" aria-label={`Frais ${annee} par bloc`} sx={{ mb: 0.75 }}>
-            <TableBody>
+      <Card component="section" aria-label="Frais par thème">
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2.5, pt: 2, pb: 1 }}>
+          <Typography variant="h2" sx={{ flex: 1 }}>Frais {annee}</Typography>
+          <Button size="small" onClick={() => setReplies(replies.size ? new Set() : new Set([...themes.map((x) => x.r), 'reseau', 'hors-ebe']))} sx={{ minHeight: { xs: 48, md: 36 } }}>
+            {replies.size ? 'Tout détailler' : 'Tout replier'}
+          </Button>
+        </Box>
+        <TableContainer>
+          <Table size="small" aria-label={`Frais ${annee} par thème`} sx={{ ...styleTableau, '& td, & th': { ...styleTableau['& td, & th'], fontSize: '0.875rem' } }}>
+            <TableHead>
+              <TableRow>
+                <TableCell>Ligne</TableCell>
+                <TableCell align="right">Montant {annee}</TableCell>
+                {peutSaisir && <TableCell align="right"><Box component="span" sx={visuellementCache}>Actions</Box></TableCell>}
+              </TableRow>
+            </TableHead>
+            {themes.map(({ r, dans, libres }) => groupe(r, rubriqueLibelle[r], totalTheme(dans), dans.map(ligneSaisie),
+              libres.length > 0 && <AjoutTheme theme={rubriqueLibelle[r]} lignes={libres} onAjouter={(code) => { setReplies((x) => { const n = new Set(x); n.delete(r); return n }); setSaisie((s) => ajouterLigne(s, code)) }} />))}
+            {groupe('reseau', 'Redevances du réseau', `${taux(surCA)} du CA`, (['publicite', 'redevance'] as const).map((k) => ligneTexte(k, LIGNES_SUR_CA[k].libelle, `${taux(tauxSurCA[k])} du CA`)))}
+            {groupe('hors-ebe', 'Sous l’excédent brut d’exploitation', montant(valeurFinance('amortissements') + interets),
+              [ligneFinance('amortissements'), ...INTERETS.map(ligneFinance), ligneFinance('remboursementCapital')])}
+            <TableBody aria-label="Totaux">
+              <TableRow><TableCell colSpan={colonnes} sx={{ pt: '12px !important', fontWeight: 700 }}>Totaux</TableCell></TableRow>
               {BLOCS_FRAIS.filter((x) => x.cle === 'charges_externes' || saisie.lignes.some((l) => blocDe(l) === x.cle)).map((x) =>
                 ligneTotal(x.total, enMontant(t.parBloc[x.cle].annuel, t.parBloc[x.cle].taux + (x.cle === 'charges_externes' ? surCA : 0))))}
               {ligneTotal('Intérêts et charges assimilées', montant(interets))}
               {ligneTotal('Total des frais prévisionnels', enMontant(t.annuel + valeurFinance('amortissements') + interets, t.taux + surCA), true)}
             </TableBody>
           </Table>
-        </Card>
-      </Box>
+        </TableContainer>
+      </Card>
       {peutSaisir && <RepriseFraisFEC onReprendre={(f, c) => setSaisie((s) => saisieAvecFEC(s, f, c))} />}
       {actions}
     </Stack>

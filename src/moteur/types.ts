@@ -143,7 +143,7 @@ export interface Budget {
   resultatNet: number
   capaciteAutofinancement: number
   tresorerieDegagee: number      // capacité d'autofinancement moins capital remboursé
-  ratios: { personnelSurMarge: number; personnelSurCA: number; ebeSurCA: number }
+  ratios: { pctFP: number; ebeSurCA: number } // pctFP : % FP, frais de personnel ÷ CA HT
   // Par univers piloté : tickets atterris et visés, panier TTC réalisé et visé, CA atterri et visé
   flux: Partial<Record<'cave' | 'bar', FluxBudget>>
   sortie?: Partial<Record<UniversTickets, RythmeSortie>>

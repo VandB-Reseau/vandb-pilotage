@@ -54,7 +54,7 @@ const resumeAlertes = (p: ParametresReseau) => [
 const resumeCampagne = (c: Campagne) => `Proposition avant le ${jourMois(c.proposition)}, retour avant le ${jourMois(c.retour)}, validation avant le ${jourMois(c.validation)}`
 const resumeTreso = (p: ParametresReseau) => {
   const t = p.tresorerie, c = t.consignes
-  return [`Fournisseurs à ${t.delaiFournisseurs} mois`, `TVA ${t.tvaTrimestrielle ? 'trimestrielle' : 'mensuelle'}`,
+  return [`Livraison ${t.avanceLivraison ?? 1} mois avant la vente`, `fournisseurs à ${t.delaiFournisseurs} mois`, `TVA ${t.tvaTrimestrielle ? 'trimestrielle' : 'mensuelle'}`,
     c ? `consignes Cave ${pct(c.achats.cave)}, Bar ${pct(c.achats.bar)}, démarque ${pct(c.demarque ?? 0)}` : ''].filter(Boolean).join(', ')
 }
 
@@ -69,7 +69,7 @@ export function Parametres() {
   const [occupe, setOccupe] = useState(false)
   // Trésorerie : délais en mois gardés en texte pendant la frappe
   const [treso, setTreso] = useState<ParametresTresorerie | null>(null)
-  const [delais, setDelais] = useState({ fournisseurs: '', redevance: '', ecoulement: '', remboursement: '', exterieur: '', stock: '' })
+  const [delais, setDelais] = useState({ fournisseurs: '', livraison: '', redevance: '', ecoulement: '', remboursement: '', exterieur: '', stock: '' })
   const [messageTreso, setMessageTreso] = useState<{ gravite: 'success' | 'error'; texte: string } | null>(null)
   // Seuils des alertes : textes pendant la frappe, sauf l'écart de CA (pourcentage)
   const [ecartCA, setEcartCA] = useState<number | undefined>(undefined)
@@ -89,7 +89,7 @@ export function Parametres() {
     setSeuils({ marge: String(Math.round(p.alertes.baisseMarge * 1000) / 10).replace('.', ','), retard: String(p.alertes.moisRetard), tresorerie: enChiffres(p.alertes.tresorerie) })
     setTreso(p.tresorerie)
     setDelais({
-      fournisseurs: String(p.tresorerie.delaiFournisseurs), redevance: String(p.tresorerie.delaiRedevance),
+      fournisseurs: String(p.tresorerie.delaiFournisseurs), livraison: String(p.tresorerie.avanceLivraison ?? 1), redevance: String(p.tresorerie.delaiRedevance),
       ecoulement: String(p.tresorerie.consignes?.ecoulement ?? 0), remboursement: String(p.tresorerie.consignes?.remboursement ?? 0),
       exterieur: String(p.tresorerie.avanceExterieur ?? 0), stock: String(p.tresorerie.stockJours ?? 0),
     })
@@ -117,12 +117,12 @@ export function Parametres() {
     }
   }
   const delai = (t: string, max = 3) => { const n = nombre(t); return n !== null && Number.isInteger(n) && n >= 0 && n <= max ? n : null }
-  const delaisLus = { delaiFournisseurs: delai(delais.fournisseurs), delaiRedevance: delai(delais.redevance), avanceExterieur: delai(delais.exterieur) }
+  const delaisLus = { delaiFournisseurs: delai(delais.fournisseurs), avanceLivraison: delai(delais.livraison), delaiRedevance: delai(delais.redevance), avanceExterieur: delai(delais.exterieur) }
   const delaisConsignes = { ecoulement: delai(delais.ecoulement, 6), remboursement: delai(delais.remboursement, 6) }
   const stockLu = delai(delais.stock, 365)
   const tresoValide = Object.values({ ...delaisLus, ...delaisConsignes, stockLu }).every((v) => v !== null)
   const tresoLue = (t: ParametresTresorerie): ParametresTresorerie => ({
-    ...t, delaiFournisseurs: delaisLus.delaiFournisseurs ?? 0, delaiRedevance: delaisLus.delaiRedevance ?? 0, avanceExterieur: delaisLus.avanceExterieur ?? 0, stockJours: stockLu ?? 0,
+    ...t, delaiFournisseurs: delaisLus.delaiFournisseurs ?? 0, avanceLivraison: delaisLus.avanceLivraison ?? 0, delaiRedevance: delaisLus.delaiRedevance ?? 0, avanceExterieur: delaisLus.avanceExterieur ?? 0, stockJours: stockLu ?? 0,
     consignes: t.consignes && { ...t.consignes, ecoulement: delaisConsignes.ecoulement ?? 0, remboursement: delaisConsignes.remboursement ?? 0 },
   })
   const tresoModifiee = !!p && !!treso && JSON.stringify(tresoLue(treso)) !== JSON.stringify(p.tresorerie)
@@ -324,7 +324,11 @@ export function Parametres() {
             <Table aria-label={`Paramètres de trésorerie ${annee}`}>
               <TableBody>
                 <TableRow>
-                  <TableCell>Paiement des fournisseurs de marchandises, en mois après l’achat (1 = 30 jours fin de mois)</TableCell>
+                  <TableCell>Livraison et facturation des marchandises Cave et Bar, en mois avant le mois de la vente</TableCell>
+                  <TableCell align="right"><ChampNombre libelle="Avance de livraison des marchandises" valeur={delais.livraison} unite="mois" largeur={120} onChange={(v) => setDelais((d) => ({ ...d, livraison: v }))} /></TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Paiement des fournisseurs de marchandises, en mois après la livraison (1 = 30 jours fin de mois)</TableCell>
                   <TableCell align="right"><ChampNombre libelle="Délai de paiement des fournisseurs" valeur={delais.fournisseurs} unite="mois" largeur={120} onChange={(v) => setDelais((d) => ({ ...d, fournisseurs: v }))} /></TableCell>
                 </TableRow>
                 <TableRow>

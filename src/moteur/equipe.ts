@@ -28,7 +28,11 @@ export interface Personne {
   heuresSaisie?: 'semaine' | 'mois'  // unité choisie à la saisie (lot 26) ; le calcul part toujours des heures par semaine
   enveloppe?: boolean      // primes d'équipe sans salarié (lot 26) : ni heures ni salaire, charges de la catégorie, sans réduction
   tauxHoraire?: number     // extras : taux horaire brut ; brutMensuel = taux × heures moyennes du mois
+  // Lot 35 (Joseph, 02/11/2026) : hausses de salaire datées, appliquées à partir de leur mois et cumulées, en plus de
+  // la hausse générale de l'année
+  hausses?: HausseDatee[]
 }
+export interface HausseDatee { mois: string; taux: number }   // « AAAA-MM »
 
 // Heures par mois ↔ heures par semaine : 52 semaines sur 12 mois
 export const SEMAINES_PAR_MOIS = 52 / 12
@@ -75,10 +79,15 @@ export function coefficientReduction(brutAnnuel: number, smicReference: number, 
   return Math.round(Math.min(max, c) * 10_000) / 10_000
 }
 
+// Hausses datées déjà passées au mois donné (« AAAA-MM »), cumulées : +2 % puis +3 % font × 1,02 × 1,03
+export function facteurHausses(p: Pick<Personne, 'hausses'>, mois: string): number {
+  return (p.hausses ?? []).filter((h) => h.mois <= mois).reduce((f, h) => f * (1 + h.taux), 1)
+}
+
 export function coutPersonne(p: Personne, c: ParametresCharges, annee: number, hausse = 0): CoutPersonne {
   const presents = moisPresents(p, annee)
   const nbMois = presents.filter(Boolean).length
-  const brut = presents.map((ok, i) => (ok ? p.brutMensuel * (1 + hausse) + somme(p.primes.filter((x) => x.mois === i + 1).map((x) => x.montant)) : 0))
+  const brut = presents.map((ok, i) => (ok ? p.brutMensuel * (1 + hausse) * facteurHausses(p, `${annee}-${deux(i + 1)}`) + somme(p.primes.filter((x) => x.mois === i + 1).map((x) => x.montant)) : 0))
   const brutAnnuel = somme(brut)
   const taux = c.taux[p.categorie] ?? 0
   const smicReference = c.reduction.smicAnnuel * (p.heuresHebdo / DUREE_LEGALE) * (nbMois / 12)

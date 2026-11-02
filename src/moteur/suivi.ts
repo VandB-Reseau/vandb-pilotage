@@ -112,7 +112,7 @@ export interface LigneReseau {
   panierBar: number | null
   ticketsCave: number | null
   ticketsBar: number | null
-  personnelSurMarge: number | null // masse salariale de l'équipe sur la marge des mêmes mois
+  pctFP: number | null // % FP : masse salariale de l'équipe sur le CA HT des mêmes mois
   caParHeure: number | null        // CA HT par heure travaillée de l'équipe, mêmes mois (lot 28)
   ebeSurCA: number | null          // EBE estimé à date : marge − redevance, publicité, frais et équipe des mêmes mois
   loyerSurCA: number | null        // ligne « Locations immobilières » des frais sur le CA des mêmes mois
@@ -136,7 +136,7 @@ const pourcentages = (s: Sommes) => ({
   panierBar: s.univers.bar.ticketsPanier > 0 ? s.univers.bar.caTTC / s.univers.bar.ticketsPanier : null,
   ticketsCave: s.univers.cave.ticketsN1 > 0 && s.univers.cave.tickets > 0 ? s.univers.cave.tickets / s.univers.cave.ticketsN1 - 1 : null,
   ticketsBar: s.univers.bar.ticketsN1 > 0 && s.univers.bar.tickets > 0 ? s.univers.bar.tickets / s.univers.bar.ticketsN1 - 1 : null,
-  personnelSurMarge: s.personnel !== null && s.margeEstimee ? s.personnel / s.margeEstimee : null,
+  pctFP: s.personnel !== null && s.ca ? s.personnel / s.ca : null,
   caParHeure: s.heures ? s.ca / s.heures : null,
   ebeSurCA: s.ebe !== null && s.ca ? s.ebe / s.ca : null,
   loyerSurCA: s.loyer !== null && s.ca ? s.loyer / s.ca : null,
@@ -209,7 +209,7 @@ export function totalReseau(lignes: LigneReseau[]): Omit<LigneReseau, 'magasin' 
     evolution: sommes.caN1 ? avec('caN1', (s) => s.ca) / sommes.caN1 - 1 : null,
     ecartBudget: sommes.caBudget ? avec('caBudget', (s) => s.ca) / sommes.caBudget - 1 : null,
     tauxMarge: p.tauxMarge, panierCave: p.panierCave, panierBar: p.panierBar, ticketsCave: p.ticketsCave, ticketsBar: p.ticketsBar,
-    personnelSurMarge: ratioSur('personnel', (s) => s.margeEstimee),
+    pctFP: ratioSur('personnel', (s) => s.ca),
     // CA par heure : CA des seuls magasins dont l'équipe est connue, sur leurs heures
     caParHeure: (() => { const v = l.filter((s) => s.heures); return v.length ? somme(v.map((s) => s.ca)) / somme(v.map((s) => s.heures!)) : null })(),
     ebeSurCA: ratioSur('ebe', (s) => s.ca),

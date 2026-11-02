@@ -20,6 +20,32 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
   quadrimestre face au prévu, projection jusqu'à décembre, décaissé du quadrimestre déduit. Le graphique de trésorerie du
   budget montre encaissements, décaissements et solde.
 
+### Lot 35 — Équipe et frais du budget en étapes, changements datés, frais 2027 ligne par ligne
+
+- **Base : migration `0019_hausses_equipe.sql` à passer avant d'enregistrer un poste** (colonne `hausses` de `equipe`).
+- Budget 2027 en 5 étapes : chiffre d'affaires, Équipe, Frais, Résultat et trésorerie, Échanges et versions.
+- Équipe : hausses de salaire datées par poste (plusieurs dans l'année, cumulées), « Changements prévus » de l'année
+  (hausse générale, hausses, arrivées, départs, primes) avec leur effet sur la masse salariale, masse salariale par mois.
+- Frais 2027 : pour chaque ligne, même montant, hausse en % ou nouveau montant ; sans choix, l'inflation des frais.
+  Lignes nouvelles au budget par le « + » du thème ; amortissements, intérêts et capital remboursé modifiables aussi.
+  Choix enregistrés dans les ajustements du budget (`fraisBudget`).
+- Frais de l'année (« 2026 en cours ») : un seul tableau, un groupe repliable par thème avec son sous-total, à la place
+  des encarts. Le compte de résultat détaille les charges externes par les mêmes thèmes, puis ligne par ligne.
+
+### Trésorerie : marchandises livrées et facturées un mois avant la vente
+
+- Sans migration.
+- Cave et Bar : le stock est livré et facturé le mois précédant la vente, puis payé à 30 jours fin de mois, donc le mois
+  de la vente. La TVA sur ces achats se déduit au mois de livraison. Janvier ne paie plus le stock de Noël (payé fin
+  décembre). Sur l'année, la trésorerie ne change pas.
+- Nouveau réglage dans Paramètres réseau : « Livraison et facturation des marchandises, en mois avant la vente » (1 par défaut).
+
+### % FP à la place de « Masse salariale / marge »
+
+- Sans migration.
+- Dans tous les tableaux et chiffres clés (liste des magasins, vue Réseau, synthèse, quadrimestres, comparaison au
+  réseau, export Excel), l'indicateur devient « % FP » : frais de personnel ÷ CA HT. Le détail par la marge disparaît.
+
 ### Lot 34 — Équipe et frais dans l'année en cours, frais par thème, tableaux harmonisés
 
 - Sans migration.
