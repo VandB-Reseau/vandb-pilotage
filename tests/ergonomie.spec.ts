@@ -88,7 +88,7 @@ test('d’un magasin au suivant, dans la liste filtrée, en restant sur le même
   await ouvrir(page, 'Frais')
   await page.getByRole('link', { name: 'Magasin suivant : Les Ormes' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Les Ormes' })).toBeVisible()
-  await expect(page.getByRole('tab', { name: /^Équipe et frais/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { name: /^Frais/ })).toHaveAttribute('aria-selected', 'true')
   await expect(page.getByText('Pas encore de frais')).toBeVisible()
   // Le précédent de Port-Navalo, dans la liste filtrée, est Saint-Aubin-des-Prés (Valcourt, en discussion, n'y est pas)
   await page.getByRole('link', { name: 'Magasin précédent : Port-Navalo' }).click()
@@ -100,10 +100,9 @@ test('les onglets signalent ce qui manque', async ({ page }) => {
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await expect(page.getByRole('tab', { name: /^Budget \d+$/ })).toBeVisible()
   await page.getByRole('tab', { name: /^Budget \d+$/ }).click()
-  // Budget en 3 étapes ; l'équipe et les frais se saisissent dans l'année en cours (29/10/2026), signalés tant que l'un des deux manque
-  await expect(page.getByRole('tablist', { name: /^Parties du budget/ }).getByRole('tab')).toHaveText([/^1 · Chiffre d’affaires/, /^2 · Résultat et trésorerie/, /^3 · Échanges et versions/])
-  await page.getByRole('tab', { name: /^\d{4} en cours/ }).click()
-  await expect(page.getByRole('tab', { name: 'Équipe et frais (à renseigner)' })).toBeVisible()
+  // Budget en 5 étapes (lot 35) ; l'équipe manquante est signalée dans le budget, les frais dans l'année en cours
+  await expect(page.getByRole('tablist', { name: /^Parties du budget/ }).getByRole('tab')).toHaveText([/^1 · Chiffre d’affaires/, /^2 · Équipe/, /^3 · Frais/, /^4 · Résultat et trésorerie/, /^5 · Échanges et versions/])
+  await expect(page.getByRole('tab', { name: '2 · Équipe (à renseigner)' })).toBeVisible()
   await page.getByRole('tab', { name: /^Budget \d+$/ }).click()
   await page.getByRole('link', { name: `Magasin suivant : ${MAGASINS[1]}` }).click()
   await page.getByRole('link', { name: `Magasin suivant : ${MAGASINS[2]}` }).click()

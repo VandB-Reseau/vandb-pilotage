@@ -10,6 +10,7 @@ export interface ChampsPersonne {
   heuresSaisie: 'semaine' | 'mois'
   brutMensuel: string
   primes: { mois: number; montant: string }[]
+  hausses: { mois: string; taux: string }[]   // lot 35 : mois « AAAA-MM », hausse en %
   entree: string   // « AAAA-MM » ou vide
   sortie: string
   enveloppe: boolean
@@ -24,6 +25,7 @@ export function champsDepuisPersonne(p: Personne): ChampsPersonne {
     id: p.id, poste: p.poste, categorie: p.categorie, brutMensuel: enTexte(p.brutMensuel),
     heuresSaisie: p.heuresSaisie ?? 'semaine', heures: enTexte(p.heuresSaisie === 'mois' ? p.heuresHebdo * SEMAINES_PAR_MOIS : p.heuresHebdo),
     primes: p.primes.map((x) => ({ mois: x.mois, montant: enTexte(x.montant) })), entree: p.entree ?? '', sortie: p.sortie ?? '',
+    hausses: (p.hausses ?? []).map((h) => ({ mois: h.mois, taux: enTexte(h.taux * 100) })),
     enveloppe: !!p.enveloppe, extra: !!p.tauxHoraire, tauxHoraire: p.tauxHoraire ? enTexte(p.tauxHoraire) : '',
   }
 }
@@ -31,17 +33,17 @@ export function champsDepuisPersonne(p: Personne): ChampsPersonne {
 // Nouveau poste : « Vendeur 3 » s'il y a déjà deux vendeurs, temps plein
 export function nouvellePersonne(equipe: Personne[]): ChampsPersonne {
   const n = equipe.filter((p) => /^vendeur/i.test(p.poste)).length + 1
-  return { poste: `Vendeur ${n}`, categorie: 'employe', heures: '35', heuresSaisie: 'semaine', brutMensuel: '', primes: [], entree: '', sortie: '', enveloppe: false, extra: false, tauxHoraire: '' }
+  return { poste: `Vendeur ${n}`, categorie: 'employe', heures: '35', heuresSaisie: 'semaine', brutMensuel: '', primes: [], hausses: [], entree: '', sortie: '', enveloppe: false, extra: false, tauxHoraire: '' }
 }
 
 // Primes d'équipe : une enveloppe sans salarié, versée au mois choisi
 export function nouvellesPrimesEquipe(): ChampsPersonne {
-  return { poste: 'Primes d’équipe', categorie: 'employe', heures: '0', heuresSaisie: 'semaine', brutMensuel: '0', primes: [{ mois: 12, montant: '' }], entree: '', sortie: '', enveloppe: true, extra: false, tauxHoraire: '' }
+  return { poste: 'Primes d’équipe', categorie: 'employe', heures: '0', heuresSaisie: 'semaine', brutMensuel: '0', primes: [{ mois: 12, montant: '' }], hausses: [], entree: '', sortie: '', enveloppe: true, extra: false, tauxHoraire: '' }
 }
 
 // Extras (29/10/2026) : heures moyennes au mois, taux horaire brut ; le brut du mois en découle
 export function nouveauxExtras(): ChampsPersonne {
-  return { poste: 'Extras', categorie: 'employe', heures: '', heuresSaisie: 'mois', brutMensuel: '', primes: [], entree: '', sortie: '', enveloppe: false, extra: true, tauxHoraire: '' }
+  return { poste: 'Extras', categorie: 'employe', heures: '', heuresSaisie: 'mois', brutMensuel: '', primes: [], hausses: [], entree: '', sortie: '', enveloppe: false, extra: true, tauxHoraire: '' }
 }
 
 export function lirePersonne(c: ChampsPersonne): { personne: Personne | null; erreurs: string[] } {
@@ -64,6 +66,9 @@ export function lirePersonne(c: ChampsPersonne): { personne: Personne | null; er
   // Une prime laissée vide est ignorée
   if (primes.some((x) => x.montant !== null && (Number.isNaN(x.montant) || x.montant < 0))) erreurs.push('Le montant d’une prime est illisible.')
   if (c.enveloppe && !primes.some((x) => x.montant)) erreurs.push('Le montant d’au moins une prime est à renseigner.')
+  // Hausse laissée vide : ignorée ; une baisse reste possible, jusqu'à −50 %
+  const hausses = c.enveloppe ? [] : (c.hausses ?? []).map((h) => ({ mois: h.mois, taux: nombre(h.taux) }))
+  if (hausses.some((h) => h.taux !== null && (Number.isNaN(h.taux) || h.taux < -50 || h.taux > 100))) erreurs.push('Une hausse de salaire est illisible (entre −50 % et 100 %).')
   if (c.entree && c.sortie && c.sortie < c.entree) erreurs.push('Le départ est avant l’arrivée.')
   if (erreurs.length) return { personne: null, erreurs }
   return {
@@ -71,6 +76,7 @@ export function lirePersonne(c: ChampsPersonne): { personne: Personne | null; er
       id: c.id, poste: c.poste.trim(), categorie: c.categorie, heuresHebdo: heures!, brutMensuel: brut!,
       primes: primes.filter((x) => x.montant).map((x) => ({ mois: x.mois, montant: x.montant! })),
       entree: c.entree || null, sortie: c.sortie || null,
+      ...(hausses.some((h) => h.taux) ? { hausses: hausses.filter((h) => h.taux).map((h) => ({ mois: h.mois, taux: Math.round(h.taux! * 100) / 10_000 })).sort((a, b) => a.mois.localeCompare(b.mois)) } : {}),
       ...(c.heuresSaisie === 'mois' && !c.enveloppe ? { heuresSaisie: 'mois' as const } : {}),
       ...(c.enveloppe ? { enveloppe: true } : {}),
       ...(c.extra ? { tauxHoraire: tauxHoraire! } : {}),
