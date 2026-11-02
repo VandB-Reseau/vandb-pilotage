@@ -74,8 +74,8 @@ test('les paramètres réseau : redevance 2 % et publicité 1 % pour le Directeu
   await seConnecter(page)
   await allerVers(page, 'Paramètres réseau')
   await expect(page.getByRole('heading', { level: 1, name: 'Paramètres réseau' })).toBeVisible()
-  await expect(page.getByRole('row', { name: /Redevance franchise/ })).toContainText('2,0 %')
-  await expect(page.getByRole('row', { name: /Publicité franchise/ })).toContainText('1,0 %')
+  await expect(page.getByLabel('Redevance franchise')).toHaveValue('2')
+  await expect(page.getByLabel('Publicité franchise')).toHaveValue('1')
 })
 
 test('un Coach n’a pas les paramètres réseau', async ({ page }) => {

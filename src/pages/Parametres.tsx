@@ -1,6 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useSaisieEnCours } from '../components/GardeSaisie'
 import Alert from '@mui/material/Alert'
+import Dialog from '@mui/material/Dialog'
+import DialogActions from '@mui/material/DialogActions'
+import DialogContent from '@mui/material/DialogContent'
+import DialogTitle from '@mui/material/DialogTitle'
+import Tab from '@mui/material/Tab'
+import Tabs from '@mui/material/Tabs'
+import ContentCopyOutlined from '@mui/icons-material/ContentCopyOutlined'
+import PersonAddOutlined from '@mui/icons-material/PersonAddOutlined'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
@@ -23,9 +31,16 @@ import SaveOutlined from '@mui/icons-material/SaveOutlined'
 import { ChampNombre } from '../components/ChampNombre'
 import { ChampTaux } from '../components/ChampTaux'
 import { ChoixListe } from '../components/ChoixListe'
+import { EtatVide } from '../components/EtatVide'
 import { Panne } from '../components/Panne'
 import { SectionParametres } from '../components/SectionParametres'
-import { anneeBudget, chargerParametres, enregistrerParametres, type ParametresCharges } from '../data/pilotage'
+import { useAuth } from '../auth/AuthContext'
+import { estDirecteur, peutParametrer } from '../auth/roles'
+import {
+  ajouterControleGestion, anneeBudget, chargerBudgets, chargerControleGestion, chargerJournal, chargerParametres, consoliderBudgets,
+  copierParametres, enregistrerParametres, retirerControleGestion, type ParametresCharges,
+} from '../data/pilotage'
+import { decrireChangement, libelleRubrique } from '../lib/parametrage'
 import { nombre } from '../import/caisse'
 import { CATEGORIES, categorieLibelle } from '../moteur/equipe'
 import { useChargement } from '../data/useChargement'
@@ -35,33 +50,47 @@ import { parametresParDefaut } from '../moteur/parametres'
 import type { ParametresReseau } from '../moteur/types'
 import type { OperationReseau, ParametresTresorerie } from '../moteur/tresorerie'
 import { UNIVERS, universLibelle, type Univers } from '../moteur/types'
-import { enChiffres, montant, MOIS_LONGS, taux } from '../lib/format'
+import { dateHeure, ecartMontant, enChiffres, montant, MOIS_LONGS } from '../lib/format'
 
 const MOIS_OPTIONS = MOIS_LONGS.map((m, i) => ({ valeur: i + 1, libelle: m.charAt(0).toUpperCase() + m.slice(1) }))
 const DE_L_UNIVERS: Record<Univers, string> = { cave: 'de la Cave', bar: 'du Bar', exterieur: 'de l’Extérieur' }
 
-// Résumés des sections repliées (lot 30, E4)
 const egal = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
-const pct = (v: number) => taux(v).replace(',0 %', ' %')
-const jourMois = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
-const resumeCharges = (p: ParametresReseau) =>
-  `Employé ${pct(p.charges.taux.employe)}, cadre ${pct(p.charges.taux.cadre)}, gérant TNS ${pct(p.charges.taux.gerant_tns)} ; SMIC annuel ${montant(p.charges.reduction.smicAnnuel)}`
-const resumeAlertes = (p: ParametresReseau) => [
-  `CA ${pct(p.alertes.ecartCA)} sous le budget`, `marge −${String(Math.round(p.alertes.baisseMarge * 1000) / 10).replace('.', ',')} pt`,
-  p.alertes.baisseTickets !== undefined ? `tickets −${pct(p.alertes.baisseTickets)}` : '', p.alertes.baissePanier !== undefined ? `panier −${pct(p.alertes.baissePanier)}` : '',
-  p.alertes.moisRetard ? `réel en retard de ${p.alertes.moisRetard} mois` : '', `trésorerie sous ${montant(p.alertes.tresorerie)}`,
-].filter(Boolean).join(', ')
-const resumeCampagne = (c: Campagne) => `Proposition avant le ${jourMois(c.proposition)}, retour avant le ${jourMois(c.retour)}, validation avant le ${jourMois(c.validation)}`
-const resumeTreso = (p: ParametresReseau) => {
-  const t = p.tresorerie, c = t.consignes
-  return [`Livraison ${t.avanceLivraison ?? 1} mois avant la vente`, `fournisseurs à ${t.delaiFournisseurs} mois`, `TVA ${t.tvaTrimestrielle ? 'trimestrielle' : 'mensuelle'}`,
-    c ? `consignes Cave ${pct(c.achats.cave)}, Bar ${pct(c.achats.bar)}, démarque ${pct(c.demarque ?? 0)}` : ''].filter(Boolean).join(', ')
+type Message = { gravite: 'success' | 'error'; texte: string } | null
+const ECHEC = 'L’enregistrement n’a pas abouti. Vérifie ta connexion, puis réessaie.'
+type Onglet = 'franchise' | 'equipe' | 'tresorerie' | 'alertes' | 'journal' | 'acces'
+const ONGLETS: { cle: Onglet; libelle: string }[] = [
+  { cle: 'franchise', libelle: 'Franchise et impôts' }, { cle: 'equipe', libelle: 'Équipe' }, { cle: 'tresorerie', libelle: 'Trésorerie' },
+  { cle: 'alertes', libelle: 'Alertes et campagne' }, { cle: 'journal', libelle: 'Journal' }, { cle: 'acces', libelle: 'Accès' },
+]
+// Franchise et impôts (lot 39) : bornes de saisie
+type Franchise = Pick<ParametresReseau, 'tauxRedevance' | 'tauxPublicite' | 'impot' | 'tvaPanier'>
+const franchiseDe = (p: ParametresReseau): Franchise => ({ tauxRedevance: p.tauxRedevance, tauxPublicite: p.tauxPublicite, impot: p.impot, tvaPanier: p.tvaPanier })
+const dans = (v: number, min: number, max: number) => Number.isFinite(v) && v >= min && v <= max
+
+function Retour({ message, fermer }: { message: Message; fermer: () => void }) {
+  return message && <Box sx={{ px: 2, pb: 1 }}><Alert severity={message.gravite} onClose={fermer} closeText="Fermer" slotProps={{ closeButton: { sx: { width: 48, height: 48 } } }}>{message.texte}</Alert></Box>
+}
+function Ligne({ libelle, children }: { libelle: string; children: ReactNode }) {
+  return <TableRow><TableCell>{libelle}</TableCell><TableCell align="right">{children}</TableCell></TableRow>
 }
 
 export function Parametres() {
-  const annee = anneeBudget()
+  const { profil } = useAuth()
+  const lecture = !peutParametrer(profil)
+  const directeur = estDirecteur(profil)
+  const aujourdhui = new Date().getFullYear(), aB = anneeBudget()
+  const annees = [...new Set([aujourdhui, aB, aB + 1])]
+  const [annee, setAnnee] = useState(aB)
+  const [onglet, setOnglet] = useState<Onglet>('franchise')
   const { donnees, erreur, chargement, recharger } = useChargement(() => chargerParametres(annee), [annee])
   const p = donnees?.parametres
+  // Budgets de l'année, pour montrer l'effet d'un changement de redevance sur l'EBE des budgets pas encore validés
+  const { donnees: budgets } = useChargement(() => (lecture ? Promise.resolve(null) : chargerBudgets(annee).catch(() => null)), [annee, lecture])
+  // Franchise et impôts (lot 39)
+  const [franchise, setFranchise] = useState<Franchise | null>(null)
+  const [plafond, setPlafond] = useState('')
+  const [messageFranchise, setMessageFranchise] = useState<Message>(null)
   const [charges, setCharges] = useState<ParametresCharges | null>(null)
   const [smic, setSmic] = useState('')
   const [puissance, setPuissance] = useState('')
@@ -82,6 +111,8 @@ export function Parametres() {
   const [messageCampagne, setMessageCampagne] = useState<{ gravite: 'success' | 'error'; texte: string } | null>(null)
   useEffect(() => {
     if (!p) return
+    setFranchise(franchiseDe(p))
+    setPlafond(enChiffres(p.impot.plafondTauxReduit))
     setEcartCA(p.alertes.ecartCA)
     setCampagne(campagneDe(p, annee))
     setBaisseTickets(p.alertes.baisseTickets)
@@ -97,10 +128,38 @@ export function Parametres() {
     setSmic(String(p.charges.reduction.smicAnnuel).replace('.', ','))
     setPuissance(String(p.charges.reduction.puissance).replace('.', ','))
   }, [p])
+  const plafondLu = nombre(plafond)
+  const franchiseLue: Franchise | null = franchise && plafondLu !== null && dans(plafondLu, 0, 10_000_000)
+    && dans(franchise.tauxRedevance, 0, 0.1) && dans(franchise.tauxPublicite, 0, 0.1)
+    && dans(franchise.impot.tauxReduit, 0, 0.5) && dans(franchise.impot.tauxNormal, 0, 0.5)
+    && dans(franchise.tvaPanier.cave, 0, 0.3) && dans(franchise.tvaPanier.bar, 0, 0.3)
+    ? { ...franchise, impot: { ...franchise.impot, plafondTauxReduit: plafondLu } } : null
+  const franchiseModifiee = !!p && !!franchise && !egal(franchiseLue ?? franchise, franchiseDe(p))
+  useSaisieEnCours(franchiseModifiee)
+  const champFranchise = <K extends keyof Franchise>(k: K, v: Franchise[K]) => setFranchise((f) => (f ? { ...f, [k]: v } : f))
+  // Effet sur l'EBE des budgets pas encore validés (les budgets validés gardent les paramètres de leur validation)
+  const nonValides = budgets?.magasins.filter((l) => l.statut && l.statut !== 'valide').map((l) => l.magasin) ?? []
+  const effet = p && budgets && franchiseLue && franchiseModifiee && nonValides.length > 0
+    ? { avant: consoliderBudgets(budgets, p, nonValides), apres: consoliderBudgets(budgets, { ...p, ...franchiseLue }, nonValides) } : null
+  const enregistrerFranchise = async () => {
+    if (!p || !franchiseLue) return
+    setOccupe(true)
+    setMessageFranchise(null)
+    try {
+      await enregistrerParametres(annee, { ...p, ...franchiseLue })
+      setMessageFranchise({ gravite: 'success', texte: `Franchise et impôts ${annee} enregistrés.` })
+      recharger()
+    } catch {
+      setMessageFranchise({ gravite: 'error', texte: ECHEC })
+    } finally {
+      setOccupe(false)
+    }
+  }
   const taux_ = (k: keyof ParametresCharges['taux'], v: number | undefined) => setCharges((c) => (c ? { ...c, taux: { ...c.taux, [k]: v ?? 0 } } : c))
   const reduction = (k: keyof ParametresCharges['reduction'], v: number | undefined) => setCharges((c) => (c ? { ...c, reduction: { ...c.reduction, [k]: v ?? 0 } } : c))
   const smicLu = nombre(smic), puissanceLue = nombre(puissance)
-  useSaisieEnCours(!!p && !!charges && (JSON.stringify(charges) !== JSON.stringify(p.charges) || smicLu !== p.charges.reduction.smicAnnuel || puissanceLue !== p.charges.reduction.puissance))
+  const chargesModifiees = !!p && !!charges && (JSON.stringify(charges) !== JSON.stringify(p.charges) || smicLu !== p.charges.reduction.smicAnnuel || puissanceLue !== p.charges.reduction.puissance)
+  useSaisieEnCours(chargesModifiees)
   const valides = smicLu !== null && !Number.isNaN(smicLu) && smicLu > 0 && puissanceLue !== null && !Number.isNaN(puissanceLue) && puissanceLue > 0
   const enregistrer = async () => {
     if (!p || !charges || !valides) return
@@ -190,42 +249,92 @@ export function Parametres() {
   })
   const tvaTreso = (k: 'tvaVentes' | 'tvaAchats' | 'tvaFrais' | 'partCotisations', v: number | undefined) => setTreso((t) => (t ? { ...t, [k]: v ?? 0 } : t))
 
-  const lignes = p ? [
-    { libelle: 'Redevance franchise', valeur: `${taux(p.tauxRedevance)} du CA HT` },
-    { libelle: 'Publicité franchise', valeur: `${taux(p.tauxPublicite)} du CA HT` },
-    { libelle: 'Impôt sur les sociétés, taux réduit', valeur: `${taux(p.impot.tauxReduit)} jusqu’à ${montant(p.impot.plafondTauxReduit)} de bénéfice` },
-    { libelle: 'Impôt sur les sociétés, taux normal', valeur: taux(p.impot.tauxNormal) },
-    { libelle: 'TVA moyenne du panier Cave', valeur: taux(p.tvaPanier.cave) },
-    { libelle: 'TVA moyenne du panier Bar', valeur: taux(p.tvaPanier.bar) },
-  ] : []
+  // Copie vers l'année suivante (lot 39)
+  const [copie, setCopie] = useState(false)
+  const [messageCopie, setMessageCopie] = useState<Message>(null)
+  const { donnees: copieCible } = useChargement(() => (copie ? chargerParametres(annee + 1) : Promise.resolve(null)), [copie, annee])
+  const copier = async () => {
+    setOccupe(true)
+    setMessageCopie(null)
+    try {
+      await copierParametres(annee, annee + 1)
+      setCopie(false)
+      setAnnee(annee + 1)
+      setMessageCopie({ gravite: 'success', texte: `Paramètres ${annee} copiés vers ${annee + 1}.` })
+    } catch {
+      setCopie(false)
+      setMessageCopie({ gravite: 'error', texte: 'La copie n’a pas abouti. Vérifie ta connexion, puis réessaie.' })
+    } finally {
+      setOccupe(false)
+    }
+  }
+  const enCours = franchiseModifiee || chargesModifiees || tresoModifiee || alertesModifiees || campagneModifiee
+  const onglets = ONGLETS.filter((o) => o.cle !== 'acces' || directeur)
+  const enregistrerBouton = (desactive: boolean, faire: () => Promise<void>) =>
+    lecture ? undefined : <Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe || desactive} onClick={() => void faire()} sx={{ minHeight: 48 }}>Enregistrer</Button>
 
   return (
     <Box>
-      <Typography variant="h1">Paramètres réseau</Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5, mb: 3 }}>
-        Année {annee}{donnees && !donnees.enregistres ? ' · valeurs par défaut, pas encore enregistrées' : ''}
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', mb: 2 }}>
+        <Box sx={{ flex: 1, minWidth: 220 }}>
+          <Typography variant="h1">Paramètres réseau</Typography>
+          {(lecture || (donnees && !donnees.enregistres)) && (
+            <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
+              {[lecture ? 'Consultation seule' : '', donnees && !donnees.enregistres ? `${annee} : valeurs par défaut, pas encore enregistrées` : ''].filter(Boolean).join(' · ')}
+            </Typography>
+          )}
+        </Box>
+        <ToggleButtonGroup exclusive size="small" value={annee} onChange={(_, v: number | null) => v && setAnnee(v)} aria-label="Année des paramètres" disabled={enCours}>
+          {annees.map((a) => <ToggleButton key={a} value={a} sx={{ minHeight: 48, minWidth: 72 }}>{a}</ToggleButton>)}
+        </ToggleButtonGroup>
+        {!lecture && donnees && (
+          <Button variant="outlined" startIcon={<ContentCopyOutlined />} disabled={occupe || enCours} onClick={() => setCopie(true)} sx={{ minHeight: 48 }}>
+            Copier vers {annee + 1}
+          </Button>
+        )}
+      </Box>
+      <Retour message={messageCopie} fermer={() => setMessageCopie(null)} />
+      <Tabs value={onglet} onChange={(_, v: Onglet) => setOnglet(v)} variant="scrollable" scrollButtons="auto" aria-label="Rubriques des paramètres"
+        sx={{ mb: 2, borderBottom: 1, borderColor: 'divider', '& .MuiTab-root': { minHeight: 48 } }}>
+        {onglets.map((o) => <Tab key={o.cle} value={o.cle} label={o.libelle} />)}
+      </Tabs>
       {erreur && <Panne quoi="Les paramètres" recharger={recharger} />}
       {chargement && <Skeleton variant="rounded" height={240} />}
-      {p && (
+      {onglet === 'journal' && <JournalParametres annee={annee} version={donnees} />}
+      {onglet === 'acces' && directeur && <AccesParametres />}
+      {p && onglet !== 'journal' && onglet !== 'acces' && (
+        <Box component="fieldset" disabled={lecture} sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}>
         <Stack spacing={3}>
-        <Card>
-          <Table aria-label={`Paramètres réseau ${annee}`}>
-            <TableBody>
-              {lignes.map((l) => (
-                <TableRow key={l.libelle}>
-                  <TableCell>{l.libelle}</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 600 }}>{l.valeur}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
+        {onglet === 'franchise' && franchise && (
+          <SectionParametres nom="Franchise et impôts" titre={`Franchise et impôts ${annee}`}
+            parDefaut={egal(franchiseDe(p), franchiseDe(parametresParDefaut))} action={enregistrerBouton(!franchiseLue || !franchiseModifiee, enregistrerFranchise)}>
+            <Retour message={messageFranchise} fermer={() => setMessageFranchise(null)} />
+            {franchise && !franchiseLue && <Box sx={{ px: 2, pb: 1 }}><Alert severity="warning">Redevance et publicité : entre 0 et 10 % du CA. Impôt : entre 0 et 50 %. TVA du panier : entre 0 et 30 %.</Alert></Box>}
+            {effet && (
+              <Box sx={{ px: 2, pb: 1 }}>
+                <Alert severity="info" role="status" aria-label="Effet sur les budgets">
+                  {effet.avant.n > 1 ? `EBE des ${effet.avant.n} budgets ${annee} pas encore validés` : `EBE du budget ${annee} pas encore validé`} : {montant(effet.avant.ebe)} → {montant(effet.apres.ebe)} ({ecartMontant(effet.apres.ebe - effet.avant.ebe)}). Les budgets validés ne bougent pas.
+                </Alert>
+              </Box>
+            )}
+            <Table aria-label={`Franchise et impôts ${annee}`}>
+              <TableBody>
+                <Ligne libelle="Redevance franchise, en part du CA HT"><ChampTaux libelle="Redevance franchise" valeur={franchise.tauxRedevance} onChange={(v) => champFranchise('tauxRedevance', v ?? 0)} /></Ligne>
+                <Ligne libelle="Publicité franchise, en part du CA HT"><ChampTaux libelle="Publicité franchise" valeur={franchise.tauxPublicite} onChange={(v) => champFranchise('tauxPublicite', v ?? 0)} /></Ligne>
+                <Ligne libelle="Impôt sur les sociétés : taux réduit"><ChampTaux libelle="Impôt : taux réduit" valeur={franchise.impot.tauxReduit} onChange={(v) => champFranchise('impot', { ...franchise.impot, tauxReduit: v ?? 0 })} /></Ligne>
+                <Ligne libelle="Impôt sur les sociétés : taux réduit jusqu’à ce bénéfice"><ChampNombre libelle="Plafond du taux réduit" valeur={plafond} largeur={160} onChange={setPlafond} /></Ligne>
+                <Ligne libelle="Impôt sur les sociétés : taux normal"><ChampTaux libelle="Impôt : taux normal" valeur={franchise.impot.tauxNormal} onChange={(v) => champFranchise('impot', { ...franchise.impot, tauxNormal: v ?? 0 })} /></Ligne>
+                <Ligne libelle="TVA moyenne du panier Cave"><ChampTaux libelle="TVA moyenne du panier Cave" valeur={franchise.tvaPanier.cave} onChange={(v) => champFranchise('tvaPanier', { ...franchise.tvaPanier, cave: v ?? 0 })} /></Ligne>
+                <Ligne libelle="TVA moyenne du panier Bar"><ChampTaux libelle="TVA moyenne du panier Bar" valeur={franchise.tvaPanier.bar} onChange={(v) => champFranchise('tvaPanier', { ...franchise.tvaPanier, bar: v ?? 0 })} /></Ligne>
+              </TableBody>
+            </Table>
+          </SectionParametres>
+        )}
 
-        {charges && (
-          <SectionParametres nom="Charges sociales" titre={`Charges sociales ${annee}`} resume={resumeCharges(p)} parDefaut={egal(p.charges, parametresParDefaut.charges)}
-            action={<Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe || !valides} onClick={() => void enregistrer()} sx={{ minHeight: 48 }}>Enregistrer</Button>}>
-            {message && <Box sx={{ px: 2 }}><Alert severity={message.gravite} onClose={() => setMessage(null)} closeText="Fermer" slotProps={{ closeButton: { sx: { width: 48, height: 48 } } }}>{message.texte}</Alert></Box>}
+        {onglet === 'equipe' && charges && (
+          <SectionParametres nom="Charges sociales" titre={`Charges sociales ${annee}`} parDefaut={egal(p.charges, parametresParDefaut.charges)}
+            action={enregistrerBouton(!valides || !chargesModifiees, enregistrer)}>
+            <Retour message={message} fermer={() => setMessage(null)} />
             <Table aria-label={`Charges sociales ${annee}`}>
               <TableBody>
                 {CATEGORIES.map((c) => (
@@ -259,9 +368,10 @@ export function Parametres() {
           </SectionParametres>
         )}
 
-        <SectionParametres nom="Alertes" titre={'Alertes'} resume={resumeAlertes(p)} parDefaut={egal(p.alertes, parametresParDefaut.alertes)}
-          action={<Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe || !alertesLues || !alertesModifiees} onClick={() => void enregistrerAlertes()} sx={{ minHeight: 48 }}>Enregistrer</Button>}>
-          {messageAlertes && <Box sx={{ px: 2 }}><Alert severity={messageAlertes.gravite} onClose={() => setMessageAlertes(null)} closeText="Fermer" slotProps={{ closeButton: { sx: { width: 48, height: 48 } } }}>{messageAlertes.texte}</Alert></Box>}
+        {onglet === 'alertes' && (
+        <SectionParametres nom="Alertes" titre="Alertes" parDefaut={egal(p.alertes, parametresParDefaut.alertes)}
+          action={enregistrerBouton(!alertesLues || !alertesModifiees, enregistrerAlertes)}>
+          <Retour message={messageAlertes} fermer={() => setMessageAlertes(null)} />
           <Table aria-label="Seuils des alertes">
             <TableBody>
               <TableRow>
@@ -291,11 +401,12 @@ export function Parametres() {
             </TableBody>
           </Table>
         </SectionParametres>
+        )}
 
-        {campagne && (
-          <SectionParametres nom="Campagne des budgets" titre={`Campagne des budgets ${annee}`} resume={resumeCampagne(campagneDe(p, annee))} parDefaut={!p.campagne}
-            action={<Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe || !campagneValide || !campagneModifiee} onClick={() => void enregistrerCampagne()} sx={{ minHeight: 48 }}>Enregistrer</Button>}>
-            {messageCampagne && <Box sx={{ px: 2 }}><Alert severity={messageCampagne.gravite} onClose={() => setMessageCampagne(null)} closeText="Fermer" slotProps={{ closeButton: { sx: { width: 48, height: 48 } } }}>{messageCampagne.texte}</Alert></Box>}
+        {onglet === 'alertes' && campagne && (
+          <SectionParametres nom="Campagne des budgets" titre={`Campagne des budgets ${annee}`} parDefaut={!p.campagne}
+            action={enregistrerBouton(!campagneValide || !campagneModifiee, enregistrerCampagne)}>
+            <Retour message={messageCampagne} fermer={() => setMessageCampagne(null)} />
             {!campagneValide && <Box sx={{ px: 2 }}><Alert severity="warning">Les trois dates se suivent : proposition, puis retour des franchisés, puis validation.</Alert></Box>}
             <Table aria-label={`Dates de la campagne des budgets ${annee}`}>
               <TableBody>
@@ -317,10 +428,10 @@ export function Parametres() {
           </SectionParametres>
         )}
 
-        {treso && (
-          <SectionParametres nom="Trésorerie" titre={`Trésorerie ${annee}`} resume={resumeTreso(p)} parDefaut={egal(p.tresorerie, parametresParDefaut.tresorerie)}
-            action={<Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe || !tresoValide || !tresoModifiee} onClick={() => void enregistrerTreso()} sx={{ minHeight: 48 }}>Enregistrer</Button>}>
-            {messageTreso && <Box sx={{ px: 2 }}><Alert severity={messageTreso.gravite} onClose={() => setMessageTreso(null)} closeText="Fermer" slotProps={{ closeButton: { sx: { width: 48, height: 48 } } }}>{messageTreso.texte}</Alert></Box>}
+        {onglet === 'tresorerie' && treso && (
+          <SectionParametres nom="Trésorerie" titre={`Trésorerie ${annee}`} parDefaut={egal(p.tresorerie, parametresParDefaut.tresorerie)}
+            action={enregistrerBouton(!tresoValide || !tresoModifiee, enregistrerTreso)}>
+            <Retour message={messageTreso} fermer={() => setMessageTreso(null)} />
             <Table aria-label={`Paramètres de trésorerie ${annee}`}>
               <TableBody>
                 <TableRow>
@@ -416,7 +527,7 @@ export function Parametres() {
                           <TableCell><ChoixListe libelle={`Achats payés en : ${nom}`} valeur={o.moisPaiement} options={MOIS_OPTIONS} largeur={140} onChange={(v) => operation(i, { moisPaiement: v })} /></TableCell>
                           <TableCell align="right"><ChampTaux libelle={`Part des achats payée à l’avance : ${nom}`} valeur={o.part} onChange={(v) => operation(i, { part: Math.min(1, Math.max(0, v ?? 0)) })} /></TableCell>
                           <TableCell>
-                            <IconButton aria-label={`Retirer ${nom}`} onClick={() => operation(i, null)} sx={{ width: 48, height: 48 }}><DeleteOutlined /></IconButton>
+                            {!lecture && <IconButton aria-label={`Retirer ${nom}`} onClick={() => operation(i, null)} sx={{ width: 48, height: 48 }}><DeleteOutlined /></IconButton>}
                           </TableCell>
                         </TableRow>
                       )
@@ -425,16 +536,131 @@ export function Parametres() {
                 </Table>
               </TableContainer>
             )}
-            <Box sx={{ px: 2, py: 1.5 }}>
+            {!lecture && <Box sx={{ px: 2, py: 1.5 }}>
               <Button startIcon={<AddOutlined />} sx={{ minHeight: 48 }}
                 onClick={() => setTreso((t) => (t ? { ...t, operations: [...(t.operations ?? []), { nom: '', mois: 9, moisPaiement: 8, part: 0.3 }] } : t))}>
                 Ajouter une opération
               </Button>
-            </Box>
+            </Box>}
           </SectionParametres>
         )}
         </Stack>
+        </Box>
       )}
+      <Dialog open={copie} onClose={() => setCopie(false)} aria-labelledby="titre-copie">
+        <DialogTitle id="titre-copie">Copier les paramètres {annee} vers {annee + 1} ?</DialogTitle>
+        <DialogContent>
+          <Typography>
+            {copieCible?.enregistres ? `Les paramètres ${annee + 1} déjà enregistrés seront remplacés.` : `Les paramètres ${annee + 1} partiront de ceux de ${annee}.`} Les dates de la campagne des budgets ne sont pas copiées.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCopie(false)} sx={{ minHeight: 48 }}>Annuler</Button>
+          <Button variant="contained" disabled={occupe} onClick={() => void copier()} sx={{ minHeight: 48 }}>Copier</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
+  )
+}
+
+// Journal des changements de l'année : qui, quand, avant → après (lot 39). version : relu après chaque enregistrement.
+function JournalParametres({ annee, version }: { annee: number; version: unknown }) {
+  const { donnees, erreur, chargement, recharger } = useChargement(() => chargerJournal(annee), [annee, version])
+  if (erreur) return <Panne quoi="Le journal des paramètres" recharger={recharger} />
+  if (chargement && !donnees) return <Skeleton variant="rounded" height={160} />
+  if (!donnees?.length) {
+    return <Card><EtatVide titre={`Aucun changement en ${annee}`} texte="Chaque paramètre modifié apparaîtra ici, avec la date, la personne et l’ancienne valeur." /></Card>
+  }
+  return (
+    <Card>
+      <TableContainer>
+        <Table aria-label={`Journal des paramètres ${annee}`} sx={{ '& td': { verticalAlign: 'top' } }}>
+          <TableHead>
+            <TableRow>
+              <TableCell>Date</TableCell>
+              <TableCell>Rubrique</TableCell>
+              <TableCell>Changement</TableCell>
+              <TableCell>Par</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {donnees.map((c) => (
+              <TableRow key={c.id}>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>{dateHeure(c.le)}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{libelleRubrique(c.rubrique)}</TableCell>
+                <TableCell sx={{ minWidth: 220 }}>{decrireChangement(c.rubrique, c.avant, c.apres)}</TableCell>
+                <TableCell>{c.par ?? 'Base de données'}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Card>
+  )
+}
+
+// Accès (Directeur seul) : les comptes du contrôle de gestion, qui modifient les paramètres avec lui
+function AccesParametres() {
+  const [version, setVersion] = useState(0)
+  const { donnees, erreur, chargement, recharger } = useChargement(() => chargerControleGestion(), [version])
+  const [email, setEmail] = useState('')
+  const [message, setMessage] = useState<Message>(null)
+  const [occupe, setOccupe] = useState(false)
+  const emailValide = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+  const ajouter = async () => {
+    setOccupe(true)
+    setMessage(null)
+    try {
+      const ok = await ajouterControleGestion(email.trim())
+      setMessage(ok
+        ? { gravite: 'success', texte: `${email.trim().toLowerCase()} peut maintenant modifier les paramètres réseau.` }
+        : { gravite: 'error', texte: 'Aucun compte avec cet email. La personne doit d’abord avoir un compte de connexion, le même que pour l’app réseau.' })
+      if (ok) { setEmail(''); setVersion((v) => v + 1) }
+    } catch {
+      setMessage({ gravite: 'error', texte: ECHEC })
+    } finally {
+      setOccupe(false)
+    }
+  }
+  const retirer = async (userId: string, adresse: string) => {
+    setOccupe(true)
+    setMessage(null)
+    try {
+      await retirerControleGestion(userId)
+      setMessage({ gravite: 'success', texte: `${adresse} ne modifie plus les paramètres réseau.` })
+      setVersion((v) => v + 1)
+    } catch {
+      setMessage({ gravite: 'error', texte: ECHEC })
+    } finally {
+      setOccupe(false)
+    }
+  }
+  return (
+    <SectionParametres nom="Contrôle de gestion" titre="Contrôle de gestion" parDefaut={false}>
+      <Retour message={message} fermer={() => setMessage(null)} />
+      {erreur && <Box sx={{ px: 2 }}><Panne quoi="La liste du contrôle de gestion" recharger={recharger} /></Box>}
+      {chargement && !donnees && <Box sx={{ px: 2 }}><Skeleton variant="rounded" height={96} /></Box>}
+      {donnees && (donnees.length === 0
+        ? <Typography color="text.secondary" sx={{ px: 2, pb: 1 }}>Aucun compte pour l’instant : toi seul modifies les paramètres réseau.</Typography>
+        : (
+          <Table aria-label="Comptes du contrôle de gestion">
+            <TableBody>
+              {donnees.map((c) => (
+                <TableRow key={c.userId}>
+                  <TableCell>{c.email}</TableCell>
+                  <TableCell align="right">
+                    <Button color="error" startIcon={<DeleteOutlined />} disabled={occupe} onClick={() => void retirer(c.userId, c.email)} sx={{ minHeight: 48 }} aria-label={`Retirer ${c.email}`}>Retirer</Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        ))}
+      <Box component="form" onSubmit={(e) => { e.preventDefault(); if (emailValide) void ajouter() }} sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center', p: 2 }}>
+        <TextField size="small" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="prenom.nom@exemple.fr"
+          slotProps={{ htmlInput: { 'aria-label': 'Email du compte à ajouter' } }} sx={{ flex: 1, minWidth: 220, '& input': { height: 48, boxSizing: 'border-box', py: 0 } }} />
+        <Button type="submit" variant="contained" startIcon={<PersonAddOutlined />} disabled={occupe || !emailValide} sx={{ minHeight: 48 }}>Ajouter</Button>
+      </Box>
+    </SectionParametres>
   )
 }

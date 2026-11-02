@@ -309,6 +309,39 @@ export async function enregistrerParametres(annee: number, parametres: Parametre
 }
 export type { ParametresCharges }
 
+// ── Paramétrage depuis l'app (lot 39) : journal des changements, contrôle de gestion, copie d'une année sur l'autre
+export interface ChangementParametre { id: number; annee: number; rubrique: string; avant: unknown; apres: unknown; par: string | null; le: string }
+export async function chargerJournal(annee: number): Promise<ChangementParametre[]> {
+  const { data, error } = await pilotage().from('journal_parametres').select('id, annee, rubrique, avant, apres, par_email, le')
+    .eq('annee', annee).order('le', { ascending: false }).limit(200)
+  if (error) throw new ErreurChargement()
+  return ((data ?? []) as { id: number; annee: number; rubrique: string; avant: unknown; apres: unknown; par_email: string | null; le: string }[])
+    .map((l) => ({ id: l.id, annee: l.annee, rubrique: l.rubrique, avant: l.avant, apres: l.apres, par: l.par_email, le: l.le }))
+}
+export interface CompteControleGestion { userId: string; email: string; ajouteLe: string }
+export async function chargerControleGestion(): Promise<CompteControleGestion[]> {
+  const { data, error } = await pilotage().from('controle_gestion').select('user_id, email, ajoute_le').order('email')
+  if (error) throw new ErreurChargement()
+  return ((data ?? []) as { user_id: string; email: string; ajoute_le: string }[]).map((l) => ({ userId: l.user_id, email: l.email, ajouteLe: l.ajoute_le }))
+}
+// Faux : aucun compte de connexion avec cet email
+export async function ajouterControleGestion(email: string): Promise<boolean> {
+  const { data, error } = await pilotage().rpc('ajouter_controle_gestion', { p_email: email })
+  oublier()
+  if (error) throw new ErreurEnregistrement()
+  return data === true
+}
+export async function retirerControleGestion(userId: string) {
+  verifier(await pilotage().from('controle_gestion').delete().eq('user_id', userId))
+}
+// Copie les paramètres d'une année sur une autre (écrase ceux de l'année cible). Les dates de campagne, propres à
+// chaque année, ne sont pas copiées : l'année cible reprend les dates par défaut.
+export async function copierParametres(de: number, vers: number) {
+  const { parametres } = await chargerParametres(de)
+  const { campagne: _dates, ...reste } = parametres // eslint-disable-line @typescript-eslint/no-unused-vars
+  await enregistrerParametres(vers, reste as ParametresReseau)
+}
+
 // ── Équipe (lot 3)
 interface LigneEquipe { id: number; store_name: string; poste: string; categorie: Categorie; heures_hebdo: number; brut_mensuel: number; primes: unknown; entree: string | null; sortie: string | null; heures_saisie?: string | null; enveloppe?: boolean | null; taux_horaire?: number | null; hausses?: unknown }
 const versPersonne = (l: LigneEquipe): Personne => ({

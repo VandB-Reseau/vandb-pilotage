@@ -8,7 +8,8 @@ INSERT INTO auth.users (id, email, raw_app_meta_data) VALUES
   ('00000000-0000-0000-0000-00000000000c', 'coach@exemple.fr',     '{"role":"coach","coach":"Coach Nord"}'),
   ('00000000-0000-0000-0000-00000000000e', 'rr@exemple.fr',        '{"role":"rr","rr":"rr1"}'),
   ('00000000-0000-0000-0000-00000000000f', 'franchise@exemple.fr', '{"role":"franchise"}'),
-  ('00000000-0000-0000-0000-000000000000', 'sansrole@exemple.fr',  '{}')
+  ('00000000-0000-0000-0000-000000000000', 'sansrole@exemple.fr',  '{}'),
+  ('00000000-0000-0000-0000-000000000001', 'Controle@Exemple.fr',  '{}')
 ON CONFLICT (id) DO NOTHING;
 INSERT INTO public.acces_franchises (user_id, email, franchise, magasins)
 VALUES ('00000000-0000-0000-0000-00000000000f', 'franchise@exemple.fr', 'Franchisé Test', '{Lille}') ON CONFLICT DO NOTHING;
@@ -42,7 +43,7 @@ INSERT INTO pilotage.reel_mensuel (store_name, mois, univers, famille, ca_ht) VA
 SELECT pg_temp.attendre('Directeur : tous les magasins', (SELECT cardinality(pilotage.mes_magasins())), 3);
 SELECT pg_temp.attendre('Directeur : tous les budgets', (SELECT count(*) FROM pilotage.budgets), 3);
 SELECT pg_temp.attendre('Directeur : tableau des magasins', (SELECT jsonb_array_length(pilotage.magasins_du_compte(2027))), 3);
-SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 20);
+SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 21);
 -- Frais : le Directeur saisit partout
 INSERT INTO pilotage.frais (store_name, code, libelle, rubrique, annuel) VALUES ('Lille', 'loyer', 'Locations immobilières', 'immobilier', 60000), ('Nice', 'loyer', 'Locations immobilières', 'immobilier', 40000);
 SELECT pg_temp.attendre('Directeur : tous les frais', (SELECT count(*) FROM pilotage.frais), 2);
@@ -128,6 +129,28 @@ SELECT pg_temp.attendre('Versions nommées : nom vide refusé', pg_temp.refuse('
 INSERT INTO pilotage.equipe (store_name, poste, categorie, heures_hebdo, brut_mensuel, primes, heures_saisie, enveloppe) VALUES
   ('Lille', 'Primes d''équipe', 'employe', 0, 0, '[{"mois":12,"montant":2000}]', 'semaine', true);
 SELECT pg_temp.attendre('Équipe : unité d''heures inconnue refusée', pg_temp.refuse('INSERT INTO pilotage.equipe (store_name, poste, categorie, heures_hebdo, brut_mensuel, heures_saisie) VALUES (''Lille'', ''X'', ''employe'', 35, 1, ''jour'')'), 1);
+
+-- ── Contrôle de gestion (0021) : désigné par le Directeur, modifie les paramètres ; chaque changement est journalisé
+SELECT pg_temp.attendre('Directeur : désigne le contrôle de gestion par son email', (SELECT pilotage.ajouter_controle_gestion(' controle@exemple.fr ')::int), 1);
+SELECT pg_temp.attendre('Directeur : un email inconnu n''est pas désigné', (SELECT pilotage.ajouter_controle_gestion('personne@exemple.fr')::int), 0);
+UPDATE pilotage.parametres_reseau SET valeur = valeur || '{"tauxRedevance":0.025}' WHERE annee = 2027;
+SELECT pg_temp.attendre('Journal : le changement de redevance, avant, après et auteur',
+  (SELECT count(*) FROM pilotage.journal_parametres WHERE annee = 2027 AND rubrique = 'tauxRedevance' AND apres = '0.025' AND par_email = 'directeur@exemple.fr'), 1);
+SELECT pg_temp.attendre('Journal : rien pour une rubrique inchangée', (SELECT count(*) FROM pilotage.journal_parametres WHERE rubrique <> 'tauxRedevance'), 0);
+SELECT pg_temp.attendre('Journal : personne ne l''écrit à la main', pg_temp.refuse('INSERT INTO pilotage.journal_parametres (annee, rubrique) VALUES (2027, ''x'')'), 1);
+SET request.jwt.claim.sub = '00000000-0000-0000-0000-000000000001';
+SELECT pg_temp.attendre('Contrôle de gestion : ses droits', (SELECT (pilotage.mes_droits()->>'parametrer')::boolean::int), 1);
+SELECT pg_temp.attendre('Contrôle de gestion : lit les paramètres, même sans rôle dans l''app réseau', (SELECT count(*) FROM pilotage.parametres_reseau), 1);
+WITH m AS (UPDATE pilotage.parametres_reseau SET valeur = valeur || '{"tauxPublicite":0.012}' WHERE annee = 2027 RETURNING 1)
+SELECT pg_temp.attendre('Contrôle de gestion : modifie les paramètres', (SELECT count(*) FROM m), 1);
+SELECT pg_temp.attendre('Contrôle de gestion : crée les paramètres d''une autre année', pg_temp.refuse('INSERT INTO pilotage.parametres_reseau (annee, valeur) VALUES (2028, ''{}'')'), 0);
+SELECT pg_temp.attendre('Contrôle de gestion : lit le journal', (SELECT count(*) FROM pilotage.journal_parametres WHERE rubrique = 'tauxPublicite' AND par_email = 'controle@exemple.fr'), 1);
+SELECT pg_temp.attendre('Contrôle de gestion : ne désigne personne', pg_temp.refuse('SELECT pilotage.ajouter_controle_gestion(''sansrole@exemple.fr'')'), 1);
+WITH m AS (DELETE FROM pilotage.controle_gestion RETURNING 1)
+SELECT pg_temp.attendre('Contrôle de gestion : ne retire personne', (SELECT count(*) FROM m), 0);
+SELECT pg_temp.attendre('Contrôle de gestion : aucun magasin', (SELECT count(*) FROM pilotage.budgets), 0);
+SET request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+DELETE FROM pilotage.parametres_reseau WHERE annee = 2028;
 
 -- ── Coach : lit les budgets et le réel de ses magasins, n'écrit rien
 SET request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
@@ -351,6 +374,8 @@ SELECT pg_temp.attendre('Visiteur : aucun accès aux dates d''ouverture', pg_tem
 SELECT pg_temp.attendre('Visiteur : aucun accès aux versions nommées', pg_temp.refuse('SELECT count(*) FROM pilotage.versions_nommees'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès à l''équipe', pg_temp.refuse('SELECT count(*) FROM pilotage.equipe'), 1);
 SELECT pg_temp.attendre('Visiteur : pas de réel du compte', pg_temp.refuse('SELECT pilotage.reel_du_compte(2026)'), 1);
+SELECT pg_temp.attendre('Visiteur : pas de journal des paramètres', pg_temp.refuse('SELECT count(*) FROM pilotage.journal_parametres'), 1);
+SELECT pg_temp.attendre('Visiteur : pas de contrôle de gestion', pg_temp.refuse('SELECT count(*) FROM pilotage.controle_gestion'), 1);
 SELECT pg_temp.attendre('Visiteur : pas d''import de réel', pg_temp.refuse('SELECT pilotage.remplacer_reel(''[]'', ''[]'')'), 1);
 RESET ROLE;
 
