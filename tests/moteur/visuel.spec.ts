@@ -75,6 +75,8 @@ test('plan de trésorerie sans solde réel : point bas sur le prévu des mois à
   const p = planTresorerie(prevue, [], {}, null, null, 8)
   expect(p.dernierReel).toBeNull()
   expect(p.quadrimestres[0].decReel).toBeNull()
+  // Début de période prévu : départ 20 000 €, puis fin prévue d'avril (24 000 €) et d'août (28 000 €)
+  expect(p.quadrimestres.map((q) => [q.debut, q.debutPrevu])).toEqual([[null, 20_000], [null, 24_000], [null, 28_000]])
   expect(p.pointBas).toEqual({ montant: 30_000, mois: 9, source: 'prevu' })  // fin octobre
   expect(planTresorerie(prevue, [], {}, null, null, 11).pointBas).toBeNull()
 })

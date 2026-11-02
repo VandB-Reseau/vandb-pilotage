@@ -5,6 +5,15 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Retouches du 2/11 — lignes de résultat teintées, tableaux plus lisibles
+
+- Résultat d'exploitation, résultat net et trésorerie dégagée après emprunts sur le même fond teinté que CA, marge,
+  frais de personnel et EBE, dans tous les tableaux.
+- Hypothèses par univers : marge et démarque arrondies au dixième de point, champs plus larges (plus de valeur coupée) ;
+  marge de l'année en cours affichée « – » quand le réel importé n'a pas de marge.
+- Trésorerie par quadrimestre : la première colonne n'est plus figée (« Janv. – avr. » ne passait plus dessous) ; la
+  trésorerie de début de période montre le prévu tant que le réel n'est pas saisi.
+
 ### Lot 39 — Paramètres réseau modifiables depuis l'app, journal et contrôle de gestion
 
 - **Base : migration `0021_parametrage.sql` à passer.** Comptes du contrôle de gestion désignés par le Directeur ; avec
