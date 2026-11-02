@@ -68,6 +68,7 @@ test('le RR valide le budget de son magasin, puis le rouvre', async ({ page }) =
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Cartes des hypothèses')
   await expect(page.getByRole('button', { name: 'Copier vers d’autres magasins' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Revoir et valider' }).click()
   await page.getByRole('button', { name: 'Valider le budget' }).click()
   await expect(page.getByText('Budget 2027 validé.')).toBeVisible()
   const envoi = ecritures.find((e) => e.table === 'budgets' && e.methode === 'PATCH')?.corps as { statut: string; ajustements?: unknown }

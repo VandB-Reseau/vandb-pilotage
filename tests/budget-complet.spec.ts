@@ -58,7 +58,7 @@ test('le franchisé ajoute démarque, saisonnalité et travaux, puis enregistre'
   await page.screenshot({ path: `captures/${info.project.name}-budget-complet.png`, fullPage: true })
 
   await page.getByRole('button', { name: 'Enregistrer les ajustements' }).click()
-  await expect(page.getByText('Ajustements enregistrés : le budget est en discussion avec le siège.')).toBeVisible()
+  await expect(page.getByText('Ajustements enregistrés. Envoie-les au siège quand ils sont prêts (étape 3).')).toBeVisible()
   const envoi = ecritures.find((e) => e.table === 'budgets' && e.methode === 'PATCH')?.corps as { ajustements: Record<string, unknown> }
   expect(envoi.ajustements.demarqueFamille).toEqual({ 'cave/Bière': 0.02 })
   expect((envoi.ajustements.poidsMois as number[]).slice(0, 3)).toEqual([0.1, 0.05, 0.075])

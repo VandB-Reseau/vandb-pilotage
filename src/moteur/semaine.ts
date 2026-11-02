@@ -9,7 +9,11 @@ export interface LigneSemaine<A extends { magasin: string } = { magasin: string 
   magasin: string; coach: string
   enJeu: number; sujet: SujetVisite | null
   alertes: A[]; actionsEnRetard: number
+  aAppeler: boolean   // lot 41 : une alerte, une action en retard ou au moins 1 000 € de marge en jeu
 }
+// Lot 41, proposition 6 (Joseph, 02/11/2026) : « les magasins à appeler ». En dessous de 1 000 € de marge en jeu depuis
+// janvier, sans alerte ni action en retard, le magasin est dans les clous : il est replié, pas mis en tête de liste.
+export const EN_JEU_MINIMUM = 1_000
 export interface LigneCoach { coach: string; magasins: number; aSuivre: number; enJeu: number; alertes: number; actionsEnRetard: number }
 
 export function maSemaine<A extends { magasin: string }>(
@@ -18,12 +22,16 @@ export function maSemaine<A extends { magasin: string }>(
   actions: { magasin: string; statut: string; echeance: string | null }[],
   aujourdhui: string,   // AAAA-MM-JJ
 ): LigneSemaine<A>[] {
-  return magasins.map((m) => ({
-    magasin: m.magasin, coach: m.coach,
-    enJeu: m.fiche.sujets.reduce((a, s) => a + s.enJeu, 0), sujet: m.fiche.sujets[0] ?? null,
-    alertes: alertes.filter((a) => a.magasin === m.magasin),
-    actionsEnRetard: actions.filter((a) => a.magasin === m.magasin && a.statut === 'a_faire' && a.echeance !== null && a.echeance < aujourdhui).length,
-  })).sort((a, b) => b.enJeu - a.enJeu || b.actionsEnRetard - a.actionsEnRetard || b.alertes.length - a.alertes.length || a.magasin.localeCompare(b.magasin, 'fr'))
+  return magasins.map((m) => {
+    const enJeu = m.fiche.sujets.reduce((a, s) => a + s.enJeu, 0)
+    const l = {
+      magasin: m.magasin, coach: m.coach,
+      enJeu, sujet: m.fiche.sujets[0] ?? null,
+      alertes: alertes.filter((a) => a.magasin === m.magasin),
+      actionsEnRetard: actions.filter((a) => a.magasin === m.magasin && a.statut === 'a_faire' && a.echeance !== null && a.echeance < aujourdhui).length,
+    }
+    return { ...l, aAppeler: l.alertes.length > 0 || l.actionsEnRetard > 0 || enJeu >= EN_JEU_MINIMUM }
+  }).sort((a, b) => Number(b.aAppeler) - Number(a.aAppeler) || b.enJeu - a.enJeu || b.actionsEnRetard - a.actionsEnRetard || b.alertes.length - a.alertes.length || a.magasin.localeCompare(b.magasin, 'fr'))
 }
 
 // Par Coach : le plus de marge en jeu d'abord ; « » regroupe les magasins sans Coach

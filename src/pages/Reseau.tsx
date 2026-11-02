@@ -188,14 +188,7 @@ export function Reseau() {
         />
       </Box>
 
-      {/* Lot 30 (E3) : Ma semaine porte aussi les alertes ; un magasin sans réel y figure s'il a une alerte */}
-      <Box className="pas-a-l-impression">
-        <MaSemaine
-          lignes={maSemaine(visibles.filter((m) => m.moisRealises > 0 || donnees.alertes.some((a) => a.magasin === m.magasin)), donnees.alertes, donnees.actions, new Date().toISOString().slice(0, 10))}
-          avecCoachs={donnees.coachs.length > 0} etat={etat}
-        />
-      </Box>
-
+      {/* Lot 41 (proposition 6) : les filtres (Coach, RR, groupe) s'appliquent aussi aux magasins à appeler */}
       <Stack direction="row" spacing={2} useFlexGap className="pas-a-l-impression" sx={{ mb: 2, flexWrap: 'wrap' }}>
         <TextField
           size="small" value={recherche} onChange={(e) => changer({ q: e.target.value })} placeholder="Filtrer la liste"
@@ -224,6 +217,14 @@ export function Reseau() {
           </TextField>
         )}
       </Stack>
+
+      {/* Lot 30 (E3) : Ma semaine porte aussi les alertes ; un magasin sans réel y figure s'il a une alerte */}
+      <Box className="pas-a-l-impression">
+        <MaSemaine
+          lignes={maSemaine(visibles.filter((m) => m.moisRealises > 0 || donnees.alertes.some((a) => a.magasin === m.magasin)), donnees.alertes, donnees.actions, new Date().toISOString().slice(0, 10))}
+          avecCoachs={donnees.coachs.length > 0} etat={etat}
+        />
+      </Box>
 
       {visibles.length === 0 ? (
         <EtatVide titre="Aucun magasin ne correspond" texte="Change de filtre ou de recherche pour retrouver les magasins." />

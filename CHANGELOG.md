@@ -5,6 +5,31 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 41 — construire et suivre le budget plus simplement (Base : migration `0022_envoi_au_siege.sql` à passer)
+
+- Proposer en série (Campagne, Directeur) : « Préparer les propositions » calcule la proposition de chaque magasin de la
+  liste affichée comme depuis son point de départ ; cochés d'office les magasins sans budget dont l'équipe et les frais
+  sont là, et les propositions dont l'atterrissage a bougé de plus de 2 %. Les ajustements des magasins restent.
+- Fiche prête à proposer (point de départ) : réel à jour, date d'ouverture (saisie sur place par le Directeur), équipe,
+  frais ; chaque manque mène à son écran. Sans équipe ni frais, l'EBE s'affiche « Incomplet ».
+- Envoyer au siège : enregistrer ne change plus le statut ; le franchisé envoie son budget à l'étape 3, avec un mot s'il
+  veut, devant le tableau « Mes changements par rapport au siège » (hypothèse, siège, magasin, effet sur l'EBE). Le
+  Directeur et le RR relisent « Ce que le magasin a changé » et valident à l'étape 3, avec les points à regarder
+  (trésorerie au 1er janvier non saisie, trésorerie sous zéro, changements non envoyés). Le bouton « Valider le budget »
+  quitte les autres étapes (« Revoir et valider » y mène).
+- Objectif d'EBE (étape 2) : un EBE visé, et la valeur de chaque levier pris seul pour l'atteindre (tickets, panier,
+  évolution des univers sans tickets) ou la masse salariale correspondante ; « Appliquer » reporte la valeur.
+- Suivi : une seule page « Où en est le magasin » (synthèse, conclusion, écart expliqué, tableau mois par mois, comptes
+  du quadrimestre) ; l'ancienne page « Face au budget » y renvoie. Nouvelle carte « D'où vient l'écart au budget » :
+  effet tickets, effet panier, CA des univers, effet du CA et du taux sur la marge.
+- Ma semaine : seuls les magasins à appeler en tête (alerte, action en retard ou 1 000 € de marge en jeu au moins) ; les
+  autres repliés. Le sujet « marge » d'une visite ne sort qu'au-delà de 0,05 point de baisse.
+- Hypothèses du réseau en une grille : tickets, panier et univers sans tickets, pour tous les magasins puis par
+  ancienneté, le constaté dessous ; en tête hausse tarifaire, hausse des salaires, inflation des frais. Le détail par
+  famille est replié.
+- Base (0022) : `budgets.ajustements_siege` (position du siège, écrite par la base quand le Directeur écrit les
+  ajustements) et `budgets.envoye_le` ; déclencheur `garde_budget` réécrit ; `budgets_du_compte` les renvoie.
+
 ### Retouches du 2/11 — lignes de résultat teintées, hypothèses et trésorerie plus simples
 
 - Résultat d'exploitation, résultat net et trésorerie dégagée après emprunts sur le même fond teinté que CA, marge,

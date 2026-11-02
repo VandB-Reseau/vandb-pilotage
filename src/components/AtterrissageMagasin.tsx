@@ -28,6 +28,10 @@ import SaveOutlined from '@mui/icons-material/SaveOutlined'
 import { DetailCalcul } from './DetailCalcul'
 import { Indicateur } from './Indicateur'
 import { styleTableau } from '../theme/tableau'
+import { FichePrete } from './FichePrete'
+import { ebeComplet } from '../moteur/preparation'
+import { syntheseReel } from '../moteur/reel'
+import { reelEnRetard } from '../lib/aFaire'
 
 // Atterrissage de l'année en cours : réel des mois passés, projection des mois restants, équipe et frais du magasin.
 // Le Directeur en tire la proposition du budget de l'an prochain.
@@ -76,6 +80,13 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
   const h = avecEquipeEtFrais(r.base, equipe, frais)
   const b = calculerBudget(h, parametres)
   const peutProposer = directeur && ligne.statut !== 'valide'
+  // Lot 41 (proposition 2) : ce qui manque pour proposer un budget juste ; sans équipe ni frais, l'EBE est incomplet
+  const etatFiche = {
+    reel: !reelEnRetard(syntheseReel(donnees.n.lignes, donnees.n.tickets).moisRenseignes), ouverture: !!(donnees.secours.ouverture ?? d.ouvertures?.[magasin]),
+    equipe: !!equipe?.length, frais: !!frais?.length,
+  }
+  const complet = ebeComplet(etatFiche)
+  const manque = [!etatFiche.equipe && 'équipe', !etatFiche.frais && 'frais'].filter(Boolean).join(' ni ')
 
   const modifiees = parts !== null && JSON.stringify(parts) !== JSON.stringify(enregistrees)
   const enregistrerParts = async () => {
@@ -117,6 +128,10 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
     <Stack spacing={3}>
       {message && <Alert severity={message.gravite} onClose={() => setMessage(null)} closeText="Fermer" slotProps={{ closeButton: { sx: { width: 48, height: 48 } } }}>{message.texte}</Alert>}
 
+      {ligne.statut !== 'valide' && (
+        <FichePrete magasin={magasin} etat={etatFiche} allerA={allerA} directeur={directeur} apresOuverture={() => { recharger(); apresProposition() }} />
+      )}
+
       {peutProposer && (
         <Box>
           <Button variant="contained" startIcon={<SendOutlined />} disabled={occupe} onClick={() => void proposer()} sx={{ minHeight: 48 }}>
@@ -129,7 +144,7 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
         <Indicateur libelle={`CA HT atterri ${annee}`} valeur={milliers(b.ca)} detail={`Dont réalisé : ${milliers(r.realise)}`}
           info={<DetailCalcul quoi="atterrissage" budget={b} annee={annee} atterrissage={r} />} />
         <Indicateur libelle="Marge commerciale" valeur={taux(b.tauxMarge)} detail={milliers(b.marge)} info={<DetailCalcul quoi="marge" budget={b} annee={annee} />} />
-        <Indicateur libelle="EBE" valeur={milliers(b.ebe)} detail={`${taux(b.ratios.ebeSurCA)} du CA`} info={<DetailCalcul quoi="ebe" budget={b} annee={annee} />} />
+        <Indicateur libelle="EBE" valeur={complet ? milliers(b.ebe) : 'Incomplet'} detail={complet ? `${taux(b.ratios.ebeSurCA)} du CA` : `Sans ${manque} : ${milliers(b.ebe)} calculés`} info={<DetailCalcul quoi="ebe" budget={b} annee={annee} />} />
       </Stack>
 
       <CompteResultatMois

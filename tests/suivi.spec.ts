@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { MAGASINS } from './donnees-fictives'
-import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type TicketsSimules, type VenteSimulee, allerVers } from './supabase-simule'
+import { ouvrir, plusLoin, seConnecter, textesTropPetits, zonesTropPetites, type TicketsSimules, type VenteSimulee, allerVers } from './supabase-simule'
 
 // Réel face au budget sur la fiche magasin, et vue réseau. Données fictives uniquement : dépôt public.
 // Budget du magasin fictif (tests/donnees-fictives.ts) : 640 000 € de CA, 48 000 € en janvier et en février, marge 57,4 %.
@@ -33,21 +33,15 @@ test.afterEach(async ({ page }) => {
 test('fiche magasin : le réel face au budget, mois par mois', async ({ page, isMobile }, info) => {
   await seConnecter(page, { role: 'franchise', magasins: [{ magasin: MAGASINS[0], statut: 'valide', hypotheses: (await import('./donnees-fictives')).magasinFictif, maj_le: null }], reel, tickets })
   await ouvrir(page, 'Suivi du budget')
-  const cartes = page.getByRole('region', { name: 'Réel face au budget à fin février' })
-  await expect(cartes).toContainText(/94\sk€/)
-  await expect(cartes).toContainText(/[-−]2,1\s%\ssur le budget/)
+  // Lot 41 : la page « Où en est le magasin » réunit la synthèse et le suivi ; les chiffres clés sont ceux de la synthèse
   // Lot 38 (D3) : la conclusion d'abord. Janvier seul a sa marge : 50 000 € pour 48 000 € à 57,39 % ;
   // effet du CA 2 000 × 0,5739 = +1,1 k€, effet du taux 26 000 − 50 000 × 0,5739 = −2,7 k€
   await expect(page.getByLabel('Conclusion')).toHaveText(/^À fin février, CA [-−]2,1\s%\ssur le budget \([-−]2\sk€\), taux de marge [-−]10,2\spt\. Sur la marge, le taux pèse le plus : [-−]2,7\sk€, contre \+1,1\sk€ pour le CA\.$/)
-  await expect(cartes.getByText('Écart de marge')).toBeVisible()
-  await expect(cartes).toContainText(/[-−]1,5\sk€/)                 // 26 000 − 27 547,5, en k€ comme toutes les cartes
-  await expect(cartes).toContainText(/47,1\s%/)                       // 33 000 / 70 000 : marges connues seulement
-  await expect(cartes).toContainText(/[-−]10,2\spt sur le budget/)
 
   // Le détail mois par mois est replié
   const tableau = page.getByRole('table', { name: `Réel face au budget ${N} mois par mois` })
   await expect(tableau).toBeHidden()
-  await page.getByRole('button', { name: 'Mois par mois' }).last().click()
+  await page.getByRole('button', { name: 'Mois par mois', expanded: false }).click()
   const ligne = (nom: string) => tableau.getByRole('row').filter({ has: page.getByRole('cell', { name: nom, exact: true }) })
   // Refonte T2 : une case = le réel, sa pastille, le budget dessous (janvier au-dessus du budget, février à −8,3 %)
   await expect(ligne('CA HT')).toContainText(/50\s000\s*prévu 48\s000, au prévu ou mieux.*44\s000\s*prévu 48\s000, nettement en dessous du prévu.*94\s000\s*prévu 96\s000/)
@@ -62,18 +56,15 @@ test('fiche magasin : le réel face au budget, mois par mois', async ({ page, is
   await expect(page.getByRole('dialog', { name: 'Légende des pastilles' })).toContainText('jusqu’à 5 % en dessous')
   await page.keyboard.press('Escape')
   // R4 : jauge du CA face au budget
-  await expect(cartes.getByRole('meter', { name: 'CA réel face au budget à fin février' })).toBeVisible()
+  await expect(page.getByRole('meter', { name: 'CA réel face au budget à fin février' })).toBeVisible()
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-suivi-budget.png`, fullPage: true })
 
-  await page.locator('[data-mois="2"]').hover({ force: true })
-  const bulle = page.getByRole('tooltip')
-  await expect(bulle).toContainText(/Réel\s*44\s000\s€/)
-  await expect(bulle).toContainText(/Budget\s*48\s000\s€/)
   // R2 : vue cumulée, l'atterrissage chiffré face au budget de l'année
-  await page.getByRole('button', { name: 'Cumulé' }).click()
-  await expect(page.getByRole('region', { name: `Réel et budget ${N}, graphique` })).toContainText(/Atterrissage \d{4} : .* face au budget de 640\sk€/)
+  await plusLoin(page)
+  await page.getByRole('region', { name: 'Chiffre d’affaires' }).getByRole('button', { name: 'Cumulé' }).click()
+  await expect(page.getByRole('region', { name: 'Chiffre d’affaires' })).toContainText(/Atterrissage \d{4} : .* face au budget de 640\sk€/)
 })
 
 test('fiche magasin : sans budget de l’année, le suivi le dit', async ({ page }) => {

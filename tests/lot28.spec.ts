@@ -129,7 +129,7 @@ test('campagne des budgets : avancement par Responsable Régional, dates dans Pa
 test('campagne : le franchisé voit la date de validation de son budget', async ({ page }) => {
   await seConnecter(page, { role: 'franchise', magasins: [{ magasin: MAGASINS[0], statut: 'propose', hypotheses: null, maj_le: null }] })
   // Dates d'exemple : validation le 19 décembre de l'année d'avant le budget
-  await expect(page.getByRole('region', { name: 'À faire' })).toContainText(/proposé par le siège, à relire : à valider avant le 19 décembre/)
+  await expect(page.getByRole('region', { name: 'À faire' })).toContainText(/proposé par le siège, à relire puis à envoyer au siège : à valider avant le 19 décembre/)
   await expect(page.getByRole('region', { name: /^Campagne des budgets/ })).toHaveCount(0)
 })
 

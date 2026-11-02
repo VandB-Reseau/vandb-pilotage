@@ -22,6 +22,8 @@ import ContentCopyOutlined from '@mui/icons-material/ContentCopyOutlined'
 import FileDownloadOutlined from '@mui/icons-material/FileDownloadOutlined'
 import LockOpenOutlined from '@mui/icons-material/LockOpenOutlined'
 import PrintOutlined from '@mui/icons-material/PrintOutlined'
+import SendOutlined from '@mui/icons-material/SendOutlined'
+import FactCheckOutlined from '@mui/icons-material/FactCheckOutlined'
 import { useAuth } from '../auth/AuthContext'
 import { AFaireFranchise } from '../components/AFaireFranchise'
 import { BarreEnregistrement } from '../components/BarreEnregistrement'
@@ -55,13 +57,16 @@ import { FamillesReseau } from '../components/FamillesReseau'
 import { SyntheseMagasin } from '../components/SyntheseMagasin'
 import { HypotheseCle, HypothesesUnivers, TableauHypotheses } from '../components/HypothesesUnivers'
 import { HypothesesCartes } from '../components/HypothesesCartes'
+import { RevueChangements } from '../components/RevueChangements'
+import { ObjectifEbe } from '../components/ObjectifEbe'
+import { changementsCibles, effetsChangements, pointsAvantValidation } from '../moteur/changements'
 import {
-  anneeBudget, avecEquipeEtFrais, changerStatut, chargerBudgets, chargerParametres, chargerReel, enregistrerAjustements, hypothesesDe, niveauxDe, parametresDuBudget, statutLibelle, valeursSansCible,
+  anneeBudget, avecEquipeEtFrais, changerStatut, chargerBudgets, envoyerAuSiege, envoyerMessage, chargerParametres, chargerReel, enregistrerAjustements, hypothesesDe, niveauxDe, parametresDuBudget, statutLibelle, valeursSansCible,
 } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { nombreChangements, reelEnRetard } from '../lib/aFaire'
 import { feuillesBudget } from '../lib/exports'
-import { lienMagasin, milliers, taux } from '../lib/format'
+import { lienMagasin, milliers, MOIS_LONGS, taux } from '../lib/format'
 import { espaceDe, estTheme, etapeDe, partieConnue, partieDe, partiesDe, sectionDe, THEMES } from '../lib/navigation'
 import { MenuMagasin } from '../layout/menuMagasin'
 import { classeur, nomFichier, telecharger } from '../lib/xlsx'
@@ -70,7 +75,7 @@ import { calculerBudget, effetTravaux } from '../moteur/budget'
 import { campagneDe } from '../moteur/campagne'
 import { compteResultat } from '../moteur/compteResultat'
 import { tresorerieBudget } from '../moteur/tresorerie'
-import { ajustementsCopies, ecarts, valeurHeritee, type Cibles } from '../moteur/cibles'
+import { ajustementsCopies, ecarts, ecrireCible, valeurHeritee, type Cibles } from '../moteur/cibles'
 
 
 // Onglet avec une pastille quand il manque quelque chose ; le détail est lu par les lecteurs d'écran
@@ -271,7 +276,29 @@ export function Magasin() {
     </ToggleButtonGroup>
   )
   const enregistrer = () => resolu && void agir(() => enregistrerAjustements(ligne.magasin, annee, brouillon, resolu.hypotheses),
-    directeur ? 'Ajustements enregistrés.' : 'Ajustements enregistrés : le budget est en discussion avec le siège.')
+    franchise ? 'Ajustements enregistrés. Envoie-les au siège quand ils sont prêts (étape 3).' : 'Ajustements enregistrés.')
+
+  // Lot 41 (proposition 3) : ce que le magasin a changé par rapport au siège, avec l'effet de chaque changement sur l'EBE
+  const nomsFrais = Object.fromEntries((baseFrais?.frais ?? []).map((f) => [f.code, f.libelle]))
+  const revue = onglet === 'echanges' && ligne.base && ligne.statut !== 'valide' ? (() => {
+    const siege = ligne.siege ?? {}
+    const ebe = (c: typeof brouillon) => { const h = hypothesesDe(ligne, d, c); return h ? calculerBudget(h.hypotheses, parametres).ebe : 0 }
+    return effetsChangements(siege, brouillon, changementsCibles(siege, brouillon, nomsFrais), ebe)
+  })() : null
+  const envoyer = (mot: string) => resolu && void agir(async () => {
+    if (modifie) await enregistrerAjustements(ligne.magasin, annee, brouillon, resolu.hypotheses)
+    await envoyerAuSiege(ligne.magasin, annee)
+    if (mot) await envoyerMessage(ligne.magasin, annee, 'general', mot)
+  }, 'Budget envoyé au siège : il est en discussion.')
+  const boutonValider = peutValider && ligne.base && ligne.statut !== 'valide' ? (
+    <Button variant="contained" color="success" startIcon={<CheckCircleOutlined />} disabled={occupe || !enregistrable} sx={{ minHeight: 48 }}
+      onClick={() => resolu && void agir(async () => {
+        if (modifie) await enregistrerAjustements(ligne.magasin, annee, brouillon, resolu.hypotheses)
+        await changerStatut(ligne.magasin, annee, 'valide', resolu.hypotheses)
+      }, `Budget ${annee} validé.`)}>
+      Valider le budget
+    </Button>
+  ) : null
   const alerteMessage = message ? (
     <Alert severity={message.gravite} onClose={() => setMessage(null)} closeText="Fermer" slotProps={{ closeButton: { sx: { width: 48, height: 48 } } }}>
           {message.texte}
@@ -375,20 +402,20 @@ export function Magasin() {
             )}
             <AlertesEtActions key={`alertes-${ligne.magasin}`} magasin={ligne.magasin} equipe={!franchise && profil?.role !== 'aucun'} proposition={proposition} />
           </>}
+          conclusion={<SuiviBudget key={`conclusion-${ligne.magasin}`} magasin={ligne.magasin} annee={anneeEnCours} allerA={aller} vue="conclusion" />}
+          detail={<>
+            <SuiviBudget key={`detail-${ligne.magasin}`} magasin={ligne.magasin} annee={anneeEnCours} allerA={aller} vue="detail" />
+            <Stack spacing={2} component="section" aria-label="Comptes du quadrimestre" id="partie-quadrimestres" sx={{ scrollMarginTop: 80 }}>
+              <Typography variant="h2">Comptes du quadrimestre</Typography>
+              {anneeChoix(anneeQuadri, (v) => setAnneeQuadri(v), 'Année des comptes')}
+              <QuadrimestresMagasin key={`${ligne.magasin}-${anneeQuadri}-compte`} magasin={ligne.magasin} annee={anneeQuadri} peutSaisir={peutSaisir} vue="compte" />
+            </Stack>
+          </>}
           plusLoin={franchise ? undefined : <>
             <ComparaisonMagasin key={`comparaison-${ligne.magasin}`} magasin={ligne.magasin} directeur={directeur} />
             <FamillesReseau key={`familles-${ligne.magasin}`} magasin={ligne.magasin} directeur={directeur} />
           </>}
         />
-      ) : onglet === 'suivi' ? (
-        <Stack spacing={3}>
-          <SuiviBudget key={ligne.magasin} magasin={ligne.magasin} annee={anneeEnCours} allerA={aller} muetSansReel />
-          <Stack spacing={2} component="section" aria-label="Comptes du quadrimestre" id="partie-quadrimestres" sx={{ scrollMarginTop: 80 }}>
-            <Typography variant="h2">Comptes du quadrimestre</Typography>
-            {anneeChoix(anneeQuadri, (v) => setAnneeQuadri(v), 'Année des comptes')}
-            <QuadrimestresMagasin key={`${ligne.magasin}-${anneeQuadri}-compte`} magasin={ligne.magasin} annee={anneeQuadri} peutSaisir={peutSaisir} vue="compte" />
-          </Stack>
-        </Stack>
       ) : onglet === 'tresorerie' ? (
         <Stack spacing={2}>
           {anneeChoix(anneeQuadri, (v) => setAnneeQuadri(v), 'Année de la trésorerie')}
@@ -449,14 +476,16 @@ export function Magasin() {
             <Indicateur libelle="Résultat net" aide="resultatNet" valeur={milliers(b.resultatNet)} detail={`Impôt : ${milliers(b.impot)}`} />
           </Stack>
 
-          {(peutValider && ligne.base) || (directeur && ligne.base && !copie) ? <Stack direction="row" useFlexGap spacing={1.5} className="pas-a-l-impression" sx={{ flexWrap: 'wrap' }} aria-label="Actions sur le budget">
-            {peutValider && ligne.base && ligne.statut !== 'valide' && (
-              <Button variant={modifie ? 'outlined' : 'contained'} color="success" startIcon={<CheckCircleOutlined />} disabled={occupe || !enregistrable} sx={{ minHeight: 48 }}
-                onClick={() => resolu && void agir(async () => {
-                  if (modifie) await enregistrerAjustements(ligne.magasin, annee, brouillon, resolu.hypotheses)
-                  await changerStatut(ligne.magasin, annee, 'valide', resolu.hypotheses)
-                }, `Budget ${annee} validé.`)}>
-                Valider le budget
+          {(peutValider && ligne.base) || (directeur && ligne.base && !copie) || (franchise && peutAjuster && onglet !== 'echanges') ? <Stack direction="row" useFlexGap spacing={1.5} className="pas-a-l-impression" sx={{ flexWrap: 'wrap' }} aria-label="Actions sur le budget">
+            {/* Lot 41 : envoyer et valider se font à l'étape 3, après le résultat, devant les changements du magasin */}
+            {franchise && peutAjuster && onglet !== 'echanges' && (
+              <Button variant="contained" startIcon={<SendOutlined />} onClick={() => allerEtape('echanges')} sx={{ minHeight: 48 }}>
+                {ligne.statut === 'en_discussion' ? 'Revoir mon envoi au siège' : 'Envoyer au siège'}
+              </Button>
+            )}
+            {peutValider && ligne.base && ligne.statut !== 'valide' && onglet !== 'echanges' && (
+              <Button variant="outlined" color="success" startIcon={<FactCheckOutlined />} onClick={() => allerEtape('echanges')} sx={{ minHeight: 48 }}>
+                Revoir et valider
               </Button>
             )}
             {peutValider && ligne.statut === 'valide' && resolu && (
@@ -477,6 +506,16 @@ export function Magasin() {
 
       {onglet === 'echanges' ? (
         <>
+          {revue && (
+            <RevueChangements
+              franchise={franchise} effets={revue.effets} total={revue.total} ebeSiege={revue.ebeSiege} ebeMagasin={revue.ebeMagasin}
+              envoyeLe={ligne.envoyeLe} statut={ligne.statut} occupe={occupe} onEnvoyer={franchise && peutAjuster ? envoyer : undefined}
+              validation={boutonValider ? {
+                points: pointsAvantValidation({ tresorerieDepart: brouillon.tresorerieDepart, pointBas: tresorerie?.pointBas ?? null, changementsNonEnvoyes: ligne.statut === 'propose' && revue.effets.length > 0 }, MOIS_LONGS),
+                bouton: boutonValider,
+              } : undefined}
+            />
+          )}
           {profil && <EchangesBudget key={`echanges-${ligne.magasin}`} ligne={ligne} d={d} annee={annee} parametres={parametres} moi={profil} />}
           {profil && ligne.base && b && (
             <VersionsBudget
@@ -559,6 +598,15 @@ export function Magasin() {
           <Stack spacing={3} className={partie('resultat')}>
             {resolu && <CompteResultatMois lignes={compteResultat(b, resolu.hypotheses, parametres)} titre={`Compte de résultat ${annee}`} libelleTableau={`Budget ${annee} mois par mois`} />}
             {resolu && b && <EconomieFranchise budget={b} hypotheses={resolu.hypotheses} parametres={parametres} annee={annee} />}
+            {/* Lot 41 (proposition 4) : un EBE visé, et ce qu'il faudrait pour l'atteindre, un levier à la fois */}
+            {resolu && b && ligne.statut !== 'valide' && (
+              <Box className="pas-a-l-impression">
+                <ObjectifEbe budget={b} lectureSeule={!peutAjuster}
+                  ebeAvec={(cle, x) => { const h = hypothesesDe(ligne, d, ecrireCible(brouillon, cle, x)); return h ? calculerBudget(h.hypotheses, parametres).ebe : 0 }}
+                  onAppliquer={(cle, x) => { setBrouillon((c) => ecrireCible(c, cle, x)); setMessage({ gravite: 'warning', texte: 'Valeur reportée dans les hypothèses. Enregistre les ajustements pour la garder.' }) }}
+                />
+              </Box>
+            )}
             {tresorerie && (
               <TresorerieBudget
                 key={ligne.magasin} tresorerie={tresorerie} annee={annee} depart={brouillon.tresorerieDepart} lectureSeule={!peutAjuster} replie={franchise}

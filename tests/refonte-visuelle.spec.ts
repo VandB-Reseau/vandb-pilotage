@@ -36,9 +36,9 @@ test('synthèse : jauges, lignes de tendance, barres du réel dans le contour du
   // Tickets : 8 400 face à 8 000 l'an dernier, +5 %
   await expect(tendance.getByRole('listitem', { name: 'Tickets' })).toContainText(/8\s400/)
   await plusLoin(page)
-  await page.getByRole('button', { name: 'Mois par mois' }).click()
+  await page.getByRole('region', { name: 'Chiffre d’affaires' }).getByRole('button', { name: 'Mois par mois' }).click()
   await expect(page.getByRole('img', { name: /dans le contour du budget/ })).toBeVisible()
-  await page.getByRole('button', { name: 'Cumulé' }).click()
+  await page.getByRole('region', { name: 'Chiffre d’affaires' }).getByRole('button', { name: 'Cumulé' }).click()
   await expect(page.getByText(new RegExp(`^Atterrissage ${N} : .* face au budget de 640\\sk€`))).toBeVisible()
   expect(await sansDebordement(page)).toBeLessThanOrEqual(0)
   expect(await textesTropPetits(page)).toEqual([])

@@ -15,6 +15,9 @@ import { ratiosDuBudget, ratiosDuReel, type Ratios } from '../moteur/comparaison
 import { ligneReseau } from '../moteur/suivi'
 import { QUADRIMESTRES, type Quadrimestre, type SaisieQuadrimestre } from '../moteur/quadrimestre'
 import { tresorerieBudget } from '../moteur/tresorerie'
+import { actionSerie, ecartAtterrissage, type Action as ActionSerie, type EtatFiche } from '../moteur/preparation'
+import { syntheseReel } from '../moteur/reel'
+import { reelEnRetard } from '../lib/aFaire'
 import type { Famille, Hypotheses, ParametresReseau, Univers } from '../moteur/types'
 
 export type Statut = 'propose' | 'en_discussion' | 'valide'
@@ -29,6 +32,10 @@ export interface LigneMagasin {
   parametres?: Partial<ParametresReseau> | null // paramètres réseau copiés à la validation (lot 38, migration 0020)
   groupeId: number | null
   majLe: string | null
+  // Lot 41 (migration 0022) : position du siège (ajustements écrits en dernier par le Directeur) et date du dernier envoi
+  // du franchisé ; absentes avant la migration
+  siege?: Cibles | null
+  envoyeLe?: string | null
 }
 export interface Groupe { id: number; nom: string; cibles: Cibles | null }
 export interface DonneesBudgets {
@@ -71,7 +78,7 @@ export const chargerBudgets = (annee: number): Promise<DonneesBudgets> => memo(`
 async function lireBudgets(annee: number): Promise<DonneesBudgets> {
   const [{ data, error }, equipes, frais, ouvertures] = await Promise.all([pilotage().rpc('budgets_du_compte', { p_annee: annee }), chargerEquipes(), chargerFrais(), chargerOuvertures()])
   if (error || !objet(data) || !Array.isArray(data.magasins)) throw new ErreurChargement()
-  const lignes = data.magasins as { magasin: string; statut: Statut | null; base: unknown; ajustements: unknown; hypotheses: unknown; maj_le: string | null; groupe_id: number | null; parametres?: unknown }[]
+  const lignes = data.magasins as { magasin: string; statut: Statut | null; base: unknown; ajustements: unknown; hypotheses: unknown; maj_le: string | null; groupe_id: number | null; parametres?: unknown; ajustements_siege?: unknown; envoye_le?: string | null }[]
   return {
     annee, ouvertures,
     magasins: lignes.map((l) => ({
@@ -81,6 +88,7 @@ async function lireBudgets(annee: number): Promise<DonneesBudgets> {
       figees: hypothesesValides(l.hypotheses) ? l.hypotheses : null,
       parametres: l.statut === 'valide' && objet(l.parametres) ? (l.parametres as Partial<ParametresReseau>) : null,
       groupeId: l.groupe_id ?? null, majLe: l.maj_le,
+      siege: objet(l.ajustements_siege) ? (l.ajustements_siege as Cibles) : null, envoyeLe: l.envoye_le ?? null,
     })),
     reseau: objet(data.reseau) ? (data.reseau as Cibles) : null,
     groupes: Array.isArray(data.groupes) ? (data.groupes as { id: number; nom: string; cibles: unknown }[]).map((g) => ({ id: g.id, nom: g.nom, cibles: objet(g.cibles) ? (g.cibles as Cibles) : null })) : [],
@@ -117,6 +125,30 @@ export function hypothesesDe(ligne: LigneMagasin, d: DonneesBudgets, ajustements
   return null
 }
 
+// Lot 41, proposition 1 : la proposition d'un magasin préparée pour la proposition en série, comme le bouton « Proposer »
+// du point de départ (même base, mêmes cibles), avec ce qu'il faut pour choisir : CA atterri, EBE proposé, fiche, écart
+// à la proposition en cours. null : pas de réel de l'année en cours.
+export interface Preparation {
+  magasin: string; statut: Statut | null
+  base: Hypotheses; hypotheses: Hypotheses
+  caAtterri: number; ebe: number; etat: EtatFiche
+  ecart: number | null; action: ActionSerie; coche: boolean
+}
+export async function preparerProposition(ligne: LigneMagasin, d: DonneesBudgets, anneeEnCours: number, anneeProposee: number, parametres: ParametresReseau): Promise<Preparation | null> {
+  const magasin = ligne.magasin
+  const [n, n1, secours] = await Promise.all([chargerReel(magasin, anneeEnCours), chargerReel(magasin, anneeEnCours - 1), chargerSecours(magasin, anneeEnCours)])
+  const r = baseDepuisReel({ n, n1 }, anneeEnCours, [], undefined, secours)
+  if (!r) return null
+  const equipe = d.equipes[magasin], frais = d.frais[magasin]
+  const base = { ...avecEquipeEtFrais(r.base, undefined, frais), annee: anneeProposee }
+  const { hypotheses } = appliquerCibles(avecEquipeEtFrais(base, equipe, frais), niveauxDe(ligne, d))
+  const caAtterri = calculerBudget(avecEquipeEtFrais(base, equipe, frais), parametres).atterrissage
+  const avant = ligne.base ? calculerBudget(avecEquipeEtFrais(ligne.base, equipe, frais), parametres).atterrissage : null
+  const etat: EtatFiche = { reel: !reelEnRetard(syntheseReel(n.lignes, n.tickets).moisRenseignes), ouverture: !!(secours.ouverture ?? d.ouvertures?.[magasin]), equipe: !!equipe?.length, frais: !!frais?.length }
+  const ecart = ligne.base ? ecartAtterrissage(avant, caAtterri) : null
+  return { magasin, statut: ligne.statut, base, hypotheses, caAtterri, ebe: calculerBudget(hypotheses, parametres).ebe, etat, ecart, ...(() => { const a = actionSerie(ligne.statut, ecart, etat); return { action: a.action, coche: a.coche } })() }
+}
+
 export class ErreurEnregistrement extends Error {}
 const verifier = ({ error }: { error: unknown }) => { oublier(); if (error) throw new ErreurEnregistrement() }
 
@@ -127,6 +159,14 @@ export async function proposerBudget(magasin: string, annee: number, base: Hypot
 
 export async function enregistrerAjustements(magasin: string, annee: number, ajustements: Cibles, hypotheses: Hypotheses) {
   verifier(await pilotage().from('budgets').update({ ajustements, hypotheses }).eq('store_name', magasin).eq('annee', annee))
+}
+
+// Lot 41 : le franchisé envoie ses ajustements au siège ; c'est ce geste, et non plus chaque enregistrement, qui met le
+// budget en discussion. Avant la migration 0022 (pas de colonne envoye_le), la base met d'elle-même le budget en discussion.
+export async function envoyerAuSiege(magasin: string, annee: number) {
+  const r = await pilotage().from('budgets').update({ statut: 'en_discussion', envoye_le: new Date().toISOString() }).eq('store_name', magasin).eq('annee', annee)
+  if (!r.error) { oublier(); return }
+  verifier(await pilotage().from('budgets').update({ statut: 'en_discussion' }).eq('store_name', magasin).eq('annee', annee))
 }
 
 // Directeur : valider fige les hypothèses du moment ; rouvrir remet le budget en discussion

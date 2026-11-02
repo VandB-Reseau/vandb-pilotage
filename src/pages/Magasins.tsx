@@ -25,6 +25,7 @@ import { useAuth } from '../auth/AuthContext'
 import { AlertesMagasins, typeAlerteLibelle } from '../components/AlertesMagasins'
 import { ATraiter } from '../components/ATraiter'
 import { CampagneBudgets } from '../components/CampagneBudgets'
+import { PropositionsSerie } from '../components/PropositionsSerie'
 import { estDirecteur, estEquipe } from '../auth/roles'
 import { EtatVide } from '../components/EtatVide'
 import { Indicateur } from '../components/Indicateur'
@@ -197,6 +198,12 @@ export function Magasins() {
           {estEquipe(profil) && (
             <Box sx={{ mb: 3 }}>
               <CampagneBudgets annee={annee} campagne={donnees.campagne} magasins={tous} aujourdhui={new Date().toISOString().slice(0, 10)} />
+            </Box>
+          )}
+          {/* Lot 41 (proposition 1) : le Directeur propose et met à jour les budgets de la liste affichée en une fois */}
+          {estDirecteur(profil) && (
+            <Box sx={{ mb: 3 }} className="pas-a-l-impression">
+              <PropositionsSerie annee={annee} magasins={visibles.map((m) => m.magasin)} apres={recharger} />
             </Box>
           )}
           {synthese && (

@@ -22,7 +22,8 @@ import SaveOutlined from '@mui/icons-material/SaveOutlined'
 import { EtatVide } from '../components/EtatVide'
 import { Panne } from '../components/Panne'
 import { lignesCibles, TableauCibles } from '../components/TableauCibles'
-import { AncienneteReseau } from '../components/AncienneteReseau'
+import { GrilleCiblesReseau } from '../components/GrilleCiblesReseau'
+import { Repliable } from '../components/Repliable'
 import {
   anneeBudget, chargerBudgets, chargerParametres, chargerReelDuCompte, consoliderBudgets, creerGroupe, enregistrerCiblesGroupe, enregistrerCiblesReseau,
   rangerMagasin, supprimerGroupe,
@@ -34,6 +35,8 @@ import { niveauxReseau, type Cibles } from '../moteur/cibles'
 import { calageMillesimes, TRANCHES, trancheMillesime, type Tranche } from '../moteur/projection'
 
 const RESEAU = 'reseau'
+// Lignes réglées dans la grille du réseau (lot 41) : le détail replié ne garde que les familles
+const GRILLE = /^(flux|panier|univers)\/|^(hausseSalaires|inflationFrais)$/
 
 export function Hypotheses() {
   const annee = anneeBudget()
@@ -164,23 +167,36 @@ export function Hypotheses() {
           {familles.length === 0 && !groupe && (
             <Box sx={{ px: 2 }}><Alert severity="info">Les familles de produits apparaissent dès le premier budget proposé.</Alert></Box>
           )}
-          <TableContainer>
-            <TableauCibles
-              titre={groupe ? `Cibles du groupe ${groupe.nom}` : 'Cibles du réseau'}
-              lignes={lignesCibles(familles, true, parTickets)}
-              niveau={groupe ? 'groupe' : 'reseau'}
-              cibles={cibles}
-              auDessus={groupe ? niveauxReseau(d.reseau, null) : niveauxReseau({ hausseTarifaire: cibles.hausseTarifaire }, null).filter((n) => n.niveau === 'tarif')}
-              onChange={(c) => setBrouillons((b) => ({ ...b, [ongletValide]: c }))}
-            />
-          </TableContainer>
-          {!groupe && anciennete && parTickets.length > 0 && (
+          {groupe ? (
             <TableContainer>
-              <AncienneteReseau cibles={cibles} calage={anciennete.calage} magasinsParTranche={anciennete.parTranche}
-                onChange={(c) => setBrouillons((b) => ({ ...b, [ongletValide]: c }))} />
+              <TableauCibles
+                titre={`Cibles du groupe ${groupe.nom}`}
+                lignes={lignesCibles(familles, true, parTickets)}
+                niveau="groupe"
+                cibles={cibles}
+                auDessus={niveauxReseau(d.reseau, null)}
+                onChange={(c) => setBrouillons((b) => ({ ...b, [ongletValide]: c }))}
+              />
             </TableContainer>
+          ) : (
+            <GrilleCiblesReseau cibles={cibles} parTickets={parTickets} calage={anciennete?.calage ?? null} magasinsParTranche={anciennete?.parTranche ?? null}
+              onChange={(c) => setBrouillons((b) => ({ ...b, [ongletValide]: c }))} />
           )}
         </Card>
+        {!groupe && (
+          <Repliable titre="Détail par famille" nom="Détail par famille">
+            <TableContainer>
+              <TableauCibles
+                titre="Cibles du réseau par famille"
+                lignes={lignesCibles(familles, true, parTickets).filter((l) => !GRILLE.test(l.cle))}
+                niveau="reseau"
+                cibles={cibles}
+                auDessus={[]}
+                onChange={(c) => setBrouillons((b) => ({ ...b, [ongletValide]: c }))}
+              />
+            </TableContainer>
+          </Repliable>
+        )}
         {d.magasins.length === 0 && <EtatVide titre="Aucun magasin rattaché à ton compte" texte="Les magasins sont tenus dans l’app du réseau." />}
       </Stack>
 

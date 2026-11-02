@@ -50,7 +50,8 @@ export function ficheVisite(e: { n: MoisReel[]; n1: MoisReel[]; budget: Budget |
 
   const sujets: SujetVisite[] = []
   if (caBudget && ca < caBudget) sujets.push({ type: 'ca', ecart: ca / caBudget - 1, enJeu: (caBudget - ca) * t })
-  if (tauxMarge !== null && tauxMargeN1 !== null && tauxMarge < tauxMargeN1) {
+  // Lot 41 : un recul de moins de 0,05 point n'est qu'un arrondi, pas un sujet
+  if (tauxMarge !== null && tauxMargeN1 !== null && tauxMarge < tauxMargeN1 - 0.0005) {
     sujets.push({ type: 'marge', ecart: tauxMarge - tauxMargeN1, enJeu: (tauxMargeN1 - tauxMarge) * somme(mois.map((x) => x.caAvecMarge)) })
   }
   for (const u of UNIVERS_PANIER) {

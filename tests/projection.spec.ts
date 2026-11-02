@@ -123,7 +123,7 @@ test('le franchisé prévoit un temps fort et un client gagné : la base perd l�
   await page.screenshot({ path: `captures/${info.project.name}-temps-forts.png`, fullPage: true })
 
   await page.getByRole('button', { name: 'Enregistrer les ajustements' }).click()
-  await expect(page.getByText('Ajustements enregistrés : le budget est en discussion avec le siège.')).toBeVisible()
+  await expect(page.getByText('Ajustements enregistrés. Envoie-les au siège quand ils sont prêts (étape 3).')).toBeVisible()
   const envoi = ecritures.find((e) => e.table === 'budgets' && e.methode === 'PATCH')?.corps as { ajustements: unknown }
   expect(envoi.ajustements).toEqual({
     tempsForts: [{ nom: 'Oktoberfest', type: 'exterieur', mois: 6, univers: 'exterieur', caAnPasse: 12_000, ca: 15_000, autresCharges: 2_200, moisAchats: 5 }],
@@ -137,8 +137,8 @@ test('le franchisé prévoit un temps fort et un client gagné : la base perd l�
 test('le Directeur fixe la hausse tarifaire et les valeurs par ancienneté ; le budget du magasin les reprend', async ({ page, isMobile }) => {
   const ecritures = await seConnecter(page, { magasins: [magasin(magasinFictif)], ouvertures: [{ store_name: MAGASINS[0], ouverture: '2026-01-01' }] })
   await allerVers(page, 'Hypothèses du réseau')
-  const anciennete = page.getByRole('region', { name: 'Selon l’ancienneté du magasin' })
-  await expect(anciennete.getByRole('row', { name: /^Année 2/ })).toContainText('1')
+  const grille = page.getByRole('table', { name: 'Hypothèses du réseau par ancienneté' })
+  await expect(grille.getByRole('columnheader', { name: /^Année 2/ })).toContainText('1 magasin')
   const effet = page.getByRole('region', { name: 'Effet des hypothèses' })
   await expect(effet).toContainText(/600\sk€/)
   // Panier Cave : 2 % de hausse tarifaire ; tickets Cave + 5 % en année 2 → 200 000 × 1,05 × 1,02 + 400 000

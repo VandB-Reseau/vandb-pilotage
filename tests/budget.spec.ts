@@ -28,6 +28,7 @@ test('le Directeur fixe les cibles du réseau et voit leur effet sur le total', 
   const effet = page.getByRole('region', { name: 'Effet des hypothèses' })
   await expect(effet).toContainText(/600\sk€/)
   await expect(page.getByLabel('Évolution du CA par univers : Cave')).toHaveCount(0)
+  await page.getByRole('button', { name: /^Détail par famille/ }).click()
   await expect(page.getByLabel('Part de la famille dans son univers : Bière (Cave)')).toBeVisible()
   await page.getByLabel('Évolution du nombre de tickets : Cave').fill('5')
   // 200 000 × 1,05 + 300 000 + 100 000
@@ -88,10 +89,17 @@ test('le franchisé s’écarte d’une cible : le budget passe en discussion, i
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-fiche-hypotheses.png`, fullPage: true })
   await page.getByRole('button', { name: 'Enregistrer les ajustements' }).click()
-  await expect(page.getByText('Ajustements enregistrés : le budget est en discussion avec le siège.')).toBeVisible()
+  await expect(page.getByText('Ajustements enregistrés. Envoie-les au siège quand ils sont prêts (étape 3).')).toBeVisible()
   const envoi = ecritures.find((e) => e.table === 'budgets' && e.methode === 'PATCH')?.corps as { ajustements: unknown }
   expect(envoi.ajustements).toEqual({ evolutionPanier: { cave: 0.02 } })
+  // Lot 41 : enregistrer ne change pas le statut ; l'envoi au siège le passe en discussion
+  await ouvrir(page, 'Échanges')
+  const revue = page.getByRole('region', { name: 'Mes changements par rapport au siège' })
+  await expect(revue.getByRole('row', { name: /^Panier moyen Cave/ })).toContainText('2,0')
+  await revue.getByRole('button', { name: 'Envoyer au siège' }).click()
+  await expect(page.getByText('Budget envoyé au siège : il est en discussion.')).toBeVisible()
   await expect(page.getByText('En discussion', { exact: true })).toBeVisible()
+  await ouvrir(page, 'Hypothèses')
   // Revenir à la cible du réseau
   await page.getByRole('button', { name: 'Reprendre la valeur du niveau au-dessus : évolution du panier Cave' }).click()
   await ouvrir(page, 'Résultat et trésorerie')
@@ -102,6 +110,7 @@ test('le Directeur valide le budget, puis peut le rouvrir', async ({ page }) => 
   const ecritures = await seConnecter(page, { magasins: avecBase('en_discussion'), reseau })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Cartes des hypothèses')
+  await page.getByRole('button', { name: 'Revoir et valider' }).click()
   await page.getByRole('button', { name: 'Valider le budget' }).click()
   await expect(page.getByText('Budget 2027 validé.')).toBeVisible()
   const envoi = ecritures.find((e) => e.table === 'budgets' && e.methode === 'PATCH')?.corps as { statut: string; hypotheses: { familles: { evolution: number }[]; flux: { cave: { evolution: number } } } }

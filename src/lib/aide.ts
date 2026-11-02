@@ -134,8 +134,20 @@ export const AIDE = {
   },
   semaine: {
     titre: 'Ma semaine',
-    quoi: 'Les magasins du périmètre classés par la marge en jeu depuis janvier, pour savoir où aller en premier.',
+    quoi: 'Les magasins à appeler cette semaine, le plus de marge en jeu d’abord. Les filtres Coach, Responsable Régional et groupe s’appliquent.',
+    remplir: 'Un magasin est à appeler s’il a une alerte, une action en retard ou au moins 1 000 € de marge en jeu depuis janvier. Les autres sont dans les clous, repliés.',
     calcul: 'Marge en jeu : la somme des trois sujets de la fiche de visite (CA sous le budget, points de marge perdus, tickets et panier en baisse face à l’an dernier).',
+  },
+  ecartExplique: {
+    titre: 'D’où vient l’écart au budget',
+    quoi: 'L’écart de CA et de marge à date, découpé en ce qui l’explique.',
+    calcul: 'Cave et Bar : effet tickets = CA budgété × (tickets réels ÷ tickets budgétés − 1), le reste est l’effet du panier. Autres univers : écart de CA. Marge : effet du CA = écart de CA × taux budgété ; effet du taux = marge réelle − CA réel × taux budgété.',
+  },
+  objectifEbe: {
+    titre: 'Objectif d’EBE',
+    quoi: 'Ce qu’il faudrait, un levier à la fois, pour atteindre l’EBE visé.',
+    remplir: 'Tape l’EBE visé en euros. « Appliquer » reporte la valeur dans les hypothèses, à enregistrer ensuite.',
+    calcul: 'Pour chaque levier, la valeur qui donne l’EBE visé sur le budget complet (marge, redevance, frais, équipe). Masse salariale : un euro de moins, c’est un euro d’EBE en plus.',
   },
   objectifsMois: {
     titre: 'Objectifs du mois',
