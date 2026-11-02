@@ -60,10 +60,12 @@ test('quadrimestres : pastilles face au budget, pont d’écart de l’EBE, plan
   const plan = page.getByRole('region', { name: `Plan de trésorerie ${N}` })
   await expect(plan).toContainText(`Prévu : budget ${N}`)
   await expect(plan).toContainText(/Trésorerie fin avril25\sk€/)
-  // Encaissé en caisse : 60 000 € TTC par mois, réel en gras, prévu dessous
-  await expect(plan.getByRole('table', { name: `Plan de trésorerie ${N} mois par mois` }).getByRole('row', { name: /^Encaissé en caisse/ }).getByRole('cell').nth(1)).toContainText(/^60\s000\s*prévu/)
+  // Encaissé en caisse : 60 000 € TTC par mois, un chiffre par case en k€ (T1, 2/11/2026), l'écart au prévu dessous
+  const mensuel = plan.getByRole('table', { name: `Plan de trésorerie ${N} mois par mois` })
+  await expect(mensuel.getByRole('row', { name: /^Encaissé en caisse/ }).getByRole('cell').nth(1)).toHaveText('60')
+  await expect(mensuel.getByRole('row', { name: /^Écart au prévu/ })).toBeVisible()
   const parQ = plan.getByRole('table', { name: `Trésorerie ${N} par quadrimestre` })
-  await expect(parQ.getByRole('row', { name: /^Trésorerie en fin de période/ }).getByRole('cell').nth(1)).toContainText(/^25\s000/)
+  await expect(parQ.getByRole('row', { name: /^Trésorerie en fin de période/ }).getByRole('cell').nth(1)).toContainText(/^25prévu/) // en k€
   expect(await sansDebordement(page)).toBeLessThanOrEqual(0)
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])

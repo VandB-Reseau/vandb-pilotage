@@ -5,12 +5,19 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
-### Retouches du 2/11 — lignes de résultat teintées, tableaux plus lisibles
+### Retouches du 2/11 — lignes de résultat teintées, hypothèses et trésorerie plus simples
 
 - Résultat d'exploitation, résultat net et trésorerie dégagée après emprunts sur le même fond teinté que CA, marge,
   frais de personnel et EBE, dans tous les tableaux.
-- Hypothèses par univers : marge et démarque arrondies au dixième de point, champs plus larges (plus de valeur coupée) ;
-  marge de l'année en cours affichée « – » quand le réel importé n'a pas de marge.
+- Hypothèses par univers (option A choisie par Joseph, avec la colonne Effet) : lignes plus basses sur PC, champs plus
+  larges arrondis au dixième de point ; « Siège propose » donne la proposition du siège quand il y en a une, sinon
+  « Rythme actuel » ; « reprendre » devient une flèche à côté du champ ; colonne « Effet » en k€ de CA (tickets, panier)
+  ou de marge (marge visée, démarque), calculée par le moteur (`effetsHypotheses.ts`). Sur téléphone : hypothèse, choix
+  et valeur de l'an prochain.
+- Correction : la marge de l'année en cours d'un univers affichait 0,0 % (taux des familles divisés par le CA) ; elle
+  est maintenant pondérée par le CA de chaque famille, « – » si la marge n'est pas connue.
+- Trésorerie mois par mois (option T1) : un chiffre par case en k€ (le réel s'il existe, sinon le prévu en gris, le
+  détail au survol), ligne « Écart au prévu » colorée au-delà du seuil d'alerte, le tableau tient dans l'écran du PC.
 - Trésorerie par quadrimestre : la première colonne n'est plus figée (« Janv. – avr. » ne passait plus dessous) ; la
   trésorerie de début de période montre le prévu tant que le réel n'est pas saisi.
 

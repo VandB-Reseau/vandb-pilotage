@@ -38,11 +38,19 @@ test('hypothèses en cartes : chaque carte ouvre son tableau, les changements re
   await expect(page.getByRole('heading', { level: 2, name: /^Ventes \d{4}/ })).toBeVisible()
   await partieAffichee(page, /^1 · Hypothèses/)
   const cave = page.getByRole('table', { name: /^Hypothèses \d{4} : Cave/ })
-  await expect(cave.getByRole('columnheader')).toHaveText(isMobile ? [/^Hypothèse/, /^Siège propose/, /^Choix du magasin/, /^\d{4}$/] : [/^Hypothèse/, /^\d{4}$/, /^Siège propose/, /^Choix du magasin/, /^\d{4}$/])
+  await expect(cave.getByRole('columnheader')).toHaveText(isMobile ? [/^Hypothèse/, /^Choix du magasin/, /^\d{4}$/] : [/^Hypothèse/, /^\d{4}$/, /^Siège propose/, /^Choix du magasin/, /^\d{4}$/, /^Effet$/])
   await expect(cave.getByRole('row', { name: /^Tickets/ })).toContainText(/10\s000/)
   await page.getByLabel('Évolution du nombre de tickets : Cave').fill('5')
   const barre = page.getByRole('region', { name: 'Changements non enregistrés' })
   await expect(barre).toContainText('1 changement')
+  // Refonte A (2/11/2026) : marge 2026 pondérée par le CA (36 %), effet en euros : 200 k€ × 5 % = +10 k€ de CA ;
+  // sans proposition du siège, « Rythme actuel » ; la flèche reprend la valeur du niveau au-dessus
+  await expect(cave.getByRole('row', { name: /^Marge visée/ })).toContainText('36,0 %')
+  if (!isMobile) {
+    await expect(cave.getByRole('row', { name: /^Tickets/ })).toContainText(/\+10\sk€ de CA$/)
+    await expect(cave.getByRole('row', { name: /^Tickets/ })).toContainText('Rythme actuel')
+  }
+  await expect(cave.getByRole('button', { name: 'Reprendre la valeur du niveau au-dessus : évolution des tickets Cave' })).toBeVisible()
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-hypotheses-ventes.png`, fullPage: true })
