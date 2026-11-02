@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import type { Hypotheses } from '../src/moteur/types'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule, allerVers } from './supabase-simule'
 
 // Projection du CA (lot 24) : rythme de sortie, ancienneté, temps forts, clients gagnés ou perdus, opérations du réseau.
 // Données fictives : dépôt public. Les montants viennent du moteur, vérifié à la main dans tests/moteur/projection.spec.ts.
@@ -23,7 +23,7 @@ test.afterEach(async ({ page }) => {
 test('le Directeur voit le rythme de sortie, le retient au-delà de 15 % et renseigne la date d’ouverture', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { magasins: [magasin(avecSortie(75_000))] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: /^Budget/ }).click()
+  await ouvrir(page, 'Hypothèses')
   const base = page.getByRole('region', { name: 'Base du CA' })
   const cave = base.getByRole('row', { name: /^Cave/ })
   // 75 000 de mai à août pour 30 % de l'année : 250 000 au rythme actuel, + 25 % sur les 200 000 attendus
@@ -61,7 +61,7 @@ test('le Directeur voit le rythme de sortie, le retient au-delà de 15 % et rens
 test('sous 15 % le rythme s’applique de lui-même ; un Coach le lit sans pouvoir le changer', async ({ page }) => {
   await seConnecter(page, { role: 'coach', magasins: [magasin(avecSortie(66_000))], ouvertures: [{ store_name: MAGASINS[0], ouverture: '2026-01-01' }] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: /^Budget/ }).click()
+  await ouvrir(page, 'Hypothèses')
   const base = page.getByRole('region', { name: 'Base du CA' })
   // 66 000 / 30 % = 220 000, + 10 % : retenu ; 220 000 + 300 000 + 100 000
   await expect(base.getByRole('row', { name: /^Cave/ })).toContainText('Rythme de sortie retenu')
@@ -76,7 +76,7 @@ test('sous 15 % le rythme s’applique de lui-même ; un Coach le lit sans pouvo
 
 test('le franchisé prévoit un temps fort et un client gagné : la base perd l’an passé, le budget gagne l’an prochain', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { role: 'franchise', magasins: [magasin(magasinFictif)] })
-  await page.getByRole('tab', { name: /^Budget/ }).click()
+  await ouvrir(page, 'Hypothèses')
   const ca = page.getByRole('table', { name: 'Budget 2027 mois par mois' }).getByRole('row', { name: /^Chiffre d’affaires HT/ })
   await ouvrir(page, 'Résultat et trésorerie')
   await expect(ca).toContainText(/600\s000\s€/)
@@ -136,7 +136,7 @@ test('le franchisé prévoit un temps fort et un client gagné : la base perd l�
 
 test('le Directeur fixe la hausse tarifaire et les valeurs par ancienneté ; le budget du magasin les reprend', async ({ page, isMobile }) => {
   const ecritures = await seConnecter(page, { magasins: [magasin(magasinFictif)], ouvertures: [{ store_name: MAGASINS[0], ouverture: '2026-01-01' }] })
-  await page.getByRole('link', { name: /Hypothèses/ }).click()
+  await allerVers(page, 'Hypothèses du réseau')
   const anciennete = page.getByRole('region', { name: 'Selon l’ancienneté du magasin' })
   await expect(anciennete.getByRole('row', { name: /^Année 2/ })).toContainText('1')
   const effet = page.getByRole('region', { name: 'Effet des hypothèses' })
@@ -153,9 +153,9 @@ test('le Directeur fixe la hausse tarifaire et les valeurs par ancienneté ; le 
   expect(ecritures.find((e) => e.table === 'cibles_reseau')?.corps).toEqual({ annee: 2027, valeur: { hausseTarifaire: 0.02, millesimes: { 2: { evolutionFlux: { cave: 0.05 } } } } })
 
   // Fiche du magasin : les tickets viennent de l'ancienneté, le panier de la hausse tarifaire
-  await page.getByRole('link', { name: /Magasins/ }).first().click()
+  await allerVers(page, 'Campagne')
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: /^Budget/ }).click()
+  await ouvrir(page, 'Hypothèses')
   const hypotheses = page.getByRole('region', { name: 'Hypothèses du magasin' })
   await expect(hypotheses.getByRole('group', { name: 'Tickets (Cave)' })).toContainText('Ancienneté')
   await expect(hypotheses.getByRole('group', { name: 'Panier moyen TTC (Cave)' })).toContainText('Tarif')
@@ -164,7 +164,7 @@ test('le Directeur fixe la hausse tarifaire et les valeurs par ancienneté ; le 
 
 test('paramètres réseau : achats de l’Extérieur payés avant la vente, opérations du réseau', async ({ page, isMobile }) => {
   const ecritures = await seConnecter(page, { role: 'directeur' })
-  await page.getByRole('link', { name: /Paramètres/ }).first().click()
+  await allerVers(page, 'Paramètres réseau')
   const section = page.getByRole('region', { name: 'Trésorerie' })
   await section.getByRole('button', { name: /^Trésorerie \d{4} : ouvrir$/ }).click()
   await expect(page.getByLabel('Avance des achats de l’Extérieur')).toHaveValue('1')

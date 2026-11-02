@@ -18,12 +18,12 @@ test.afterEach(async ({ page }) => {
 
 test('fiche en trois espaces ; la barre d’enregistrement montre l’effet avant → après et se retire à l’annulation', async ({ page, isMobile }, info) => {
   await seConnecter(page, { role: 'franchise', magasins: [propose] })
-  const espaces = page.getByRole('tablist', { name: 'Vues du magasin' })
-  await expect(espaces.getByRole('tab')).toHaveText(['Synthèse', /^\d{4} en cours/, /^Budget \d{4}/])
-  await espaces.getByRole('tab', { name: /^Budget/ }).click()
-  const parties = page.getByRole('tablist', { name: /^Parties du budget/ })
+  // Lot 36 : la fiche s'ouvre sur le suivi ; le budget est un espace à part, en 6 étapes (0 : point de départ)
+  await expect(page).toHaveURL(/\/synthese$/)
+  await ouvrir(page, 'Hypothèses')
+  const parties = page.getByRole('tablist', { name: /^Étapes du budget/ })
   await expect(parties.getByRole('tab', { name: '1 · Chiffre d’affaires' })).toHaveAttribute('aria-selected', 'true')
-  await expect(parties.getByRole('tab')).toHaveCount(5)
+  await expect(parties.getByRole('tab')).toHaveCount(6)
 
   const barre = page.getByRole('region', { name: 'Changements non enregistrés' })
   await expect(barre).toHaveCount(0)
@@ -50,7 +50,7 @@ test('compte de résultat par quadrimestre en milliers d’euros ; trésorerie e
   await seConnecter(page, { magasins: [propose] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Résultat et trésorerie')
-  const annee = Number((await page.getByRole('tab', { name: /^Budget/ }).first().textContent())?.match(/\d{4}/)?.[0])
+  const annee = Number((await page.getByRole('tablist', { name: /^Étapes du budget/ }).getAttribute('aria-label'))?.match(/\d{4}/)?.[0])
   const tableau = page.getByRole('table', { name: `Budget ${annee} mois par mois` })
   await expect(tableau.getByRole('columnheader')).toHaveCount(15)            // libellé, 12 mois, total, part du CA
 

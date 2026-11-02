@@ -92,7 +92,7 @@ test('une ligne de frais s’ajoute depuis la grille ; un montant illisible est 
 test('synthèse et atterrissage : réel des mois passés, saisonnalité de l’an dernier, frais du magasin', async ({ page, isMobile }, info) => {
   await seConnecter(page, { role: 'rr', reel: reelPour(MAGASINS[0]), tickets: ticketsPour(MAGASINS[0]), frais: [loyer(MAGASINS[0])] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await expect(page.getByRole('tab', { name: 'Synthèse' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page).toHaveURL(/\/synthese$/)
   const sante = page.getByRole('region', { name: 'Santé du magasin à fin février' })
   // Cumul 40 000 contre 2 000 aux mêmes mois de l'an dernier ; marge 18 200 / 40 000 = 45,5 %
   await expect(sante).toContainText(/40\sk€/)
@@ -150,15 +150,15 @@ test('synthèse et atterrissage : réel des mois passés, saisonnalité de l’a
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.getByRole('button', { name: 'Fermer' }).click()
 
-  await page.getByRole('tab', { name: 'Synthèse' }).click()
+  await ouvrir(page, 'Synthèse')
   await page.getByRole('button', { name: 'Renseigner l’équipe' }).click()
-  await expect(page.getByRole('tab', { name: /^2 · Équipe/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(page).toHaveURL(/\/equipe$/)
 })
 
 test('le Directeur propose le budget de l’an prochain à partir de l’atterrissage', async ({ page }) => {
   const ecritures = await seConnecter(page, { reel: reelPour(MAGASINS[2]), tickets: ticketsPour(MAGASINS[2]), frais: [loyer(MAGASINS[2])] })
   await page.getByText(MAGASINS[2], { exact: true }).last().click()
-  await page.getByRole('tab', { name: /^Budget/ }).click()
+  await ouvrir(page, 'Hypothèses')
   await expect(page.getByText(`Pas encore de budget ${B}`)).toBeVisible()
   await page.getByRole('button', { name: `Voir l’atterrissage ${N}` }).click()
   await page.getByRole('button', { name: `Proposer le budget ${B}` }).click()
@@ -170,7 +170,7 @@ test('le Directeur propose le budget de l’an prochain à partir de l’atterri
   expect(envoi.base.frais.map((f) => f.code)).toEqual(['loyer'])
   expect(envoi.base.caMensuelReference[11]).toBeCloseTo(65_000, 6)
   await expect(page.getByRole('button', { name: `Mettre à jour la proposition ${B}` })).toBeVisible()
-  await page.getByRole('tab', { name: /^Budget/ }).click()
+  await ouvrir(page, 'Hypothèses')
   await expect(page.getByRole('region', { name: 'Indicateurs clés' })).toBeVisible()
 })
 

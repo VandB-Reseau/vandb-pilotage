@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { MAGASINS } from './donnees-fictives'
-import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type TicketsSimules, type VenteSimulee } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type TicketsSimules, type VenteSimulee, allerVers } from './supabase-simule'
 
 // Réel de l'année : import des fichiers de la DSI par le Directeur, consultation et saisie d'un mois dans la fiche magasin.
 // Données fictives uniquement (codes caisse et montants inventés) : dépôt public.
@@ -30,7 +30,7 @@ test.afterEach(async ({ page }) => {
 
 test('le Directeur importe les fichiers du mois, rattache un code caisse inconnu, puis enregistre', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { codes: [{ code: '0101', store_name: MAGASINS[0] }] })
-  await page.getByRole('link', { name: /Imports/ }).click()
+  await allerVers(page, 'Imports de caisse')
   await expect(page.getByRole('heading', { level: 1, name: 'Imports de caisse' })).toBeVisible()
   await page.getByLabel('Fichiers de ventes et de tickets').setInputFiles([fichier('ventes_2026-09.csv'), fichier('tickets_2026-09.csv')])
 
@@ -65,7 +65,7 @@ test('le Directeur importe les fichiers du mois, rattache un code caisse inconnu
 
 test('un fichier qui n’est pas celui de la DSI est expliqué ; un code caisse se retire', async ({ page }) => {
   const ecritures = await seConnecter(page, { codes: [{ code: '0101', store_name: MAGASINS[0] }] })
-  await page.getByRole('link', { name: /Imports/ }).click()
+  await allerVers(page, 'Imports de caisse')
   await page.getByLabel('Fichiers de ventes et de tickets').setInputFiles({ name: 'export.csv', mimeType: 'text/csv', buffer: Buffer.from('magasin;jour;total\n1;2;3\n') })
   await expect(page.getByText('export.csv : ce n’est ni un fichier de ventes ni un fichier de tickets', { exact: false })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Importer' })).toBeDisabled()

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule, allerVers } from './supabase-simule'
 
 // Construire le budget : cibles du réseau et des groupes, ajustements du magasin, validation.
 // Données fictives uniquement (magasin fictif) : dépôt public.
@@ -22,7 +22,7 @@ test.afterEach(async ({ page }) => {
 
 test('le Directeur fixe les cibles du réseau et voit leur effet sur le total', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { magasins: avecBase() })
-  await page.getByRole('link', { name: /Hypothèses/ }).click()
+  await allerVers(page, 'Hypothèses du réseau')
   await expect(page.getByRole('heading', { level: 1, name: 'Hypothèses' })).toBeVisible()
   // Sans cible : CA = atterrissage du magasin fictif, 600 000
   const effet = page.getByRole('region', { name: 'Effet des hypothèses' })
@@ -43,7 +43,7 @@ test('le Directeur fixe les cibles du réseau et voit leur effet sur le total', 
 
 test('le Directeur crée un groupe, y range un magasin et lui donne ses propres cibles', async ({ page }) => {
   const ecritures = await seConnecter(page, { magasins: avecBase(), reseau })
-  await page.getByRole('link', { name: /Hypothèses/ }).click()
+  await allerVers(page, 'Hypothèses du réseau')
   await page.getByRole('button', { name: 'Groupe' }).click()
   await page.getByLabel('Nom du groupe').fill('Centre-ville')
   await page.getByRole('button', { name: 'Créer' }).click()
@@ -65,7 +65,7 @@ test('le Directeur crée un groupe, y range un magasin et lui donne ses propres 
 test('le franchisé s’écarte d’une cible : le budget passe en discussion, il ne valide pas', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { role: 'franchise', magasins: avecBase(), reseau })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: /^Budget/ }).click()
+  await ouvrir(page, 'Hypothèses')
   const resultat = page.getByRole('table', { name: 'Budget 2027 mois par mois' })
   await ouvrir(page, 'Résultat et trésorerie')
   // Cibles du réseau : 200 000 × 1,03 + 300 000 × 1,03 + 100 000
@@ -101,7 +101,7 @@ test('le franchisé s’écarte d’une cible : le budget passe en discussion, i
 test('le Directeur valide le budget, puis peut le rouvrir', async ({ page }) => {
   const ecritures = await seConnecter(page, { magasins: avecBase('en_discussion'), reseau })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: /^Budget/ }).click()
+  await ouvrir(page, 'Hypothèses')
   await page.getByRole('button', { name: 'Valider le budget' }).click()
   await expect(page.getByText('Budget 2027 validé.')).toBeVisible()
   const envoi = ecritures.find((e) => e.table === 'budgets' && e.methode === 'PATCH')?.corps as { statut: string; hypotheses: { familles: { evolution: number }[]; flux: { cave: { evolution: number } } } }
@@ -118,7 +118,7 @@ test('le Directeur valide le budget, puis peut le rouvrir', async ({ page }) => 
 test('un Coach lit les hypothèses sans pouvoir les modifier ; une écriture qui échoue l’explique', async ({ page }) => {
   await seConnecter(page, { role: 'coach', magasins: avecBase(), reseau })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: /^Budget/ }).click()
+  await ouvrir(page, 'Hypothèses')
   await expect(page.getByLabel('Évolution du nombre de tickets : Cave')).toBeDisabled()
   await expect(page.getByRole('button', { name: /Enregistrer|Valider|Importer/ })).toHaveCount(0)
   await expect(page.getByRole('link', { name: /Hypothèses/ })).toHaveCount(0)
@@ -128,7 +128,7 @@ test('un Coach lit les hypothèses sans pouvoir les modifier ; une écriture qui
   await page.getByRole('menuitem', { name: 'Se déconnecter' }).click()
   await seConnecter(page, { role: 'franchise', magasins: avecBase(), reseau, panneEcriture: true })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: /^Budget/ }).click()
+  await ouvrir(page, 'Hypothèses')
   await page.getByLabel('Salaires et frais : Hausse des salaires').fill('1')
   await page.getByRole('button', { name: 'Enregistrer les ajustements' }).click()
   await expect(page.getByText('L’enregistrement n’a pas abouti. Vérifie ta connexion, puis réessaie.')).toBeVisible()

@@ -5,6 +5,17 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 36 — Navigation en trois espaces : Données, Budget, Suivi
+
+- Le menu de gauche commence par un sélecteur Données / Budget / Suivi ; le magasin ouvert reste le même d'un espace à l'autre.
+- Données : réel du mois, comptes du quadrimestre (et FEC), frais de l'année ; Imports de caisse pour le Directeur.
+- Budget : étape 0 « Point de départ » (atterrissage de l'année en cours, d'où se propose le budget), puis les étapes 1 à 5 ;
+  Campagne et Hypothèses du réseau dans le même espace.
+- Suivi : Synthèse et Face au budget ; Réel du réseau pour l'équipe.
+- Chaque partie de la fiche a son adresse (#/magasins/<nom>/<partie>) : actualiser ou envoyer un lien ouvre la bonne page.
+- Téléphone : les trois espaces en barre basse, le menu derrière l'icône en haut à gauche.
+- Sans migration.
+
 ### Refonte visuelle — tableaux plus souples, réel face au prévu, trésorerie
 
 - Sans migration. Choix de Joseph (2/11/2026) : toutes les propositions sauf le solde bancaire mensuel (la trésorerie

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule, allerVers } from './supabase-simule'
 
 // Lot 32 : modèles d'import à télécharger, picto (i) sur les chiffres calculés. Données fictives : dépôt public.
 const magasins = (): MagasinSimule[] => [
@@ -18,7 +18,7 @@ test.afterEach(async ({ page }) => {
 
 test('imports : chaque import propose son modèle', async ({ page, isMobile }) => {
   await seConnecter(page)
-  await page.getByRole('link', { name: /Imports/ }).first().click()
+  await allerVers(page, 'Imports de caisse')
   const telechargement = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Modèle des ventes' }).click()
   const fichier = await telechargement
@@ -31,7 +31,7 @@ test('imports : chaque import propose son modèle', async ({ page, isMobile }) =
 
 test('fiche : picto (i) sur les chiffres clés et les lignes calculées du compte de résultat et de la trésorerie', async ({ page, isMobile }, info) => {
   await seConnecter(page, { role: 'franchise', magasins: magasins() })
-  await page.getByRole('tab', { name: /^Budget/ }).click()
+  await ouvrir(page, 'Hypothèses')
   await expect(page.getByRole('button', { name: 'Comment c’est calculé : EBE' })).toBeVisible()
   await expect(page.getByText('D’où vient ce chiffre ?')).toHaveCount(0)
   await page.getByRole('button', { name: 'Aide : % FP (frais de personnel)' }).click()

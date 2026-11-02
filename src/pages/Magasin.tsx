@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Link as RouterLink, useLocation, useParams } from 'react-router-dom'
+import { useContext, useEffect, useState } from 'react'
+import { Link as RouterLink, useLocation, useNavigate, useParams } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Badge from '@mui/material/Badge'
@@ -12,6 +12,8 @@ import Tabs from '@mui/material/Tabs'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
+import useMediaQuery from '@mui/material/useMediaQuery'
+import { useTheme } from '@mui/material/styles'
 import ArrowBack from '@mui/icons-material/ArrowBack'
 import ChevronLeftOutlined from '@mui/icons-material/ChevronLeftOutlined'
 import ChevronRightOutlined from '@mui/icons-material/ChevronRightOutlined'
@@ -59,6 +61,8 @@ import { useChargement } from '../data/useChargement'
 import { nombreChangements, reelEnRetard } from '../lib/aFaire'
 import { feuillesBudget } from '../lib/exports'
 import { lienMagasin, milliers, taux } from '../lib/format'
+import { espaceDe, partieConnue, partieDe, partiesDe, sectionDe } from '../lib/navigation'
+import { MenuMagasin } from '../layout/menuMagasin'
 import { classeur, nomFichier, telecharger } from '../lib/xlsx'
 import { syntheseReel } from '../moteur/reel'
 import { calculerBudget, effetTravaux } from '../moteur/budget'
@@ -76,23 +80,19 @@ function LibelleOnglet({ texte, manque, detail }: { texte: string; manque: boole
     </Badge>
   )
 }
-// Lot 27 : espaces de la fiche ; chaque partie (ancien onglet) appartient à un espace. « budget » : les hypothèses.
-type Espace = 'synthese' | 'annee' | 'budget'
-// 29/10/2026 (Joseph) : les frais sont ceux du magasin aujourd'hui, saisis dans l'année en cours ; le budget les reprend.
-// Lot 35 (02/11/2026) : l'équipe redevient une étape du budget (changements datés), les frais du budget une autre
-const PARTIES_ANNEE = ['reel', 'frais', 'suivi', 'atterrissage', 'quadrimestres']
-// Lot 30 (E1) : 10 onglets deviennent 6 ; une ancienne partie s'affiche dans l'onglet qui la regroupe, sous la première
-const REGROUPEES: Record<string, string> = { calendrier: 'budget', atterrissage: 'suivi', quadrimestres: 'reel' }
-const ongletDe = (o: string) => REGROUPEES[o] ?? o
-const espaceDe = (o: string): Espace => (o === 'synthese' ? 'synthese' : PARTIES_ANNEE.includes(o) ? 'annee' : 'budget')
-type Partie = { cle: string; libelle: string; manque?: boolean; detail?: string }
+// Lot 36 : la fiche se découpe en parties rangées dans trois espaces (Données, Budget, Suivi), voir lib/navigation
 
 const visuellementCache = { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' } as const
 
 type Message = { gravite: 'success' | 'error' | 'warning'; texte: string; details?: string[] }
 
 export function Magasin() {
-  const { nom = '' } = useParams()
+  const { nom = '', partie: partieUrl } = useParams()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const theme = useTheme()
+  const telephone = useMediaQuery(theme.breakpoints.down('md'))
+  const menu = useContext(MenuMagasin)
   const { profil } = useAuth()
   const annee = anneeBudget()
   const { donnees, erreur, chargement, recharger } = useChargement(
@@ -106,28 +106,36 @@ export function Magasin() {
   const [proposition, setProposition] = useState<{ intitule: string; n: number } | null>(null)
   // Budget de l'an prochain, réel de l'année en cours et de la précédente
   const anneeEnCours = new Date().getFullYear()
-  // Synthèse d'abord : la santé du magasin en un coup d'œil
-  const demande = (useLocation().state as { onglet?: string } | null)?.onglet ?? 'synthese'
-  const [onglet, setOnglet] = useState(ongletDe(demande))
-  // Partie regroupée demandée (« frais », « quadrimestres »…) : la page défile jusqu'à elle une fois affichée
-  const [section, setSection] = useState<string | null>(REGROUPEES[demande] ? demande : null)
+  // Lot 36 : la partie affichée vient de l'adresse ; un ancien lien (sans partie, ou par l'état « onglet ») est réécrit
+  const etatLien = location.state as { onglet?: string; section?: string } | null
+  const voulu = partieUrl ?? etatLien?.onglet ?? 'synthese'
+  const onglet = partieConnue(voulu) ? partieDe(voulu) : 'synthese'
+  useEffect(() => {
+    if (partieUrl === onglet) return
+    const { onglet: _o, ...reste } = etatLien ?? {}
+    navigate(lienMagasin(nom, onglet), { replace: true, state: { ...reste, section: sectionDe(voulu) ?? undefined } })
+  }, [partieUrl, onglet, nom]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Partie regroupée demandée (« calendrier », « plan »…) : la page défile jusqu'à elle une fois affichée
+  const [section, setSection] = useState<string | null>(etatLien?.section ?? null)
+  useEffect(() => { if (etatLien?.section) setSection(etatLien.section) }, [etatLien?.section])
   useEffect(() => {
     if (!section) return
     const t = window.setTimeout(() => { document.getElementById(`partie-${section}`)?.scrollIntoView({ block: 'start' }); setSection(null) }, 50)
     return () => window.clearTimeout(t)
   }, [section, onglet])
-  const [dernieres, setDernieres] = useState<Record<Exclude<Espace, 'synthese'>, string>>({ annee: 'reel', budget: 'budget' })
   const [anneeReel, setAnneeReel] = useState(anneeEnCours)
   const [anneeQuadri, setAnneeQuadri] = useState(anneeEnCours)
 
   const ligne = donnees?.d.magasins.find((l) => l.magasin === nom) ?? null
-  useEffect(() => { setBrouillon(ligne?.ajustements ?? {}) }, [ligne])
-  useSaisieEnCours(!!ligne && JSON.stringify(brouillon) !== JSON.stringify(ligne.ajustements))
+  // Le brouillon est repris du magasin une fois chargé : avant, aucune saisie n'est « en cours » (pas de garde intempestive)
+  const [brouillonDe, setBrouillonDe] = useState<object | null>(null)
+  useEffect(() => { setBrouillon(ligne?.ajustements ?? {}); setBrouillonDe(ligne) }, [ligne])
+  useSaisieEnCours(!!ligne && brouillonDe === ligne && JSON.stringify(brouillon) !== JSON.stringify(ligne.ajustements))
   const garde = useGarde()
   // Réel de l'année : pastille de l'onglet si le dernier mois terminé manque (gardé en mémoire pour les onglets Réel et Atterrissage)
   const reel = useChargement(() => chargerReel(nom, anneeEnCours), [nom, anneeEnCours])
   // Magasins de la liste d'où l'on vient (filtres compris), pour passer au précédent ou au suivant
-  const { state } = useLocation() as { state: { liste?: string[]; retour?: string; depuis?: { chemin: string; nom: string } } | null }
+  const state = location.state as { liste?: string[]; retour?: string; depuis?: { chemin: string; nom: string } } | null
 
   const directeur = profil?.role === 'directeur'
   // Joseph, 29/10/2026 : le budget est validé par le RR (ses magasins) ou par le Directeur
@@ -144,17 +152,31 @@ export function Magasin() {
       <Button component={RouterLink} to={`${state?.depuis?.chemin ?? '/'}${state?.retour ? `?${state.retour}` : ''}`} startIcon={<ArrowBack />} sx={{ minHeight: 48 }}>{state?.depuis?.nom ?? 'Magasins'}</Button>
       <Box sx={{ flex: 1 }} />
       {precedent && (
-        <Button component={RouterLink} to={lienMagasin(precedent)} state={state} startIcon={<ChevronLeftOutlined />} aria-label={`Magasin précédent : ${precedent}`} sx={{ minHeight: 48, maxWidth: 260 }}>
+        <Button component={RouterLink} to={lienMagasin(precedent, onglet)} state={state} startIcon={<ChevronLeftOutlined />} aria-label={`Magasin précédent : ${precedent}`} sx={{ minHeight: 48, maxWidth: 260 }}>
           <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: { xs: 'none', sm: 'inline' } }}>{precedent}</Box>
         </Button>
       )}
       {suivant && (
-        <Button component={RouterLink} to={lienMagasin(suivant)} state={state} endIcon={<ChevronRightOutlined />} aria-label={`Magasin suivant : ${suivant}`} sx={{ minHeight: 48, maxWidth: 260 }}>
+        <Button component={RouterLink} to={lienMagasin(suivant, onglet)} state={state} endIcon={<ChevronRightOutlined />} aria-label={`Magasin suivant : ${suivant}`} sx={{ minHeight: 48, maxWidth: 260 }}>
           <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: { xs: 'none', sm: 'inline' } }}>{suivant}</Box>
         </Button>
       )}
     </Box>
   )
+
+  // Quitter le budget sans enregistrer (la garde a demandé confirmation) : on repart des ajustements enregistrés
+  const espaceAffiche = espaceDe(onglet)
+  useEffect(() => { if (espaceAffiche !== 'budget' && ligne) setBrouillon(ligne.ajustements) }, [espaceAffiche]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Pastilles du menu de gauche
+  const pastillesMenu = ligne && donnees ? {
+    reel: !!reel.donnees && reelEnRetard(syntheseReel(reel.donnees.lignes, reel.donnees.tickets).moisRenseignes),
+    frais: !donnees.d.frais[ligne.magasin]?.length,
+    equipe: !donnees.d.equipes[ligne.magasin]?.length,
+    depart: directeur && !ligne.statut,
+  } : {}
+  const clePastilles = JSON.stringify(pastillesMenu)
+  useEffect(() => { menu(JSON.parse(clePastilles) as Record<string, boolean>) }, [clePastilles, menu])
+  useEffect(() => () => menu({}), [menu])
 
   if (chargement && !donnees) return <Box>{retour}<Skeleton variant="rounded" height={160} /></Box>
   if (erreur) return <Box>{retour}<Panne quoi="Les chiffres du magasin" recharger={recharger} /></Box>
@@ -212,29 +234,23 @@ export function Magasin() {
   }
 
 
-  // Lot 27 : trois espaces (synthèse, année en cours, budget) découpés en parties ; on garde la dernière partie de chaque espace
+  // Lot 36 : l'espace de la partie affichée ; aller à une partie = changer d'adresse, en gardant la liste d'où l'on vient
   const espace = espaceDe(onglet)
   const aller = (o: string) => {
-    const g = ongletDe(o)
-    setOnglet(g); setSection(REGROUPEES[o] ? o : null)
-    if (espaceDe(g) !== 'synthese') setDernieres((d) => ({ ...d, [espaceDe(g)]: g }))
+    const { onglet: _o, section: _s, ...reste } = (location.state ?? {}) as Record<string, unknown>
+    navigate(lienMagasin(ligne.magasin, partieDe(o)), { state: reste })
+    setSection(sectionDe(o))
   }
-  const changerEspace = (e: Espace) => garde(() => { setBrouillon(ligne.ajustements); aller(e === 'synthese' ? 'synthese' : dernieres[e]) })
   const reelRetard = !!reel.donnees && reelEnRetard(syntheseReel(reel.donnees.lignes, reel.donnees.tickets).moisRenseignes)
-  const partiesAnnee: Partie[] = [
-    { cle: 'reel', libelle: 'Réel', manque: reelRetard, detail: 'en retard' },
-    { cle: 'frais', libelle: 'Frais', manque: !d.frais[ligne.magasin]?.length, detail: 'à renseigner' },
-    { cle: 'suivi', libelle: 'Où on va' },
-  ]
-  const partiesBudget: Partie[] = [
-    { cle: 'budget', libelle: '1 · Chiffre d’affaires' },
-    { cle: 'equipe', libelle: '2 · Équipe', manque: !d.equipes[ligne.magasin]?.length, detail: 'à renseigner' },
-    { cle: 'fraisBudget', libelle: '3 · Frais' },
-    { cle: 'resultat', libelle: '4 · Résultat et trésorerie' },
-    { cle: 'echanges', libelle: '5 · Échanges et versions' },
-  ]
+  const manques: Record<string, { detail: string } | undefined> = {
+    reel: reelRetard ? { detail: 'en retard' } : undefined,
+    frais: !d.frais[ligne.magasin]?.length ? { detail: 'à renseigner' } : undefined,
+    equipe: !d.equipes[ligne.magasin]?.length ? { detail: 'à renseigner' } : undefined,
+    depart: directeur && !ligne.statut ? { detail: 'budget à proposer' } : undefined,
+  }
+  const parties = partiesDe(espace, anneeEnCours)
   // Budget : la partie affichée ; les autres parties du budget restent dans la page pour l'impression
-  const partie = (cle: string) => (onglet === ongletDe(cle) ? undefined : 'partie-cachee')
+  const partie = (cle: string) => (onglet === partieDe(cle) ? undefined : 'partie-cachee')
 
   // Effet des changements non enregistrés, face au budget enregistré
   const enregistre = hypothesesDe(ligne, d, ligne.ajustements)
@@ -255,19 +271,12 @@ export function Magasin() {
         {espace === 'budget' && <Box component="span" className="impression-seule">{ligne.base ? ' · ' : ''}Budget {annee} · imprimé le {new Date().toLocaleDateString('fr-FR')}</Box>}
       </Typography>
 
-      <Tabs value={espace} onChange={(_, v: Espace) => changerEspace(v)} aria-label="Vues du magasin"
-        sx={{ mb: espace === 'synthese' ? 3 : 1.5, minHeight: 0, '& .MuiTabs-flexContainer': { gap: 0.5, flexWrap: 'wrap' }, '& .MuiTabs-indicator': { display: 'none' },
-          '& .MuiTab-root': { minHeight: 48, borderRadius: 2, px: 2.5, fontWeight: 700, fontSize: '0.9375rem', color: 'text.secondary', bgcolor: 'action.hover' },
-          '& .MuiTab-root.Mui-selected': { bgcolor: 'text.primary', color: 'background.paper' } }}>
-        <Tab value="synthese" label="Synthèse" />
-        <Tab value="annee" label={<LibelleOnglet texte={`${anneeEnCours} en cours`} manque={reelRetard} detail="réel en retard" />} />
-        <Tab value="budget" label={<LibelleOnglet texte={`Budget ${annee}`} manque={directeur && !ligne.statut} detail="à proposer" />} />
-      </Tabs>
-      {espace !== 'synthese' && (
-        <Tabs value={onglet} onChange={(_, v: string) => (espace === 'budget' && onglet !== 'equipe' ? aller(v) : garde(() => aller(v)))} variant="scrollable" scrollButtons="auto"
-          aria-label={espace === 'budget' ? `Parties du budget ${annee}` : `Parties de l’année ${anneeEnCours}`} sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-          {(espace === 'budget' ? partiesBudget : partiesAnnee).map((x) => (
-            <Tab key={x.cle} value={x.cle} label={x.manque !== undefined ? <LibelleOnglet texte={x.libelle} manque={x.manque} detail={x.detail ?? ''} /> : x.libelle} sx={{ minHeight: 48 }} />
+      {/* Lot 36 : les parties sont dans le menu de gauche ; les étapes du budget restent en tête de page, et sur téléphone toutes les parties */}
+      {(espace === 'budget' || telephone) && (
+        <Tabs value={onglet} onChange={(_, v: string) => (espace === 'budget' && onglet !== 'equipe' && onglet !== 'depart' ? aller(v) : garde(() => aller(v)))} variant="scrollable" scrollButtons="auto"
+          aria-label={espace === 'budget' ? `Étapes du budget ${annee}` : espace === 'donnees' ? 'Données du magasin' : 'Suivi du magasin'} className="pas-a-l-impression" sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+          {parties.map((x) => (
+            <Tab key={x.cle} value={x.cle} label={manques[x.cle] ? <LibelleOnglet texte={x.libelle} manque detail={manques[x.cle]!.detail} /> : x.libelle} sx={{ minHeight: 48 }} />
           ))}
         </Tabs>
       )}
@@ -291,30 +300,26 @@ export function Magasin() {
           </>}
         />
       ) : onglet === 'suivi' ? (
-        <Stack spacing={5}>
-          <SuiviBudget key={ligne.magasin} magasin={ligne.magasin} annee={anneeEnCours} allerA={aller} muetSansReel />
-          <Box id="partie-atterrissage" sx={{ scrollMarginTop: 80 }}>
-            <AtterrissageMagasin
-              key={ligne.magasin} ligne={ligne} d={d} annee={anneeEnCours} anneeBudget={annee} parametres={donnees.parametresN}
-              directeur={directeur} peutSaisir={peutSaisir} allerA={aller} apresProposition={recharger}
-            />
-          </Box>
-        </Stack>
+        <SuiviBudget key={ligne.magasin} magasin={ligne.magasin} annee={anneeEnCours} allerA={aller} muetSansReel />
+      ) : onglet === 'depart' ? (
+        <AtterrissageMagasin
+          key={ligne.magasin} ligne={ligne} d={d} annee={anneeEnCours} anneeBudget={annee} parametres={donnees.parametresN}
+          directeur={directeur} peutSaisir={peutSaisir} allerA={aller} apresProposition={recharger}
+        />
       ) : onglet === 'reel' ? (
-        <Stack spacing={5}>
-          <Stack spacing={2}>
-            <ToggleButtonGroup exclusive size="small" value={anneeReel} onChange={(_, v: number | null) => v && setAnneeReel(v)} aria-label="Année du réel">
-              {[anneeEnCours, anneeEnCours - 1].map((a) => <ToggleButton key={a} value={a} sx={{ minHeight: 48, minWidth: 72 }}>{a}</ToggleButton>)}
-            </ToggleButtonGroup>
-            <ReelAnnee key={`${ligne.magasin}-${anneeReel}`} magasin={ligne.magasin} annee={anneeReel} peutSaisir={peutSaisir} apresEnregistrement={reel.recharger} />
-          </Stack>
-          <Stack spacing={2} id="partie-quadrimestres" sx={{ scrollMarginTop: 80 }}>
-            <Typography variant="h2">Quadrimestres comptables</Typography>
-            <ToggleButtonGroup exclusive size="small" value={anneeQuadri} onChange={(_, v: number | null) => v && garde(() => setAnneeQuadri(v))} aria-label="Année des quadrimestres">
-              {[anneeEnCours, anneeEnCours - 1].map((a) => <ToggleButton key={a} value={a} sx={{ minHeight: 48, minWidth: 72 }}>{a}</ToggleButton>)}
-            </ToggleButtonGroup>
-            <QuadrimestresMagasin key={`${ligne.magasin}-${anneeQuadri}`} magasin={ligne.magasin} annee={anneeQuadri} peutSaisir={peutSaisir} />
-          </Stack>
+        <Stack spacing={2}>
+          <ToggleButtonGroup exclusive size="small" value={anneeReel} onChange={(_, v: number | null) => v && setAnneeReel(v)} aria-label="Année du réel">
+            {[anneeEnCours, anneeEnCours - 1].map((a) => <ToggleButton key={a} value={a} sx={{ minHeight: 48, minWidth: 72 }}>{a}</ToggleButton>)}
+          </ToggleButtonGroup>
+          <ReelAnnee key={`${ligne.magasin}-${anneeReel}`} magasin={ligne.magasin} annee={anneeReel} peutSaisir={peutSaisir} apresEnregistrement={reel.recharger} />
+        </Stack>
+      ) : onglet === 'quadrimestres' ? (
+        <Stack spacing={2} id="partie-quadrimestres" sx={{ scrollMarginTop: 80 }}>
+          <Typography variant="h2">Quadrimestres comptables</Typography>
+          <ToggleButtonGroup exclusive size="small" value={anneeQuadri} onChange={(_, v: number | null) => v && garde(() => setAnneeQuadri(v))} aria-label="Année des quadrimestres">
+            {[anneeEnCours, anneeEnCours - 1].map((a) => <ToggleButton key={a} value={a} sx={{ minHeight: 48, minWidth: 72 }}>{a}</ToggleButton>)}
+          </ToggleButtonGroup>
+          <QuadrimestresMagasin key={`${ligne.magasin}-${anneeQuadri}`} magasin={ligne.magasin} annee={anneeQuadri} peutSaisir={peutSaisir} />
         </Stack>
       ) : onglet === 'equipe' ? (
         <EquipeMagasin

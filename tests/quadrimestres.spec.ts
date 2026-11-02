@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule, type QuadrimestreSimule, type VenteSimulee } from './supabase-simule'
+import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule, type QuadrimestreSimule, type VenteSimulee, allerVers } from './supabase-simule'
 
 // Quadrimestres : quelques montants comptables saisis, marge réelle et EBE calculés. Données fictives : dépôt public.
 // Mêmes chiffres que tests/moteur/quadrimestre.spec.ts, vérifiés à la main.
@@ -81,7 +81,7 @@ test('quadrimestre enregistré repris ; sans caisse, la marge reste à calculer'
 
 test('le Directeur importe le fichier des comptables : code caisse ou nom du magasin', async ({ page, isMobile }) => {
   const ecritures = await seConnecter(page, { codes: [{ code: '0101', store_name: MAGASINS[1] }] })
-  await page.getByRole('link', { name: /Imports/ }).click()
+  await allerVers(page, 'Imports de caisse')
   const section = page.getByRole('region', { name: 'Quadrimestres des comptables' })
   await page.getByLabel('Fichier des quadrimestres').setInputFiles(new URL('./fichiers/quadrimestres_2026-1.csv', import.meta.url).pathname)
   await expect(section).toContainText('quadrimestres_2026-1.csv : 2 quadrimestres, 2 magasins')

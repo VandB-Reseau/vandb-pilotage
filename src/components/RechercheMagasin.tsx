@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { magasinDeChemin } from '../lib/navigation'
 import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete'
 import Dialog from '@mui/material/Dialog'
 import DialogContent from '@mui/material/DialogContent'
@@ -43,6 +44,8 @@ export function RechercheMagasin({ telephone }: { telephone: boolean }) {
   const navigate = useNavigate()
   const garde = useGarde()
   const { pathname } = useLocation()
+  // Lot 36 : d'un magasin à l'autre, on reste sur la même partie (même espace)
+  const partieOuverte = magasinDeChemin(pathname)?.partie ?? null
 
   useEffect(() => {
     let actif = true
@@ -76,7 +79,7 @@ export function RechercheMagasin({ telephone }: { telephone: boolean }) {
     if (!nom) return
     setOuvert(false)
     champ.current?.blur()
-    garde(() => navigate(lienMagasin(nom), { state: { liste: magasins } }))
+    garde(() => navigate(lienMagasin(nom, partieOuverte ?? undefined), { state: { liste: magasins } }))
   }
   const recherche = (enDialogue: boolean) => (
     <Autocomplete

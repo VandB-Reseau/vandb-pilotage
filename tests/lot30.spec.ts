@@ -22,14 +22,21 @@ test.afterEach(async ({ page }) => {
   expect((page as unknown as { erreurs: string[] }).erreurs, 'aucune erreur JavaScript').toEqual([])
 })
 
-test('fiche : l’année en cours en 2 onglets, le réel et les quadrimestres sur la même page', async ({ page }) => {
+test('fiche (lot 36) : le réel et les quadrimestres dans Données, l’atterrissage au départ du budget, chacun à son adresse', async ({ page }) => {
   await seConnecter(page, { reel })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Réel')
-  await expect(page.getByRole('tablist', { name: /^Parties de l’année/ }).getByRole('tab')).toHaveText([/^Réel/, /^Frais/, 'Où on va'])
+  await expect(page).toHaveURL(/\/reel$/)
+  await expect(page.getByRole('heading', { name: 'Quadrimestres comptables' })).toHaveCount(0)
+  await ouvrir(page, 'Quadrimestres')
+  await expect(page).toHaveURL(/\/quadrimestres$/)
   await expect(page.getByRole('heading', { name: 'Quadrimestres comptables' })).toBeVisible()
-  await ouvrir(page, 'Où on va')
-  await expect(page.locator('#partie-atterrissage')).toBeVisible()
+  await ouvrir(page, 'Atterrissage')
+  await expect(page).toHaveURL(/\/depart$/)
+  // Une adresse rouverte (actualisation, lien envoyé) affiche la même partie
+  await page.reload()
+  await expect(page).toHaveURL(/\/depart$/)
+  await expect(page.getByRole('tab', { name: /^0 · Point de départ/ })).toHaveAttribute('aria-selected', 'true')
 })
 
 test('synthèse en 3 blocs : les chiffres, quoi faire, et le détail replié', async ({ page, isMobile }, info) => {

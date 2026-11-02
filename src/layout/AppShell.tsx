@@ -1,9 +1,11 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
 import AppBar from '@mui/material/AppBar'
 import BottomNavigation from '@mui/material/BottomNavigation'
 import BottomNavigationAction from '@mui/material/BottomNavigationAction'
 import Box from '@mui/material/Box'
+import Badge from '@mui/material/Badge'
+import Button from '@mui/material/Button'
 import Divider from '@mui/material/Divider'
 import Drawer from '@mui/material/Drawer'
 import GlobalStyles from '@mui/material/GlobalStyles'
@@ -12,6 +14,7 @@ import List from '@mui/material/List'
 import ListItemButton from '@mui/material/ListItemButton'
 import ListItemIcon from '@mui/material/ListItemIcon'
 import ListItemText from '@mui/material/ListItemText'
+import ListSubheader from '@mui/material/ListSubheader'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
@@ -20,6 +23,9 @@ import Typography from '@mui/material/Typography'
 import useMediaQuery from '@mui/material/useMediaQuery'
 import { useTheme } from '@mui/material/styles'
 import AccountCircleOutlined from '@mui/icons-material/AccountCircleOutlined'
+import AccountBalanceOutlined from '@mui/icons-material/AccountBalanceOutlined'
+import InsightsOutlined from '@mui/icons-material/InsightsOutlined'
+import MenuOutlined from '@mui/icons-material/MenuOutlined'
 import LogoutOutlined from '@mui/icons-material/LogoutOutlined'
 import StorefrontOutlined from '@mui/icons-material/StorefrontOutlined'
 import TuneOutlined from '@mui/icons-material/TuneOutlined'
@@ -32,11 +38,17 @@ import { RechercheMagasin } from '../components/RechercheMagasin'
 import { useAuth } from '../auth/AuthContext'
 import { estDirecteur, estEquipe, roleLibelle } from '../auth/roles'
 import { installerChampSuivant } from '../lib/champSuivant'
+import { lienMagasin } from '../lib/format'
+import { ESPACES, PARTIE_PAR_DEFAUT, espaceDe, espaceDePage, magasinDeChemin, partieDe, partiesDe, type Espace } from '../lib/navigation'
+import { anneeBudget } from '../data/pilotage'
+import { MenuMagasin } from './menuMagasin'
 import { brandStripe } from '../theme/theme'
 
 const LARGEUR_MENU = 248
 
-interface Destination { chemin: string; nom: string; court?: string; icone: ReactNode }
+interface Destination { chemin: string; nom: string; icone: ReactNode }
+
+const ICONES_ESPACE: Record<Espace, ReactNode> = { donnees: <UploadFileOutlined />, budget: <AccountBalanceOutlined />, suivi: <InsightsOutlined /> }
 
 // Page imprimée (budget, vue réseau) : A4 paysage, sans menus ni boutons, tableaux en entier, texte à 9 pt (12 px)
 const impression = {
@@ -80,26 +92,94 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [menuCompte, setMenuCompte] = useState<HTMLElement | null>(null)
   useEffect(installerChampSuivant, [])
 
-  // Hypothèses, imports de caisse et paramètres réseau : Directeur seul, comme les référentiels de l'app réseau
-  const destinations: Destination[] = [
-    { chemin: '/', nom: 'Magasins', icone: <StorefrontOutlined /> },
-    ...(estEquipe(profil) ? [{ chemin: '/reseau', nom: 'Réseau', icone: <LeaderboardOutlined /> }] : []),
-    ...(estDirecteur(profil) ? [
-      { chemin: '/hypotheses', nom: 'Hypothèses', icone: <TrendingUpOutlined /> },
-      { chemin: '/imports', nom: 'Imports de caisse', court: 'Imports', icone: <UploadFileOutlined /> },
-      { chemin: '/parametres', nom: 'Paramètres réseau', court: 'Paramètres', icone: <TuneOutlined /> },
-    ] : []),
-  ]
-  const active = destinations.find((d) => d.chemin !== '/' && pathname.startsWith(d.chemin))?.chemin ?? '/'
+  const [menuTelephone, setMenuTelephone] = useState(false)
+  const [pastilles, setPastilles] = useState<Record<string, boolean>>({})
+  const publierPastilles = useCallback((p: Record<string, boolean>) => setPastilles(p), [])
+  useEffect(() => setMenuTelephone(false), [pathname])
+
+  // Lot 36 : trois espaces. L'espace et le magasin affichés viennent de l'adresse ; sur une page qui n'appartient à aucun
+  // espace (paramètres), on garde le dernier espace et le dernier magasin ouverts.
+  const fiche = magasinDeChemin(pathname)
+  const [dernier, setDernier] = useState<{ espace: Espace; magasin: string | null }>({ espace: 'budget', magasin: null })
+  const espace: Espace = fiche?.partie ? espaceDe(fiche.partie) : espaceDePage(pathname) ?? dernier.espace
+  const magasin = fiche?.nom ?? dernier.magasin
+  useEffect(() => {
+    if (espace !== dernier.espace || magasin !== dernier.magasin) setDernier({ espace, magasin })
+  }, [espace, magasin]) // eslint-disable-line react-hooks/exhaustive-deps
+  const partieActive = fiche?.partie ? partieDe(fiche.partie) : null
+
+  // Pages du réseau de chaque espace : imports, hypothèses et paramètres au Directeur seul, comme dans l'app réseau
+  const reseau: Record<Espace, Destination[]> = {
+    donnees: estDirecteur(profil) ? [{ chemin: '/imports', nom: 'Imports de caisse', icone: <UploadFileOutlined /> }] : [],
+    budget: [
+      { chemin: '/', nom: profil?.role === 'franchise' ? 'Mes magasins' : `Campagne ${anneeBudget()}`, icone: <StorefrontOutlined /> },
+      ...(estDirecteur(profil) ? [{ chemin: '/hypotheses', nom: 'Hypothèses du réseau', icone: <TrendingUpOutlined /> }] : []),
+    ],
+    suivi: estEquipe(profil) ? [{ chemin: '/reseau', nom: 'Réel du réseau', icone: <LeaderboardOutlined /> }] : [],
+  }
+  const cibleEspace = (e: Espace) => (magasin ? lienMagasin(magasin, PARTIE_PAR_DEFAUT[e]) : reseau[e][0]?.chemin ?? '/')
+  const parties = partiesDe(espace)
+  // Passer d'une étape du budget à l'autre garde les ajustements en cours : pas de confirmation (sauf en quittant l'équipe)
+  const libre = (cle: string) => espace === 'budget' && partieActive !== null && partieActive !== 'equipe' && partieActive !== 'depart' && espaceDe(cle) === 'budget'
+  const actif = (chemin: string) => !fiche && (chemin === '/' ? pathname === '/' : pathname.startsWith(chemin))
+
+  const lien = (d: Destination) => (
+    <ListItemButton key={d.chemin} component={RouterLink} to={d.chemin} selected={actif(d.chemin)} sx={{ minHeight: 48, mb: 0.25 }}>
+      <ListItemIcon sx={{ minWidth: 40 }}>{d.icone}</ListItemIcon>
+      <ListItemText primary={d.nom} />
+    </ListItemButton>
+  )
+  const sousTitre = (t: string) => (
+    <ListSubheader disableSticky sx={{ bgcolor: 'transparent', lineHeight: '32px', fontSize: '0.75rem', fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'text.secondary', px: 1 }}>{t}</ListSubheader>
+  )
+  const contenuMenu = (
+    <>
+      <Box role="group" aria-label="Espaces" sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.5, p: 0.5, mb: 1, borderRadius: 2, bgcolor: 'action.hover' }}>
+        {ESPACES.map((e) => (
+          <Button key={e.cle} component={RouterLink} to={cibleEspace(e.cle)} aria-current={e.cle === espace ? 'true' : undefined}
+            sx={{ minHeight: 48, px: 0.5, fontWeight: 700, fontSize: '0.875rem', color: 'text.primary', borderRadius: 1.5,
+              ...(e.cle === espace ? { bgcolor: 'background.paper', boxShadow: 1, '&:hover': { bgcolor: 'background.paper' } } : {}) }}>
+            {e.libelle}
+          </Button>
+        ))}
+      </Box>
+      <List component="nav" aria-label="Menu principal" dense disablePadding>
+        {reseau[espace].length > 0 && profil?.role !== 'franchise' && sousTitre('Réseau')}
+        {reseau[espace].map(lien)}
+        {magasin && (
+          <>
+            {sousTitre(magasin)}
+            {parties.map((p) => (
+              <ListItemButton key={p.cle} component={RouterLink} to={lienMagasin(magasin, p.cle)} selected={partieActive === p.cle}
+                data-sans-garde={libre(p.cle) ? '' : undefined} sx={{ minHeight: 48, mb: 0.25, pl: 2 }}>
+                <ListItemText primary={
+                  <Badge variant="dot" color="warning" invisible={!pastilles[p.cle] || fiche?.nom !== magasin} sx={{ '& .MuiBadge-dot': { right: -8, top: 4 } }}>{p.libelle}</Badge>
+                } />
+              </ListItemButton>
+            ))}
+          </>
+        )}
+        {!magasin && profil?.role !== 'franchise' && (
+          <Typography variant="body2" color="text.secondary" sx={{ px: 1, py: 1.5 }}>Ouvre un magasin pour voir ses pages.</Typography>
+        )}
+        {estDirecteur(profil) && sousTitre('Réglages')}
+        {estDirecteur(profil) && lien({ chemin: '/parametres', nom: 'Paramètres réseau', icone: <TuneOutlined /> })}
+      </List>
+    </>
+  )
+  const avecMenu = !!profil && profil.role !== 'aucun'
 
   return (
     <GardeSaisie>
     <Box className="fond-app" sx={{ minHeight: '100dvh', bgcolor: 'background.default' }}>
       {/* Ce qu'on fait défiler jusqu'à l'écran ne se cache ni sous la barre du haut, ni sous la barre basse du téléphone */}
-      <GlobalStyles styles={{ html: { scrollPaddingTop: 80, scrollPaddingBottom: telephone && destinations.length > 1 ? 88 : 0, '--barre-basse': telephone && destinations.length > 1 ? '72px' : '0px' } }} />
+      <GlobalStyles styles={{ html: { scrollPaddingTop: 80, scrollPaddingBottom: telephone && avecMenu ? 88 : 0, '--barre-basse': telephone && avecMenu ? '72px' : '0px' } }} />
       <GlobalStyles styles={impression} />
       <AppBar position="sticky" className="pas-a-l-impression" sx={{ bgcolor: '#1d1d1b', color: '#ffffff', zIndex: (t) => t.zIndex.drawer + 1 }}>
         <Toolbar sx={{ gap: 1.5 }}>
+          {telephone && avecMenu && (
+            <IconButton color="inherit" aria-label="Ouvrir le menu" onClick={() => setMenuTelephone(true)} sx={{ width: 48, height: 48, ml: -1 }}><MenuOutlined /></IconButton>
+          )}
           <Box component={RouterLink} to="/" aria-label="Accueil du pilotage" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'inherit', textDecoration: 'none', minHeight: 48 }}>
             <Logo size={18} />
             <Typography variant="h3" component="span" sx={{ fontSize: '1.125rem' }}>Pilotage</Typography>
@@ -124,28 +204,27 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Box aria-hidden sx={{ height: 4, background: brandStripe }} />
       </AppBar>
 
-      {!telephone && (
+      {!telephone && avecMenu && (
         <Drawer variant="permanent" className="pas-a-l-impression" sx={{ width: LARGEUR_MENU, flexShrink: 0, '& .MuiDrawer-paper': { width: LARGEUR_MENU, boxSizing: 'border-box', top: 68, height: 'calc(100% - 68px)', p: 1.5 } }}>
-          <List component="nav" aria-label="Menu principal">
-            {destinations.map((d) => (
-              <ListItemButton key={d.chemin} component={RouterLink} to={d.chemin} selected={active === d.chemin} sx={{ minHeight: 48, mb: 0.5 }}>
-                <ListItemIcon sx={{ minWidth: 40 }}>{d.icone}</ListItemIcon>
-                <ListItemText primary={d.nom} />
-              </ListItemButton>
-            ))}
-          </List>
+          {contenuMenu}
+        </Drawer>
+      )}
+      {telephone && avecMenu && (
+        <Drawer open={menuTelephone} onClose={() => setMenuTelephone(false)} className="pas-a-l-impression" onClick={(e) => { if ((e.target as HTMLElement).closest('a')) setMenuTelephone(false) }} sx={{ zIndex: (t) => t.zIndex.modal, '& .MuiDrawer-paper': { width: 300, maxWidth: '85vw', p: 1.5 } }}>
+          {contenuMenu}
         </Drawer>
       )}
 
-      <Box component="main" sx={{ ml: telephone ? 0 : `${LARGEUR_MENU}px`, px: { xs: 2, md: 5 }, pt: { xs: 2, md: 4 }, pb: telephone && destinations.length > 1 ? 12 : 6, maxWidth: 1440 }}>
-        {children}
+      <Box component="main" sx={{ ml: telephone || !avecMenu ? 0 : `${LARGEUR_MENU}px`, px: { xs: 2, md: 5 }, pt: { xs: 2, md: 4 }, pb: telephone && avecMenu ? 12 : 6, maxWidth: 1440 }}>
+        <MenuMagasin.Provider value={publierPastilles}>{children}</MenuMagasin.Provider>
       </Box>
 
-      {telephone && destinations.length > 1 && (
+      {/* Téléphone : les trois espaces en bas, le reste du menu derrière l'icône en haut à gauche */}
+      {telephone && avecMenu && (
         <Paper className="pas-a-l-impression" sx={{ position: 'fixed', left: 0, right: 0, bottom: 0, borderTop: 1, borderColor: 'divider', zIndex: (t) => t.zIndex.appBar }}>
-          <BottomNavigation showLabels value={active} component="nav" aria-label="Menu principal">
-            {destinations.map((d) => (
-              <BottomNavigationAction key={d.chemin} value={d.chemin} label={d.court ?? d.nom} icon={d.icone} component={RouterLink} to={d.chemin} sx={{ minHeight: 56 }} />
+          <BottomNavigation showLabels value={espace} component="nav" aria-label="Espaces du pilotage">
+            {ESPACES.map((e) => (
+              <BottomNavigationAction key={e.cle} value={e.cle} label={e.libelle} icon={ICONES_ESPACE[e.cle]} component={RouterLink} to={cibleEspace(e.cle)} sx={{ minHeight: 56 }} />
             ))}
           </BottomNavigation>
         </Paper>

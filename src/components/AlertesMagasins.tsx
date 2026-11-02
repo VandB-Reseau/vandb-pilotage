@@ -44,7 +44,7 @@ export function texteAlerte(a: Alerte): string {
   }
 }
 // Onglet de la fiche où l'alerte se lit
-const ongletDe = (a: Alerte) => (a.type === 'reel' || a.type === 'tickets' || a.type === 'panier' ? 'reel' : a.type === 'tresorerie' ? (a.source === 'reel' ? 'quadrimestres' : 'resultat') : 'suivi')
+const ongletDe = (a: Alerte) => (a.type === 'reel' ? 'reel' : a.type === 'tresorerie' ? (a.source === 'reel' ? 'quadrimestres' : 'resultat') : 'suivi')
 
 const PREMIERES = 6
 
@@ -93,7 +93,7 @@ export function AlertesMagasins({ alertes, etat, unMagasin, siVide = true, agir,
             <Box sx={{ color: a.type === 'reel' ? 'text.secondary' : 'error.main', display: 'flex' }} aria-hidden>{ICONE[a.type]}</Box>
             <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexWrap: 'wrap', columnGap: 1.5, alignItems: 'baseline' }}>
               {!unMagasin && (
-                <Link component={RouterLink} to={lienMagasin(a.magasin)} state={{ ...etat, onglet: ongletDe(a) }} sx={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', minHeight: 48 }}>
+                <Link component={RouterLink} to={lienMagasin(a.magasin, ongletDe(a))} state={etat} sx={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', minHeight: 48 }}>
                   {a.magasin}
                 </Link>
               )}

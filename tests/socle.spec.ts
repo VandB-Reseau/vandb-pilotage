@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { MAGASINS } from './donnees-fictives'
-import { ouvrir, COMPTE, seConnecter, simulerSupabase, textesTropPetits, zonesTropPetites } from './supabase-simule'
+import { ouvrir, COMPTE, seConnecter, simulerSupabase, textesTropPetits, zonesTropPetites, allerVers } from './supabase-simule'
 
 test.beforeEach(async ({ page }) => {
   const erreurs: string[] = []
@@ -66,13 +66,13 @@ test('la fiche d’un magasin montre le compte de résultat et le budget mois pa
 test('un magasin sans budget l’explique', async ({ page }) => {
   await seConnecter(page)
   await page.getByText(MAGASINS[2], { exact: true }).last().click()
-  await page.getByRole('tab', { name: /^Budget/ }).click()
+  await ouvrir(page, 'Hypothèses')
   await expect(page.getByText('Pas encore de budget', { exact: false })).toBeVisible()
 })
 
 test('les paramètres réseau : redevance 2 % et publicité 1 % pour le Directeur seulement', async ({ page }) => {
   await seConnecter(page)
-  await page.getByRole('link', { name: /Paramètres/ }).click()
+  await allerVers(page, 'Paramètres réseau')
   await expect(page.getByRole('heading', { level: 1, name: 'Paramètres réseau' })).toBeVisible()
   await expect(page.getByRole('row', { name: /Redevance franchise/ })).toContainText('2,0 %')
   await expect(page.getByRole('row', { name: /Publicité franchise/ })).toContainText('1,0 %')

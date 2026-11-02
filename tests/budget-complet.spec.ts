@@ -24,7 +24,7 @@ test.afterEach(async ({ page }) => {
 
 test('le franchisé ajoute démarque, saisonnalité et travaux, puis enregistre', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { role: 'franchise', magasins: magasins().slice(0, 1) })
-  await page.getByRole('tab', { name: /^Budget/ }).click()
+  await ouvrir(page, 'Hypothèses')
   await page.getByRole('region', { name: 'Cave' }).getByRole('button', { name: /^Détail par famille/ }).click()
   const grille = page.getByRole('table', { name: 'Familles : Cave' })
   const biere = grille.getByRole('row', { name: /Bière \(Cave\)/ })
@@ -70,7 +70,7 @@ test('le Directeur copie les hypothèses vers un autre magasin, ses travaux rest
   liste[0].ajustements = { evolutionFamille: { 'cave/Bière': 0.05 }, travaux: { ...travaux, investissement: 99_000 } }
   const ecritures = await seConnecter(page, { magasins: liste })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await page.getByRole('tab', { name: /^Budget/ }).click()
+  await ouvrir(page, 'Hypothèses')
   await page.getByRole('button', { name: 'Copier vers d’autres magasins' }).click()
   const panneau = page.getByRole('region', { name: `Copier les hypothèses de ${MAGASINS[0]}` })
   // Le budget validé n'est pas proposé
