@@ -3,7 +3,7 @@ import Box from '@mui/material/Box'
 import Card from '@mui/material/Card'
 import Typography from '@mui/material/Typography'
 import { useTheme } from '@mui/material/styles'
-import { ecartMontant, milliers } from '../lib/format'
+import { ecartMilliers, ecartMontant, milliers } from '../lib/format'
 import type { PontEBE } from '../moteur/visuel'
 import { Aide } from './Aide'
 
@@ -57,7 +57,7 @@ export function PontEcartEBE({ pont, periode }: { pont: PontEBE; periode: string
         <Typography variant="h2">Du budget au réel : EBE {periode}</Typography><Aide sujet="pontEBE" />
       </Box>
       <Typography variant="body2" sx={{ fontWeight: 700, mb: 1.5 }}>
-        Écart {ecartMontant(pont.reel - pont.budget)} ; le poste qui pèse le plus : {plusGrosse.libelle.toLowerCase()} ({ecartMontant(plusGrosse.montant)}).
+        Écart {ecartMilliers(pont.reel - pont.budget)} ; le poste qui pèse le plus : {plusGrosse.libelle.toLowerCase()} ({ecartMilliers(plusGrosse.montant)}).
       </Typography>
       <Box ref={boite} sx={{ overflowX: 'auto' }}>
         <svg role="img" width={largeur} height={HAUT + BAS} style={{ display: 'block' }}

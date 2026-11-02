@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { allerVers, ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule } from './supabase-simule'
+import { allerVers, ouvrir, partieAffichee, partiesAffichees, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule } from './supabase-simule'
 
 // Lot 36 (Joseph, 02/11/2026) : trois espaces séparés, Données (ce qui entre), Budget (de l'atterrissage de l'année en
 // cours aux hypothèses de l'an prochain), Suivi (réel face au budget). Chaque partie a son adresse. Données fictives.
@@ -22,14 +22,14 @@ test('trois espaces : le magasin ouvert reste le même, chaque espace a ses page
 
   await ouvrir(page, 'Point de départ')
   await expect(page).toHaveURL(new RegExp(`/magasins/${encodeURIComponent(MAGASINS[0])}/depart$`))
-  await expect(page.getByRole('tablist', { name: /^Étapes du budget/ }).getByRole('tab')).toHaveCount(4)
+  await expect(partiesAffichees(page)).toHaveCount(4)
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-espace-budget.png`, fullPage: true })
 
   await ouvrir(page, 'Réel')
   await expect(page.getByRole('heading', { level: 1, name: MAGASINS[0] })).toBeVisible()
-  await expect(page.getByRole('tablist', { name: /^Étapes du budget/ })).toHaveCount(0)
+  await expect(partiesAffichees(page)).toHaveText(isMobile ? [/^Réel du mois/, /^Comptes du quadrimestre/, /^Frais/] : [])
   await page.screenshot({ path: `captures/${info.project.name}-espace-donnees.png`, fullPage: true })
 
   if (!isMobile) {
@@ -48,7 +48,7 @@ test('une adresse rouverte affiche la même partie ; un ancien lien est redirig�
   await ouvrir(page, 'Équipe')
   await expect(page).toHaveURL(/\/equipe$/)
   await page.reload()
-  await expect(page.getByRole('tab', { name: /^1 · Hypothèses/ })).toHaveAttribute('aria-selected', 'true')
+  await partieAffichee(page, /^1 · Hypothèses/)
   await expect(page.getByRole('heading', { level: 2, name: /^Équipe \d{4}/ })).toBeVisible()
   // Ancienne adresse sans partie : la synthèse
   await page.goto(`/#/magasins/${encodeURIComponent(MAGASINS[0])}`)

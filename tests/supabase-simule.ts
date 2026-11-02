@@ -12,6 +12,7 @@ export interface MagasinSimule {
   base?: Hypotheses | null
   ajustements?: Record<string, unknown>
   groupe_id?: number | null
+  parametres?: Record<string, unknown> | null // paramètres figés à la validation (lot 38)
 }
 export type QuadrimestreSimule = { store_name: string; annee: number; quadrimestre: number; achats: number | null; variation_stock: number | null; charges_externes: number | null; impots_taxes: number | null; personnel: number | null; tresorerie: number | null }
 export type PartSimulee = { store_name: string; annee: number; univers: string; part: number }
@@ -345,6 +346,23 @@ export async function ouvrir(page: Page, partie: string) {
     try { await lien.click({ timeout: essai < 2 ? 5_000 : undefined }); break } catch (e) { if (essai >= 2) throw e }
   }
   if (cible.theme) await page.locator('main').getByRole('region', { name: cible.theme, exact: true }).getByRole('link').click()
+}
+
+// Partie affichée (lot 38) : l'onglet sélectionné sur téléphone, le lien en cours du menu de gauche sur PC
+export function partieAffichee(page: Page, nom: RegExp) {
+  const telephone = (page.viewportSize()?.width ?? 1440) < 900
+  return telephone
+    ? expect(page.locator('main').getByRole('tab', { name: nom })).toHaveAttribute('aria-selected', 'true')
+    : expect(page.getByRole('navigation', { name: 'Menu principal' }).getByRole('link', { name: nom })).toHaveAttribute('aria-current', 'page')
+}
+// Parties de l'espace affiché : onglets sur téléphone, liens du magasin dans le menu de gauche sur PC
+export function partiesAffichees(page: Page) {
+  const telephone = (page.viewportSize()?.width ?? 1440) < 900
+  return telephone ? page.locator('main').getByRole('tab') : page.getByRole('navigation', { name: 'Menu principal' }).getByRole('link').filter({ hasText: /^\d · / })
+}
+// Année du budget affichée dans l'en-tête de la fiche (lot 38)
+export async function anneeEnTete(page: Page) {
+  return Number((await page.locator('main header').getByText(/^Budget \d{4}$/).textContent())?.match(/\d{4}/)?.[0])
 }
 
 // Pages du réseau (lot 36) : chacune dans son espace ; sur téléphone, le menu s'ouvre par l'icône en haut à gauche

@@ -36,18 +36,31 @@ test('fiche magasin : le réel face au budget, mois par mois', async ({ page, is
   const cartes = page.getByRole('region', { name: 'Réel face au budget à fin février' })
   await expect(cartes).toContainText(/94\sk€/)
   await expect(cartes).toContainText(/[-−]2,1\s%\ssur le budget/)
-  await expect(cartes).toContainText('1 mois sous le budget sur 2')
+  // Lot 38 (D3) : la conclusion d'abord. Janvier seul a sa marge : 50 000 € pour 48 000 € à 57,39 % ;
+  // effet du CA 2 000 × 0,5739 = +1,1 k€, effet du taux 26 000 − 50 000 × 0,5739 = −2,7 k€
+  await expect(page.getByLabel('Conclusion')).toHaveText(/^À fin février, CA [-−]2,1\s%\ssur le budget \([-−]2\sk€\), taux de marge [-−]10,2\spt\. Sur la marge, le taux pèse le plus : [-−]2,7\sk€, contre \+1,1\sk€ pour le CA\.$/)
+  await expect(cartes.getByText('Écart de marge')).toBeVisible()
+  await expect(cartes).toContainText(/[-−]1,5\sk€/)                 // 26 000 − 27 547,5, en k€ comme toutes les cartes
   await expect(cartes).toContainText(/47,1\s%/)                       // 33 000 / 70 000 : marges connues seulement
   await expect(cartes).toContainText(/[-−]10,2\spt sur le budget/)
 
+  // Le détail mois par mois est replié
   const tableau = page.getByRole('table', { name: `Réel face au budget ${N} mois par mois` })
+  await expect(tableau).toBeHidden()
+  await page.getByRole('button', { name: 'Mois par mois' }).last().click()
   const ligne = (nom: string) => tableau.getByRole('row').filter({ has: page.getByRole('cell', { name: nom, exact: true }) })
   // Refonte T2 : une case = le réel, sa pastille, le budget dessous (janvier au-dessus du budget, février à −8,3 %)
   await expect(ligne('CA HT')).toContainText(/50\s000\s*prévu 48\s000, au prévu ou mieux.*44\s000\s*prévu 48\s000, nettement en dessous du prévu.*94\s000\s*prévu 96\s000/)
   await expect(ligne('Écart de CA')).toContainText(/\+2\s000.*[-−]4\s000.*[-−]2\s000\s€/)
   // Février : marge incomplète, pas de marge réelle ; janvier : 26 000 face à 27 547,5 (−5,6 % : au-delà du seuil de 5 %)
   await expect(ligne('Marge')).toContainText(/26\s000\s*prévu 27\s54[78], nettement en dessous du prévu/)
-  await expect(page.getByLabel('Légende des pastilles').first()).toContainText('jusqu’à 5 % en dessous')
+  // CA et marge : lignes clés, sur fond teinté (lot 38)
+  await expect(ligne('CA HT')).toHaveClass(/ligne-cle/)
+  await expect(ligne('Marge')).toHaveClass(/ligne-cle/)
+  // Légende derrière l'icône (i)
+  await page.getByRole('button', { name: 'Légende des pastilles' }).first().click()
+  await expect(page.getByRole('dialog', { name: 'Légende des pastilles' })).toContainText('jusqu’à 5 % en dessous')
+  await page.keyboard.press('Escape')
   // R4 : jauge du CA face au budget
   await expect(cartes.getByRole('meter', { name: 'CA réel face au budget à fin février' })).toBeVisible()
   expect(await textesTropPetits(page)).toEqual([])

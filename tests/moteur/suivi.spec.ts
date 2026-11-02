@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import type { Personne } from '../../src/moteur/equipe'
 import { chargesParDefaut } from '../../src/moteur/parametres'
 import type { LigneReel, TicketsReel } from '../../src/moteur/reel'
-import { ligneReseau, moisDuReel, suiviBudget, totalReseau, type EntreeReseau } from '../../src/moteur/suivi'
+import { effetsSurLaMarge, ligneReseau, moisDuReel, suiviBudget, totalReseau, type EntreeReseau } from '../../src/moteur/suivi'
 import type { Budget } from '../../src/moteur/types'
 
 // Réel face au budget et indicateurs du réseau, sur des magasins fictifs : chaque résultat se vérifie à la main.
@@ -36,6 +36,26 @@ test('réel face au budget : écarts du mois, cumul, marge seulement sur les moi
   expect(s.cumul.ecartMarge).toBe(2_000)
   // Sans réel : rien de réalisé
   expect(suiviBudget(moisDuReel([], []), budget).cumul.ecartCAPart).toBeNull()
+})
+
+test('écart de marge expliqué : effet du CA et effet du taux de marge, sur les mois de marge complète (lot 38)', () => {
+  // Janvier seul a sa marge : 22 000 € de CA pour 20 000 € budgétés à 40 % ; 10 000 € de marge pour 8 000 €.
+  // Effet du CA = 2 000 × 0,40 = 800 € ; effet du taux = 10 000 − 22 000 × 0,40 = 1 200 € ; total 2 000 € = écart de marge
+  const s = suiviBudget(moisDuReel(lignes, tickets), budget)
+  const e = effetsSurLaMarge(s)
+  proche(e.effetCA, 800)
+  proche(e.effetTaux, 1_200)
+  proche(e.effetCA + e.effetTaux!, s.cumul.ecartMarge!)
+  expect(e.principal).toBe('taux')
+  // 15 000 € de CA à 40 % de marge : le taux est tenu, tout vient du CA (−5 000 × 0,40 = −2 000 €)
+  const bas = effetsSurLaMarge(suiviBudget(moisDuReel([{ mois: 1, univers: 'cave', famille: 'Bière', caHT: 15_000, caTTC: 18_000, margeHT: 6_000 }], []), budget))
+  proche(bas.effetCA, -2_000)
+  proche(bas.effetTaux, 0)
+  expect(bas.principal).toBe('ca')
+  // Aucune marge connue : l'effet du CA seul, sur tous les mois réalisés (−2 000 × 0,40)
+  const sansMarge = effetsSurLaMarge(suiviBudget(moisDuReel([{ mois: 1, univers: 'cave', famille: 'Bière', caHT: 18_000, caTTC: 21_600, margeHT: null }], []), budget))
+  proche(sansMarge.effetCA, -800)
+  expect(sansMarge.effetTaux).toBeNull()
 })
 
 test('réseau : indicateurs à date de chaque magasin et total pondéré par le CA', () => {

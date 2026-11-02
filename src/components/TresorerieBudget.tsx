@@ -12,7 +12,7 @@ import TableRow from '@mui/material/TableRow'
 import Typography from '@mui/material/Typography'
 import { nombre } from '../import/caisse'
 import ExpandMoreOutlined from '@mui/icons-material/ExpandMoreOutlined'
-import { enChiffres, enMilliers, milliers, montant, MOIS, MOIS_LONGS, QUADRIMESTRES_COURTS } from '../lib/format'
+import { enChiffres, enMilliers, milliers, MOIS, MOIS_LONGS, QUADRIMESTRES_COURTS } from '../lib/format'
 import { COLONNES, regrouper } from '../moteur/periodes'
 import type { MoisTresorerie, Tresorerie } from '../moteur/tresorerie'
 import { ChoixPeriode, usePeriode } from './ChoixPeriode'
@@ -84,7 +84,7 @@ export function TresorerieBudget({ tresorerie: t, annee, depart, onDepart, lectu
         <Indicateur libelle="Point bas" aide="pointBas" valeur={milliers(t.pointBas.montant)} detail={`Fin ${MOIS_LONGS[t.pointBas.mois]}`} />
         <Indicateur
           libelle="Mois à découvert" valeur={t.moisNegatifs === 0 ? 'Aucun' : `${t.moisNegatifs} mois`}
-          detail={t.moisNegatifs === 0 ? 'Trésorerie positive toute l’année' : `Besoin de financement : ${montant(-t.pointBas.montant)}`}
+          detail={t.moisNegatifs === 0 ? 'Trésorerie positive toute l’année' : `Besoin de financement : ${milliers(-t.pointBas.montant)}`}
         />
         <Indicateur
           libelle="Besoin en fonds de roulement" aide="bfr" valeur={milliers(t.bfr.total)}

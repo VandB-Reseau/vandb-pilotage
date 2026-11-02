@@ -4,7 +4,7 @@ Même base Supabase que l'app réseau. Le pilotage n'écrit que dans le schéma 
 fonctions (`mon_role()`, `est_directeur()`, `magasins_visibles()`, `mes_magasins()`, `json_sur()`) et ses tables `perimetre_equipe`
 et `app_config` (lue seulement : fiche des Responsables Régionaux, clé `drs_data`).
 
-Mis à jour le 02/11/2026 (migration `0019`).
+Mis à jour le 02/11/2026 (migration `0020`).
 
 ## Principes
 
@@ -19,7 +19,7 @@ Mis à jour le 02/11/2026 (migration `0019`).
 | Table | Contenu | Clé | Lecture | Écriture |
 | --- | --- | --- | --- | --- |
 | `parametres_reseau` | Paramètres de l'année : `valeur` jsonb (`tauxRedevance`, `tauxPublicite`, `impot`, `tvaPanier`, `charges` : taux de charges patronales par catégorie et paramètres de la réduction générale ; `tresorerie` : délais de paiement en mois (`delaiFournisseurs` compté après la livraison), `avanceLivraison` (mois de livraison et de facturation des marchandises Cave et Bar avant la vente ; 1 si absente), TVA des ventes, des achats et des frais, `tvaTrimestrielle`, `partCotisations`, `consignes` : part des achats par univers, `ecoulement` et `remboursement` en mois, `demarque` (part des consignes jamais remboursée, en charge externe du budget ; 0 si absente), `avanceExterieur` (mois d'avance des achats Extérieur sur la vente), `operations` (`[{nom, mois, moisPaiement, part}]` : opérations du réseau dont une part des achats Cave et Bar du mois est payée à un autre mois) ; `alertes` : seuils `ecartCA`, `baisseMarge` en points, `moisRetard`, `tresorerie` en euros) | `annee` | Comptes ouverts | Directeur |
-| `budgets` | Budget d'un magasin pour une année : `statut` (`propose`, `en_discussion`, `valide`), `base` (réalisé importé du prévisionnel), `ajustements` (écarts du magasin aux cibles, format `Cibles`, dont saisonnalité, travaux, `tresorerieDepart` et `fraisBudget` : frais du budget ligne par ligne, même montant, hausse en % ou nouveau montant), `proposition` (base proposée par le siège), `hypotheses` (hypothèses calculées au dernier enregistrement, figées à la validation), `valide_le` | `store_name`, `annee` | Magasins du compte | Création et suppression : Directeur. Modification : Directeur, RR (validation et réouverture seulement, 0018) et franchisé sur leurs magasins |
+| `budgets` | Budget d'un magasin pour une année : `statut` (`propose`, `en_discussion`, `valide`), `base` (réalisé importé du prévisionnel), `ajustements` (écarts du magasin aux cibles, format `Cibles`, dont saisonnalité, travaux, `tresorerieDepart` et `fraisBudget` : frais du budget ligne par ligne, même montant, hausse en % ou nouveau montant), `proposition` (base proposée par le siège), `hypotheses` (hypothèses calculées au dernier enregistrement, figées à la validation), `valide_le`, `parametres` (copie des paramètres réseau de l'année faite à la validation, vide hors budget validé, 0020) | `store_name`, `annee` | Magasins du compte | Création et suppression : Directeur. Modification : Directeur, RR (validation et réouverture seulement, 0018) et franchisé sur leurs magasins |
 | `reel_mensuel` | Réel par mois (1er du mois), univers (`cave`, `bar`, `exterieur`) et famille : `ca_ht`, `ca_ttc`, `marge_ht` (marge théorique de la caisse), `maj_par`. La colonne `tickets` de `0001` n'est plus utilisée (voir `reel_tickets`) | `store_name`, `mois`, `univers`, `famille` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
 | `reel_tickets` | Tickets par mois et univers (un ticket ne se compte pas par famille) : `tickets`, `maj_par` | `store_name`, `mois`, `univers` | Magasins du compte | Directeur partout ; RR, Coach et franchisé sur leurs magasins |
 | `codes_caisse` | Code magasin de la caisse (fichiers de la DSI) → nom du magasin, un code par magasin | `code` | Équipe | Directeur |
@@ -49,6 +49,11 @@ Mis à jour le 02/11/2026 (migration `0019`).
 - Le RR valide un budget proposé ou en discussion de ses magasins, ou rouvre un budget validé (0018). Il ne change
   que le `statut` et, à la validation, la photo des `hypotheses` ; ni `proposition`, ni `base`, ni `ajustements`.
   Il ne crée ni ne supprime de budget.
+- Paramètres figés (déclencheur `parametres_figes`, 0020, après `garde_budget`) : au passage en `valide`, la base copie
+  dans `parametres` la ligne de `parametres_reseau` de l'année du budget ; un budget validé se calcule ensuite avec cette
+  copie, même si le Directeur change un paramètre. Hors `valide`, `parametres` est vide. Personne ne l'écrit soi-même :
+  le déclencheur la recalcule à chaque écriture. Les budgets déjà validés au passage de 0020 ont reçu les paramètres
+  du moment de leur année.
 - Les Coachs lisent sans écrire. Le franchisé ne lit pas les tables de groupes et de cibles : il les reçoit par
   `budgets_du_compte()`, limitées au réseau et au groupe de ses magasins.
 
@@ -60,7 +65,7 @@ Mis à jour le 02/11/2026 (migration `0019`).
 | `pilotage.magasins_du_compte(annee)` | Magasins du compte avec statut, hypothèses et date du budget de l'année (lot 0, remplacée dans l'app par la suivante) |
 | `pilotage.remplacer_reel(ventes, tickets)` | Import ou saisie du réel : vide puis réécrit chaque couple magasin et mois reçu (ventes et tickets à part). Droits de l'appelant (`SECURITY INVOKER`) : une ligne hors périmètre fait échouer tout l'appel. Renvoie le nombre de lignes de ventes |
 | `pilotage.reel_du_compte(annee)` | `{ mois, coachs, rrs }` : réel des magasins du compte (mêmes magasins que la lecture du réel), totalisé par magasin et par mois pour l'année et la précédente (`ca`, `marge`, `ca_marge` = CA des lignes dont la marge est connue, `ttc`, `tickets`, et pour la Cave et le Bar séparés `ttc_cave`, `ttc_bar`, `tickets_cave`, `tickets_bar` depuis 0013) ; `coachs` : Coach de chaque magasin, pour le Directeur et le RR seulement ; `rrs` : noms des Responsables Régionaux de chaque magasin (identifiants de `perimetre_equipe.rrs` reliés à la fiche `drs_data` d'`app_config`), pour le Directeur seulement (0007). Sert à la vue réseau |
-| `pilotage.budgets_du_compte(annee)` | `{ magasins, reseau, groupes }` : budgets du compte (base, ajustements, hypothèses, groupe), cibles du réseau, groupes utiles au compte avec leurs cibles |
+| `pilotage.budgets_du_compte(annee)` | `{ magasins, reseau, groupes }` : budgets du compte (base, ajustements, hypothèses, groupe, paramètres figés depuis 0020), cibles du réseau, groupes utiles au compte avec leurs cibles |
 
 ## Rejouer les migrations
 

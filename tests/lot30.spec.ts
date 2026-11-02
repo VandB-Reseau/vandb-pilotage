@@ -3,7 +3,7 @@ import { calculerBudget } from '../src/moteur/budget'
 import { joursHorsDimanche } from '../src/moteur/objectifs'
 import { parametresParDefaut } from '../src/moteur/parametres'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { ouvrir, plusLoin, seConnecter, textesTropPetits, zonesTropPetites, type VenteSimulee } from './supabase-simule'
+import { ouvrir, partieAffichee, plusLoin, seConnecter, textesTropPetits, zonesTropPetites, type VenteSimulee } from './supabase-simule'
 
 // Lot 30 : fiche en 6 onglets, synthèse en 3 blocs, objectifs du mois pour l'équipe. Données fictives : dépôt public.
 const N = new Date().getFullYear()
@@ -36,7 +36,7 @@ test('fiche (lot 36) : le réel et les quadrimestres dans Données, l’atterris
   // Une adresse rouverte (actualisation, lien envoyé) affiche la même partie
   await page.reload()
   await expect(page).toHaveURL(/\/depart$/)
-  await expect(page.getByRole('tab', { name: /^0 · Point de départ/ })).toHaveAttribute('aria-selected', 'true')
+  await partieAffichee(page, /^0 · Point de départ/)
 })
 
 test('synthèse en 3 blocs : les chiffres, quoi faire, et le détail replié', async ({ page, isMobile }, info) => {

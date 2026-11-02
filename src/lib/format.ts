@@ -6,7 +6,12 @@ const pourcent = new Intl.NumberFormat('fr-FR', { style: 'percent', minimumFract
 
 export const montant = (v: number) => euros.format(v)
 export const panier = (v: number) => centimes.format(v) // panier moyen, au centime
-export const milliers = (v: number) => `${kilo.format(v / 1000)} k€`
+// Lot 38 (D4) : cartes et phrases en k€, une décimale sous 10 k€ (« 7,4 k€ ») ; les tableaux restent à l'euro
+const kiloFin = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1, signDisplay: 'negative' })
+const ecartKilo = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0, signDisplay: 'exceptZero' })
+const ecartKiloFin = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1, signDisplay: 'exceptZero' })
+export const milliers = (v: number) => `${(Math.abs(v) < 9_950 ? kiloFin : kilo).format(Math.abs(v) < 9_950 ? Math.round(v / 100) / 10 : v / 1000)} k€`
+export const ecartMilliers = (v: number) => `${(Math.abs(v) < 9_950 ? ecartKiloFin : ecartKilo).format(Math.abs(v) < 9_950 ? Math.round(v / 100) / 10 : v / 1000)} k€`
 export const taux = (v: number) => pourcent.format(v)
 
 export const MOIS = ['Janv.', 'Févr.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.']

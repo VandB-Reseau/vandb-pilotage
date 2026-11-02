@@ -5,6 +5,20 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 38 — Plus simple à lire ; budgets validés à l'abri des changements de paramètres
+
+- **Base : migration `0020_parametres_figes.sql` à passer.** Un budget validé garde les paramètres réseau du jour de sa
+  validation (redevance, publicité, impôt, charges, trésorerie) ; rouvert, il suit de nouveau les paramètres du moment.
+  Les budgets déjà validés prennent les paramètres actuels de leur année.
+- Une seule navigation sur PC : les étapes du budget ne sont plus répétées en onglets au-dessus de la page (le menu de
+  gauche suffit) ; « Étape suivante » en bas de page. Sur téléphone, les onglets restent.
+- En-tête de magasin unique : nom, budget de l'espace et son statut (une seule fois), Exporter et Imprimer.
+- Face au budget : une phrase de conclusion (écart de CA, de taux de marge, et ce qui pèse le plus sur la marge),
+  trois chiffres, le graphique ; « Mois par mois » et le cumul du quadrimestre repliés, le pont d'EBE ouvert.
+- Montants : k€ dans les cartes et les phrases (une décimale sous 10 k€), euros dans les tableaux.
+- Tableaux : CA, marge, frais de personnel et EBE en gras sur un fond vert canard clair ; légende des pastilles
+  derrière l'icône (i).
+
 ### Lot 37 — Hypothèses du budget en cartes, trésorerie de l'année dans le Suivi
 
 - Budget en 4 étapes : 0 · Point de départ, 1 · Hypothèses, 2 · Résultat et trésorerie, 3 · Échanges et validation.

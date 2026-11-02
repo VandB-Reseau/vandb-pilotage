@@ -23,6 +23,7 @@ une migration par changement, numérotée dans l'ordre où elle s'applique. Cart
 | `0017_extras` | Colonne `taux_horaire` de `equipe` : les extras deviennent un poste de l'équipe (heures moyennes × taux horaire) ; règles d'accès inchangées | 29/10/2026 |
 | `0018_validation_rr` | Le RR valide ou rouvre le budget de ses magasins (statut et photo des hypothèses seulement) ; déclencheur `garde_budget` et règle de modification de `budgets` | 29/10/2026 |
 | `0019_hausses_equipe` | Hausses de salaire datées par poste (colonne `hausses` de `equipe`) ; accès inchangés | 02/11/2026 |
+| `0020_parametres_figes` | Paramètres réseau copiés dans le budget à sa validation (colonne `parametres` de `budgets`, déclencheur `parametres_figes`, `budgets_du_compte` les rend) ; accès inchangés | 02/11/2026 |
 | `0006_suivi_reseau` | Fonction `reel_du_compte` : réel de tous les magasins du compte totalisé par mois, pour la vue réseau ; aucune table ni règle d'accès nouvelle | 27/10/2026 |
 
 ## Passer une migration

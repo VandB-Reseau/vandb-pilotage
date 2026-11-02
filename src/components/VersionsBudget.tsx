@@ -13,7 +13,7 @@ import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { styleTableau } from '../theme/tableau'
+import { classeLigne, styleTableau } from '../theme/tableau'
 import BookmarkAddOutlined from '@mui/icons-material/BookmarkAddOutlined'
 import DeleteOutlined from '@mui/icons-material/DeleteOutlined'
 import RestoreOutlined from '@mui/icons-material/RestoreOutlined'
@@ -139,7 +139,7 @@ export function VersionsBudget({ ligne, d, annee, parametres, budget, ajustement
               </TableHead>
               <TableBody>
                 {lignes.map((l) => (
-                  <TableRow key={l.cle} className={l.fort ? 'ligne-forte' : undefined} sx={l.fort ? { '& td': { fontWeight: 700 } } : undefined}>
+                  <TableRow key={l.cle} className={classeLigne(l.cle, l.fort)} sx={l.fort ? { '& td': { fontWeight: 700 } } : undefined}>
                     <TableCell>{l.libelle}</TableCell>
                     {l.valeurs.map((v, i) => {
                       const e = l.ecarts[i]

@@ -14,16 +14,16 @@ import { EtatVide } from './EtatVide'
 import { GraphiqueMois } from './GraphiqueMois'
 import { Indicateur } from './Indicateur'
 import { Panne } from './Panne'
-import { PastilleStatut } from './PastilleStatut'
-import { atterrissageDe, chargerBudgets, chargerParametres, chargerReel, chargerSecours, hypothesesDe } from '../data/pilotage'
+import { atterrissageDe, chargerBudgets, chargerParametres, chargerReel, chargerSecours, hypothesesDe, parametresDuBudget } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
-import { ecartChiffres, ecartMontant, ecartPts, ecartTaux, enChiffres, milliers, montant, MOIS, MOIS_LONGS, taux } from '../lib/format'
+import { ecartChiffres, ecartMilliers, ecartMontant, ecartPts, ecartTaux, enChiffres, milliers, MOIS, MOIS_LONGS, montant, taux } from '../lib/format'
 import { usePreference } from '../lib/preferences'
 import { calculerBudget } from '../moteur/budget'
 import { cumul, cumulApres, santeMagasin } from '../moteur/sante'
-import { moisDuReel, suiviBudget } from '../moteur/suivi'
+import { effetsSurLaMarge, moisDuReel, suiviBudget } from '../moteur/suivi'
+import { Repliable } from './Repliable'
 import { niveauEcart } from '../moteur/visuel'
 import { brand } from '../theme/theme'
 import { styleTableau } from '../theme/tableau'
@@ -53,7 +53,7 @@ export function SuiviBudget({ magasin, annee, allerA, muetSansReel }: { magasin:
       />
     )
   }
-  const b = calculerBudget(h.hypotheses, donnees.parametres)
+  const b = calculerBudget(h.hypotheses, parametresDuBudget(ligne, donnees.parametres))
   const s = suiviBudget(moisDuReel(donnees.reel.lignes, donnees.reel.tickets), b)
   if (s.moisRealises === 0) {
     if (muetSansReel) return null
@@ -69,7 +69,6 @@ export function SuiviBudget({ magasin, annee, allerA, muetSansReel }: { magasin:
   const c = s.cumul
   const finMois = MOIS_LONGS[s.moisRealises - 1]
   const enCours = annee === new Date().getFullYear() ? new Date().getMonth() : null
-  const sousBudget = s.mois.filter((l) => l.ecartCA !== null && l.ecartCA < 0).length
   const n1 = moisDuReel(donnees.reelN1.lignes, donnees.reelN1.tickets).map((m) => (m.caHT > 0 ? m.caHT : null))
   const niveauxCA = s.mois.map((l) => niveauEcart(l.caReel, l.caBudget, seuil))
   // R2 : atterrissage de l'année (réel, puis projection) face au budget cumulé
@@ -77,21 +76,30 @@ export function SuiviBudget({ magasin, annee, allerA, muetSansReel }: { magasin:
   const projection = a ? santeMagasin(donnees.reel, donnees.reelN1, a.budget).projection : null
   const atterri = projection ? cumulApres(s.mois.map((l) => l.caReel), projection) : null
   const finAtterri = atterri?.[11] ?? null
+  // Conclusion : écart de CA, écart de taux de marge, et ce qui pèse le plus sur la marge
+  const effets = effetsSurLaMarge(s)
+  const totalMarge = effets.effetCA + (effets.effetTaux ?? 0)
+  const conclusion = [
+    `À fin ${finMois}, CA ${c.ecartCAPart === null ? ecartMilliers(c.ecartCA) : `${ecartTaux(c.ecartCAPart)} sur le budget (${ecartMilliers(c.ecartCA)})`}`,
+    c.tauxMargeReel === null ? '. ' : `, taux de marge ${ecartPts(c.tauxMargeReel - c.tauxMargeBudget)}. `,
+    effets.effetTaux === null ? '' : effets.principal === 'taux'
+      ? `Sur la marge, le taux pèse le plus : ${ecartMilliers(effets.effetTaux)}, contre ${ecartMilliers(effets.effetCA)} pour le CA.`
+      : `Sur la marge, le CA pèse le plus : ${ecartMilliers(effets.effetCA)}, contre ${ecartMilliers(effets.effetTaux)} pour le taux.`,
+  ].join('').trim()
 
   return (
     <Stack spacing={3}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-        <Typography variant="body1" color="text.secondary">Budget {annee}</Typography>
-        <PastilleStatut statut={ligne.statut} />
+      {/* Lot 38 (D3) : la conclusion d'abord, calculée par le moteur ; le détail mois par mois est replié */}
+      <Box component="p" aria-label="Conclusion" sx={{ m: 0, pl: 2, py: 0.5, borderLeft: 4, borderColor: totalMarge < 0 || c.ecartCA < 0 ? 'error.main' : 'success.main', fontSize: '1.0625rem', fontWeight: 700, maxWidth: '80ch' }}>
+        {conclusion}
       </Box>
-      <Box component="section" aria-label={`Réel face au budget à fin ${finMois}`} sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' } }}>
+      <Box component="section" aria-label={`Réel face au budget à fin ${finMois}`} sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(3, 1fr)' } }}>
         <Indicateur
           libelle={`CA HT à fin ${finMois}`} aide="caCumule" valeur={milliers(c.caReel)}
           ecart={c.ecartCAPart === null ? undefined : { texte: `${ecartTaux(c.ecartCAPart)} sur le budget`, hausse: c.ecartCAPart >= 0, favorable: c.ecartCAPart >= 0 }}
           jauge={{ valeur: c.caReel, cible: c.caBudget, niveau: niveauEcart(c.caReel, c.caBudget, seuil), libelle: `CA réel face au budget à fin ${finMois}` }}
           detail={`Budget des mêmes mois : ${milliers(c.caBudget)}`}
         />
-        <Indicateur libelle="Écart de CA" aide="ecartBudget" valeur={ecartMontant(c.ecartCA)} detail={`${sousBudget} mois sous le budget sur ${s.moisRealises}`} serie={s.mois.map((l) => l.ecartCA)} />
         <Indicateur
           libelle="Taux de marge" aide="margeTheorique" valeur={c.tauxMargeReel === null ? 'Non connu' : taux(c.tauxMargeReel)}
           ecart={c.tauxMargeReel === null ? undefined : { texte: `${ecartPts(c.tauxMargeReel - c.tauxMargeBudget)} sur le budget`, hausse: c.tauxMargeReel >= c.tauxMargeBudget, favorable: c.tauxMargeReel >= c.tauxMargeBudget }}
@@ -99,8 +107,8 @@ export function SuiviBudget({ magasin, annee, allerA, muetSansReel }: { magasin:
           detail={`Budget : ${taux(c.tauxMargeBudget)}`}
         />
         <Indicateur
-          libelle="Écart de marge" aide="ecartBudget" valeur={c.ecartMarge === null ? 'Non connu' : ecartMontant(c.ecartMarge)}
-          detail={c.ecartMarge === null ? 'Marge absente des chiffres de caisse' : `Mois dont la marge est complète : ${s.mois.filter((l) => l.margeReel !== null).length} sur ${s.moisRealises}`}
+          libelle="Écart de marge" aide="ecartBudget" valeur={c.ecartMarge === null ? 'Non connu' : ecartMilliers(c.ecartMarge)}
+          detail={c.ecartMarge === null ? 'Marge absente des chiffres de caisse' : `Budget des mêmes mois : ${milliers(c.margeBudget)}`}
         />
       </Box>
 
@@ -125,7 +133,7 @@ export function SuiviBudget({ magasin, annee, allerA, muetSansReel }: { magasin:
         ) : (
           <GraphiqueMois
             titre={`Chiffre d’affaires ${annee} cumulé : réel jusqu’à ${finMois}, atterrissage ensuite, face au budget`}
-            note={finAtterri === null ? undefined : `Atterrissage ${annee} : ${milliers(finAtterri)}, ${ecartMontant(finAtterri - b.ca)} face au budget de ${milliers(b.ca)}`}
+            note={finAtterri === null ? undefined : `Atterrissage ${annee} : ${milliers(finAtterri)}, ${ecartMilliers(finAtterri - b.ca)} face au budget de ${milliers(b.ca)}`}
             format={montant} formatAxe={milliers} moisEnCours={enCours}
             series={[
               { nom: 'Budget', valeurs: cumul(b.mois.map((m) => m.ca)), forme: 'ligne', couleur: 'var(--mui-palette-text-secondary)' },
@@ -136,11 +144,7 @@ export function SuiviBudget({ magasin, annee, allerA, muetSansReel }: { magasin:
         )}
       </Card>
 
-      <Card component="section" aria-label={`Réel et budget ${annee} mois par mois`}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2.5, pt: 2, pb: 1 }}>
-          <Typography variant="h2" sx={{ flex: 1 }}>Mois par mois</Typography>
-          <LegendePastilles seuil={seuil} />
-        </Box>
+      <Repliable titre="Mois par mois" nom={`Réel et budget ${annee} mois par mois`} droite={<LegendePastilles seuil={seuil} />}>
         <TableContainer>
           <Table size="small" className="colonne-fixe" aria-label={`Réel face au budget ${annee} mois par mois`} sx={styleTableau}>
             <TableHead>
@@ -151,12 +155,12 @@ export function SuiviBudget({ magasin, annee, allerA, muetSansReel }: { magasin:
               </TableRow>
             </TableHead>
             <TableBody>
-              <TableRow>
+              <TableRow className="ligne-cle">
                 <TableCell sx={{ fontWeight: 700 }}>CA HT</TableCell>
                 {s.mois.map((l, i) => <CaseReelPrevu key={i} reel={l.caReel} prevu={l.caBudget} niveau={niveauxCA[i]} format={entier} enCours={i === enCours} />)}
                 <CaseReelPrevu reel={c.caReel} prevu={c.caBudget} niveau={niveauEcart(c.caReel, c.caBudget, seuil)} format={entier} fort />
               </TableRow>
-              <TableRow>
+              <TableRow className="ligne-cle">
                 <TableCell sx={{ fontWeight: 700 }}>Marge</TableCell>
                 {s.mois.map((l, i) => (
                   <CaseReelPrevu key={i} reel={l.margeReel} prevu={l.caReel === null || l.margeReel !== null ? l.margeBudget : null}
@@ -176,7 +180,7 @@ export function SuiviBudget({ magasin, annee, allerA, muetSansReel }: { magasin:
             </TableBody>
           </Table>
         </TableContainer>
-      </Card>
+      </Repliable>
     </Stack>
   )
 }

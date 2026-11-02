@@ -154,6 +154,10 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
    l'année et leur effet), `fraisBudget.ts` (frais du budget ligne par ligne, `Cibles.fraisBudget`, appliqués par
    `appliquerCibles`). Écrans `FraisBudget` (étape 3 du budget), `EquipeMagasin` (étape 2, changements et graphique),
    `FraisMagasin` en un tableau par thème ; compte de résultat à deux niveaux de détail. Migration `0019_hausses_equipe.sql`.
+38. Lot 38 : `parametresDuBudget` et `completerParametres` (`src/data/pilotage.ts`, paramètres figés d'un budget validé),
+   `effetsSurLaMarge` (`src/moteur/suivi.ts`, conclusion de « Face au budget »), `Repliable` (détail replié, imprimé),
+   `classeLigne` (`src/theme/tableau.ts`, lignes clés CA, marge, personnel, EBE), `ecartMilliers` (`src/lib/format.ts`).
+   Tests `tests/moteur/suivi.spec.ts` et `tests/lot38.spec.ts`. Migration `0020_parametres_figes.sql`.
 
 ## Rôles
 

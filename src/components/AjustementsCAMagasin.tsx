@@ -14,7 +14,7 @@ import Typography from '@mui/material/Typography'
 import AddOutlined from '@mui/icons-material/AddOutlined'
 import DeleteOutlined from '@mui/icons-material/DeleteOutlined'
 import TuneOutlined from '@mui/icons-material/TuneOutlined'
-import { ecartMontant, MOIS_LONGS } from '../lib/format'
+import { ecartMilliers, MOIS_LONGS } from '../lib/format'
 import { UNIVERS, universLibelle, type AjustementCA } from '../moteur/types'
 import { ChampMontant } from './ChampMontant'
 import { ChampTaux } from './ChampTaux'
@@ -47,7 +47,7 @@ export function AjustementsCAMagasin({ ajustements, onChange, lectureSeule, anne
     <Card component="section" aria-label="Clients gagnés ou perdus">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2.5, pt: 2, pb: 1 }}>
         <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}><Typography variant="h2">Clients gagnés ou perdus</Typography><Aide sujet="ajustements" /></Box>
-        <Typography variant="body2" color="text.secondary">CA {annee} : {ecartMontant(effet)}</Typography>
+        <Typography variant="body2" color="text.secondary">CA {annee} : {ecartMilliers(effet)}</Typography>
       </Box>
       <TableContainer>
         <Table size="small" aria-label={`Clients gagnés ou perdus ${annee}`} sx={sx}>

@@ -18,9 +18,9 @@ import { GraphiqueMois } from './GraphiqueMois'
 import { Indicateur } from './Indicateur'
 import { Panne } from './Panne'
 import { PlusLoin } from './PlusLoin'
-import { atterrissageDe, chargerBudgets, chargerReel, chargerSecours, hypothesesDe, type DonneesBudgets } from '../data/pilotage'
+import { atterrissageDe, chargerBudgets, chargerReel, chargerSecours, hypothesesDe, type DonneesBudgets, parametresDuBudget } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
-import { ecartMontant, ecartPts, enChiffres, milliers, montant, MOIS_LONGS, taux } from '../lib/format'
+import { ecartMilliers, ecartPts, enChiffres, milliers, MOIS_LONGS, montant, taux } from '../lib/format'
 import { niveauEcart } from '../moteur/visuel'
 import { LignesTendance, type LigneTendance } from './LignesTendance'
 import { COULEUR_BARRE } from './Tableau'
@@ -78,7 +78,7 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteE
   // Budget de l'année en cours, s'il a été proposé : le réel à date lui est comparé, mois par mois
   const ligneN = donnees.budgets?.magasins.find((l) => l.magasin === magasin)
   const hN = ligneN?.statut && donnees.budgets ? hypothesesDe(ligneN, donnees.budgets) : null
-  const budgetN = hN ? calculerBudget(hN.hypotheses, parametres) : null
+  const budgetN = hN ? calculerBudget(hN.hypotheses, parametresDuBudget(ligneN, parametres)) : null
   const suivi = budgetN ? suiviBudget(moisDuReel(donnees.n.lignes, donnees.n.tickets), budgetN) : null
   const ecartCA = suivi?.cumul.ecartCAPart ?? null
   const ecartMarge = suivi && s.tauxMarge !== null ? s.tauxMarge - suivi.cumul.tauxMargeBudget : null
@@ -171,7 +171,7 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteE
           <GraphiqueMois
             titre={`Chiffre d’affaires ${annee} cumulé : réel jusqu’à ${finMois}, projection ensuite${budgetN ? ', comparé au budget' : ''} et à ${annee - 1}`}
             format={montant} formatAxe={milliers} moisEnCours={enCours}
-            note={finAtterri == null ? undefined : `Atterrissage ${annee} : ${milliers(finAtterri)}${budgetN ? `, ${ecartMontant(finAtterri - budgetN.ca)} face au budget de ${milliers(budgetN.ca)}` : ''}`}
+            note={finAtterri == null ? undefined : `Atterrissage ${annee} : ${milliers(finAtterri)}${budgetN ? `, ${ecartMilliers(finAtterri - budgetN.ca)} face au budget de ${milliers(budgetN.ca)}` : ''}`}
             series={[
               ...(budgetN ? [{ nom: `Budget ${annee}`, valeurs: cumul(budgetN.mois.map((m) => m.ca)), forme: 'ligne' as const, couleur: brand.orange }] : []),
               { nom: `Réel ${annee - 1}`, valeurs: cumul(s.serieN1), forme: 'ligne', couleur: brand.vert },

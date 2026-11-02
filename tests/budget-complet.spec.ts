@@ -49,7 +49,7 @@ test('le franchisé ajoute démarque, saisonnalité et travaux, puis enregistre'
   await page.getByLabel('Activité en Mars').fill('0')
   await page.getByLabel('Investissement HT').fill('60000')
   const chantier = page.getByRole('region', { name: 'Travaux' })
-  await expect(chantier).toContainText(/CA de l’année : [-−]45\s000\s€/)
+  await expect(chantier).toContainText(/CA de l’année : [-−]45\sk€/)
   await expect(chantier).toContainText(/Dotation : 9\sk€/)
   await ouvrir(page, 'Résultat et trésorerie')
   await expect(page.getByRole('table', { name: 'Budget 2027 mois par mois' }).getByRole('row', { name: /^Dotations aux amortissements/ })).toContainText(/[-−]33\s000\s€/)

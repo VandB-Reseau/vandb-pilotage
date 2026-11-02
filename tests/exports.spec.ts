@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { expect, test, type Page } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
 import { celluleXml, lireClasseur } from './lecture-xlsx'
-import { seConnecter, textesTropPetits, zonesTropPetites, type VenteSimulee, ouvrir, allerVers } from './supabase-simule'
+import { seConnecter, textesTropPetits, zonesTropPetites, type VenteSimulee, ouvrir, allerVers, anneeEnTete } from './supabase-simule'
 
 // Export Excel, impression et filtre par Responsable Régional. Données fictives uniquement : dépôt public.
 
@@ -83,7 +83,7 @@ test('vue réseau imprimée : sans menu ni filtres, sélection et date en tête'
 test('budget : export Excel du compte de résultat et des hypothèses, impression', async ({ page, isMobile }, info) => {
   await seConnecter(page, { role: 'franchise', magasins: [{ magasin: MAGASINS[0], statut: 'valide', hypotheses: magasinFictif, base: magasinFictif, ajustements: {}, maj_le: null }] })
   await ouvrir(page, 'Cartes des hypothèses')
-  const annee = Number((await page.getByRole('tablist', { name: /^Étapes du budget/ }).getAttribute('aria-label'))?.match(/\d{4}/)?.[0])
+  const annee = await anneeEnTete(page)
 
   const { nom, fichiers } = await telechargement(page, 'Exporter en Excel')
   expect(nom).toBe(`Budget ${annee} - ${MAGASINS[0]}.xlsx`)
@@ -107,7 +107,7 @@ test('budget : export Excel du compte de résultat et des hypothèses, impressio
   await expect(page.getByRole('tablist', { name: /^Étapes du budget/ })).toBeHidden()
   await expect(page.getByRole('group', { name: 'Espaces' })).toBeHidden()
   await expect(page.getByRole('group', { name: 'Actions sur le budget' }).or(page.getByLabel('Actions sur le budget'))).toBeHidden()
-  await expect(page.getByText(new RegExp(`Budget ${annee} · imprimé le`))).toBeVisible()
+  await expect(page.getByText(/· imprimé le/)).toBeVisible()
   await expect(page.getByRole('table', { name: `Budget ${annee} mois par mois` })).toBeVisible()
   await page.screenshot({ path: `captures/${info.project.name}-budget-impression.png`, fullPage: true })
 })

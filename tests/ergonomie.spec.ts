@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { ouvrir, seConnecter, textesTropPetits, zonesTropPetites, type FraisSimule, type MagasinSimule, type PersonneSimulee } from './supabase-simule'
+import { ouvrir, partiesAffichees, seConnecter, textesTropPetits, zonesTropPetites, type FraisSimule, type MagasinSimule, type PersonneSimulee } from './supabase-simule'
 
 // Ergonomie : saisie jamais perdue, filtres de l'accueil, magasin précédent et suivant, pastilles, saisie rapide.
 // Données fictives uniquement : dépôt public.
@@ -95,17 +95,20 @@ test('d’un magasin au suivant, dans la liste filtrée, en restant sur le même
   await expect(page.getByRole('link', { name: `Magasin précédent : ${MAGASINS[2]}` })).toBeVisible()
 })
 
-test('les onglets signalent ce qui manque', async ({ page }) => {
+test('les onglets signalent ce qui manque', async ({ page, isMobile }) => {
   await seConnecter(page, { magasins: sept, frais: [loyer(MAGASINS[0])] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Hypothèses')
   // Budget en 4 étapes (lot 37) ; l'équipe manquante est signalée sur l'étape des hypothèses
-  await expect(page.getByRole('tablist', { name: /^Étapes du budget/ }).getByRole('tab')).toHaveText([/^0 · Point de départ/, /^1 · Hypothèses/, /^2 · Résultat et trésorerie/, /^3 · Échanges et validation/])
-  await expect(page.getByRole('tab', { name: '1 · Hypothèses (équipe à renseigner)' })).toBeVisible()
+  await expect(partiesAffichees(page)).toHaveText([/^0 · Point de départ/, /^1 · Hypothèses/, /^2 · Résultat et trésorerie/, /^3 · Échanges et validation/])
+  // Téléphone : le détail dans l'onglet ; PC (lot 38) : la pastille sur le lien du menu
+  const signale = (nom: RegExp) => (isMobile ? expect(page.getByRole('tab', { name: nom })).toBeVisible()
+    : expect(page.getByRole('navigation', { name: 'Menu principal' }).getByRole('link', { name: nom }).locator('.MuiBadge-dot:not(.MuiBadge-invisible)')).toBeVisible())
+  await signale(isMobile ? /^1 · Hypothèses \(équipe à renseigner\)/ : /^1 · Hypothèses/)
   await page.getByRole('link', { name: `Magasin suivant : ${MAGASINS[1]}` }).click()
   await page.getByRole('link', { name: `Magasin suivant : ${MAGASINS[2]}` }).click()
   // Directeur : budget à proposer, depuis le point de départ
-  await expect(page.getByRole('tab', { name: '0 · Point de départ (budget à proposer)' })).toBeVisible()
+  await signale(isMobile ? /^0 · Point de départ \(budget à proposer\)/ : /^0 · Point de départ/)
 })
 
 test('un franchisé avec un seul magasin arrive sur sa fiche', async ({ page }) => {
