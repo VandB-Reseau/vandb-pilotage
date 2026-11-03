@@ -53,6 +53,8 @@ import { TravauxMagasin } from '../components/TravauxMagasin'
 import { BaseCAMagasin } from '../components/BaseCAMagasin'
 import { EvenementsMagasin } from '../components/EvenementsMagasin'
 import { AchatsMagasin, CapaciteAutofinancement, FinancementsMagasin } from '../components/InvestissementsMagasin'
+import { PretsMagasin } from '../components/PretsMagasin'
+import { pretsDeLAnnee, pretsDeuxAnnees, pretsValides } from '../moteur/financement'
 import { etatCalendrier, etatInvestissements, QUESTIONS_CALENDRIER, QUESTIONS_INVESTISSEMENTS } from '../moteur/questions'
 import { TresorerieBudget } from '../components/TresorerieBudget'
 import { TresorerieDepart } from '../components/TresorerieDepart'
@@ -150,7 +152,14 @@ export function Magasin() {
   const ligne = donnees?.d.magasins.find((l) => l.magasin === nom) ?? null
   // Le brouillon est repris du magasin une fois chargé : avant, aucune saisie n'est « en cours » (pas de garde intempestive)
   const [brouillonDe, setBrouillonDe] = useState<object | null>(null)
-  useEffect(() => { setBrouillon(ligne?.ajustements ?? {}); setBrouillonDe(ligne) }, [ligne])
+  // Un prêt enregistré recharge le magasin sans perdre les ajustements en cours du budget
+  const garderBrouillon = useRef<Cibles | null>(null)
+  useEffect(() => {
+    const garde = garderBrouillon.current
+    garderBrouillon.current = null
+    setBrouillon(garde ?? ligne?.ajustements ?? {}); setBrouillonDe(ligne)
+  }, [ligne])
+  const rechargerEnGardant = () => { garderBrouillon.current = brouillon; recharger() }
   useSaisieEnCours(!!ligne && brouillonDe === ligne && JSON.stringify(brouillon) !== JSON.stringify(ligne.ajustements))
   // Panneau Impact : les hypothèses telles qu'avant le dernier changement (moteur : suivreDernier)
   const [avantDernier, setAvantDernier] = useState<Cibles | null>(null)
@@ -222,7 +231,7 @@ export function Magasin() {
   const peutAjuster = (directeur || profil?.role === 'franchise') && !!ligne.base && ligne.statut !== 'valide'
   const nbEcarts = resolu ? ecarts(resolu.provenance).length : 0
   // Lot 35 : frais du budget à partir des frais de l'année en cours ; inflation des frais pour les lignes sans choix
-  const baseFrais = ligne.base ? avecEquipeEtFrais(ligne.base, d.equipes[ligne.magasin], d.frais[ligne.magasin], d.comptes?.[ligne.magasin]) : null
+  const baseFrais = ligne.base ? avecEquipeEtFrais(ligne.base, d.equipes[ligne.magasin], d.frais[ligne.magasin], d.comptes?.[ligne.magasin], d.prets?.[ligne.magasin]) : null
   const inflation = resolu?.provenance.find((x) => x.cle === 'inflationFrais')?.valeur ?? 0
   const enregistrable = poidsValides(brouillon.poidsMois)
   // Lot 42 (proposition 5) : sans trésorerie au 1er janvier saisie, celle estimée depuis les comptes de l'année
@@ -561,6 +570,7 @@ export function Magasin() {
         </Stack>
       ) : onglet === 'frais' ? (
         <FraisMagasin key={ligne.magasin} magasin={ligne.magasin} lignes={d.frais[ligne.magasin] ?? []} annee={anneeEnCours} peutSaisir={peutSaisir} apresEnregistrement={recharger}
+          prets={pretsValides(d.prets?.[ligne.magasin]).length ? pretsDeLAnnee(d.prets?.[ligne.magasin], anneeEnCours) : null}
           tauxSurCA={{ publicite: parametres.tauxPublicite, redevance: parametres.tauxRedevance }} grille={grilleDe(parametres)}
           budget={b ? { annee, ca: b.ca, ebe: b.ebe } : undefined} />
       ) : (<Stack spacing={3}>
@@ -698,7 +708,9 @@ export function Magasin() {
                 <AchatsMagasin cibles={brouillon} onChange={setBrouillon} lectureSeule={!peutAjuster} annee={annee} />
               </Box>
               <Box id={ANCRES_QUESTIONS.emprunts} sx={{ scrollMarginTop: 200 }}>
-                <FinancementsMagasin cibles={brouillon} onChange={setBrouillon} lectureSeule={!peutAjuster} annee={annee} enCours={resolu.hypotheses} />
+                <FinancementsMagasin cibles={brouillon} onChange={setBrouillon} lectureSeule={!peutAjuster} annee={annee} enCours={resolu.hypotheses}
+                  avecPrets={pretsValides(d.prets?.[ligne.magasin]).length > 0}
+                  prets={<PretsMagasin key={ligne.magasin} magasin={ligne.magasin} prets={d.prets?.[ligne.magasin] ?? []} annee={annee} peutSaisir={peutSaisir} apresEnregistrement={rechargerEnGardant} />} />
               </Box>
               <CapaciteAutofinancement budget={b} annee={annee} />
             </Stack>
@@ -716,6 +728,7 @@ export function Magasin() {
               )}
               <FraisBudget base={baseFrais} choix={brouillon.fraisBudget} inflation={inflation} annee={annee} anneeEnCours={anneeEnCours} lectureSeule={!peutAjuster}
                 tauxSurCA={{ publicite: parametres.tauxPublicite, redevance: parametres.tauxRedevance }} grille={grilleDe(parametres)}
+                prets={pretsDeuxAnnees(d.prets?.[ligne.magasin], anneeEnCours, annee)}
                 onChange={(c) => setBrouillon(({ fraisBudget: _, ...reste }) => (c ? { ...reste, fraisBudget: c } : reste))} />
             </Stack>
           )}

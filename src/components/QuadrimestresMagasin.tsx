@@ -115,7 +115,7 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir, vue = 'saisie
   ]
   // Trésorerie glissante : dernière trésorerie saisie, puis les flux de l'atterrissage jusqu'à décembre
   const qTreso = [...QUADRIMESTRES].reverse().find((q) => lues[q]?.tresorerie != null)
-  const atterri = moisCaisse.some((m) => m.caHT > 0) ? atterrissageDe({ n: donnees.reel, n1: donnees.reelN1 }, annee, donnees.d.equipes[magasin], donnees.d.frais[magasin], donnees.parametres, donnees.secours) : null
+  const atterri = moisCaisse.some((m) => m.caHT > 0) ? atterrissageDe({ n: donnees.reel, n1: donnees.reelN1 }, annee, donnees.d.equipes[magasin], donnees.d.frais[magasin], donnees.parametres, donnees.secours, donnees.d.prets?.[magasin]) : null
   const glissante = atterri && qTreso && qTreso < 3
     ? tresorerieGlissante(tresorerieBudget(atterri.budget, atterri.hypotheses, donnees.parametres, donnees.parametres.tresorerie), { montant: lues[qTreso]!.tresorerie!, mois: qTreso * 4 - 1 })
     : null

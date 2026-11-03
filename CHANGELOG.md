@@ -5,6 +5,20 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Prêts du magasin avec leur date (Base : 0026)
+
+- Base : passer `supabase/migrations/0026_emprunts.sql` (table des prêts). Sans elle, la carte s'affiche vide et rien
+  ne change dans les calculs.
+- Joseph (3/11) : dans Financements, chaque prêt se saisit une fois, comme l'équipe : d'après le tableau de la banque
+  (montant, taux, durée, mois de la 1re échéance, différé) ou, faute du tableau, capital restant dû et mensualité.
+  Intérêts et capital se calculent mois par mois pour l'année en cours, le budget et les années suivantes.
+- Un prêt saisi est déjà dépensé : il n'apporte pas de trésorerie, seules ses échéances sortent.
+- Dès qu'un prêt est saisi, « Intérêts sur emprunts » et « Capital d'emprunts remboursé » des frais (année en cours et
+  budget) en sont tirés, en lecture seule ; « Dernier mois des emprunts en cours » disparaît. Les intérêts de comptes
+  courants et les agios restent ceux des frais. Le réel des quadrimestres garde les chiffres de la compta.
+- Plus de « Ajouter un emprunt » dans le budget : on ajoute un prêt. Taux variables, échéances trimestrielles et
+  crédit-bail ne sont pas gérés.
+
 ### Investissements & Financements, Évènements & Temps forts, budget en 3 étapes, commentaires (Base : 0025)
 
 - Base : passer `supabase/migrations/0025_commentaires.sql` (commentaires ancrés, réponses, « Résolu »). Sans elle, l'app

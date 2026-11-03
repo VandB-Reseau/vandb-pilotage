@@ -74,7 +74,7 @@ export function tresorerieDepartEstimee(base: Hypotheses, c: ComptesAnnee | null
   if (!restants.length) return { montant: c.tresorerie.montant, depuis: c.tresorerie.montant, quadrimestre: c.tresorerie.quadrimestre, annee: c.annee }
   // Base sans cible : même CA que l'année en cours, mois par mois (saisonnalité de la base)
   const b = calculerBudget({ ...base, annee: c.annee, travaux: undefined, tempsForts: undefined, ajustementsCA: undefined, poidsMois: undefined, rythme: undefined }, p)
-  const parMoisFinances = (base.interets + base.remboursementCapital) / 12
-  const flux = somme(restants.map((i) => b.mois[i].ebe - parMoisFinances))
+  // Intérêts et capital de chaque mois : ceux des prêts saisis s'il y en a (03/11/2026), sinon le douzième des frais
+  const flux = somme(restants.map((i) => b.mois[i].ebe - b.financement.interetsMois[i] - b.financement.capitalMois[i]))
   return { montant: Math.round(c.tresorerie.montant + flux), depuis: c.tresorerie.montant, quadrimestre: c.tresorerie.quadrimestre, annee: c.annee }
 }

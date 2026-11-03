@@ -207,6 +207,11 @@ export const CODES_FINANCES = {
 } as const
 export interface LigneFraisMagasin { code: string; libelle: string; rubrique: string; annuel: number | null; tauxCA: number | null }
 
+// Intérêts hors prêts (comptes courants, agios) : ce qui reste des frais quand les prêts du magasin sont saisis
+export function autresInterets(lignes: LigneFraisMagasin[] | undefined): number {
+  const valeur = (code: string) => lignes?.find((l) => l.code === code)?.annuel ?? 0
+  return valeur(CODES_FINANCES.interetsComptesCourants) + valeur(CODES_FINANCES.agios)
+}
 export function fraisDepuisLignes(lignes: LigneFraisMagasin[]): { frais: LigneFrais[]; finances: Finances } {
   const valeur = (code: string) => lignes.find((l) => l.code === code)?.annuel ?? 0
   const codesFinances = Object.values(CODES_FINANCES) as string[]

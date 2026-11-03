@@ -89,6 +89,9 @@ export interface Hypotheses {
   emprunts?: Emprunt[]
   apport?: Apport
   finEmpruntsEnCours?: number
+  // Prêts du magasin (03/11/2026) : leurs intérêts et leur capital de l'année remplacent la ligne « Intérêts sur
+  // emprunts » et le capital remboursé des frais ; interets ne garde alors que les comptes courants et les agios
+  prets?: Pret[]
   // Lot 42 : masse salariale ou frais repris des comptes de l'année en cours, faute d'équipe ou de frais saisis
   reprise?: { annee: number; mois: number; personnel: boolean; frais: boolean }
   // Lot 42 : trésorerie au 1er janvier estimée, figée avec le budget à sa validation (le franchisé n'avait pas saisi la sienne)
@@ -123,6 +126,21 @@ export interface Investissement { libelle: string; type: TypeInvestissement; mon
 // Nouvel emprunt : capital, taux annuel, durée en années, mois de la première échéance (1 à 12) ; échéances mensuelles
 // constantes, capital encaissé le mois précédant la première échéance (janvier au plus tôt)
 export interface Emprunt { libelle: string; montant: number; taux: number; duree: number; premiereEcheance: number }
+// Prêt du magasin (Joseph, 03/11/2026), saisi une fois dans la fiche du magasin et lu par toutes les années.
+// « initial » : d'après le tableau d'amortissement de la banque (montant emprunté, durée, date de la 1re échéance, différé
+// d'intérêts seuls) ; « restant » : faute du tableau, capital restant dû juste avant l'échéance de « debut » et mensualité.
+// Échéances mensuelles. Un prêt saisi est déjà dépensé (Joseph, 03/11/2026) : il n'entre pas en trésorerie.
+export interface Pret {
+  id?: number
+  libelle: string
+  mode: 'initial' | 'restant'
+  montant: number                     // initial : montant emprunté ; restant : capital restant dû
+  taux: number                        // taux annuel
+  duree: number                       // initial : durée en années, différé compris
+  debut: string                       // AAAA-MM : 1re échéance (initial), prochaine échéance (restant)
+  differe?: number                    // initial : mois d'intérêts seuls au début
+  mensualite?: number                 // restant : échéance mensuelle (intérêts et capital)
+}
 // Apport du franchisé ou en compte courant : entre en trésorerie le mois saisi, sans effet sur le résultat
 export interface Apport { montant: number; mois: number }
 

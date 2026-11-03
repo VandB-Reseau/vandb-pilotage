@@ -64,7 +64,7 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteE
 
   const equipe = d.equipes[magasin]
   const frais = d.frais[magasin]
-  const a = atterrissageDe(donnees, annee, equipe, frais, parametres, donnees.secours)
+  const a = atterrissageDe(donnees, annee, equipe, frais, parametres, donnees.secours, d.prets?.[magasin])
   const s = santeMagasin(donnees.n, donnees.n1, a?.budget ?? null)
   if (s.moisRealises === 0 || !a) {
     return (

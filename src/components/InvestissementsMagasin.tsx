@@ -105,10 +105,13 @@ export function AchatsMagasin({ cibles, onChange, lectureSeule, annee }: { cible
   )
 }
 
-// Nouveaux emprunts, apport, emprunts déjà en cours (repris des frais, avec leur dernier mois)
-export function FinancementsMagasin({ cibles, onChange, lectureSeule, annee, enCours }: {
+// Prêts du magasin (saisis une fois, avec leur date), apport de l'année ; sans prêt saisi, les emprunts en cours repris
+// des frais avec leur dernier mois. Les emprunts de l'année saisis dans le budget avant les prêts restent lus.
+export function FinancementsMagasin({ cibles, onChange, lectureSeule, annee, enCours, prets, avecPrets = false }: {
   cibles: Cibles; onChange: (c: Cibles) => void; lectureSeule: boolean; annee: number
   enCours: Pick<Hypotheses, 'interets' | 'remboursementCapital'>
+  prets?: ReactNode     // carte des prêts du magasin (PretsMagasin)
+  avecPrets?: boolean   // des prêts sont saisis : leur échéancier remplace les emprunts en cours des frais
 }) {
   const liste = cibles.emprunts ?? []
   const ecrire = <K extends 'emprunts' | 'apport' | 'finEmpruntsEnCours'>(k: K, v: Cibles[K] | undefined) => {
@@ -117,14 +120,16 @@ export function FinancementsMagasin({ cibles, onChange, lectureSeule, annee, enC
   }
   const changer = (i: number, x: Partial<Emprunt>) => ecrire('emprunts', liste.map((y, j) => (j === i ? { ...y, ...x } : y)))
   const ajouter = () => ecrire('emprunts', [...liste, { libelle: '', montant: 0, taux: 0.04, duree: 7, premiereEcheance: 2 }])
-  const aEnCours = enCours.interets > 0 || enCours.remboursementCapital > 0
+  const aEnCours = !avecPrets && (enCours.interets > 0 || enCours.remboursementCapital > 0)
+  const tableau = !prets || liste.length > 0 || !!cibles.apport || aEnCours
   const fin = cibles.finEmpruntsEnCours ?? 12
   return (
     <Card component="section" aria-label="Financements">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2.5, pt: 2, pb: 1 }}>
         <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}><Typography variant="h2">Financements</Typography><Aide sujet="emprunts" /></Box>
       </Box>
-      <TableContainer>
+      {prets}
+      {tableau && <TableContainer>
         <Table size="small" aria-label={`Financements ${annee}`} sx={sx}>
           <TableHead>
             <TableRow>
@@ -192,10 +197,10 @@ export function FinancementsMagasin({ cibles, onChange, lectureSeule, annee, enC
             )}
           </TableBody>
         </Table>
-      </TableContainer>
-      {!lectureSeule && (
-        <Box sx={{ px: 2.5, py: 1.5, display: 'flex', gap: 1, flexWrap: 'wrap' }} className="pas-a-l-impression">
-          <Button startIcon={<AddOutlined />} onClick={ajouter} sx={{ minHeight: 48 }}>Ajouter un emprunt</Button>
+      </TableContainer>}
+      {!lectureSeule && (!prets || !cibles.apport) && (
+        <Box sx={{ px: 2.5, pt: prets && !tableau ? 0.5 : 1.5, pb: 1.5, display: 'flex', gap: 1, flexWrap: 'wrap' }} className="pas-a-l-impression">
+          {!prets && <Button startIcon={<AddOutlined />} onClick={ajouter} sx={{ minHeight: 48 }}>Ajouter un emprunt</Button>}
           {!cibles.apport && <Button startIcon={<AddOutlined />} onClick={() => ecrire('apport', { montant: 0, mois: 1 })} sx={{ minHeight: 48 }}>Prévoir un apport</Button>}
         </Box>
       )}

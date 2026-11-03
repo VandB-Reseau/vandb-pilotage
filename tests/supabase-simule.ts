@@ -31,6 +31,7 @@ export type ActionSimulee = {
 export type CorrespondanceSimulee = { store_name: string; compte: string; rubrique: string }
 export interface VenteSimulee { store_name: string; mois: string; univers: string; famille: string; ca_ht: number; ca_ttc: number | null; marge_ht: number | null }
 export interface TicketsSimules { store_name: string; mois: string; univers: string; tickets: number }
+export interface PretSimule { id: number; store_name: string; libelle: string; mode: 'initial' | 'restant'; montant: number; taux: number; duree: number | null; debut: string; differe: number; mensualite: number | null }
 export interface PersonneSimulee { id: number; store_name: string; poste: string; categorie: string; heures_hebdo: number; brut_mensuel: number; primes: { mois: number; montant: number }[]; entree: string | null; sortie: string | null }
 export interface FraisSimule { store_name: string; code: string; libelle: string; rubrique: string; annuel: number | null; taux_ca: number | null }
 export interface GroupeSimule { id: number; nom: string; cibles: Record<string, unknown> | null }
@@ -44,6 +45,7 @@ export interface OptionsSimulation {
   tickets?: TicketsSimules[]
   codes?: { code: string; store_name: string }[]
   equipe?: PersonneSimulee[]
+  prets?: PretSimule[]   // table emprunts (0026)
   frais?: FraisSimule[]
   coachs?: Record<string, string>
   rrs?: Record<string, string[]>
@@ -90,6 +92,7 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
   const reel = { reel_mensuel: structuredClone(options.reel ?? []) as (VenteSimulee | TicketsSimules)[], reel_tickets: structuredClone(options.tickets ?? []) as (VenteSimulee | TicketsSimules)[] }
   let codes = structuredClone(options.codes ?? [])
   let equipe = structuredClone(options.equipe ?? [])
+  let prets = structuredClone(options.prets ?? [])
   let frais = structuredClone(options.frais ?? [])
   let quadrimestres = structuredClone(options.quadrimestres ?? [])
   let stocks = structuredClone(options.stocks ?? [])
@@ -237,6 +240,12 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
         else if (req.method() === 'PATCH') equipe = equipe.map((p) => (p.id === id ? { ...p, ...(corps as object) } : p))
         else equipe.push({ ...(corps as PersonneSimulee), id: Math.max(0, ...equipe.map((p) => p.id)) + 1 })
       }
+      if (table === 'emprunts') {
+        const id = Number(url.searchParams.get('id')?.replace(/^eq\./, ''))
+        if (req.method() === 'DELETE') prets = prets.filter((p) => p.id !== id)
+        else if (req.method() === 'PATCH') prets = prets.map((p) => (p.id === id ? { ...p, ...(corps as object) } : p))
+        else prets.push({ ...(corps as PretSimule), id: Math.max(0, ...prets.map((p) => p.id)) + 1 })
+      }
       if (table === 'frais') {
         if (req.method() === 'DELETE') { const retirer = new Set(filtrer(frais, url.searchParams)); frais = frais.filter((l) => !retirer.has(l)) }
         else for (const l of ([] as FraisSimule[]).concat(corps as FraisSimule)) frais = [...frais.filter((x) => !(x.store_name === l.store_name && x.code === l.code)), l]
@@ -318,6 +327,7 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
     // Pages de 1 000 lignes au plus, comme l'API
     const page = <T,>(l: T[]) => { const de = Number(url.searchParams.get('offset') ?? 0); return l.slice(de, de + Math.min(1000, Number(url.searchParams.get('limit') ?? 1000))) }
     if (table === 'equipe') return route.fulfill({ json: page(equipe) })
+    if (table === 'emprunts') return route.fulfill({ json: page(prets) })
     if (table === 'frais') return route.fulfill({ json: page(frais) })
     if (table === 'quadrimestres') return route.fulfill({ json: page(filtrer(quadrimestres, url.searchParams)) })
     if (table === 'parts_realisees') return route.fulfill({ json: page(filtrer(parts, url.searchParams)) })
