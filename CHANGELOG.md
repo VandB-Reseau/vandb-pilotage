@@ -5,6 +5,12 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Contrôle de gestion : chiffres de tous les magasins (Base : 0029)
+
+- Base : passer `supabase/migrations/0029_controle_gestion_chiffres.sql`. Joseph (3/11, fusion, question 5) : le
+  contrôle de gestion lit les budgets, le réel et les comptes de tous les magasins, en plus des paramètres ; il n'écrit
+  toujours rien dans un magasin.
+
 ### Avant la fusion avec l'app réseau (Base : 0028)
 
 - Base : passer `supabase/migrations/0028_preparation_fusion.sql` (lecture seule des tables de l'app réseau, aucun
