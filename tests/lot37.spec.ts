@@ -21,9 +21,12 @@ test('hypothèses en cartes : chaque carte ouvre son tableau, les changements re
   await ouvrir(page, 'Cartes des hypothèses')
   await expect(page).toHaveURL(/\/budget$/)
   await expect(partiesAffichees(page))
-    .toHaveText([/^0 · Point de départ/, /^1 · Hypothèses/, /^2 · Résultat et trésorerie/, /^3 · Échanges et validation/])
+    .toHaveText([/^0 · Point de départ/, /^1 · Construire/, /^2 · Envoyer et valider/])
   const main = page.locator('main')
-  for (const t of ['Ventes', 'Calendrier', 'Équipe', 'Frais', 'Trésorerie', 'Résultat']) {
+  // Lot 42 : ventes et résultat sur la page, les autres thèmes en cartes
+  await expect(main.getByRole('region', { name: 'Hypothèses du magasin' })).toBeVisible()
+  await expect(main.getByRole('table', { name: /mois par mois$/ })).toBeVisible()
+  for (const t of ['Calendrier', 'Équipe', 'Frais', 'Trésorerie']) {
     await expect(main.getByRole('region', { name: t, exact: true })).toBeVisible()
   }
   // Sans équipe : la carte le dit
@@ -32,11 +35,8 @@ test('hypothèses en cartes : chaque carte ouvre son tableau, les changements re
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-hypotheses-cartes.png`, fullPage: true })
 
-  // Ventes : un tableau court par univers, de l'année en cours à l'année du budget
-  await main.getByRole('region', { name: 'Ventes', exact: true }).getByRole('link').click()
-  await expect(page).toHaveURL(/\/ventes$/)
-  await expect(page.getByRole('heading', { level: 2, name: /^Ventes \d{4}/ })).toBeVisible()
-  await partieAffichee(page, /^1 · Hypothèses/)
+  // Ventes : un tableau court par univers, de l'année en cours à l'année du budget, sur la même page (lot 42)
+  await partieAffichee(page, /^1 · Construire/)
   const cave = page.getByRole('table', { name: /^Hypothèses \d{4} : Cave/ })
   await expect(cave.getByRole('columnheader')).toHaveText(isMobile ? [/^Hypothèse/, /^Choix du magasin/, /^\d{4}$/] : [/^Hypothèse/, /^\d{4}$/, /^Siège propose/, /^Choix du magasin/, /^\d{4}$/, /^Effet$/])
   await expect(cave.getByRole('row', { name: /^Tickets/ })).toContainText(/10\s000/)
@@ -55,12 +55,11 @@ test('hypothèses en cartes : chaque carte ouvre son tableau, les changements re
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-hypotheses-ventes.png`, fullPage: true })
 
-  // Retour aux cartes, puis Frais : pas de question, le changement reste
-  await page.getByRole('link', { name: 'Toutes les hypothèses' }).click()
+  // Lot 42 : le résultat a suivi (tickets Cave + 5 %) ; puis Frais : pas de question, le changement reste
   await expect(page.getByRole('dialog', { name: 'Modifications non enregistrées' })).toHaveCount(0)
   await main.getByRole('region', { name: 'Frais', exact: true }).getByRole('link').click()
   await expect(page).toHaveURL(/\/fraisBudget$/)
-  await expect(page.getByLabel('Inflation des frais', { exact: true })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Hypothèse des frais' }).getByLabel('Inflation des frais', { exact: true })).toBeVisible()
   await expect(barre).toContainText('1 changement')
   await expect(page.getByRole('region', { name: 'Indicateurs clés' })).toHaveCount(0)
 })
@@ -79,25 +78,23 @@ test('Suivi : une page Trésorerie ; Données : la saisie du quadrimestre seule'
   await expect(page.getByRole('heading', { level: 2, name: 'Comptes du quadrimestre' })).toBeVisible()
 })
 
-test('menu : un seul magasin, le sien ; son nom ouvre la liste des magasins avec recherche', async ({ page, isMobile }) => {
+test('barre du haut : le magasin ouvert, son nom ouvre la liste des magasins avec recherche ; le menu ne le montre plus', async ({ page, isMobile }) => {
   const autre: MagasinSimule = { ...propose, magasin: MAGASINS[1] }
   await seConnecter(page, { magasins: [propose, autre] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Résultat')
-  await expect(page).toHaveURL(/\/resultat$/)
+  await expect(page).toHaveURL(/\/budget$/)
+  // Lot 42 (Joseph, 02/11/2026) : le magasin n'est plus dans le menu de gauche, il est dans la barre du haut
   const menu = page.getByRole('navigation', { name: 'Menu principal' })
-  const selecteur = menu.getByRole('button', { name: `Changer de magasin (magasin ouvert : ${MAGASINS[0]})` })
-  // Sur téléphone, le menu s'ouvre par l'icône ; s'il se referme pendant le chargement de la fiche, on le rouvre
-  for (let essai = 0; ; essai++) {
-    if (isMobile && !(await menu.isVisible())) await page.getByRole('button', { name: 'Ouvrir le menu' }).click()
-    try { await selecteur.click({ timeout: 4_000 }); break } catch (e) { if (essai >= 2) throw e }
-  }
-  await expect(menu.getByText(MAGASINS[1], { exact: true })).toHaveCount(0)
+  await expect(menu.getByText(MAGASINS[0], { exact: true })).toHaveCount(0)
+  await expect(menu.getByText('Pages du magasin')).toHaveCount(isMobile ? 0 : 1)
+  const selecteur = page.getByRole('banner').getByRole('button', { name: `Changer de magasin (magasin ouvert : ${MAGASINS[0]})` })
+  await selecteur.click()
   const dialogue = page.getByRole('dialog', { name: 'Changer de magasin' })
   await dialogue.getByLabel('Nom du magasin').fill(MAGASINS[1].slice(0, 4))
   await expect(dialogue.getByRole('button', { name: MAGASINS[0], exact: true })).toHaveCount(0)
   await dialogue.getByRole('button', { name: MAGASINS[1] }).click()
   // Même étape, autre magasin
-  await expect(page).toHaveURL(new RegExp(`/magasins/${encodeURIComponent(MAGASINS[1])}/resultat$`))
+  await expect(page).toHaveURL(new RegExp(`/magasins/${encodeURIComponent(MAGASINS[1])}/budget$`))
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
 })

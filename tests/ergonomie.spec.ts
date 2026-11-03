@@ -100,11 +100,11 @@ test('les onglets signalent ce qui manque', async ({ page, isMobile }) => {
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Hypothèses')
   // Budget en 4 étapes (lot 37) ; l'équipe manquante est signalée sur l'étape des hypothèses
-  await expect(partiesAffichees(page)).toHaveText([/^0 · Point de départ/, /^1 · Hypothèses/, /^2 · Résultat et trésorerie/, /^3 · Échanges et validation/])
+  await expect(partiesAffichees(page)).toHaveText([/^0 · Point de départ/, /^1 · Construire/, /^2 · Envoyer et valider/])
   // Téléphone : le détail dans l'onglet ; PC (lot 38) : la pastille sur le lien du menu
   const signale = (nom: RegExp) => (isMobile ? expect(page.getByRole('tab', { name: nom })).toBeVisible()
     : expect(page.getByRole('navigation', { name: 'Menu principal' }).getByRole('link', { name: nom }).locator('.MuiBadge-dot:not(.MuiBadge-invisible)')).toBeVisible())
-  await signale(isMobile ? /^1 · Hypothèses \(équipe à renseigner\)/ : /^1 · Hypothèses/)
+  await signale(isMobile ? /^1 · Construire \(équipe à renseigner\)/ : /^1 · Construire/)
   await page.getByRole('link', { name: `Magasin suivant : ${MAGASINS[1]}` }).click()
   await page.getByRole('link', { name: `Magasin suivant : ${MAGASINS[2]}` }).click()
   // Directeur : budget à proposer, depuis le point de départ

@@ -11,17 +11,20 @@ import ErrorOutlineOutlined from '@mui/icons-material/ErrorOutlineOutlined'
 import SaveOutlined from '@mui/icons-material/SaveOutlined'
 import { enregistrerOuverture } from '../data/pilotage'
 import { controlesFiche, type EtatFiche } from '../moteur/preparation'
+import type { Hypotheses } from '../moteur/types'
 
 // Lot 41, proposition 2 : la fiche « prête à proposer ». Quatre contrôles, chacun mène à l'écran où le compléter ; la date
 // d'ouverture se saisit sur place (sans budget, l'écran des ventes ne l'affiche pas encore). Rien n'est bloquant.
-export function FichePrete({ magasin, etat, allerA, directeur, apresOuverture }: {
+export function FichePrete({ magasin, etat, allerA, directeur, apresOuverture, reprise }: {
   magasin: string
   etat: EtatFiche
+  reprise?: Hypotheses['reprise'] // lot 42 : équipe ou frais repris des comptes de l'année
   allerA: (partie: string) => void
   directeur: boolean
   apresOuverture: () => void
 }) {
   const controles = controlesFiche(etat)
+  const repris = (cle: string) => !!reprise && ((cle === 'equipe' && reprise.personnel) || (cle === 'frais' && reprise.frais))
   const faits = controles.filter((c) => c.fait).length
   const [date, setDate] = useState('')
   const [occupe, setOccupe] = useState(false)
@@ -54,7 +57,7 @@ export function FichePrete({ magasin, etat, allerA, directeur, apresOuverture }:
           <Box component="li" key={c.cle} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', minHeight: 48 }}>
             {c.fait ? <CheckCircleOutlined color="success" aria-hidden /> : <ErrorOutlineOutlined color="warning" aria-hidden />}
             <Typography sx={{ fontWeight: 700, minWidth: 160 }}>{c.libelle}</Typography>
-            <Typography color={c.fait ? 'text.secondary' : 'warning.dark'} sx={{ flex: 1, minWidth: 180 }}>{c.fait ? 'Fait' : c.aFaire}</Typography>
+            <Typography color={c.fait ? 'text.secondary' : 'warning.dark'} sx={{ flex: 1, minWidth: 180 }}>{!c.fait ? c.aFaire : repris(c.cle) && reprise ? `Repris des comptes ${reprise.annee} (${reprise.mois} mois), à détailler si besoin` : 'Fait'}</Typography>
             {!c.fait && c.cle === 'ouverture' && directeur && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                 <TextField type="month" size="small" label="Ouvert depuis" value={date} onChange={(e) => setDate(e.target.value)}
@@ -62,9 +65,9 @@ export function FichePrete({ magasin, etat, allerA, directeur, apresOuverture }:
                 <Button variant="outlined" startIcon={<SaveOutlined />} disabled={occupe || !lue} onClick={() => void enregistrer()} sx={{ minHeight: 48 }}>Enregistrer</Button>
               </Box>
             )}
-            {!c.fait && c.cle !== 'ouverture' && (
-              <Button onClick={() => allerA(c.partie)} sx={{ minHeight: 48 }} aria-label={`Renseigner : ${c.libelle}`}>Renseigner</Button>
-            )}
+            {(!c.fait && c.cle !== 'ouverture') || repris(c.cle) ? (
+              <Button onClick={() => allerA(c.partie)} sx={{ minHeight: 48 }} aria-label={`${c.fait ? 'Détailler' : 'Renseigner'} : ${c.libelle}`}>{c.fait ? 'Détailler' : 'Renseigner'}</Button>
+            ) : null}
           </Box>
         ))}
       </Box>

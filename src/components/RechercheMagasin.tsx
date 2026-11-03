@@ -136,7 +136,8 @@ export function RechercheMagasin({ telephone }: { telephone: boolean }) {
 
 // Lot 37 (Joseph, 02/11/2026) : le menu de gauche ne montre que le magasin ouvert ; son nom est un sélecteur qui ouvre la
 // liste de tes magasins, avec recherche, sans quitter la page affichée (même partie pour le nouveau magasin).
-export function SelecteurMagasin({ magasin }: { magasin: string }) {
+// Lot 42 (Joseph, 02/11/2026) : le sélecteur passe dans la barre du haut (« sombre ») ; le menu de gauche ne montre plus le magasin.
+export function SelecteurMagasin({ magasin, sombre = false }: { magasin: string; sombre?: boolean }) {
   const [magasins, setMagasins] = useState<string[]>([])
   const [ouvert, setOuvert] = useState(false)
   const [texte, setTexte] = useState('')
@@ -152,7 +153,7 @@ export function SelecteurMagasin({ magasin }: { magasin: string }) {
   const visibles = options.filter((m) => simple(m).includes(simple(texte)))
   const titre = <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left', flex: 1 }}>{magasin}</Box>
   if (magasins.length <= 1) {
-    return <Box sx={{ display: 'flex', px: 1, py: 1, fontWeight: 700, fontSize: '0.9375rem' }}>{titre}</Box>
+    return <Box aria-label={`Magasin ouvert : ${magasin}`} sx={{ display: 'flex', minWidth: 0, maxWidth: { xs: 160, md: 280 }, px: 1, py: 1, fontWeight: 700, fontSize: '0.9375rem' }}>{titre}</Box>
   }
   const choisir = (nom: string | null) => {
     if (!nom) return
@@ -163,7 +164,9 @@ export function SelecteurMagasin({ magasin }: { magasin: string }) {
   return (
     <>
       <Button onClick={() => { setTexte(''); setOuvert(true) }} aria-label={`Changer de magasin (magasin ouvert : ${magasin})`} endIcon={<UnfoldMoreOutlined />}
-        sx={{ width: '100%', minHeight: 48, px: 1, mt: 0.5, color: 'text.primary', fontWeight: 700, fontSize: '0.9375rem', textTransform: 'none', justifyContent: 'space-between', border: 1, borderColor: 'divider', borderRadius: 2 }}>
+        sx={sombre
+          ? { minWidth: 0, maxWidth: { xs: 170, md: 280 }, minHeight: 48, px: 1.5, color: '#ffffff', fontWeight: 700, fontSize: '0.9375rem', textTransform: 'none', justifyContent: 'space-between', border: 1, borderColor: 'rgba(255,255,255,0.45)', borderRadius: 2, '&:hover': { borderColor: '#ffffff', bgcolor: 'rgba(255,255,255,0.08)' } }
+          : { width: '100%', minHeight: 48, px: 1, mt: 0.5, color: 'text.primary', fontWeight: 700, fontSize: '0.9375rem', textTransform: 'none', justifyContent: 'space-between', border: 1, borderColor: 'divider', borderRadius: 2 }}>
         {titre}
       </Button>
       <Dialog open={ouvert} onClose={() => setOuvert(false)} fullWidth maxWidth="xs" aria-labelledby="selecteur-titre" slotProps={{ paper: { sx: { alignSelf: 'flex-start', mt: 10 } } }}>

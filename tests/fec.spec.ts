@@ -58,6 +58,9 @@ test('le franchisé importe le FEC, range le compte inconnu et retrouve marge et
     .toEqual([[{ store_name: MAGASINS[0], compte: '658000', rubrique: 'charges_externes' }]])
 
   await page.getByRole('button', { name: 'Enregistrer les quadrimestres' }).click()
+  // Lot 42 : une question levée sur les chiffres demande une confirmation avant d'enregistrer
+  await expect(page.getByRole('region', { name: 'À vérifier' })).toContainText('Marge réelle à 53,5 % pour 40 % en caisse')
+  await page.getByRole('button', { name: 'Confirmer et enregistrer' }).click()
   await expect(page.getByText('Quadrimestres enregistrés.')).toBeVisible()
   const envoi = ecritures.find((e) => e.table === 'quadrimestres' && e.methode === 'POST')?.corps as QuadrimestreSimule[]
   expect(envoi[0]).toMatchObject({ quadrimestre: 1, achats: 98_000, variation_stock: 5_000, charges_externes: 18_300, impots_taxes: 1_500, personnel: 39_000, tresorerie: 50_000 })

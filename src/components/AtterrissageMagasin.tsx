@@ -79,13 +79,15 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
 
   const equipe = d.equipes[magasin]
   const frais = d.frais[magasin]
-  const h = avecEquipeEtFrais(r.base, equipe, frais)
+  const comptes = d.comptes?.[magasin]
+  const h = avecEquipeEtFrais(r.base, equipe, frais, comptes)
   const b = calculerBudget(h, parametres)
   const peutProposer = directeur && ligne.statut !== 'valide'
   // Lot 41 (proposition 2) : ce qui manque pour proposer un budget juste ; sans équipe ni frais, l'EBE est incomplet
   const etatFiche = {
     reel: !reelEnRetard(syntheseReel(donnees.n.lignes, donnees.n.tickets).moisRenseignes), ouverture: !!(donnees.secours.ouverture ?? d.ouvertures?.[magasin]),
-    equipe: !!equipe?.length, frais: !!frais?.length,
+    // Lot 42 : la masse salariale et les frais repris des comptes de l'année valent équipe et frais
+    equipe: !!equipe?.length || !!h.reprise?.personnel, frais: !!frais?.length || !!h.reprise?.frais,
   }
   const complet = ebeComplet(etatFiche)
   const manque = [!etatFiche.equipe && 'équipe', !etatFiche.frais && 'frais'].filter(Boolean).join(' ni ')
@@ -115,7 +117,7 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
     setMessage(null)
     try {
       const base = { ...avecEquipeEtFrais(r.base, undefined, frais), annee: anneeBudget }
-      const { hypotheses } = appliquerCibles(avecEquipeEtFrais(base, equipe, frais), niveauxDe(ligne, d))
+      const { hypotheses } = appliquerCibles(avecEquipeEtFrais(base, equipe, frais, comptes), niveauxDe(ligne, d))
       await proposerBudget(magasin, anneeBudget, base, hypotheses)
       setMessage({ gravite: 'success', texte: `Budget ${anneeBudget} proposé à partir de l’atterrissage ${annee}.` })
       apresProposition()
@@ -131,7 +133,7 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
       {message && <Alert severity={message.gravite} onClose={() => setMessage(null)} closeText="Fermer" slotProps={{ closeButton: { sx: { width: 48, height: 48 } } }}>{message.texte}</Alert>}
 
       {ligne.statut !== 'valide' && (
-        <FichePrete magasin={magasin} etat={etatFiche} allerA={allerA} directeur={directeur} apresOuverture={() => { recharger(); apresProposition() }} />
+        <FichePrete magasin={magasin} etat={etatFiche} reprise={h.reprise} allerA={allerA} directeur={directeur} apresOuverture={() => { recharger(); apresProposition() }} />
       )}
 
       {peutProposer && (

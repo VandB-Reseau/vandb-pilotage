@@ -22,7 +22,7 @@ test('trois espaces : le magasin ouvert reste le même, chaque espace a ses page
 
   await ouvrir(page, 'Point de départ')
   await expect(page).toHaveURL(new RegExp(`/magasins/${encodeURIComponent(MAGASINS[0])}/depart$`))
-  await expect(partiesAffichees(page)).toHaveCount(4)
+  await expect(partiesAffichees(page)).toHaveCount(3)
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-espace-budget.png`, fullPage: true })
@@ -48,7 +48,7 @@ test('une adresse rouverte affiche la même partie ; un ancien lien est redirig�
   await ouvrir(page, 'Équipe')
   await expect(page).toHaveURL(/\/equipe$/)
   await page.reload()
-  await partieAffichee(page, /^1 · Hypothèses/)
+  await partieAffichee(page, /^1 · Construire/)
   await expect(page.getByRole('heading', { level: 2, name: /^Équipe \d{4}/ })).toBeVisible()
   // Ancienne adresse sans partie : la synthèse
   await page.goto(`/#/magasins/${encodeURIComponent(MAGASINS[0])}`)
