@@ -19,6 +19,7 @@ import { ecartTaux, milliers } from '../lib/format'
 import { ebeComplet } from '../moteur/preparation'
 import { PastilleStatut } from './PastilleStatut'
 import { styleTableau } from '../theme/tableau'
+import { anneeSuivi } from '../data/annees'
 
 // Lot 41, proposition 1 (Joseph, 02/11/2026) : proposer et mettre à jour les budgets en série, depuis la Campagne.
 // Le Directeur prépare les magasins de la liste affichée (filtres compris) : chaque proposition est calculée comme depuis
@@ -28,7 +29,7 @@ const PAR_PAQUET = 4
 const pluriel = (n: number, un: string, plusieurs: string) => `${n} ${n > 1 ? plusieurs : un}`
 
 export function PropositionsSerie({ annee, magasins, apres }: { annee: number; magasins: string[]; apres: () => void }) {
-  const anneeEnCours = new Date().getFullYear()
+  const anneeEnCours = anneeSuivi()
   const [preparations, setPreparations] = useState<Preparation[] | null>(null)
   const [sansReel, setSansReel] = useState<string[]>([])
   const [coches, setCoches] = useState<Set<string>>(new Set())

@@ -5,6 +5,21 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Suivi et Budgets d'une année sur l'autre (Base : 0027)
+
+- Base : passer `supabase/migrations/0027_annees.sql` (années du pilotage, archives des frais). Elle démarre avec
+  2026 suivie et la campagne 2027 ouverte : rien ne change le jour du passage. Sans elle, l'app suit le calendrier
+  comme avant.
+- Joseph (3/11, options A et 2 de la maquette « Passage d'année ») : le menu a deux entrées, « Suivi 2026 » (le réel
+  du réseau face aux budgets) et « Budgets 2027 » (la campagne). Pendant la campagne, un magasin de la liste des
+  budgets s'ouvre sur son budget ; hors campagne, sur son suivi. Le fil d'Ariane dit d'où l'on vient.
+- Ce n'est plus le calendrier qui fait passer l'app d'une année à l'autre : dans Paramètres réseau, onglet « Années »,
+  le Directeur ouvre la campagne N+1 (paramètres et hypothèses de N repris, à revoir), démarre le suivi N+1 en janvier
+  (le budget N+1 devient la référence, N reste saisissable jusqu'à sa clôture, les frais N sont archivés) puis clôt N.
+- Un budget pas encore validé sert de référence au suivi, signalé « provisoire » (Joseph, 3/11).
+- Dans le Suivi d'un magasin, les années à clore et closes restent consultables (réel face au budget, en lecture).
+  Hors campagne, l'atterrissage ne propose plus de budget et « Proposer en série » disparaît.
+
 ### Prêts du magasin avec leur date (Base : 0026)
 
 - Base : passer `supabase/migrations/0026_emprunts.sql` (table des prêts). Sans elle, la carte s'affiche vide et rien

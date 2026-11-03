@@ -35,7 +35,7 @@ test('trois espaces : le magasin ouvert reste le même, chaque espace a ses page
   // Joseph (03/11/2026) : le menu de gauche ne montre que les thèmes du réseau ; les espaces sont des onglets de la fiche
   if (!isMobile) {
     const menu = page.getByRole('navigation', { name: 'Menu principal' })
-    await expect(menu.getByRole('link')).toHaveText([/^Magasins/, /^Réel du réseau/, /^Hypothèses du réseau/, /^Imports de caisse/, /^Paramètres réseau/])
+    await expect(menu.getByRole('link')).toHaveText([/^Suivi \d{4}/, /^Budgets \d{4}/, /^Hypothèses du réseau/, /^Imports de caisse/, /^Paramètres réseau/])
   }
   await ongletEspace(page, 'Suivi').click()
   // Option A (03/11/2026) : le Suivi tient sur une page, sans seconde rangée d'onglets
@@ -85,13 +85,13 @@ test('téléphone : les trois espaces en onglets de la fiche, les thèmes du ré
   await expect(page.getByRole('navigation', { name: 'Espaces du pilotage' })).toHaveCount(0)
   await page.getByRole('button', { name: 'Ouvrir le menu' }).click()
   const menu = page.getByRole('navigation', { name: 'Menu principal' })
-  await expect(menu.getByRole('link', { name: 'Réel du réseau' })).toBeVisible()
+  await expect(menu.getByRole('link', { name: /^Suivi \d{4}$/ })).toBeVisible()
   await expect(menu.getByRole('link', { name: 'Où en est le magasin' })).toHaveCount(0)
   expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-menu.png` })
   await page.keyboard.press('Escape')
   await ouvrirSection(page, /^Trésorerie$/)
   await expect(page).toHaveURL(/\/synthese$/)
-  await allerVers(page, 'Réel du réseau')
-  await expect(page.getByRole('heading', { level: 1, name: 'Réseau' })).toBeVisible()
+  await allerVers(page, 'Suivi ')
+  await expect(page.getByRole('heading', { level: 1, name: /^Suivi \d{4}$/ })).toBeVisible()
 })

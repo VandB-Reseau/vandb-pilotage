@@ -22,6 +22,7 @@ import { useChargement } from '../data/useChargement'
 import { ecartPts, ecartTaux, montant, MOIS_LONGS } from '../lib/format'
 import { universLibelle } from '../moteur/types'
 import { effetAction, mesureDeAlerte, type Alerte, type Mesure, type TypeAction, type TypeAlerte } from '../moteur/alertes'
+import { anneeSuivi } from '../data/annees'
 
 const RESPONSABLES: Responsable[] = ['franchise', 'coach', 'rr', 'directeur']
 export const typeActionLibelle: Record<TypeAction, string> = { ...typeAlerteLibelle, autre: 'Autre' }
@@ -191,7 +192,7 @@ function NouvelleActionForm({ magasin, alertes, depuis, occupe, valider, annuler
       if (!intitule.trim()) return
       valider({
         magasin, type: alerte?.type ?? 'autre', intitule, responsable, echeance: echeance || null,
-        annee: new Date().getFullYear(), depart: alerte ? mesureDeAlerte(alerte) : null,
+        annee: anneeSuivi(), depart: alerte ? mesureDeAlerte(alerte) : null,
       })
     }}>
       <Stack spacing={1.5}>

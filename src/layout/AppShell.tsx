@@ -26,6 +26,7 @@ import TuneOutlined from '@mui/icons-material/TuneOutlined'
 import UploadFileOutlined from '@mui/icons-material/UploadFileOutlined'
 import TrendingUpOutlined from '@mui/icons-material/TrendingUpOutlined'
 import LeaderboardOutlined from '@mui/icons-material/LeaderboardOutlined'
+import RequestQuoteOutlined from '@mui/icons-material/RequestQuoteOutlined'
 import { GardeSaisie } from '../components/GardeSaisie'
 import { Logo } from '../components/Logo'
 import { RechercheMagasin } from '../components/RechercheMagasin'
@@ -33,6 +34,8 @@ import { useAuth } from '../auth/AuthContext'
 import { estDirecteur, estEquipe, libelleProfil, seulementParametres, voitParametres } from '../auth/roles'
 import { installerChampSuivant } from '../lib/champSuivant'
 import { magasinDeChemin } from '../lib/navigation'
+import { anneeSuivi } from '../data/annees'
+import { anneeBudget } from '../data/pilotage'
 import { brandStripe } from '../theme/theme'
 
 const LARGEUR_MENU = 264 // comme l'app réseau (Joseph, 03/11/2026)
@@ -104,8 +107,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   // Option A (Joseph, 03/11/2026) : comme l'app réseau, le menu liste ce qui porte sur tout le réseau ; tout ce qui
   // concerne un magasin est dans sa fiche. Les réglages du Directeur sont rangés sous « Paramètres ».
   const principales: Destination[] = seulementParametres(profil) ? [] : [
-    { chemin: '/', nom: profil?.role === 'franchise' ? 'Mes magasins' : 'Magasins', icone: <StorefrontOutlined /> },
-    ...(estEquipe(profil) ? [{ chemin: '/reseau', nom: 'Réel du réseau', icone: <LeaderboardOutlined /> }] : []),
+    // Joseph (03/11/2026, option A de la maquette « Passage d'année ») : deux portes, le Suivi de l'année et les Budgets de
+    // la campagne, avec leur année ; elle change quand le Directeur ouvre une campagne ou démarre un suivi
+    ...(estEquipe(profil) ? [{ chemin: '/reseau', nom: `Suivi ${anneeSuivi()}`, icone: <LeaderboardOutlined /> }] : []),
+    { chemin: '/', nom: profil?.role === 'franchise' ? 'Mes magasins' : `Budgets ${anneeBudget()}`, icone: profil?.role === 'franchise' ? <StorefrontOutlined /> : <RequestQuoteOutlined /> },
   ]
   const reglages: Destination[] = [
     ...(estDirecteur(profil) ? [{ chemin: '/hypotheses', nom: 'Hypothèses du réseau', icone: <TrendingUpOutlined /> }] : []),

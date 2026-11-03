@@ -139,7 +139,7 @@ test('campagne : le franchisé voit la date de validation de son budget', async 
 test('vue Réseau : CA par heure travaillée avec sa médiane', async ({ page, isMobile }) => {
   test.skip(isMobile, 'colonne du tableau PC')
   await seConnecter(page, { reel, tickets })
-  await allerVers(page, 'Réel du réseau')
+  await allerVers(page, 'Suivi ')
   const tableau = page.getByRole('table', { name: /^Réel \d{4} par magasin$/ })
   await page.getByRole('group', { name: 'Vue du classement' }).getByRole('button', { name: 'Équipe et frais' }).click()
   await expect(tableau.getByRole('columnheader', { name: 'CA par heure travaillée' })).toBeVisible()

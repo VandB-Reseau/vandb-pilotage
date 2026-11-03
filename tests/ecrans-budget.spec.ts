@@ -146,7 +146,7 @@ test('plus de magasin imposé en haut ; barre du haut de l’app réseau', async
   await expect(page.getByRole('navigation', { name: 'Fil d’Ariane' })).toBeVisible()
   await expect(page.getByRole('button', { name: /Changer de magasin/ })).toHaveCount(0)
   // Retour au réseau : aucun magasin ne reste ouvert
-  await page.locator('main').getByRole('link', { name: 'Magasins' }).first().click()
+  await page.locator('main').getByRole('link', { name: /^Budgets \d{4}$/ }).first().click()
   await expect(page.getByRole('navigation', { name: 'Fil d’Ariane' })).toHaveCount(0)
   if (!isMobile) {
     await expect(page.getByRole('navigation', { name: 'Pages du magasin' })).toHaveCount(0)

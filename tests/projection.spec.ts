@@ -147,7 +147,7 @@ test('le Directeur fixe la hausse tarifaire et les valeurs par ancienneté ; le 
   expect(ecritures.find((e) => e.table === 'cibles_reseau')?.corps).toEqual({ annee: 2027, valeur: { hausseTarifaire: 0.02, millesimes: { 2: { evolutionFlux: { cave: 0.05 } } } } })
 
   // Fiche du magasin : les tickets viennent de l'ancienneté, le panier de la hausse tarifaire
-  await allerVers(page, 'Magasins')
+  await allerVers(page, 'Budgets ')
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Hypothèses')
   const hypotheses = page.getByRole('region', { name: 'Hypothèses du magasin' })

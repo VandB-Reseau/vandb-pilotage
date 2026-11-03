@@ -47,6 +47,7 @@ import CloseOutlined from '@mui/icons-material/CloseOutlined'
 import DoneAllOutlined from '@mui/icons-material/DoneAllOutlined'
 import PlaylistAddCheckOutlined from '@mui/icons-material/PlaylistAddCheckOutlined'
 import { styleTableau } from '../theme/tableau'
+import { annees, anneeSuivi } from '../data/annees'
 
 // Liste des magasins (lot 27) : une ligne par magasin, colonnes triables, alertes et EBE / CA lisibles d'un coup d'œil
 // Allègement (Joseph, 03/11/2026) : six colonnes ; marge, % FP, EBE en euros et date de mise à jour restent dans la fiche
@@ -87,13 +88,17 @@ export function Magasins() {
   const theme = useTheme()
   const telephone = useMediaQuery(theme.breakpoints.down('md'))
   const annee = anneeBudget()
+  // Pendant une campagne ouverte par le Directeur, la liste mène au budget du magasin ; sinon à son suivi (0027).
+  // Tant que les années suivent le calendrier (base pas encore en 0027), rien ne change : la liste mène au suivi.
+  const campagne = annees().campagne
+  const ongletListe = campagne && annees().pilotees ? 'budget' : 'synthese'
   const { donnees, erreur, chargement, recharger } = useChargement(
     async () => {
       // Plan d'action : seulement pour « À traiter » ; sans lui, la liste s'affiche quand même
       // Lot 43 : Responsables Régionaux et Coachs de chaque magasin, tenus dans l'app du réseau ; sans eux, la campagne reste globale
       const [d, { parametres }, alertes, actions, compte, commentaires] = await Promise.all([
         chargerBudgets(annee), chargerParametres(annee), chargerAlertes(), estEquipe(profil) ? chargerActions().catch(() => []) : Promise.resolve([]),
-        estEquipe(profil) ? chargerReelDuCompte(new Date().getFullYear()).catch(() => null) : Promise.resolve(null),
+        estEquipe(profil) ? chargerReelDuCompte(anneeSuivi()).catch(() => null) : Promise.resolve(null),
         estEquipe(profil) ? chargerCommentairesOuverts(annee).catch(() => ({} as Record<string, number>)) : Promise.resolve({} as Record<string, number>),
       ])
       const groupes = new Map(d.groupes.map((g) => [g.id, g.nom]))
@@ -176,8 +181,8 @@ export function Magasins() {
 
   const entete = (
     <>
-      <Typography variant="h1">Magasins</Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5, mb: 3 }}>Budgets {annee}</Typography>
+      <Typography variant="h1">{profil?.role === 'franchise' ? 'Mes magasins' : `Budgets ${annee}`}</Typography>
+      <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5, mb: 3 }}>{campagne ? `Campagne ${annee} ouverte` : `Budgets ${annee} de l’année suivie`}</Typography>
     </>
   )
   // Un franchisé qui n'a qu'un magasin arrive directement sur sa fiche
@@ -209,9 +214,9 @@ export function Magasins() {
                   setParams((p) => { const n = new URLSearchParams(p); if (f === 'tous') n.delete('filtre'); else n.set('filtre', f); if (r) n.set('responsable', r); else n.delete('responsable'); return n }, { replace: true })
                   document.querySelector('[aria-label="Filtres"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                 }}
-                actions={(estDirecteur(profil) || (profil.role === 'rr' && prets > 0)) ? (
+                actions={((estDirecteur(profil) && campagne) || prets > 0) && (estDirecteur(profil) || profil.role === 'rr') ? (
                   <Stack direction="row" useFlexGap spacing={1.5} sx={{ flexWrap: 'wrap' }} className="pas-a-l-impression" aria-label="Actions en série">
-                    {estDirecteur(profil) && (
+                    {estDirecteur(profil) && campagne && (
                       <Button variant={panneau === 'proposer' ? 'contained' : 'outlined'} startIcon={<PlaylistAddCheckOutlined />} aria-expanded={panneau === 'proposer'}
                         onClick={() => setPanneau(panneau === 'proposer' ? null : 'proposer')} sx={{ minHeight: 48 }}>Proposer en série</Button>
                     )}
@@ -302,7 +307,7 @@ export function Magasins() {
             <Stack spacing={1.5}>
               {visibles.map((m) => (
                 <Card key={m.magasin}>
-                  <CardActionArea component={RouterLink} to={lienMagasin(m.magasin)} state={etat} sx={{ p: 2, minHeight: 56 }}>
+                  <CardActionArea component={RouterLink} to={lienMagasin(m.magasin, ongletListe)} state={etat} sx={{ p: 2, minHeight: 56 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
                       <Typography variant="h5" component="h2">{m.magasin}</Typography>
                       <PastilleStatut statut={m.statut} />
@@ -349,8 +354,8 @@ export function Magasins() {
                     {visibles.map((m) => {
                       const alertes = alertesDe.get(m.magasin) ?? []
                       return (
-                        <TableRow key={m.magasin} hover onClick={() => navigate(lienMagasin(m.magasin), { state: etat })} sx={{ cursor: 'pointer' }}>
-                          <TableCell><Link component={RouterLink} to={lienMagasin(m.magasin)} state={etat} sx={{ fontWeight: 600, display: 'inline-flex', minHeight: 48, alignItems: 'center' }}>{m.magasin}</Link></TableCell>
+                        <TableRow key={m.magasin} hover onClick={() => navigate(lienMagasin(m.magasin, ongletListe), { state: etat })} sx={{ cursor: 'pointer' }}>
+                          <TableCell><Link component={RouterLink} to={lienMagasin(m.magasin, ongletListe)} state={etat} sx={{ fontWeight: 600, display: 'inline-flex', minHeight: 48, alignItems: 'center' }}>{m.magasin}</Link></TableCell>
                           {avecGroupe && <TableCell>{m.groupe}</TableCell>}
                           <TableCell><PastilleStatut statut={m.statut} /></TableCell>
                           <TableCell align="right">{m.budget ? milliers(m.budget.ca) : ''}</TableCell>

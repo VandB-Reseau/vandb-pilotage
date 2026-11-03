@@ -23,7 +23,7 @@ test('un mauvais mot de passe affiche un message clair', async ({ page }) => {
 
 test('le Directeur voit tous les magasins, l’avancement des budgets et les chiffres calculés', async ({ page, isMobile }, info) => {
   await seConnecter(page)
-  await expect(page.getByRole('heading', { level: 1, name: 'Magasins' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: /^Budgets \d{4}$/ })).toBeVisible()
   const filtres = page.getByRole('group', { name: 'Filtres' })
   await expect(filtres.getByRole('button', { name: 'Validés · 1' })).toBeVisible()
   await expect(filtres.getByRole('button', { name: 'Retour du franchisé · 1' })).toBeVisible()
@@ -60,8 +60,8 @@ test('la fiche d’un magasin montre le compte de résultat et le budget mois pa
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-fiche.png`, fullPage: true })
-  await page.getByRole('link', { name: 'Magasins' }).first().click()
-  await expect(page.getByRole('heading', { level: 1, name: 'Magasins' })).toBeVisible()
+  await page.getByRole('link', { name: /^Budgets \d{4}$/ }).first().click()
+  await expect(page.getByRole('heading', { level: 1, name: /^Budgets \d{4}$/ })).toBeVisible()
 })
 
 test('un magasin sans budget l’explique', async ({ page }) => {
@@ -84,7 +84,7 @@ test('un Coach n’a pas les paramètres réseau', async ({ page }) => {
   await expect(page.getByText(MAGASINS[1], { exact: true }).last()).toBeVisible()
   await expect(page.getByRole('link', { name: /Paramètres/ })).toHaveCount(0)
   await page.goto('./#/parametres')
-  await expect(page.getByRole('heading', { level: 1, name: 'Magasins' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: /^Budgets \d{4}$/ })).toBeVisible()
 })
 
 test('un franchisé sans magasin rattaché, un compte pas encore ouvert : des messages clairs', async ({ page }) => {

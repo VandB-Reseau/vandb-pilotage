@@ -32,7 +32,7 @@ test('fiche : trois onglets Suivi, Budget, Saisies ; fil d’Ariane à la place 
   }
   // Fil d'Ariane ; plus de « Changer de magasin » ni de bouton retour
   const ariane = page.getByRole('navigation', { name: 'Fil d’Ariane' })
-  await expect(ariane.getByRole('link', { name: 'Magasins' })).toBeVisible()
+  await expect(ariane.getByRole('link', { name: /^Budgets \d{4}$/ })).toBeVisible()
   await expect(ariane.getByText(MAGASINS[0], { exact: true })).toHaveAttribute('aria-current', 'page')
   await expect(page.getByRole('button', { name: /Changer de magasin/ })).toHaveCount(0)
   expect(await textesTropPetits(page)).toEqual([])
@@ -60,8 +60,8 @@ test('fiche : trois onglets Suivi, Budget, Saisies ; fil d’Ariane à la place 
   // Magasin suivant dans la même partie, puis retour à la liste par le fil d'Ariane
   await page.getByRole('link', { name: `Magasin suivant : ${MAGASINS[1]}` }).click()
   await expect(page).toHaveURL(new RegExp(`/magasins/${encodeURIComponent(MAGASINS[1])}/saisieStock$`))
-  await ariane.getByRole('link', { name: 'Magasins' }).click()
-  await expect(page.getByRole('heading', { level: 1, name: 'Magasins' })).toBeVisible()
+  await ariane.getByRole('link', { name: /^Budgets \d{4}$/ }).click()
+  await expect(page.getByRole('heading', { level: 1, name: /^Budgets \d{4}$/ })).toBeVisible()
 })
 
 test('les anciennes adresses de l’atterrissage, de la trésorerie et du stock ouvrent leur section du Suivi', async ({ page }) => {
@@ -79,14 +79,14 @@ test('menu : ce qui porte sur le réseau en haut, les réglages du Directeur sou
   await seConnecter(page, { magasins: [propose] })
   if (isMobile) await page.getByRole('button', { name: 'Ouvrir le menu' }).click()
   const menu = page.getByRole('navigation', { name: 'Menu principal' })
-  await expect(menu.getByRole('link')).toHaveText([/^Magasins/, /^Réel du réseau/, /^Hypothèses du réseau/, /^Imports de caisse/, /^Paramètres réseau/])
+  await expect(menu.getByRole('link')).toHaveText([/^Suivi \d{4}/, /^Budgets \d{4}/, /^Hypothèses du réseau/, /^Imports de caisse/, /^Paramètres réseau/])
   await expect(menu.getByText('Paramètres', { exact: true })).toBeVisible()
-  for (const ancien of ['Budgets', 'Suivi', 'Données', 'Réglages']) await expect(menu.getByText(ancien, { exact: true })).toHaveCount(0)
+  for (const ancien of ['Budgets', 'Suivi', 'Données', 'Réglages', 'Magasins', 'Réel du réseau']) await expect(menu.getByText(ancien, { exact: true })).toHaveCount(0)
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-navigation-menu.png` })
   if (isMobile) await page.keyboard.press('Escape')
-  await allerVers(page, 'Réel du réseau')
-  await expect(page.getByRole('heading', { level: 1, name: 'Réseau' })).toBeVisible()
+  await allerVers(page, 'Suivi ')
+  await expect(page.getByRole('heading', { level: 1, name: /^Suivi \d{4}$/ })).toBeVisible()
 })
 
 test('franchisé : « Mes magasins » seul dans le menu', async ({ page, isMobile }) => {

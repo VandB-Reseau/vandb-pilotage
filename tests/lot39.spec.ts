@@ -23,7 +23,7 @@ test('le Directeur change la redevance : effet sur les budgets non validés, pui
   const ecritures = await seConnecter(page, { magasins: [propose, valide] })
   await allerVers(page, 'Paramètres réseau')
   await expect(page.getByRole('tablist', { name: 'Rubriques des paramètres' }).getByRole('tab'))
-    .toHaveText(['Franchise et impôts', 'Équipe', 'Trésorerie', 'Alertes et campagne', 'Grille des frais', 'Règles de calcul', 'Journal', 'Accès'])
+    .toHaveText(['Années', 'Franchise et impôts', 'Équipe', 'Trésorerie', 'Alertes et campagne', 'Grille des frais', 'Règles de calcul', 'Journal', 'Accès'])
   const section = page.getByRole('region', { name: 'Franchise et impôts' })
   const enregistrer = section.getByRole('button', { name: 'Enregistrer' })
   await expect(page.getByLabel('Redevance franchise')).toHaveValue('2')

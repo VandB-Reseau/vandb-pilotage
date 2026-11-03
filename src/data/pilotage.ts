@@ -1,6 +1,7 @@
 import type { RubriqueFEC } from '../moteur/fec'
 import type { Role } from '../auth/roles'
 import { pilotage } from '../lib/supabase'
+import { annees, anneeSuivi } from './annees'
 import { calculerBudget } from '../moteur/budget'
 import { appliquerCibles, niveauxReseau, type Cibles, type NiveauCibles, type Provenance } from '../moteur/cibles'
 import { trancheMillesime, type Ouverture } from '../moteur/projection'
@@ -51,9 +52,10 @@ export interface DonneesBudgets {
   prets?: Record<string, Pret[]>        // prêts du magasin (migration 0026)
 }
 
-// Les budgets se préparent à partir de septembre pour l'année suivante
-export function anneeBudget(aujourdhui = new Date()): number {
-  return aujourdhui.getFullYear() + (aujourdhui.getMonth() >= 8 ? 1 : 0)
+// Année de l'onglet Budget : la campagne ouverte par le Directeur, sinon le budget de l'année suivie (migration 0027) ;
+// sans années enregistrées, l'ancienne règle du calendrier (l'année suivante à partir de septembre)
+export function anneeBudget(): number {
+  return annees().budget
 }
 
 // Contrôle minimal avant de confier des hypothèses enregistrées au moteur de calcul
@@ -582,7 +584,7 @@ export async function importerQuadrimestres(lignes: { magasin: string; annee: nu
 // quadrimestre et point bas du budget à venir. Seuils : Paramètres réseau de l'année du budget (ceux que règle le Directeur).
 // Entrées des alertes de chaque magasin du compte, et les seuils du Directeur
 async function entreesAlertes(aujourdhui: Date): Promise<{ entrees: EntreeAlertes[]; seuils: ParametresReseau['alertes']; moisCommerciaux: number }> {
-  const annee = aujourdhui.getFullYear(), aB = anneeBudget(aujourdhui)
+  const annee = anneeSuivi(), aB = anneeBudget()
   const [d, { parametres }, dB, { parametres: pB }, reel, quadrimestres] = await Promise.all([
     chargerBudgets(annee), chargerParametres(annee), chargerBudgets(aB), chargerParametres(aB), chargerReelDuCompte(annee), chargerQuadrimestres(annee),
   ])
@@ -601,7 +603,8 @@ async function entreesAlertes(aujourdhui: Date): Promise<{ entrees: EntreeAlerte
     return {
       magasin: l.magasin, n: reel.magasins[l.magasin]?.n ?? douze(), n1: reel.magasins[l.magasin]?.n1 ?? douze(),
       budget: h ? calculerBudget(h.hypotheses, parametresDuBudget(l, parametres)) : null,
-      moisTermines: reelCommence ? aujourdhui.getMonth() : 0,
+      // Une année suivie déjà finie (suivi pas encore démarré sur la suivante) : ses douze mois sont terminés
+      moisTermines: reelCommence ? (annee < aujourdhui.getFullYear() ? 12 : annee > aujourdhui.getFullYear() ? 0 : aujourdhui.getMonth()) : 0,
       tresorerieReelle: q ? { montant: quadrimestres[l.magasin]![q]!.tresorerie!, quadrimestre: q } : null,
       tresorerieBudget: point ? { montant: point.montant, mois: point.mois, annee: aB } : null,
     }
@@ -620,8 +623,8 @@ export async function chargerMesures(aujourdhui = new Date()): Promise<Record<st
 
 // Ratios de chaque magasin du compte, pour la comparaison aux médianes : réel de l'année à date et budgets de l'an prochain
 export interface RatiosMagasin { magasin: string; groupeId: number | null; ratios: Ratios }
-export async function chargerComparaison(aujourdhui = new Date()): Promise<{ annee: number; anneeBudget: number; groupes: { id: number; nom: string }[]; reel: RatiosMagasin[]; budget: RatiosMagasin[]; familles: { magasin: string; groupeId: number | null; familles: Famille[] }[]; magasinsFamille: number }> {
-  const annee = aujourdhui.getFullYear(), aB = anneeBudget(aujourdhui)
+export async function chargerComparaison(): Promise<{ annee: number; anneeBudget: number; groupes: { id: number; nom: string }[]; reel: RatiosMagasin[]; budget: RatiosMagasin[]; familles: { magasin: string; groupeId: number | null; familles: Famille[] }[]; magasinsFamille: number }> {
+  const annee = anneeSuivi(), aB = anneeBudget()
   const [d, { parametres }, dB, { parametres: pB }, reel, quadrimestres] = await Promise.all([
     chargerBudgets(annee), chargerParametres(annee), chargerBudgets(aB), chargerParametres(aB), chargerReelDuCompte(annee),
     chargerQuadrimestres(annee).catch((): SaisiesQuadrimestres => ({})),

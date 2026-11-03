@@ -97,7 +97,7 @@ test('fiche : un fil d’Ariane et précédent / suivant ; on change de magasin 
   await expect(menu.getByText('Pages du magasin')).toHaveCount(0)
   // Option A (Joseph, 03/11/2026) : plus de « Changer de magasin », un fil d'Ariane
   await expect(page.getByRole('button', { name: /Changer de magasin/ })).toHaveCount(0)
-  await expect(page.getByRole('navigation', { name: 'Fil d’Ariane' }).getByRole('link', { name: 'Magasins' })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Fil d’Ariane' }).getByRole('link', { name: /^Budgets \d{4}$/ })).toBeVisible()
   await page.getByRole('link', { name: `Magasin suivant : ${MAGASINS[1]}` }).click()
   // Même étape, autre magasin
   await expect(page).toHaveURL(new RegExp(`/magasins/${encodeURIComponent(MAGASINS[1])}/visualiser$`))

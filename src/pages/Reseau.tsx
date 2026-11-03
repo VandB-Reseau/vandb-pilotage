@@ -40,6 +40,7 @@ import { ficheVisite } from '../moteur/visite'
 import { styleTableau } from '../theme/tableau'
 import { niveauEcart } from '../moteur/visuel'
 import { Pastille } from '../components/Tableau'
+import { anneeSuivi } from '../data/annees'
 
 type Cle = 'magasin' | 'moisRealises' | 'ca' | 'evolution' | 'ecartBudget' | 'tauxMarge' | 'panierCave' | 'ticketsCave' | 'panierBar' | 'ticketsBar' | 'pctFP' | 'caParHeure' | 'loyerSurCA' | 'ebeSurCA'
 type Colonne = { cle: Exclude<Cle, 'magasin'>; libelle: string; texte: (v: number) => string; rouge?: (v: number) => boolean }
@@ -74,7 +75,7 @@ const simple = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerC
 
 // Vue réseau : chaque magasin à la fin de son dernier mois réalisé, face à l'an dernier, à son budget et au total du réseau
 export function Reseau() {
-  const annee = new Date().getFullYear()
+  const annee = anneeSuivi()
   const { donnees, erreur, chargement, recharger } = useChargement(async () => {
     const [d, { parametres }, reel, alertes, actions, quadrimestres] = await Promise.all([chargerBudgets(annee), chargerParametres(annee), chargerReelDuCompte(annee), chargerAlertes(), chargerActions().catch(() => []), chargerQuadrimestres(annee).catch(() => ({} as SaisiesQuadrimestres))])
     const groupes = new Map(d.groupes.map((g) => [g.id, g.nom]))
@@ -132,7 +133,7 @@ export function Reseau() {
   // Médiane de la sélection : un groupe filtré donne la médiane du groupe
   const mediane = medianes(visibles.filter((m) => m.moisRealises > 0).map(ratiosDuReel))
   const filtre = visibles.length !== (donnees?.magasins.length ?? 0)
-  const etat = { liste: visibles.map((m) => m.magasin), retour: params.toString(), depuis: { chemin: '/reseau', nom: 'Réseau' } }
+  const etat = { liste: visibles.map((m) => m.magasin), retour: params.toString(), depuis: { chemin: '/reseau', nom: `Suivi ${annee}` } }
   const trier = (cle: Cle) => changer({ tri: cle, sens: tri === cle ? (sens === 'asc' ? 'desc' : 'asc') : cle === 'magasin' ? 'asc' : 'desc' })
   const sousBudget = visibles.filter((m) => m.ecartBudget !== null && m.ecartBudget < 0).length
   const avecBudget = visibles.filter((m) => m.ecartBudget !== null).length
@@ -150,7 +151,7 @@ export function Reseau() {
   const titre = (actions?: React.ReactNode) => (
     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, flexWrap: 'wrap', mb: 3 }}>
       <Box sx={{ flex: 1, minWidth: 240 }}>
-        <Typography variant="h1">Réseau</Typography>
+        <Typography variant="h1">{`Suivi ${annee}`}</Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
           Réel {annee}, magasin par magasin<Box component="span" className="impression-seule"> · {selection} · imprimé le {new Date().toLocaleDateString('fr-FR')}</Box>
         </Typography>

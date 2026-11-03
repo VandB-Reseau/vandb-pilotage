@@ -94,6 +94,8 @@ import { reglesDe } from '../moteur/regles'
 import { tresorerieBudget } from '../moteur/tresorerie'
 import { copieParThemes, ecarts, ecrireCible, valeurHeritee, type Cibles, type ThemeCopie } from '../moteur/cibles'
 import { trancheMillesime } from '../moteur/projection'
+import { annees, anneeSuivi } from '../data/annees'
+import { anneesDeSaisie } from '../moteur/annees'
 
 
 // Onglet avec une pastille quand il manque quelque chose ; le détail est lu par les lecteurs d'écran
@@ -125,7 +127,7 @@ export function Magasin() {
   const { profil } = useAuth()
   const annee = anneeBudget()
   const { donnees, erreur, chargement, recharger } = useChargement(
-    () => Promise.all([chargerBudgets(annee), chargerParametres(annee), chargerParametres(new Date().getFullYear())])
+    () => Promise.all([chargerBudgets(annee), chargerParametres(annee), chargerParametres(anneeSuivi())])
       .then(([d, p, pN]) => ({ d, parametres: p.parametres, parametresN: pN.parametres })), [nom, annee])
   const [brouillon, setBrouillon] = useState<Cibles>({})
   const [message, setMessage] = useState<Message | null>(null)
@@ -134,7 +136,7 @@ export function Magasin() {
   // Action préparée depuis les leviers commerciaux de la synthèse (lot 28) : le plan d'action s'ouvre pré-rempli
   const [proposition, setProposition] = useState<{ intitule: string; n: number } | null>(null)
   // Budget de l'an prochain, réel de l'année en cours et de la précédente
-  const anneeEnCours = new Date().getFullYear()
+  const anneeEnCours = anneeSuivi()
   // Lot 36 : la partie affichée vient de l'adresse ; un ancien lien (sans partie, ou par l'état « onglet ») est réécrit
   const etatLien = location.state as { onglet?: string; section?: string } | null
   const voulu = partieUrl ?? etatLien?.onglet ?? 'synthese'
@@ -198,7 +200,7 @@ export function Magasin() {
   const precedent = voisin(-1), suivant = voisin(1)
   // Option A (Joseph, 03/11/2026) : une seule rangée au-dessus du nom, le fil d'Ariane ; on change de magasin par la
   // recherche de la barre du haut, ou par précédent et suivant dans la liste d'où l'on vient
-  const depuis = state?.depuis ?? { chemin: '/', nom: franchise ? 'Mes magasins' : 'Magasins' }
+  const depuis = state?.depuis ?? { chemin: '/', nom: franchise ? 'Mes magasins' : `Budgets ${annee}` }
   const retour = seul ? null : (
     <Box component="nav" aria-label="Fil d’Ariane" className="pas-a-l-impression" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1, flexWrap: 'wrap', minHeight: 48 }}>
       <Link component={RouterLink} to={`${depuis.chemin}${state?.retour ? `?${state.retour}` : ''}`} color="text.secondary"
@@ -335,7 +337,7 @@ export function Magasin() {
   const tresoAvant = bAvant && enregistre ? tresorerieBudget(bAvant, enregistre.hypotheses, parametres, parametres.tresorerie, departDe(ligne.ajustements)) : null
   const anneeChoix = (valeur: number, choisir: (v: number) => void, libelle: string) => (
     <ToggleButtonGroup exclusive size="small" value={valeur} onChange={(_, v: number | null) => v && choisir(v)} aria-label={libelle}>
-      {[anneeEnCours, anneeEnCours - 1].map((a) => <ToggleButton key={a} value={a} sx={{ minHeight: 48, minWidth: 72 }}>{a}</ToggleButton>)}
+      {anneesDeSaisie(annees()).map((a) => <ToggleButton key={a} value={a} sx={{ minHeight: 48, minWidth: 72 }}>{a}</ToggleButton>)}
     </ToggleButtonGroup>
   )
   const enregistrer = () => resolu && void agir(() => enregistrerAjustements(ligne.magasin, annee, brouillon, resolu.hypotheses),
@@ -563,7 +565,7 @@ export function Magasin() {
                 {x.cle === 'atterrissage' ? (
                   <AtterrissageMagasin
                     key={ligne.magasin} ligne={ligne} d={d} annee={anneeEnCours} anneeBudget={annee} parametres={donnees.parametresN}
-                    directeur={directeur} peutSaisir={peutSaisir} allerA={aller} apresProposition={recharger} repartition={ligne.ajustements.poidsMois}
+                    directeur={directeur && annees().campagne} peutSaisir={peutSaisir} allerA={aller} apresProposition={recharger} repartition={ligne.ajustements.poidsMois}
                   />
                 ) : x.cle === 'tresorerie' ? (
                   <Stack spacing={2}>
@@ -580,6 +582,17 @@ export function Magasin() {
             </Repliable>
           </Box>
         ))}
+        {/* Passage d'année (0027) : les années encore à clore et les années closes, réel face au budget, en lecture */}
+        {[...annees().aClore, ...annees().passees].map((a) => (
+          <Box key={`passee-${a}`} id={`partie-annee-${a}`} sx={{ scrollMarginTop: 80 }}>
+            <Repliable titre={`Suivi ${a}`} nom={`Suivi ${a}`} ouvert={false}
+              droite={<Typography variant="body2" color="text.secondary">{annees().aClore.includes(a) ? 'À clore' : 'Année close'}</Typography>}>
+              <Box sx={{ px: { xs: 2, md: 2.5 }, pb: 2.5 }}>
+                <SuiviBudget key={`${ligne.magasin}-${a}`} magasin={ligne.magasin} annee={a} allerA={aller} vue="complet" />
+              </Box>
+            </Repliable>
+          </Box>
+        ))}
         </Stack>
       ) : onglet === 'saisieStock' ? (
         <Stack spacing={2}>
@@ -589,7 +602,7 @@ export function Magasin() {
       ) : onglet === 'reel' ? (
         <Stack spacing={2}>
           <ToggleButtonGroup exclusive size="small" value={anneeReel} onChange={(_, v: number | null) => v && setAnneeReel(v)} aria-label="Année du réel">
-            {[anneeEnCours, anneeEnCours - 1].map((a) => <ToggleButton key={a} value={a} sx={{ minHeight: 48, minWidth: 72 }}>{a}</ToggleButton>)}
+            {anneesDeSaisie(annees()).map((a) => <ToggleButton key={a} value={a} sx={{ minHeight: 48, minWidth: 72 }}>{a}</ToggleButton>)}
           </ToggleButtonGroup>
           <ReelAnnee key={`${ligne.magasin}-${anneeReel}`} magasin={ligne.magasin} annee={anneeReel} peutSaisir={peutSaisir} apresEnregistrement={reel.recharger} />
         </Stack>
