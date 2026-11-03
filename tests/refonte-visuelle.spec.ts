@@ -64,6 +64,9 @@ test('quadrimestres : pastilles face au budget, pont d’écart de l’EBE, plan
   const mensuel = plan.getByRole('table', { name: `Plan de trésorerie ${N} mois par mois` })
   await expect(mensuel.getByRole('row', { name: /^Encaissé en caisse/ }).getByRole('cell').nth(1)).toHaveText('60')
   await expect(mensuel.getByRole('row', { name: /^Écart au prévu/ })).toBeVisible()
+  // Curseur Mois / Quadrimestre (03/11/2026) : le tableau par quadrimestre remplace celui des mois
+  await plan.getByRole('button', { name: 'Quadrimestre' }).click()
+  await expect(mensuel).toHaveCount(0)
   const parQ = plan.getByRole('table', { name: `Trésorerie ${N} par quadrimestre` })
   await expect(parQ.getByRole('row', { name: /^Trésorerie en fin de période/ }).getByRole('cell').nth(1)).toContainText(/^25prévu/) // en k€
   expect(await sansDebordement(page)).toBeLessThanOrEqual(0)

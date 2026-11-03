@@ -5,6 +5,21 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Écrans allégés : trésorerie, saisie du réel, pages réseau (sans migration)
+
+- Trésorerie (Joseph, 3/11) : un curseur Mois / Quadrimestre fait basculer ensemble le graphe et le tableau ; le second
+  tableau « Par quadrimestre » disparaît. Le choix est retenu sur le poste.
+- Leviers commerciaux : l'Extérieur entre dans le simulateur, avec « CA en plus » (il n'a ni tickets ni panier) et le mix.
+- Réel du mois : saisie par univers par défaut (CA HT, marge HT, CA TTC facultatif, tickets). Le CA est enregistré
+  « Non détaillé » et réparti sur les familles à la lecture, selon le même mois de l'an dernier, sinon les 3 mois
+  précédents ; un détail saisi plus tard ou un import le remplace. CA TTC vide : rapport TTC / HT des mois de référence.
+  Marge non saisie : laissée inconnue, sans alerte. « Détailler par famille (conseillé) » pré-remplit les familles.
+- Campagne : une seule rangée de filtres (les étapes ne sont plus en double dans le bandeau), le détail par Responsable
+  Régional ou par Coach s'ouvre à la demande, « À traiter » ne garde que les alertes et les actions en retard. Liste à
+  six colonnes : Magasin, Budget, CA HT, EBE / CA, Point bas de trésorerie, À faire.
+- Réel du réseau : le tableau « Par Coach » passe dans le menu Coach (magasins et magasins à suivre) ; le classement se
+  lit en trois vues (Ventes, Clients, Équipe et frais) ; Responsable Régional et groupe restent des filtres et dans l'export.
+
 ### Menu par thèmes, pages du magasin en onglets (sans migration)
 
 - Comme dans l'app réseau (Joseph, 3/11) : le menu de gauche ne mène plus qu'aux thèmes du réseau, rangés en Budgets

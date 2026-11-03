@@ -132,7 +132,11 @@ test('plan de trésorerie : solde réel fin avril face au prévu, puis projectio
   expect(lire(projetees[3])).toBe(25_000)
   expect(projetees.slice(0, 3).every((t) => t === '')).toBe(true)
   // Par quadrimestre : décaissé réel déduit dès que le début, l'encaissé des 4 mois et la fin sont connus
+  await expect(section.getByRole('table', { name: `Trésorerie ${N} par quadrimestre` })).toHaveCount(0)
+  await section.getByRole('button', { name: 'Quadrimestre' }).click()
   await expect(section.getByRole('table', { name: `Trésorerie ${N} par quadrimestre` })).toBeVisible()
+  await expect(section.getByRole('img', { name: /par quadrimestre : fin de période/ })).toBeVisible()
+  await section.getByRole('button', { name: 'Mois' }).click()
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await section.screenshot({ path: `captures/${info.project.name}-plan-tresorerie.png` })

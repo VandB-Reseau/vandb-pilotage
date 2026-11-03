@@ -34,7 +34,8 @@ test('vue réseau : filtre par Responsable Régional, export de la sélection', 
   const tableau = page.getByRole('table', { name: `Réel ${N} par magasin` })
   const lignes = tableau.getByRole('row')
   await expect(lignes).toHaveCount(6)
-  if (!isMobile) await expect(lignes.nth(4)).toContainText('RR Nord, RR Est')
+  // Allègement (03/11/2026) : le Responsable Régional n'est plus une colonne du tableau, il reste un filtre et dans l'export
+  await expect(tableau.getByRole('columnheader', { name: 'Responsable Régional' })).toHaveCount(0)
 
   await page.getByLabel('Responsable Régional').click()
   await expect(page.getByRole('option')).toHaveText(['Tous les Responsables Régionaux', 'RR Est', 'RR Nord'])

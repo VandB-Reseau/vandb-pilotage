@@ -16,6 +16,8 @@ import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import TableSortLabel from '@mui/material/TableSortLabel'
 import TextField from '@mui/material/TextField'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import FileDownloadOutlined from '@mui/icons-material/FileDownloadOutlined'
 import PrintOutlined from '@mui/icons-material/PrintOutlined'
@@ -32,7 +34,7 @@ import { classeur, nomFichier, telecharger } from '../lib/xlsx'
 import { fraisDepuisLignes } from '../moteur/atterrissage'
 import { calculerBudget } from '../moteur/budget'
 import { medianes, ratiosDuReel, RATIOS, type CleRatio } from '../moteur/comparaison'
-import { maSemaine } from '../moteur/semaine'
+import { maSemaine, parCoach } from '../moteur/semaine'
 import { ligneReseau, totalReseau, type LigneReseau, type MoisReel } from '../moteur/suivi'
 import { ficheVisite } from '../moteur/visite'
 import { styleTableau } from '../theme/tableau'
@@ -57,6 +59,13 @@ const COLONNES: Colonne[] = [
   { cle: 'caParHeure', libelle: 'CA par heure travaillée', texte: (v) => euros.format(v) },
   { cle: 'loyerSurCA', libelle: 'Loyer / CA', texte: taux },
   { cle: 'ebeSurCA', libelle: 'EBE / CA', texte: taux, rouge: (v) => v < 0 },
+]
+// Allègement (Joseph, 03/11/2026) : le classement se lit par vue de 4 à 5 colonnes ; l'export Excel garde tout
+type Vue = 'ventes' | 'clients' | 'equipe'
+const VUES: { cle: Vue; libelle: string; colonnes: Colonne['cle'][] }[] = [
+  { cle: 'ventes', libelle: 'Ventes', colonnes: ['moisRealises', 'ca', 'evolution', 'ecartBudget', 'tauxMarge'] },
+  { cle: 'clients', libelle: 'Clients', colonnes: ['panierCave', 'ticketsCave', 'panierBar', 'ticketsBar'] },
+  { cle: 'equipe', libelle: 'Équipe et frais', colonnes: ['pctFP', 'caParHeure', 'loyerSurCA', 'ebeSurCA'] },
 ]
 const douze = (): MoisReel[] => Array.from({ length: 12 }, () => ({ caHT: 0, margeHT: 0, caAvecMarge: 0, caTTC: 0, tickets: 0 }))
 // Sur téléphone, les chiffres d'abord : Coach, RR et groupe restent dans les filtres
@@ -103,6 +112,8 @@ export function Reseau() {
   const groupe = params.get('groupe') ? Number(params.get('groupe')) : null
   const coach = params.get('coach') ?? ''
   const rr = params.get('rr') ?? ''
+  const vue = VUES.find((v) => v.cle === params.get('vue')) ?? VUES[0]
+  const colonnes = COLONNES.filter((c) => vue.colonnes.includes(c.cle))
   const tri = ([...COLONNES.map((c) => c.cle), 'magasin'] as string[]).includes(params.get('tri') ?? '') ? params.get('tri') as Cle : 'ca'
   const sens = params.get('sens') === 'asc' ? 'asc' : params.get('sens') === 'desc' ? 'desc' : tri === 'magasin' ? 'asc' : 'desc'
 
@@ -163,6 +174,10 @@ export function Reseau() {
     </TableCell>
   )
   const champ = { '& .MuiInputBase-root': { minHeight: 48 }, '& .MuiSelect-nativeInput': { height: 48 } }
+  // Le tableau « Par Coach » de Ma semaine passe dans le menu Coach : magasins et magasins à suivre de chaque Coach
+  const aujourdhui = new Date().toISOString().slice(0, 10)
+  const parCoachTous = new Map(parCoach(maSemaine(donnees.magasins.filter((m) => m.moisRealises > 0 || donnees.alertes.some((a) => a.magasin === m.magasin)),
+    donnees.alertes, donnees.actions, aujourdhui)).map((c) => [c.coach, c]))
 
   return (
     <Box>
@@ -207,7 +222,14 @@ export function Reseau() {
           <TextField select size="small" label="Coach" value={coach} onChange={(e) => changer({ coach: e.target.value || null })}
             slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }} sx={{ width: { xs: '100%', sm: 220 }, ...champ }}>
             <MenuItem value="" sx={{ minHeight: 48 }}>Tous les Coachs</MenuItem>
-            {donnees.coachs.map((c) => <MenuItem key={c} value={c} sx={{ minHeight: 48 }}>{c}</MenuItem>)}
+            {donnees.coachs.map((c) => {
+              const x = parCoachTous.get(c)
+              return (
+                <MenuItem key={c} value={c} sx={{ minHeight: 48 }}>
+                  {c}{x ? <Box component="span" sx={{ color: 'text.secondary', ml: 1 }}>{` · ${x.magasins} magasin${x.magasins > 1 ? 's' : ''}${x.aSuivre ? `, ${x.aSuivre} à suivre` : ''}`}</Box> : null}
+                </MenuItem>
+              )
+            })}
           </TextField>
         )}
         {donnees.rrs.length > 1 && (
@@ -222,9 +244,17 @@ export function Reseau() {
       {/* Lot 30 (E3) : Ma semaine porte aussi les alertes ; un magasin sans réel y figure s'il a une alerte */}
       <Box className="pas-a-l-impression">
         <MaSemaine
-          lignes={maSemaine(visibles.filter((m) => m.moisRealises > 0 || donnees.alertes.some((a) => a.magasin === m.magasin)), donnees.alertes, donnees.actions, new Date().toISOString().slice(0, 10))}
+          lignes={maSemaine(visibles.filter((m) => m.moisRealises > 0 || donnees.alertes.some((a) => a.magasin === m.magasin)), donnees.alertes, donnees.actions, aujourdhui)}
           avecCoachs={donnees.coachs.length > 0} etat={etat}
         />
+      </Box>
+
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', mb: 1.5 }}>
+        <Typography variant="h2" sx={{ flex: 1 }}>Tous les magasins</Typography>
+        <ToggleButtonGroup exclusive size="small" value={vue.cle} onChange={(_, v: Vue | null) => v && changer({ vue: v === 'ventes' ? null : v })} aria-label="Vue du classement"
+          className="pas-a-l-impression">
+          {VUES.map((v) => <ToggleButton key={v.cle} value={v.cle} sx={{ minHeight: 48, px: 2 }}>{v.libelle}</ToggleButton>)}
+        </ToggleButtonGroup>
       </Box>
 
       {visibles.length === 0 ? (
@@ -239,9 +269,7 @@ export function Reseau() {
                     <TableSortLabel active={tri === 'magasin'} direction={tri === 'magasin' ? sens : 'asc'} onClick={() => trier('magasin')} sx={{ minHeight: { xs: 48, md: 36 } }}>Magasin</TableSortLabel>
                   </TableCell>
                   {donnees.coachs.length > 0 && <TableCell sx={surPC}>Coach</TableCell>}
-                  {donnees.rrs.length > 0 && <TableCell sx={surPC}>Responsable Régional</TableCell>}
-                  {donnees.groupes.length > 0 && <TableCell sx={surPC}>Groupe</TableCell>}
-                  {COLONNES.map((c) => (
+                  {colonnes.map((c) => (
                     <TableCell key={c.cle} align="right" sortDirection={tri === c.cle ? sens : false} sx={{ whiteSpace: 'normal', minWidth: 96, verticalAlign: 'bottom' }}>
                       <TableSortLabel active={tri === c.cle} direction={tri === c.cle ? sens : 'desc'} onClick={() => trier(c.cle)} sx={{ minHeight: { xs: 48, md: 36 } }}>{c.cle === 'pctFP' ? <abbr title="Frais de personnel ÷ CA HT" style={{ textDecoration: 'none' }}>{c.libelle}</abbr> : c.libelle}</TableSortLabel>
                     </TableCell>
@@ -252,18 +280,14 @@ export function Reseau() {
                 <TableRow className="ligne-forte" sx={{ '& td': { fontWeight: 700 } }}>
                   <TableCell sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{filtre ? 'Total de la sélection' : 'Total du réseau'}</TableCell>
                   {donnees.coachs.length > 0 && <TableCell sx={surPC} />}
-                  {donnees.rrs.length > 0 && <TableCell sx={surPC} />}
-                  {donnees.groupes.length > 0 && <TableCell sx={surPC} />}
-                  {COLONNES.map((c) => (c.cle === 'moisRealises'
+                  {colonnes.map((c) => (c.cle === 'moisRealises'
                     ? <TableCell key={c.cle} align="right" sx={{ whiteSpace: 'nowrap', fontWeight: 700 }}>{total.magasins} magasin{total.magasins > 1 ? 's' : ''}</TableCell>
                     : cellule(c, (total as unknown as Record<string, number | null>)[c.cle], true)))}
                 </TableRow>
                 <TableRow sx={{ '& td': { color: 'text.secondary' } }}>
                   <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{filtre ? 'Médiane de la sélection' : 'Médiane du réseau'}</TableCell>
                   {donnees.coachs.length > 0 && <TableCell sx={surPC} />}
-                  {donnees.rrs.length > 0 && <TableCell sx={surPC} />}
-                  {donnees.groupes.length > 0 && <TableCell sx={surPC} />}
-                  {COLONNES.map((c) => ((RATIOS as string[]).includes(c.cle)
+                  {colonnes.map((c) => ((RATIOS as string[]).includes(c.cle)
                     ? cellule(c, mediane[c.cle as CleRatio])
                     : <TableCell key={c.cle} />))}
                 </TableRow>
@@ -273,9 +297,7 @@ export function Reseau() {
                       <Link component={RouterLink} to={lienMagasin(m.magasin)} state={etat} onClick={(e) => e.stopPropagation()} sx={{ fontWeight: 600, display: 'inline-flex', minHeight: 48, alignItems: 'center' }}>{m.magasin}</Link>
                     </TableCell>
                     {donnees.coachs.length > 0 && <TableCell sx={{ whiteSpace: 'nowrap', ...surPC }}>{m.coach}</TableCell>}
-                    {donnees.rrs.length > 0 && <TableCell sx={{ whiteSpace: 'nowrap', ...surPC }}>{m.rrs.join(', ')}</TableCell>}
-                    {donnees.groupes.length > 0 && <TableCell sx={{ whiteSpace: 'nowrap', ...surPC }}>{m.groupe}</TableCell>}
-                    {COLONNES.map((c) => (c.cle === 'moisRealises'
+                    {colonnes.map((c) => (c.cle === 'moisRealises'
                       ? cellule(c, m.moisRealises || null)
                       : cellule(c, m[c.cle as keyof LigneReseau] as number | null)))}
                   </TableRow>

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import Box from '@mui/material/Box'
 import Card from '@mui/material/Card'
 import Stack from '@mui/material/Stack'
@@ -7,6 +8,8 @@ import TableCell from '@mui/material/TableCell'
 import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import { ecartMilliers, enChiffres, enMilliers, milliers, MOIS, MOIS_LONGS, QUADRIMESTRES_COURTS } from '../lib/format'
 import type { Tresorerie } from '../moteur/tresorerie'
@@ -14,17 +17,23 @@ import { niveauEcart, type PlanTresorerie } from '../moteur/visuel'
 import { styleTableau } from '../theme/tableau'
 import { Aide } from './Aide'
 import { GraphiqueTresorerie } from './GraphiqueTresorerie'
+import { GraphiqueTresorerieQuadri } from './GraphiqueTresorerieQuadri'
 import { Indicateur } from './Indicateur'
 import { CaseReelPrevu, EnTeteMois, LegendePastilles } from './Tableau'
 
 const entier = (v: number) => enChiffres(Math.round(v))
 // k€ à une décimale : « 113 », « −2 », « 1,2 »
 const k = (v: number) => enMilliers(v)
+type Vue = 'mois' | 'quadrimestre'
+const CLE_VUE = 'pilotage.tresorerie.vue'
+const lireVue = (): Vue => { try { return localStorage.getItem(CLE_VUE) === 'quadrimestre' ? 'quadrimestre' : 'mois' } catch { return 'mois' } }
 const ecartK = (v: number) => (Math.round(v / 100) === 0 ? '0' : `${v > 0 ? '+' : '−'}${enMilliers(Math.abs(v))}`)
 
 // Plan de trésorerie de l'année en cours, réel face au prévu (refonte P1 et P2, 2/11/2026). Le réel de trésorerie se pilote
 // au quadrimestre (Joseph) : le solde réel est celui saisi à la fin de chaque quadrimestre ; l'encaissé réel vient de la
 // caisse chaque mois ; le décaissé réel d'un quadrimestre se déduit du solde.
+// Curseur Mois / Quadrimestre (Joseph, 03/11/2026) : il fait basculer ensemble le graphe et le tableau, à la place du second
+// tableau « Par quadrimestre » empilé sous le premier ; le choix est retenu sur ce poste.
 export function PlanTresorerieAnnee({ annee, plan, prevue, seuil, enCours, source }: {
   annee: number
   plan: PlanTresorerie
@@ -35,6 +44,8 @@ export function PlanTresorerieAnnee({ annee, plan, prevue, seuil, enCours, sourc
 }) {
   const r = plan.dernierReel
   const finProjetee = plan.mois[11].finProjetee
+  const [vue, setVue] = useState<Vue>(lireVue)
+  const changerVue = (v: Vue | null) => { if (!v) return; setVue(v); try { localStorage.setItem(CLE_VUE, v) } catch { /* poste sans stockage */ } }
   const sous = (i: number) => (i === enCours ? 'en cours' : plan.mois[i].encReel !== null ? 'réel' : 'prévu')
   return (
     <Card component="section" aria-label={`Plan de trésorerie ${annee}`}>
@@ -60,12 +71,20 @@ export function PlanTresorerieAnnee({ annee, plan, prevue, seuil, enCours, sourc
           detail={finProjetee !== null ? `Projeté depuis le dernier solde réel · prévu ${milliers(prevue.fin)}` : 'Prévu'}
         />
       </Stack>
-      <Box sx={{ px: 2.5, pb: 1 }}><GraphiqueTresorerie tresorerie={prevue} annee={annee} plan={plan} moisEnCours={enCours} /></Box>
-
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2.5, pt: 1, pb: 1 }}>
-        <Typography variant="h3" sx={{ flex: 1 }}>Mois par mois</Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2.5, pb: 1.5 }}>
+        <ToggleButtonGroup exclusive size="small" value={vue} onChange={(_, v: Vue | null) => changerVue(v)} aria-label="Lire la trésorerie">
+          <ToggleButton value="mois" sx={{ minHeight: 48, px: 2.5 }}>Mois</ToggleButton>
+          <ToggleButton value="quadrimestre" sx={{ minHeight: 48, px: 2.5 }}>Quadrimestre</ToggleButton>
+        </ToggleButtonGroup>
+        <Box sx={{ flex: 1 }} />
         <LegendePastilles seuil={seuil} />
       </Box>
+      <Box sx={{ px: 2.5, pb: 1 }}>
+        {vue === 'mois'
+          ? <GraphiqueTresorerie tresorerie={prevue} annee={annee} plan={plan} moisEnCours={enCours} />
+          : <GraphiqueTresorerieQuadri plan={plan} annee={annee} quadriEnCours={enCours === null ? null : Math.floor(enCours / 4)} />}
+      </Box>
+      {vue === 'mois' ? (<>
       {/* T1 (Joseph, 02/11/2026) : un chiffre par case, en k€ ; l'écart au prévu sur une ligne à part, coloré seulement
           au-delà du seuil d'alerte ; le tableau tient dans l'écran du PC */}
       <TableContainer>
@@ -130,8 +149,7 @@ export function PlanTresorerieAnnee({ annee, plan, prevue, seuil, enCours, sourc
           </TableBody>
         </Table>
       </TableContainer>
-
-      <Typography variant="h3" sx={{ px: 2.5, pt: 2.5, pb: 1 }}>Par quadrimestre</Typography>
+      </>) : (
       <TableContainer>
         <Table size="small" aria-label={`Trésorerie ${annee} par quadrimestre`} sx={{ ...styleTableau, minWidth: 560 }}>
           <TableHead>
@@ -160,6 +178,7 @@ export function PlanTresorerieAnnee({ annee, plan, prevue, seuil, enCours, sourc
           </TableBody>
         </Table>
       </TableContainer>
+      )}
       <Box sx={{ pb: 1.5 }} />
     </Card>
   )

@@ -112,8 +112,8 @@ export const AIDE = {
   },
   leviers: {
     titre: 'Leviers commerciaux',
-    quoi: 'Ce que rapporteraient sur un an plus de clients, un panier plus fort ou un mix mieux margé, Cave et Bar séparés.',
-    remplir: 'Tickets en pourcentage, panier en euros TTC par ticket, mix en points de taux de marge. Rien n’est enregistré : « En faire une action » met le levier au plan d’action.',
+    quoi: 'Ce que rapporteraient sur un an plus de clients, un panier plus fort ou un mix mieux margé, Cave, Bar et Extérieur séparés.',
+    remplir: 'Tickets en pourcentage, panier en euros TTC par ticket ; pour l’Extérieur, qui n’a pas de tickets, le CA en plus en pourcentage ; mix en points de taux de marge. Rien n’est enregistré : « En faire une action » met le levier au plan d’action.',
     calcul: 'CA de l’univers × (1 + tickets) × (1 + euros de panier ÷ panier TTC) ; marge au taux de l’univers plus les points de mix ; redevance et publicité suivent le CA, l’équipe et les frais ne bougent pas.',
   },
   ficheVisite: {

@@ -10,6 +10,7 @@ import type { TicketsMois, VenteMois } from '../import/caisse'
 import { baseDepuisReel, fraisDepuisLignes, saisonnaliteMediane, type LigneFraisMagasin, type ReelAnnees, type SecoursAtterrissage } from '../moteur/atterrissage'
 import type { Categorie, ParametresCharges, Personne } from '../moteur/equipe'
 import type { LigneReel, TicketsReel } from '../moteur/reel'
+import { NON_DETAILLE, repartirNonDetaille } from '../moteur/repartition'
 import type { MoisReel } from '../moteur/suivi'
 import { alertesMagasin, mesuresMagasin, trierAlertes, type Alerte, type EntreeAlertes, type Mesure, type TypeAction, type TypeAlerte } from '../moteur/alertes'
 import { ratiosDuBudget, ratiosDuReel, type Ratios } from '../moteur/comparaison'
@@ -290,7 +291,17 @@ const premierDuMois = (annee: number, mois: number) => `${annee}-${deux(mois)}-0
 export interface ReelMagasin { lignes: LigneReel[]; tickets: TicketsReel[] }
 
 export const chargerReel = (magasin: string, annee: number): Promise<ReelMagasin> => memo(`reel|${magasin}|${annee}`, () => lireReel(magasin, annee))
+// Un mois saisi par univers seulement (ligne « Non détaillé ») est réparti sur les familles à la lecture, avec l'an
+// dernier pour référence (03/11/2026)
 async function lireReel(magasin: string, annee: number): Promise<ReelMagasin> {
+  const brut = await chargerReelBrut(magasin, annee)
+  if (!brut.lignes.some((l) => l.famille === NON_DETAILLE)) return brut
+  const n1 = await chargerReelBrut(magasin, annee - 1).catch(() => null)
+  return { ...brut, lignes: repartirNonDetaille(brut.lignes, n1?.lignes ?? [], annee - 1) }
+}
+// Réel tel qu'enregistré, sans répartition (référence de la saisie par univers)
+export const chargerReelBrut = (magasin: string, annee: number): Promise<ReelMagasin> => memo(`reel-brut|${magasin}|${annee}`, () => lireReelBrut(magasin, annee))
+async function lireReelBrut(magasin: string, annee: number): Promise<ReelMagasin> {
   const [v, t] = await Promise.all([
     pilotage().from('reel_mensuel').select('mois, univers, famille, ca_ht, ca_ttc, marge_ht')
       .eq('store_name', magasin).gte('mois', premierDuMois(annee, 1)).lte('mois', premierDuMois(annee, 12)),

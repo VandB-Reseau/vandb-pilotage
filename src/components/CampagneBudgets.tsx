@@ -5,7 +5,6 @@ import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
 import IconButton from '@mui/material/IconButton'
 import Link from '@mui/material/Link'
-import Stack from '@mui/material/Stack'
 import Table from '@mui/material/Table'
 import TableBody from '@mui/material/TableBody'
 import TableCell from '@mui/material/TableCell'
@@ -116,6 +115,9 @@ export function CampagneBudgets({ annee, campagne, magasins, aujourdhui, role, c
   actions?: ReactNode
   children?: ReactNode
 }) {
+  // Allègement (Joseph, 03/11/2026) : les étapes se filtrent dans la rangée de filtres de la liste, le détail par
+  // Responsable Régional ou par Coach s'ouvre à la demande
+  const [voirDetail, setVoirDetail] = useState(false)
   const total = avancementCampagne(magasins.map((m) => ({ statut: m.statut, responsables: ['Tout le périmètre'] })), campagne, aujourdhui)[0]
   if (!total) return null
   const parEtape = Object.fromEntries(ETAPES_CAMPAGNE.map((e) => [e.cle, magasins.filter((m) => etapeCampagne(m.statut) === e.cle).length])) as Record<EtapeCampagne, number>
@@ -164,6 +166,8 @@ export function CampagneBudgets({ annee, campagne, magasins, aujourdhui, role, c
       lignes={avancementCampagne(magasins.map((m) => ({ statut: m.statut, responsables: m.coach ? [m.coach] : [] })), campagne, aujourdhui)} />
   ) : null
 
+  const titreDetail = role === 'coach' ? 'Mes magasins, jours d’attente' : role === 'directeur' && avecRR ? 'Par Responsable Régional' : 'Par Coach'
+
   return (
     <Card component="section" aria-label={`Campagne des budgets ${annee}`}>
       <Box sx={{ px: 2, pt: 2, pb: 1.5, display: 'grid', gap: 1.5 }}>
@@ -179,28 +183,24 @@ export function CampagneBudgets({ annee, campagne, magasins, aujourdhui, role, c
             <Box key={e} sx={{ width: `${(parEtape[e] / total.magasins) * 100}%`, bgcolor: COULEUR[e] }} />
           ))}
         </Box>
-        <Stack direction="row" useFlexGap spacing={1} sx={{ flexWrap: 'wrap' }} role="group" aria-label="Étapes de la campagne">
-          {ETAPES_CAMPAGNE.map((e) => (
-            <Button key={e.cle} size="small" variant="outlined" color="inherit" disabled={!parEtape[e.cle]} onClick={() => filtrer(FILTRE_ETAPE[e.cle])}
-              startIcon={<Box component="span" sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: COULEUR[e.cle], border: 1, borderColor: 'divider' }} />}
-              sx={{ minHeight: { xs: 48, md: 40 }, borderColor: 'divider', fontWeight: 600 }}>
-              {e.libelle} · {parEtape[e.cle]}
-            </Button>
-          ))}
-          {total.enRetard > 0 && (
-            <Button size="small" variant="outlined" color="error" onClick={() => filtrer('en_retard')} sx={{ minHeight: { xs: 48, md: 40 }, fontWeight: 700 }}>
-              En retard · {total.enRetard}
-            </Button>
-          )}
-        </Stack>
         {chiffres && chiffres.avecBudget > 0 && (
           <Typography variant="body2" color="text.secondary">
             {`CA HT budgété ${milliers(chiffres.ca)} · EBE budgété ${milliers(chiffres.ebe)} (${taux(chiffres.ebeSurCA)} du CA), somme des ${pluriel(chiffres.avecBudget, 'budget', 'budgets')}`}
           </Typography>
         )}
-        {actions}
+        {(actions || detail) && (
+          <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+            {detail && (
+              <Button variant={voirDetail ? 'contained' : 'outlined'} aria-expanded={voirDetail} onClick={() => setVoirDetail(!voirDetail)}
+                endIcon={voirDetail ? <ExpandLessOutlined /> : <ExpandMoreOutlined />} sx={{ minHeight: 48 }}>
+                {titreDetail}
+              </Button>
+            )}
+            {actions}
+          </Box>
+        )}
       </Box>
-      {detail}
+      {voirDetail && detail}
       {children}
     </Card>
   )

@@ -102,6 +102,8 @@ test('le franchisé lit le réel de son magasin et saisit le mois suivant', asyn
   await page.getByRole('button', { name: 'Saisir un mois' }).click()
   const saisie = page.getByRole('region', { name: /Réel du mois/ })
   await expect(saisie.getByLabel('Mois')).toContainText(`mars ${N}`)
+  // Saisie par univers par défaut (03/11/2026) : le détail par famille s'ouvre à la demande
+  await saisie.getByRole('group', { name: 'Ventes Cave' }).getByRole('button', { name: 'Détailler par famille (conseillé)' }).click()
   await saisie.getByLabel('Marge HT : Vin (Cave)').fill('500')
   await saisie.getByRole('button', { name: 'Enregistrer le mois' }).click()
   await expect(saisie.getByText('Vin (Cave) : le CA HT manque.')).toBeVisible()

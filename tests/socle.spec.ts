@@ -31,7 +31,8 @@ test('le Directeur voit tous les magasins, l’avancement des budgets et les chi
   for (const m of MAGASINS) await expect(page.getByText(m, { exact: true })).toBeVisible()
   // Magasin fictif : 640 000 € de CA et 54 780 € d'EBE (calcul vérifié à la main dans les tests du moteur)
   await expect(page.getByText(/640\sk€/).first()).toBeVisible()
-  await expect(page.getByText(/55\sk€/).first()).toBeVisible()
+  // EBE / CA dans la liste (03/11/2026) : 54 780 / 640 000 = 8,6 %
+  await expect(page.getByText(isMobile ? /55\sk€/ : /8,6\s%/).first()).toBeVisible()
   await expect(page.getByText('Validé', { exact: true })).toBeVisible()
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])

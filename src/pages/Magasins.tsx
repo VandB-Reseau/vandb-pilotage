@@ -35,7 +35,7 @@ import { PastilleStatut } from '../components/PastilleStatut'
 import { anneeBudget, chargerActions, chargerAlertes, chargerBudgets, chargerParametres, chargerReelDuCompte, departTresorerie, hypothesesDe, parametresDuBudget } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { aTraiter, correspond, filtrerMagasins, FILTRES, type Filtre } from '../lib/aFaire'
-import { dateHeure, lienMagasin, milliers, taux } from '../lib/format'
+import { lienMagasin, milliers, taux } from '../lib/format'
 import { calculerBudget } from '../moteur/budget'
 import { tresorerieBudget } from '../moteur/tresorerie'
 import { syntheseBudgets, totalBudgets } from '../moteur/sante'
@@ -49,24 +49,22 @@ import PlaylistAddCheckOutlined from '@mui/icons-material/PlaylistAddCheckOutlin
 import { styleTableau } from '../theme/tableau'
 
 // Liste des magasins (lot 27) : une ligne par magasin, colonnes triables, alertes et EBE / CA lisibles d'un coup d'œil
+// Allègement (Joseph, 03/11/2026) : six colonnes ; marge, % FP, EBE en euros et date de mise à jour restent dans la fiche
+// du magasin et dans l'export. « À faire » réunit les alertes et l'équipe ou les frais à renseigner.
 const ENTETES = [
   { cle: 'magasin', libelle: 'Magasin' },
   { cle: 'groupe', libelle: 'Groupe' },
   { cle: 'statut', libelle: 'Budget' },
-  { cle: 'alertes', libelle: 'Alertes' },
   { cle: 'ca', libelle: 'CA HT', droite: true },
-  { cle: 'marge', libelle: 'Marge', droite: true },
-  { cle: 'personnel', libelle: '% FP', droite: true },
-  { cle: 'ebe', libelle: 'EBE', droite: true },
   { cle: 'ebeSurCA', libelle: 'EBE / CA', droite: true },
   { cle: 'pointBas', libelle: 'Point bas de trésorerie', droite: true },
-  { cle: 'majLe', libelle: 'Mis à jour' },
+  { cle: 'alertes', libelle: 'À faire' },
 ] as const
 type Tri = (typeof ENTETES)[number]['cle']
 const COLONNES_TRI = ENTETES.map((c) => c.cle)
 // Texte : A à Z d'abord ; chiffres et alertes : le plus grand d'abord ; masse salariale : la plus faible d'abord
 const SENS_DEFAUT: Record<Tri, 'asc' | 'desc'> = {
-  magasin: 'asc', groupe: 'asc', statut: 'asc', alertes: 'desc', ca: 'desc', marge: 'desc', personnel: 'asc', ebe: 'desc', ebeSurCA: 'desc', pointBas: 'asc', majLe: 'desc',
+  magasin: 'asc', groupe: 'asc', statut: 'asc', alertes: 'desc', ca: 'desc', ebeSurCA: 'desc', pointBas: 'asc',
 }
 
 // « 2 alertes · CA sous le budget » : le nombre et la plus grave
@@ -148,13 +146,9 @@ export function Magasins() {
         case 'magasin': return m.magasin
         case 'groupe': return m.groupe || null
         case 'statut': return m.statut ?? null
-        case 'alertes': return alertesDe.get(m.magasin)?.length ?? 0
+        case 'alertes': return (alertesDe.get(m.magasin)?.length ?? 0) + (m.aEquipe ? 0 : 1) + (m.aFrais ? 0 : 1)
         case 'pointBas': return m.pointBas
-        case 'majLe': return m.majLe
         case 'ca': return m.budget?.ca ?? null
-        case 'marge': return m.budget?.tauxMarge ?? null
-        case 'personnel': return m.budget?.ratios.pctFP ?? null
-        case 'ebe': return m.budget?.ebe ?? null
         case 'ebeSurCA': return m.budget?.ratios.ebeSurCA ?? null
       }
     }
@@ -228,7 +222,7 @@ export function Magasins() {
                 ) : undefined}
               >
                 <ATraiter
-                  items={aTraiter(tous, donnees.alertes, donnees.actions, new Date().toISOString().slice(0, 10))}
+                  items={aTraiter(tous, donnees.alertes, donnees.actions, new Date().toISOString().slice(0, 10)).filter((x) => x.cle === 'alertes' || x.cle === 'actions')}
                   etat={{ liste: tous.map((m) => m.magasin) }}
                   filtrer={(f) => { changer('filtre', f === 'tous' ? null : f); document.querySelector('[aria-label="Filtres"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}
                 />
@@ -333,7 +327,7 @@ export function Magasins() {
                       {ENTETES.filter((c) => avecGroupe || c.cle !== 'groupe').map((c) => (
                         <TableCell key={c.cle} align={'droite' in c ? 'right' : 'left'} sortDirection={tri === c.cle ? sens : false} sx={{ verticalAlign: 'bottom' }}>
                           <TableSortLabel active={tri === c.cle} direction={tri === c.cle ? sens : SENS_DEFAUT[c.cle]} onClick={() => trier(c.cle)} sx={{ minHeight: 36 }}>
-                            {c.cle === 'statut' ? `Budget ${annee}` : c.cle === 'personnel' ? <abbr title="Frais de personnel ÷ CA HT" style={{ textDecoration: 'none' }}>{c.libelle}</abbr> : c.libelle}
+                            {c.cle === 'statut' ? `Budget ${annee}` : c.libelle}
                           </TableSortLabel>
                         </TableCell>
                       ))}
@@ -345,11 +339,7 @@ export function Magasins() {
                         <TableCell>Total de la sélection</TableCell>
                         {avecGroupe && <TableCell />}
                         <TableCell sx={{ fontWeight: '400 !important', color: 'text.secondary' }}>{total.magasins} budgets</TableCell>
-                        <TableCell />
                         <TableCell align="right">{milliers(total.ca)}</TableCell>
-                        <TableCell align="right">{taux(total.tauxMarge)}</TableCell>
-                        <TableCell align="right">{taux(total.pctFP)}</TableCell>
-                        <TableCell align="right">{milliers(total.ebe)}</TableCell>
                         <TableCell align="right"><RatioEbe valeur={total.ebeSurCA} max={ebeMax} /></TableCell>
                         <TableCell />
                         <TableCell />
@@ -362,14 +352,13 @@ export function Magasins() {
                           <TableCell><Link component={RouterLink} to={lienMagasin(m.magasin)} state={etat} sx={{ fontWeight: 600, display: 'inline-flex', minHeight: 48, alignItems: 'center' }}>{m.magasin}</Link></TableCell>
                           {avecGroupe && <TableCell>{m.groupe}</TableCell>}
                           <TableCell><PastilleStatut statut={m.statut} /></TableCell>
-                          <TableCell sx={alertes.length ? { color: 'error.main', fontWeight: 600 } : { color: 'text.secondary' }}>{alertes.length ? texteAlertes(alertes) : 'Aucune'}</TableCell>
                           <TableCell align="right">{m.budget ? milliers(m.budget.ca) : ''}</TableCell>
-                          <TableCell align="right">{m.budget ? taux(m.budget.tauxMarge) : ''}</TableCell>
-                          <TableCell align="right">{m.budget ? taux(m.budget.ratios.pctFP) : ''}</TableCell>
-                          <TableCell align="right">{m.budget ? milliers(m.budget.ebe) : ''}</TableCell>
                           <TableCell align="right">{m.budget ? <RatioEbe valeur={m.budget.ratios.ebeSurCA} max={ebeMax} /> : ''}</TableCell>
                           <TableCell align="right" sx={m.pointBas !== null && m.pointBas < 0 ? { color: 'error.main', fontWeight: 600 } : undefined}>{m.pointBas === null ? '' : milliers(m.pointBas)}</TableCell>
-                          <TableCell>{m.majLe ? dateHeure(m.majLe) : ''}</TableCell>
+                          <TableCell>
+                            {alertes.length > 0 && <Box component="span" sx={{ color: 'error.main', fontWeight: 600, display: 'block' }}>{texteAlertes(alertes)}</Box>}
+                            {(!m.aEquipe || !m.aFrais) && <Box component="span" sx={{ color: 'text.secondary', display: 'block' }}>{!m.aEquipe && !m.aFrais ? 'Équipe et frais' : !m.aEquipe ? 'Équipe' : 'Frais'} à renseigner</Box>}
+                          </TableCell>
                         </TableRow>
                       )
                     })}
