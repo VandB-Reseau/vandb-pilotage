@@ -5,6 +5,11 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Atterrissage sans la carte « Saisonnalité » (sans migration)
+
+- La carte « Saisonnalité » de l'atterrissage (part de l'année réalisée par univers) est retirée. Le calcul reste
+  automatique ; une part déjà enregistrée reste prise en compte. La saisonnalité du budget reste au point de départ.
+
 ### Navigation simplifiée, prête pour la fusion avec l'app réseau (sans migration)
 
 - Fiche du magasin en trois onglets : « Suivi 2026 », « Budget 2027 », « Saisies ». Le Suivi tient sur une page :
