@@ -14,6 +14,18 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
   525 px de haut.
 - Sur PC, les commentaires sous le panneau défilent seuls : ils ne repoussent plus le panneau.
 
+### Navigation simplifiée, prête pour la fusion avec l'app réseau (sans migration)
+
+- Fiche du magasin en trois onglets : « Suivi 2026 », « Budget 2027 », « Saisies ». Le Suivi tient sur une page :
+  « Où en est le magasin », puis l'atterrissage, la trésorerie et le stock en sections repliées (ouvertes d'office quand
+  un lien y mène ; les anciennes adresses restent valables). Les saisies regroupent réel du mois, stock de fin de mois,
+  comptes du quadrimestre et frais.
+- Étapes du budget en frise (1 Construire, 2 Visualiser, 3 Envoyer et valider), avec l'état de chaque étape.
+- Un fil d'Ariane « Magasins / MANOSQUE » remplace le retour et « Changer de magasin » ; on change de magasin par la
+  recherche du haut ou par précédent et suivant.
+- Menu de gauche comme l'app réseau : Magasins et Réel du réseau, puis « Paramètres » (hypothèses du réseau, imports de
+  caisse, paramètres réseau).
+
 ### Investissements & Financements, Évènements & Temps forts, budget en 3 étapes, commentaires (Base : 0025)
 
 - Base : passer `supabase/migrations/0025_commentaires.sql` (commentaires ancrés, réponses, « Résolu »). Sans elle, l'app

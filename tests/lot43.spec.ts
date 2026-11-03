@@ -178,8 +178,9 @@ test('budget pas encore proposé : Construire renvoie à l’atterrissage, dans 
   await expect(page.locator('main')).toContainText(`Pas encore de budget ${N + 1}`)
   await expect(page.getByRole('navigation', { name: 'Pages du magasin' }).getByRole('tab', { name: /^1 · Construire/ })).toContainText('À proposer')
   await page.getByRole('button', { name: `Voir l’atterrissage ${N}` }).click()
-  await expect(page).toHaveURL(/\/atterrissage$/)
-  await expect(page.getByRole('navigation', { name: 'Pages du magasin' }).getByRole('tab', { name: `Atterrissage ${N}` })).toHaveAttribute('aria-selected', 'true')
+  // Option A (03/11/2026) : l'atterrissage est une section du Suivi, ouverte d'office
+  await expect(page).toHaveURL(/\/synthese$/)
+  await expect(page.locator('main').getByRole('region', { name: `Atterrissage ${N}`, exact: true }).getByRole('button', { name: `Atterrissage ${N}`, exact: true })).toHaveAttribute('aria-expanded', 'true')
 })
 
 test('étapes du budget : l’état de chaque étape selon qui regarde', async ({ page }) => {
@@ -188,7 +189,7 @@ test('étapes du budget : l’état de chaque étape selon qui regarde', async (
   // 03/11/2026 : dans les onglets de la fiche, sur PC comme sur téléphone
   const menu = page.getByRole('navigation', { name: 'Pages du magasin' })
   // Trois étapes (03/11/2026) : le point de départ est une carte de Construire
-  await expect(menu.getByRole('tab')).toHaveText([/^Données/, /^Budget/, /^Suivi/, /^1 · Construire/, /^2 · Visualiser/, /^3 · Envoyer et valider/])
+  await expect(menu.getByRole('tab')).toHaveText([/^Suivi/, /^Budget/, /^Saisies/, /^1 · Construire/, /^2 · Visualiser/, /^3 · Envoyer et valider/])
   await expect(menu.getByRole('tab', { name: /^1 · Construire/ })).toContainText('À relire')
   await expect(menu.getByRole('tab', { name: /^3 · Envoyer et valider/ })).toContainText('À envoyer')
   await page.getByLabel('Évolution du nombre de tickets : Cave').fill('5')

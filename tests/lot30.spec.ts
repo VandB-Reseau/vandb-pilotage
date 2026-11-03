@@ -31,12 +31,11 @@ test('fiche (lot 36) : le réel et les quadrimestres dans Données, l’atterris
   await ouvrir(page, 'Quadrimestres')
   await expect(page).toHaveURL(/\/quadrimestres$/)
   await expect(page.getByRole('heading', { name: 'Quadrimestres comptables' })).toBeVisible()
-  await ouvrir(page, 'Atterrissage')
-  await expect(page).toHaveURL(/\/atterrissage$/)
-  // Une adresse rouverte (actualisation, lien envoyé) affiche la même partie
-  await page.reload()
-  await expect(page).toHaveURL(/\/atterrissage$/)
-  await partieAffichee(page, /^Atterrissage \d{4}/)
+  // Option A (03/11/2026) : l'atterrissage est une section de la page Suivi ; son ancienne adresse l'ouvre
+  await page.goto(`/#/magasins/${encodeURIComponent(MAGASINS[0])}/atterrissage`)
+  await expect(page).toHaveURL(/\/synthese$/)
+  await partieAffichee(page, /^Suivi \d{4}/)
+  await expect(page.locator('main').getByRole('region', { name: /^Atterrissage \d{4}$/ }).getByRole('button', { name: /^Atterrissage \d{4}$/ })).toHaveAttribute('aria-expanded', 'true')
 })
 
 test('synthèse en 3 blocs : les chiffres, quoi faire, et le détail replié', async ({ page, isMobile }, info) => {
