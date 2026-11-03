@@ -79,30 +79,26 @@ test('Suivi : une page Trésorerie ; Données : la saisie du quadrimestre seule'
   await expect(page.getByRole('region', { name: /^Plan de trésorerie/ })).toHaveCount(0)
   await expect(page.getByRole('region', { name: /^Du budget au réel/ })).toHaveCount(0)
   await ouvrir(page, 'Trésorerie')
-  await expect(page).toHaveURL(/\/tresorerie$/)
+  await expect(page).toHaveURL(/\/synthese$/)
   await expect(page.getByRole('group', { name: 'Année de la trésorerie' })).toBeVisible()
   await ouvrir(page, 'Comptes du quadrimestre')
   await expect(page.getByRole('heading', { level: 2, name: 'Comptes du quadrimestre' })).toBeVisible()
 })
 
-test('fiche : « Changer de magasin » ouvre la liste des magasins avec recherche ; ni le menu ni la barre du haut ne le montrent', async ({ page, isMobile }) => {
+test('fiche : un fil d’Ariane et précédent / suivant ; on change de magasin par la recherche du haut', async ({ page, isMobile }) => {
   const autre: MagasinSimule = { ...propose, magasin: MAGASINS[1] }
   await seConnecter(page, { magasins: [propose, autre] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Résultat')
   await expect(page).toHaveURL(/\/visualiser$/)
-  // Lot 42 : le magasin n'est plus dans le menu de gauche ; Joseph (03/11/2026) : ni dans la barre du haut, on en change depuis la fiche
+  // Lot 42 : le magasin n'est plus dans le menu de gauche ; les pages du magasin sont des onglets de sa fiche
   const menu = page.getByRole('navigation', { name: 'Menu principal' })
   await expect(menu.getByText(MAGASINS[0], { exact: true })).toHaveCount(0)
-  // Joseph (03/11/2026) : les pages du magasin sont des onglets de sa fiche, plus dans le menu
   await expect(menu.getByText('Pages du magasin')).toHaveCount(0)
-  await expect(page.getByRole('banner').getByRole('button', { name: /Changer de magasin/ })).toHaveCount(0)
-  const selecteur = page.locator('main').getByRole('button', { name: `Changer de magasin (magasin ouvert : ${MAGASINS[0]})` })
-  await selecteur.click()
-  const dialogue = page.getByRole('dialog', { name: 'Changer de magasin' })
-  await dialogue.getByLabel('Nom du magasin').fill(MAGASINS[1].slice(0, 4))
-  await expect(dialogue.getByRole('button', { name: MAGASINS[0], exact: true })).toHaveCount(0)
-  await dialogue.getByRole('button', { name: MAGASINS[1] }).click()
+  // Option A (Joseph, 03/11/2026) : plus de « Changer de magasin », un fil d'Ariane
+  await expect(page.getByRole('button', { name: /Changer de magasin/ })).toHaveCount(0)
+  await expect(page.getByRole('navigation', { name: 'Fil d’Ariane' }).getByRole('link', { name: 'Magasins' })).toBeVisible()
+  await page.getByRole('link', { name: `Magasin suivant : ${MAGASINS[1]}` }).click()
   // Même étape, autre magasin
   await expect(page).toHaveURL(new RegExp(`/magasins/${encodeURIComponent(MAGASINS[1])}/visualiser$`))
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
