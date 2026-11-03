@@ -27,6 +27,18 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 - Menu du budget : sous chaque étape, son état en quelques mots (Fait, À proposer, À relire, 3 changements à envoyer,
   Non enregistré, À envoyer, À valider, Validé…), selon le rôle.
 
+### Réel complété mois par mois (sans migration)
+
+- Les mois passés sont complétés pour lire un EBE à date sans attendre les comptes (Joseph, 3/11). Trois natures de
+  chiffres : réel (caisse ou saisie), « Q1 », « Q2 », « Q3 » (total du quadrimestre réparti entre ses 4 mois) et « ≈ »
+  (estimé, en italique). Quadrimestre : démarque au prorata du CA, personnel et autres charges au prorata du budget du mois.
+  Autres mois : marge caisse moins la démarque du budget, charges du budget, redevance et publicité sur le CA réel.
+- « Où en est le magasin » : carte « EBE à fin … » et, dans « Mois par mois », lignes Marge après démarque, Frais de
+  personnel, Charges externes, impôts et taxes, EBE. Page Réseau et comparaison : % FP et EBE à date issus du même calcul.
+- Stock : les mois non saisis avant une saisie sont estimés (couverture en mois de ventes qui glisse d'une saisie à
+  l'autre, point de départ le stock de fin décembre de l'an passé s'il est saisi). Rien après la dernière saisie.
+- Rien n'est enregistré : un quadrimestre ou un stock saisi remplace aussitôt l'estimation. Moteur `src/moteur/reelComplete.ts`.
+
 ### Stock de fin de mois face à sa cible (Base : migration `0023_stock_fin_de_mois.sql` à passer)
 
 - Nouvelle page « Stock » dans l'espace Suivi (Joseph, 3/11) : la valeur du stock en fin de mois face à sa cible, en

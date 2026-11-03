@@ -1,5 +1,7 @@
 import { masseSalariale, type ParametresCharges, type Personne } from './equipe'
 import type { LigneReel, TicketsReel } from './reel'
+import type { Quadrimestre, SaisieQuadrimestre } from './quadrimestre'
+import { reelComplete } from './reelComplete'
 import type { Budget, LigneFrais } from './types'
 
 // Réel face au budget, mois par mois, et indicateurs de chaque magasin du réseau à date.
@@ -113,6 +115,8 @@ export interface EntreeReseau {
   budget: Budget | null         // budget de l'année en cours, s'il existe
   equipe: Personne[] | undefined
   frais: LigneFrais[] | undefined
+  // Quadrimestres saisis de l'année : avec un budget, personnel et EBE à date viennent du réel complété (03/11/2026)
+  quadrimestres?: Partial<Record<Quadrimestre, SaisieQuadrimestre>>
 }
 export interface ParametresReseauSuivi { tauxRedevance: number; tauxPublicite: number; charges: ParametresCharges; annee: number }
 
@@ -184,12 +188,15 @@ export function ligneReseau(e: EntreeReseau, p: ParametresReseauSuivi): LigneRes
   const aDate = (l: LigneFrais) => (l.annuel ?? 0) * m / 12 + ca * (l.tauxCA ?? 0)
   const frais = m && e.frais?.length ? somme(e.frais.map(aDate)) : null
   const loyers = e.frais?.filter((l) => l.code === 'loyer') ?? []
+  // Réel complété (03/11/2026) : même EBE à date que la fiche du magasin, quadrimestres répartis et budget pour le reste
+  const complete = m && e.budget && e.quadrimestres ? reelComplete(e.n, e.quadrimestres, e.budget, p, p.annee).mois.slice(0, m) : null
+  const sommeComplete = (k: 'personnel' | 'ebe') => somme(complete!.map((x) => x?.[k].valeur ?? 0))
   const sommes: Sommes = {
     ca, caN1: m && caN1 > 0 ? caN1 : null, caBudget: m && caBudget > 0 ? caBudget : null,
     marge, caAvecMarge, margeEstimee,
     caTTC: somme(avecPanier.map((x) => x.caTTC)), tickets: somme(avecPanier.map((x) => x.tickets)),
-    personnel, heures,
-    ebe: margeEstimee !== null && personnel !== null && frais !== null ? margeEstimee - ca * (p.tauxRedevance + p.tauxPublicite) - frais - personnel : null,
+    personnel: complete ? sommeComplete('personnel') : personnel, heures,
+    ebe: complete ? sommeComplete('ebe') : margeEstimee !== null && personnel !== null && frais !== null ? margeEstimee - ca * (p.tauxRedevance + p.tauxPublicite) - frais - personnel : null,
     loyer: m && loyers.length ? somme(loyers.map(aDate)) : null,
     univers: { cave: sommesUnivers(mois, e.n1.slice(0, m), 'cave'), bar: sommesUnivers(mois, e.n1.slice(0, m), 'bar') },
   }

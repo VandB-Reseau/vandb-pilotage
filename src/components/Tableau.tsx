@@ -92,3 +92,31 @@ export function LegendePastilles({ seuil }: { seuil: number }) {
     </>
   )
 }
+
+// Réel complété (03/11/2026) : un chiffre réparti depuis un quadrimestre s'écrit comme un réel ; un chiffre estimé, en
+// italique précédé de « ≈ ». Le prévu en petit dessous, comme CaseReelPrevu.
+export function CaseComplete({ chiffre, prevu, format, enCours, fort, charge }: {
+  chiffre: { valeur: number; source: 'reel' | 'reparti' | 'estime' } | null
+  prevu: number | null
+  format: (v: number) => string
+  enCours?: boolean
+  fort?: boolean
+  charge?: boolean
+}) {
+  if (!chiffre) return <TableCell align="right" className={enCours ? 'en-cours' : undefined}><Box sx={{ color: 'text.secondary' }}>{prevu === null ? '' : format(prevu)}</Box></TableCell>
+  const estime = chiffre.source === 'estime'
+  const e = ecartReelPrevu(chiffre.valeur, prevu)
+  return (
+    <TableCell align="right" className={enCours ? 'en-cours' : undefined} data-source={chiffre.source}>
+      <Tooltip enterTouchDelay={0} title={`${estime ? 'Estimé' : chiffre.source === 'reparti' ? 'Réparti depuis le quadrimestre' : 'Réel'}${e ? `, écart au prévu : ${ecartMontant(e.montant)}${charge ? ', une charge plus haute coûte' : ''}` : ''}`}>
+        <Box sx={{ display: 'inline-grid', justifyItems: 'end', lineHeight: 1.3, position: 'relative' }}>
+          <Box component="span" sx={{ fontWeight: fort ? 800 : 700, ...(estime ? { fontStyle: 'italic', color: 'text.secondary' } : {}) }}>
+            {estime && <Box component="span" aria-hidden sx={{ fontStyle: 'normal' }}>≈ </Box>}{format(chiffre.valeur)}
+            {estime && <Box component="span" sx={cache}> estimé</Box>}
+          </Box>
+          {prevu !== null && <Box component="span" sx={{ fontSize: '0.75rem', color: 'text.secondary', fontWeight: 400 }}><Box component="span" sx={cache}>prévu </Box>{format(prevu)}</Box>}
+        </Box>
+      </Tooltip>
+    </TableCell>
+  )
+}

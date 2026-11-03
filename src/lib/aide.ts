@@ -417,6 +417,18 @@ export const AIDE = {
     quoi: 'Les frais saisis ligne par ligne, hors personnel.',
     calcul: 'Somme des frais en euros par an, plus les frais en % du CA, la redevance et la publicité.',
   },
+  reelComplete: {
+    titre: 'Réel complété',
+    quoi: 'Chaque mois passé est complété pour lire un EBE à date sans attendre les comptes. Trois natures de chiffres : réel (caisse ou saisie), « Q1 », « Q2 », « Q3 » (total du quadrimestre réparti entre ses 4 mois) et « ≈ » (estimé, en italique).',
+    remplir: 'Rien : dès qu’un quadrimestre est saisi ou importé, ses chiffres remplacent les estimations de ses 4 mois.',
+    calcul: 'Quadrimestre : la démarque constatée se répartit au prorata du CA de chaque mois, le personnel et les autres charges au prorata du budget du mois. Mois sans quadrimestre : marge caisse moins la démarque du budget, charges du budget, redevance et publicité sur le CA réel. Aucune alerte ne part d’un chiffre estimé.',
+  },
+  stockEstime: {
+    titre: 'Stock estimé',
+    quoi: 'Un mois sans stock saisi est estimé, précédé de « ≈ », s’il se trouve avant un mois saisi.',
+    remplir: 'Saisir le stock du mois remplace l’estimation.',
+    calcul: 'À chaque saisie, l’app calcule combien de mois de ventes le stock couvre. Entre deux saisies, cette couverture glisse régulièrement de l’une à l’autre et le stock s’en déduit avec les ventes prévues. Avant la première saisie : stock de fin décembre de l’an passé s’il est saisi, sinon la couverture de la première saisie. Rien n’est estimé après la dernière saisie.',
+  },
   stockCible: {
     titre: 'Stock cible',
     quoi: 'Ce que le stock doit valoir en fin de mois, au prix d’achat, pour un magasin bien achalandé sans argent qui dort.',

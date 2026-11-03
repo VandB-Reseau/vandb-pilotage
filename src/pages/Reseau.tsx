@@ -24,7 +24,7 @@ import { MaSemaine } from '../components/MaSemaine'
 import { EtatVide } from '../components/EtatVide'
 import { Indicateur } from '../components/Indicateur'
 import { Panne } from '../components/Panne'
-import { chargerActions, chargerAlertes, chargerBudgets, chargerParametres, chargerReelDuCompte, hypothesesDe, parametresDuBudget } from '../data/pilotage'
+import { chargerActions, chargerAlertes, chargerBudgets, chargerParametres, chargerQuadrimestres, chargerReelDuCompte, hypothesesDe, parametresDuBudget, type SaisiesQuadrimestres } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { feuilleReseau } from '../lib/exports'
 import { ecartTaux, lienMagasin, milliers, MOIS, taux } from '../lib/format'
@@ -67,7 +67,7 @@ const simple = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerC
 export function Reseau() {
   const annee = new Date().getFullYear()
   const { donnees, erreur, chargement, recharger } = useChargement(async () => {
-    const [d, { parametres }, reel, alertes, actions] = await Promise.all([chargerBudgets(annee), chargerParametres(annee), chargerReelDuCompte(annee), chargerAlertes(), chargerActions().catch(() => [])])
+    const [d, { parametres }, reel, alertes, actions, quadrimestres] = await Promise.all([chargerBudgets(annee), chargerParametres(annee), chargerReelDuCompte(annee), chargerAlertes(), chargerActions().catch(() => []), chargerQuadrimestres(annee).catch(() => ({} as SaisiesQuadrimestres))])
     const groupes = new Map(d.groupes.map((g) => [g.id, g.nom]))
     const p = { tauxRedevance: parametres.tauxRedevance, tauxPublicite: parametres.tauxPublicite, charges: parametres.charges, annee }
     const magasins = d.magasins.map((l) => {
@@ -82,6 +82,7 @@ export function Reseau() {
           magasin: l.magasin, n, n1,
           budget,
           equipe: d.equipes[l.magasin], frais: frais?.length ? fraisDepuisLignes(frais).frais : undefined,
+          quadrimestres: quadrimestres[l.magasin] ?? {},
         }, p),
         groupeId: l.groupeId, groupe: l.groupeId ? groupes.get(l.groupeId) ?? '' : '', coach: reel.coachs[l.magasin] ?? '', rrs: reel.rrs[l.magasin] ?? [],
       }

@@ -18,7 +18,7 @@ import { GraphiqueMois } from './GraphiqueMois'
 import { Indicateur } from './Indicateur'
 import { Panne } from './Panne'
 import { PlusLoin } from './PlusLoin'
-import { atterrissageDe, chargerBudgets, chargerReel, chargerSecours, hypothesesDe, type DonneesBudgets, parametresDuBudget } from '../data/pilotage'
+import { atterrissageDe, chargerBudgets, chargerQuadrimestres, chargerReel, chargerSecours, hypothesesDe, type DonneesBudgets, parametresDuBudget, type SaisiesQuadrimestres } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { ecartMilliers, ecartPts, enChiffres, milliers, MOIS_LONGS, montant, taux } from '../lib/format'
 import { niveauEcart } from '../moteur/visuel'
@@ -28,6 +28,7 @@ import { usePreference } from '../lib/preferences'
 import { calculerBudget } from '../moteur/budget'
 import { cumul, cumulApres, santeMagasin } from '../moteur/sante'
 import { moisDuReel, suiviBudget } from '../moteur/suivi'
+import { reelComplete } from '../moteur/reelComplete'
 import type { ParametresReseau } from '../moteur/types'
 import { brand } from '../theme/theme'
 import { ecartExplique } from '../moteur/ecartExplique'
@@ -50,8 +51,9 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteE
   detail?: ReactNode                            // lot 41 : graphique et mois par mois face au budget, comptes du quadrimestre
 }) {
   const { donnees, erreur, chargement, recharger } = useChargement(
-    () => Promise.all([chargerReel(magasin, annee), chargerReel(magasin, annee - 1), chargerSecours(magasin, annee), chargerBudgets(annee).catch(() => null)])
-      .then(([n, n1, secours, budgets]) => ({ n, n1, secours, budgets })), [magasin, annee])
+    () => Promise.all([chargerReel(magasin, annee), chargerReel(magasin, annee - 1), chargerSecours(magasin, annee), chargerBudgets(annee).catch(() => null),
+      chargerQuadrimestres(annee).catch((): SaisiesQuadrimestres => ({}))])
+      .then(([n, n1, secours, budgets, quadrimestres]) => ({ n, n1, secours, budgets, quadrimestres: quadrimestres[magasin] ?? {} })), [magasin, annee])
   const [vue, setVue] = usePreference<'cumul' | 'mois'>('synthese', 'cumul', ['cumul', 'mois'])
   const [visite, setVisite] = useState(false)
   const [objectifs, setObjectifs] = useState(false)
@@ -83,7 +85,11 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteE
   // Budget de l'année en cours, s'il a été proposé : le réel à date lui est comparé, mois par mois
   const ligneN = donnees.budgets?.magasins.find((l) => l.magasin === magasin)
   const hN = ligneN?.statut && donnees.budgets ? hypothesesDe(ligneN, donnees.budgets) : null
-  const budgetN = hN ? calculerBudget(hN.hypotheses, parametresDuBudget(ligneN, parametres)) : null
+  const pN = parametresDuBudget(ligneN, parametres)
+  const budgetN = hN ? calculerBudget(hN.hypotheses, pN) : null
+  // Réel complété (03/11/2026) : EBE à date, quadrimestres répartis et charges du budget pour les autres mois
+  const rc = budgetN ? reelComplete(moisDuReel(donnees.n.lignes, donnees.n.tickets), donnees.quadrimestres, budgetN, pN, annee) : null
+  const ebeADate = rc?.cumul ? { ...rc.cumul.ebe, budget: rc.budget.ebe, fin: MOIS_LONGS[rc.realises - 1] } : null
   const suivi = budgetN ? suiviBudget(moisDuReel(donnees.n.lignes, donnees.n.tickets), budgetN) : null
   const ecartCA = suivi?.cumul.ecartCAPart ?? null
   const ecartMarge = suivi && s.tauxMarge !== null ? s.tauxMarge - suivi.cumul.tauxMargeBudget : null
@@ -148,11 +154,15 @@ export function SyntheseMagasin({ magasin, d, annee, parametres, allerA, visiteE
           libelle="% FP" aide="pctFP" valeur={equipe?.length ? taux(b.ratios.pctFP) : 'À renseigner'}
           detail={equipe?.length ? `${milliers(b.personnel)} de masse salariale sur l’année` : 'Équipe non renseignée'}
         />
-        <Indicateur
+        {ebeADate && rc ? <Indicateur
+          libelle={`EBE à fin ${ebeADate.fin}`} aide="reelComplete" valeur={`${ebeADate.source === 'estime' ? '≈ ' : ''}${milliers(ebeADate.valeur)}`}
+          ecart={{ texte: `${milliers(Math.abs(ebeADate.valeur - ebeADate.budget))} face au budget`, hausse: ebeADate.valeur >= ebeADate.budget, favorable: ebeADate.valeur >= ebeADate.budget }}
+          detail={`${rc.moisEstimes === 0 ? 'Tout vient des comptes' : rc.moisRepartis === 0 ? 'Charges du budget en attendant le quadrimestre' : `${rc.moisRepartis} mois des comptes, ${rc.moisEstimes} estimé${rc.moisEstimes > 1 ? 's' : ''}`} · Attendu ${annee} : ${milliers(b.ebe)}`}
+        /> : <Indicateur
           libelle={`EBE attendu ${annee}`} aide="ebe" valeur={milliers(b.ebe)} serie={b.mois.map((m) => m.ebe)}
           ecart={budgetN ? { texte: `${milliers(Math.abs(b.ebe - budgetN.ebe))} face au budget`, hausse: b.ebe >= budgetN.ebe, favorable: b.ebe >= budgetN.ebe } : undefined}
           detail={budgetN ? `Budget : ${milliers(budgetN.ebe)} · ${taux(b.ratios.ebeSurCA)} du CA` : `${taux(b.ratios.ebeSurCA)} du CA`}
-        />
+        />}
       </Box>
 
       {manques.map((m) => (
