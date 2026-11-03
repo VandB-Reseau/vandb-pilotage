@@ -5,6 +5,14 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Menu par thèmes, pages du magasin en onglets (sans migration)
+
+- Comme dans l'app réseau (Joseph, 3/11) : le menu de gauche ne mène plus qu'aux thèmes du réseau, rangés en Budgets
+  (campagne, hypothèses du réseau), Suivi (réel du réseau), Données (imports de caisse) et Réglages.
+- Données, Budget et Suivi deviennent des onglets dans la fiche du magasin, sur PC comme sur téléphone, avec en dessous
+  les pages de l'espace en pastilles : l'état de chaque étape du budget (« Fait », « À relire », « À envoyer »…) et la
+  pastille orange de ce qui manque y sont lus sans ouvrir l'étape. La barre basse du téléphone disparaît.
+
 ### Écrans du budget plus clairs (Base : migration 0024 à passer)
 
 - Construire : toutes les hypothèses en cartes, les ventes de chaque univers comme le Calendrier, l'Équipe et les Frais
