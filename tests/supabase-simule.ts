@@ -67,6 +67,8 @@ export interface OptionsSimulation {
   controleGestion?: { user_id: string; email: string; ajoute_le: string }[]
   journal?: JournalSimule[]
   comptesConnus?: string[] // emails de comptes de connexion existants
+  // Années du pilotage (0027) ; absentes : table pas encore créée, l'app suit le calendrier
+  annees?: { annee: number; etat: 'campagne' | 'suivi' | 'close'; campagne_le?: string | null; suivi_le?: string | null; close_le?: string | null }[]
 }
 export type StockSimule = { store_name: string; annee: number; mois: number; cave: number | null; bar: number | null }
 export type JournalSimule = { id: number; annee: number; rubrique: string; avant: unknown; apres: unknown; par_email: string | null; le: string }
@@ -110,6 +112,7 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
   const parametresDe = (annee: number) => (parametresAnnees.has(annee) ? parametresAnnees.get(annee)! : parametres)
   let controleGestion = structuredClone(options.controleGestion ?? [])
   const journal = structuredClone(options.journal ?? [])
+  const annees = options.annees ? structuredClone(options.annees) : null
   // Filtres PostgREST utilisés par l'app : eq, gte, lte, in, is.null
   const filtrer = <T extends Record<string, unknown>>(lignes: T[], params: URLSearchParams) => lignes.filter((l) => [...params.entries()].every(([k, v]) => {
     if (k === 'select' || k === 'order' || k === 'offset' || k === 'limit') return true
@@ -130,7 +133,8 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
       const maintenant = Math.floor(Date.now() / 1000)
       return route.fulfill({
         json: {
-          access_token: 'jeton-test', token_type: 'bearer', expires_in: 3600, expires_at: maintenant + 3600, refresh_token: 'rafraichissement-test',
+          access_token: 'jeton-test', token_type: 'bearer', expires_in: 3600 * 24 * 3650, expires_at: maintenant + 3600 * 24 * 3650, // valable même horloge avancée (tests du passage d’année)
+          refresh_token: 'rafraichissement-test',
           user: { id: '00000000-0000-0000-0000-000000000001', aud: 'authenticated', role: 'authenticated', email: COMPTE.email, app_metadata: {}, user_metadata: {}, created_at: '2026-10-14T00:00:00Z' },
         },
       })
@@ -216,6 +220,25 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
         if (m) Object.assign(m, c.p_resolu
           ? { resolu_le: new Date().toISOString(), resolu_par_role: options.role ?? 'directeur', resolu_par_nom: nomDuRole[options.role ?? 'directeur'] ?? null }
           : { resolu_le: null, resolu_par_role: null, resolu_par_nom: null })
+        return route.fulfill({ status: 204, body: '' })
+      }
+      // Années (0027) : mêmes règles que ouvrir_campagne, demarrer_suivi et clore_annee
+      if (annees && ['rpc/ouvrir_campagne', 'rpc/demarrer_suivi', 'rpc/clore_annee'].includes(table)) {
+        const a = (corps as { p_annee: number }).p_annee
+        const l = annees.find((x) => x.annee === a)
+        const quand = '2027-01-05T10:00:00Z'
+        if ((options.role ?? 'directeur') !== 'directeur') return route.fulfill({ status: 400, json: { message: 'reserve_directeur' } })
+        if (table === 'rpc/ouvrir_campagne') {
+          const suivie = Math.max(...annees.filter((x) => x.etat !== 'campagne').map((x) => x.annee))
+          if (a !== suivie + 1) return route.fulfill({ status: 400, json: { message: 'annee_inattendue' } })
+          if (!l) annees.push({ annee: a, etat: 'campagne', campagne_le: quand })
+        } else if (table === 'rpc/demarrer_suivi') {
+          if (l?.etat !== 'campagne') return route.fulfill({ status: 400, json: { message: 'pas_de_campagne' } })
+          Object.assign(l, { etat: 'suivi', suivi_le: quand })
+        } else {
+          if (l?.etat !== 'suivi' || !annees.some((x) => x.annee > a && x.etat === 'suivi')) return route.fulfill({ status: 400, json: { message: 'annee_pas_a_clore' } })
+          Object.assign(l, { etat: 'close', close_le: quand })
+        }
         return route.fulfill({ status: 204, body: '' })
       }
       if (table === 'rpc/remplacer_reel') {
@@ -338,6 +361,7 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
     if (table === 'versions_budget') return route.fulfill({ json: filtrer(versions, url.searchParams).sort((a, b) => b.cree_le.localeCompare(a.cree_le)) })
     if (table === 'ouvertures') return route.fulfill({ json: ouvertures })
     if (table === 'versions_nommees') return route.fulfill({ json: filtrer(versionsNommees, url.searchParams).sort((a, b) => a.cree_le.localeCompare(b.cree_le)) })
+    if (table === 'annees' && annees) return route.fulfill({ json: [...annees].sort((a, b) => a.annee - b.annee) })
     if (table === 'codes_caisse') return route.fulfill({ json: [...codes].sort((a, b) => a.code.localeCompare(b.code)) })
     if (table === 'journal_parametres') return route.fulfill({ json: filtrer(journal, url.searchParams).sort((a, b) => b.le.localeCompare(a.le)) })
     if (table === 'controle_gestion') return route.fulfill({ json: [...controleGestion].sort((a, b) => a.email.localeCompare(b.email)) })
@@ -485,6 +509,6 @@ export async function plusLoin(page: Page) {
 }
 
 // Paramètres réseau (lot 39) : un onglet par rubrique
-export async function ongletParametres(page: Page, nom: 'Franchise et impôts' | 'Équipe' | 'Trésorerie' | 'Alertes et campagne' | 'Grille des frais' | 'Règles de calcul' | 'Journal' | 'Accès') {
+export async function ongletParametres(page: Page, nom: 'Années' | 'Franchise et impôts' | 'Équipe' | 'Trésorerie' | 'Alertes et campagne' | 'Grille des frais' | 'Règles de calcul' | 'Journal' | 'Accès') {
   await page.getByRole('tablist', { name: 'Rubriques des paramètres' }).getByRole('tab', { name: nom }).click()
 }

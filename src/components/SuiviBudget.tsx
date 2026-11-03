@@ -97,10 +97,19 @@ export function SuiviBudget({ magasin, annee, allerA, muetSansReel, vue: partie 
       : `Sur la marge, le CA pèse le plus : ${ecartMilliers(effets.effetCA)}, contre ${ecartMilliers(effets.effetTaux)} pour le taux.`,
   ].join('').trim()
 
+  // Joseph (03/11/2026) : un budget pas encore validé sert quand même de référence, signalé « provisoire »
+  const provisoire = ligne.statut !== 'valide'
   const phrase = (
-    <Box component="p" aria-label="Conclusion" sx={{ m: 0, pl: 2, py: 0.5, borderLeft: 4, borderColor: totalMarge < 0 || c.ecartCA < 0 ? 'error.main' : 'success.main', fontSize: '1.0625rem', fontWeight: 700, maxWidth: '80ch' }}>
-      {conclusion}
-    </Box>
+    <Stack spacing={0.75}>
+      <Box component="p" aria-label="Conclusion" sx={{ m: 0, pl: 2, py: 0.5, borderLeft: 4, borderColor: totalMarge < 0 || c.ecartCA < 0 ? 'error.main' : 'success.main', fontSize: '1.0625rem', fontWeight: 700, maxWidth: '80ch' }}>
+        {conclusion}
+      </Box>
+      {provisoire && (
+        <Typography variant="body2" color="text.secondary" sx={{ pl: 2.5 }}>
+          Budget {annee} provisoire : pas encore validé, le suivi le compare à sa dernière version.
+        </Typography>
+      )}
+    </Stack>
   )
   if (partie === 'conclusion') return phrase
   return (

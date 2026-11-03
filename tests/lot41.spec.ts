@@ -38,7 +38,7 @@ test('le Directeur prépare les propositions en série et envoie celles qu’il 
     ],
     reel,
   })
-  await allerVers(page, 'Magasins')
+  await allerVers(page, 'Budgets ')
   // Lot 43 : un bouton du bandeau de la campagne ouvre le panneau
   await page.getByRole('region', { name: /^Campagne des budgets/ }).getByRole('button', { name: 'Proposer en série' }).click()
   const serie = page.getByRole('region', { name: 'Proposer en série' })
@@ -167,7 +167,7 @@ test('Ma semaine ne met en tête que les magasins à appeler', async ({ page, is
     magasins: [{ magasin: MAGASINS[0], statut: 'valide', hypotheses: magasinFictif, maj_le: null }, { magasin: MAGASINS[1], statut: null, hypotheses: null, maj_le: null }],
     reel, tickets,
   })
-  await allerVers(page, 'Réel du réseau')
+  await allerVers(page, 'Suivi ')
   const semaine = page.getByRole('region', { name: 'Ma semaine' })
   await expect(semaine.getByRole('heading', { name: /^Ma semaine : (\d+ magasins? à appeler|rien d’urgent)/ })).toBeVisible()
   expect(await textesTropPetits(page)).toEqual([])

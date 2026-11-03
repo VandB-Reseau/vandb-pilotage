@@ -41,7 +41,7 @@ test('fiche magasin : face à la médiane des budgets, puis du réel', async ({ 
 
 test('vue Réseau : ligne de la médiane et colonne loyer / CA', async ({ page }) => {
   await seConnecter(page, { magasins, reel })
-  await allerVers(page, 'Réel du réseau')
+  await allerVers(page, 'Suivi ')
   const tableau = page.getByRole('table', { name: `Réel ${N} par magasin` })
   await expect(tableau.getByRole('row', { name: /Médiane du réseau/ })).toContainText('40,0')
   // Vues du classement (03/11/2026) : le loyer / CA est dans « Équipe et frais »

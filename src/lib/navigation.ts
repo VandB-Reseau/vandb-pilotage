@@ -3,6 +3,7 @@
 // Joseph (03/11/2026, option A de la maquette de navigation) : trois onglets seulement, dans l'ordre d'usage :
 // « Suivi <année> » (une seule page), « Budget <année suivante> » (les étapes en frise), « Saisies » (ce qui entre).
 // À la fusion avec l'app réseau, le Suivi rejoindra « Chiffres et santé » et le Budget deviendra un onglet de sa fiche.
+import { anneeSuivi } from '../data/annees'
 export type Espace = 'donnees' | 'budget' | 'suivi'
 
 export interface Partie { cle: string; libelle: string }
@@ -17,7 +18,7 @@ export function libelleEspace(cle: Espace, anneeEnCours: number, anneeBudget: nu
   return cle === 'suivi' ? `Suivi ${anneeEnCours}` : cle === 'budget' ? `Budget ${anneeBudget}` : 'Saisies'
 }
 
-export function partiesDe(espace: Espace, annee: number = new Date().getFullYear()): Partie[] {
+export function partiesDe(espace: Espace, annee: number = anneeSuivi()): Partie[] {
   if (espace === 'donnees') {
     return [
       { cle: 'reel', libelle: 'Réel du mois' },
@@ -41,7 +42,7 @@ export function partiesDe(espace: Espace, annee: number = new Date().getFullYear
 }
 
 // Sections repliables de la page Suivi, sous « Où en est le magasin » (chacune garde son adresse)
-export const SECTIONS_SUIVI = (annee: number = new Date().getFullYear()): Partie[] => [
+export const SECTIONS_SUIVI = (annee: number = anneeSuivi()): Partie[] => [
   { cle: 'atterrissage', libelle: `Atterrissage ${annee}` },
   { cle: 'tresorerie', libelle: 'Trésorerie' },
   { cle: 'stock', libelle: 'Stock' },

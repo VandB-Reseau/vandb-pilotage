@@ -76,8 +76,8 @@ test('fiche magasin : sans budget de l’année, le suivi le dit', async ({ page
 
 test('vue réseau : classement, total, tri, filtre par Coach et retour', async ({ page, isMobile }, info) => {
   await seConnecter(page, { reel, tickets, coachs })
-  await allerVers(page, 'Réel du réseau')
-  await expect(page.getByRole('heading', { level: 1, name: 'Réseau' })).toBeVisible()
+  await allerVers(page, 'Suivi ')
+  await expect(page.getByRole('heading', { level: 1, name: /^Suivi \d{4}$/ })).toBeVisible()
   const chiffres = page.getByRole('region', { name: `Réseau ${N} en chiffres` })
   await expect(chiffres).toContainText(/124\sk€/)
   await expect(chiffres).toContainText('2 magasins sous le budget sur 2')
@@ -116,21 +116,21 @@ test('vue réseau : classement, total, tri, filtre par Coach et retour', async (
   await expect(lignes.nth(1)).toContainText('Total de la sélection')
   await tableau.getByRole('link', { name: MAGASINS[0] }).click()
   await expect(page.getByRole('heading', { level: 1, name: MAGASINS[0] })).toBeVisible()
-  await page.locator('main').getByRole('link', { name: 'Réseau' }).click()
-  await expect(page.getByRole('heading', { level: 1, name: 'Réseau' })).toBeVisible()
+  await page.locator('main').getByRole('link', { name: /^Suivi \d{4}$/ }).click()
+  await expect(page.getByRole('heading', { level: 1, name: /^Suivi \d{4}$/ })).toBeVisible()
   await expect(lignes).toHaveCount(4)
 })
 
 test('vue réseau : le Coach y accède, sans réel elle le dit', async ({ page }) => {
   await seConnecter(page, { role: 'coach' })
-  await allerVers(page, 'Réel du réseau')
+  await allerVers(page, 'Suivi ')
   await expect(page.getByText(`Pas encore de réel ${N}`)).toBeVisible()
   await expect(page.getByLabel('Coach', { exact: true })).toHaveCount(0)
 })
 
 test('vue réseau : jamais montrée au franchisé', async ({ page }) => {
   await seConnecter(page, { role: 'franchise' })
-  await expect(page.getByRole('link', { name: 'Réseau' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: /^Suivi \d{4}$/ })).toHaveCount(0)
   await page.goto(`${page.url().split('#')[0]}#/reseau`)
-  await expect(page.getByRole('heading', { level: 1, name: 'Magasins' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: /^(Mes magasins|Budgets \d{4})$/ })).toBeVisible()
 })

@@ -30,7 +30,7 @@ async function telechargement(page: Page, bouton: string) {
 
 test('vue réseau : filtre par Responsable Régional, export de la sélection', async ({ page, isMobile }, info) => {
   await seConnecter(page, { reel, coachs, rrs })
-  await allerVers(page, 'Réel du réseau')
+  await allerVers(page, 'Suivi ')
   const tableau = page.getByRole('table', { name: `Réel ${N} par magasin` })
   const lignes = tableau.getByRole('row')
   await expect(lignes).toHaveCount(6)
@@ -61,7 +61,7 @@ test('vue réseau : filtre par Responsable Régional, export de la sélection', 
 
 test('vue réseau : le RR et le Coach n’ont pas de filtre par RR', async ({ page }) => {
   await seConnecter(page, { role: 'rr', reel, coachs })
-  await allerVers(page, 'Réel du réseau')
+  await allerVers(page, 'Suivi ')
   await expect(page.getByRole('table', { name: `Réel ${N} par magasin` })).toBeVisible()
   await expect(page.getByLabel('Responsable Régional')).toHaveCount(0)
   await expect(page.getByRole('columnheader', { name: 'Responsable Régional' })).toHaveCount(0)
@@ -70,7 +70,7 @@ test('vue réseau : le RR et le Coach n’ont pas de filtre par RR', async ({ pa
 test('vue réseau imprimée : sans menu ni filtres, sélection et date en tête', async ({ page, isMobile }, info) => {
   test.skip(isMobile, 'impression depuis le PC')
   await seConnecter(page, { reel, coachs, rrs })
-  await allerVers(page, 'Réel du réseau')
+  await allerVers(page, 'Suivi ')
   await page.getByLabel('Coach', { exact: true }).click()
   await page.getByRole('option', { name: 'Coach Sud' }).click()
   await page.emulateMedia({ media: 'print' })

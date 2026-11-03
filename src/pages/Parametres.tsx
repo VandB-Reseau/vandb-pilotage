@@ -55,6 +55,8 @@ import type { OperationReseau, ParametresTresorerie } from '../moteur/tresorerie
 import { stockParDefaut } from '../moteur/stock'
 import { UNIVERS, universLibelle, type Univers } from '../moteur/types'
 import { dateHeure, ecartMontant, enChiffres, montant, MOIS_LONGS } from '../lib/format'
+import { annees as anneesPilotage, anneeSuivi, changerAnnee, chargerAnnees, lignesAnnees, RefusAnnee } from '../data/annees'
+import { etapesAnnees, type EtapeAnnee, type EtatAnnee, type LigneAnnee } from '../moteur/annees'
 
 // Mois de stock affichés à la française (2,5)
 const enChiffresMois = (v: number) => String(v).replace('.', ',')
@@ -65,8 +67,9 @@ const DE_L_UNIVERS: Record<Univers, string> = { cave: 'de la Cave', bar: 'du Bar
 const egal = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 type Message = { gravite: 'success' | 'error'; texte: string } | null
 const ECHEC = 'L’enregistrement n’a pas abouti. Vérifie ta connexion, puis réessaie.'
-type Onglet = 'franchise' | 'equipe' | 'tresorerie' | 'alertes' | 'grille' | 'regles' | 'journal' | 'acces'
+type Onglet = 'annees' | 'franchise' | 'equipe' | 'tresorerie' | 'alertes' | 'grille' | 'regles' | 'journal' | 'acces'
 const ONGLETS: { cle: Onglet; libelle: string }[] = [
+  { cle: 'annees', libelle: 'Années' },
   { cle: 'franchise', libelle: 'Franchise et impôts' }, { cle: 'equipe', libelle: 'Équipe' }, { cle: 'tresorerie', libelle: 'Trésorerie' },
   { cle: 'alertes', libelle: 'Alertes et campagne' }, { cle: 'grille', libelle: 'Grille des frais' }, { cle: 'regles', libelle: 'Règles de calcul' },
   { cle: 'journal', libelle: 'Journal' }, { cle: 'acces', libelle: 'Accès' },
@@ -87,7 +90,7 @@ export function Parametres() {
   const { profil } = useAuth()
   const lecture = !peutParametrer(profil)
   const directeur = estDirecteur(profil)
-  const aujourdhui = new Date().getFullYear(), aB = anneeBudget()
+  const aujourdhui = anneeSuivi(), aB = anneeBudget()
   const annees = [...new Set([aujourdhui, aB, aB + 1])]
   const [annee, setAnnee] = useState(aB)
   const [onglet, setOnglet] = useState<Onglet>('franchise')
@@ -316,7 +319,8 @@ export function Parametres() {
       {chargement && <Skeleton variant="rounded" height={240} />}
       {onglet === 'journal' && <JournalParametres annee={annee} version={donnees} />}
       {onglet === 'acces' && directeur && <AccesParametres />}
-      {p && onglet !== 'journal' && onglet !== 'acces' && (
+      {onglet === 'annees' && <AnneesParametres directeur={directeur} />}
+      {p && onglet !== 'journal' && onglet !== 'acces' && onglet !== 'annees' && (
         <Box component="fieldset" disabled={lecture} sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}>
         <Stack spacing={3}>
         {onglet === 'franchise' && franchise && (
@@ -585,6 +589,95 @@ export function Parametres() {
         </DialogActions>
       </Dialog>
     </Box>
+  )
+}
+
+// Années du pilotage (0027, Joseph 03/11/2026) : le Directeur ouvre la campagne, démarre le suivi et clôt l'année
+const ETATS_ANNEE: Record<EtatAnnee, string> = { campagne: 'Campagne des budgets', suivi: 'Suivie', close: 'Close' }
+function AnneesParametres({ directeur }: { directeur: boolean }) {
+  const [lignes, setLignes] = useState<LigneAnnee[]>(lignesAnnees())
+  const [message, setMessage] = useState<Message>(null)
+  const [occupe, setOccupe] = useState(false)
+  const [demande, setDemande] = useState<EtapeAnnee | null>(null)
+  const a = anneesPilotage()
+  const etapes = etapesAnnees(a)
+  const date = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString('fr-FR') : '')
+  const textes = (e: EtapeAnnee) => e.quoi === 'ouvrir'
+    ? { bouton: `Ouvrir la campagne ${e.annee}`, titre: `Ouvrir la campagne des budgets ${e.annee} ?`,
+        detail: `L’onglet Budget ${e.annee} apparaît pour tous les comptes. Les paramètres, les hypothèses du réseau et des groupes ${e.annee - 1} sont repris pour ${e.annee} quand ils n’existent pas encore : revois ensuite les taux de l’année.`,
+        fait: `Campagne ${e.annee} ouverte : l’onglet Budget ${e.annee} est visible de tous.` }
+    : e.quoi === 'demarrer'
+      ? { bouton: `Démarrer le suivi ${e.annee}`, titre: `Démarrer le suivi ${e.annee} ?`,
+          detail: `Le Suivi passe à ${e.annee} et compare le réel au budget ${e.annee} de chaque magasin (sa dernière version tant qu’il n’est pas validé). ${e.annee - 1} reste ouvert à la saisie jusqu’à sa clôture. Les frais ${e.annee - 1} des magasins sont gardés en archive.`,
+          fait: `Suivi ${e.annee} démarré. ${e.annee - 1} reste à clore une fois décembre et le 3e quadrimestre saisis.` }
+      : { bouton: `Clore ${e.annee}`, titre: `Clore ${e.annee} ?`,
+          detail: `${e.annee} passe dans les années closes : son suivi reste consultable dans la fiche de chaque magasin, mais ne se propose plus à la saisie.`,
+          fait: `${e.annee} est close.` }
+  const confirmer = async () => {
+    if (!demande) return
+    setOccupe(true)
+    setMessage(null)
+    try {
+      await changerAnnee(demande.quoi, demande.annee)
+      await chargerAnnees()
+      setLignes(lignesAnnees())
+      setMessage({ gravite: 'success', texte: textes(demande).fait })
+    } catch (e) {
+      setMessage({ gravite: 'error', texte: e instanceof RefusAnnee
+        ? 'Cette étape n’est pas possible maintenant : recharge la page, l’année a peut-être déjà changé.' : ECHEC })
+    } finally {
+      setOccupe(false)
+      setDemande(null)
+    }
+  }
+  if (!a.pilotees) {
+    return <EtatVide titre="Les années suivent encore le calendrier" texte="Elles se piloteront ici dès que la mise à jour 0027 de la base sera passée : ouverture de la campagne, démarrage du suivi, clôture de l’année." />
+  }
+  return (
+    <Stack spacing={3}>
+      <Card component="section" aria-label="Années du pilotage">
+        <Box sx={{ p: 2.5, pb: 1 }}>
+          <Typography variant="h2">Années du pilotage</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Suivi {a.suivi}{a.campagne ? ` · campagne ${a.budget} ouverte` : ''}{a.aClore.length ? ` · ${a.aClore.join(', ')} à clore` : ''}
+          </Typography>
+        </Box>
+        <Retour message={message} fermer={() => setMessage(null)} />
+        <TableContainer>
+          <Table size="small" aria-label="États des années">
+            <TableHead><TableRow><TableCell>Année</TableCell><TableCell>État</TableCell><TableCell>Depuis le</TableCell></TableRow></TableHead>
+            <TableBody>
+              {[...lignes].sort((x, y) => y.annee - x.annee).map((l) => (
+                <TableRow key={l.annee}>
+                  <TableCell sx={{ fontWeight: 700 }}>{l.annee}</TableCell>
+                  <TableCell>{a.aClore.includes(l.annee) ? 'Suivie, à clore' : ETATS_ANNEE[l.etat]}</TableCell>
+                  <TableCell>{date(l.etat === 'campagne' ? l.campagne_le : l.etat === 'suivi' ? l.suivi_le : l.close_le)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        {directeur && etapes.length > 0 && (
+          <Stack direction="row" useFlexGap spacing={1.5} sx={{ p: 2.5, flexWrap: 'wrap' }} aria-label="Étapes de l’année">
+            {etapes.map((e, i) => (
+              <Button key={`${e.quoi}-${e.annee}`} variant={i === 0 ? 'contained' : 'outlined'} disabled={occupe} onClick={() => setDemande(e)} sx={{ minHeight: 48 }}>
+                {textes(e).bouton}
+              </Button>
+            ))}
+          </Stack>
+        )}
+      </Card>
+      <Dialog open={!!demande} onClose={() => setDemande(null)} aria-labelledby="titre-annee">
+        {demande && <>
+          <DialogTitle id="titre-annee">{textes(demande).titre}</DialogTitle>
+          <DialogContent><Typography>{textes(demande).detail}</Typography></DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDemande(null)} sx={{ minHeight: 48 }}>Annuler</Button>
+            <Button variant="contained" disabled={occupe} onClick={() => void confirmer()} sx={{ minHeight: 48 }}>{textes(demande).bouton}</Button>
+          </DialogActions>
+        </>}
+      </Dialog>
+    </Stack>
   )
 }
 

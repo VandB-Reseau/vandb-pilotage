@@ -41,9 +41,9 @@ test('une saisie en cours n’est jamais perdue sans confirmation', async ({ pag
   await expect(page.getByLabel('Locations immobilières', { exact: true })).toHaveValue('48 000')
 
   // Revenir à la liste : on quitte sans enregistrer
-  await page.locator('main').getByRole('link', { name: 'Magasins' }).click()
+  await page.locator('main').getByRole('link', { name: /^Budgets \d{4}$/ }).click()
   await garde.getByRole('button', { name: 'Quitter sans enregistrer' }).click()
-  await expect(page.getByRole('heading', { level: 1, name: 'Magasins' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: /^Budgets \d{4}$/ })).toBeVisible()
 
   // Sans modification, aucune question
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
@@ -73,7 +73,7 @@ test('l’accueil filtre les magasins, la recherche ignore les accents, le retou
   await page.getByLabel('Filtrer la liste des magasins').fill('azur')
   await expect(lignes).toHaveCount(1)
   await page.getByText('Val-d’Azur', { exact: true }).click()
-  await page.locator('main').getByRole('link', { name: 'Magasins' }).click()
+  await page.locator('main').getByRole('link', { name: /^Budgets \d{4}$/ }).click()
   await expect(page.getByLabel('Filtrer la liste des magasins')).toHaveValue('azur')
   await expect(filtres.getByRole('button', { name: 'Frais à renseigner · 5' })).toHaveAttribute('aria-pressed', 'true')
 
@@ -117,7 +117,7 @@ test('les onglets signalent ce qui manque', async ({ page, isMobile }) => {
 test('un franchisé avec un seul magasin arrive sur sa fiche', async ({ page }) => {
   await seConnecter(page, { role: 'franchise', magasins: [sept[0]] })
   await expect(page.getByRole('heading', { level: 1, name: MAGASINS[0] })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Magasins' }).and(page.locator('main a'))).toHaveCount(0)
+  await expect(page.getByRole('link', { name: /^Budgets \d{4}$/ }).and(page.locator('main a'))).toHaveCount(0)
 })
 
 test('saisie rapide : Entrée passe au montant suivant, les milliers s’affichent', async ({ page }) => {

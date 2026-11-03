@@ -84,7 +84,7 @@ test('franchisé : pas de comparaison des familles', async ({ page }) => {
 
 test('ma semaine : magasins par marge en jeu, actions en retard, par Coach', async ({ page, isMobile }, info) => {
   await seConnecter(page, { reel, coachs, actions: [action] })
-  await allerVers(page, 'Réel du réseau')
+  await allerVers(page, 'Suivi ')
   const semaine = page.getByRole('region', { name: 'Ma semaine' })
   const lignes = semaine.getByRole('table', { name: 'Magasins par marge en jeu' }).getByRole('row')
   await expect(lignes.nth(1)).toContainText(MAGASINS[0])

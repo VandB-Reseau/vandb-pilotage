@@ -49,7 +49,7 @@ INSERT INTO pilotage.reel_mensuel (store_name, mois, univers, famille, ca_ht) VA
 SELECT pg_temp.attendre('Directeur : tous les magasins', (SELECT cardinality(pilotage.mes_magasins())), 3);
 SELECT pg_temp.attendre('Directeur : tous les budgets', (SELECT count(*) FROM pilotage.budgets), 3);
 SELECT pg_temp.attendre('Directeur : tableau des magasins', (SELECT jsonb_array_length(pilotage.magasins_du_compte(2027))), 3);
-SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 26);
+SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 27);
 -- Date d'ouverture de la fiche magasin réseau (0024) : surcharge d'abord, renommage suivi, dates inconnues ou illisibles écartées
 SELECT pg_temp.attendre('Directeur : dates d''ouverture du réseau', (SELECT count(*) FROM pilotage.ouvertures_reseau()), 2);
 SELECT pg_temp.attendre('Ouverture réseau : la surcharge l''emporte, au 1er du mois', (SELECT count(*) FROM pilotage.ouvertures_reseau() WHERE store_name = 'Lille' AND ouverture = '2019-03-01'), 1);
@@ -180,8 +180,28 @@ SELECT pg_temp.attendre('Contrôle de gestion : aucun magasin', (SELECT count(*)
 SET request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
 DELETE FROM pilotage.parametres_reseau WHERE annee = 2028;
 
+-- ── Années du pilotage (0027) : le Directeur ouvre la campagne, démarre le suivi, clôt l'année
+SELECT pg_temp.attendre('Années : 2026 suivie et campagne 2027 au départ', (SELECT count(*) FROM pilotage.annees WHERE (annee, etat) IN ((2026, 'suivi'), (2027, 'campagne'))), 2);
+SELECT pg_temp.attendre('Années : personne ne les écrit à la main', pg_temp.refuse('INSERT INTO pilotage.annees (annee, etat) VALUES (2030, ''campagne'')'), 1);
+SELECT pg_temp.attendre('Années : pas de campagne 2028 tant que 2027 n''est pas suivie', pg_temp.refuse('SELECT pilotage.ouvrir_campagne(2028)'), 1);
+SELECT pg_temp.attendre('Années : pas de clôture de la seule année suivie', pg_temp.refuse('SELECT pilotage.clore_annee(2026)'), 1);
+SELECT pilotage.demarrer_suivi(2027);
+SELECT pg_temp.attendre('Années : le suivi 2027 démarre, 2026 reste à clore', (SELECT count(*) FROM pilotage.annees WHERE etat = 'suivi'), 2);
+SELECT pg_temp.attendre('Années : les frais 2026 sont archivés', (SELECT count(*) FROM pilotage.frais_archives WHERE annee = 2026), (SELECT count(*) FROM pilotage.frais));
+SELECT pilotage.clore_annee(2026);
+SELECT pilotage.ouvrir_campagne(2028);
+SELECT pg_temp.attendre('Années : campagne 2028 ouverte, 2026 close', (SELECT count(*) FROM pilotage.annees WHERE (annee, etat) IN ((2026, 'close'), (2027, 'suivi'), (2028, 'campagne'))), 3);
+SELECT pg_temp.attendre('Années : paramètres 2027 repris pour 2028, sans les dates de campagne', (SELECT count(*) FROM pilotage.parametres_reseau WHERE annee = 2028 AND (valeur->>'tauxRedevance')::numeric = 0.025 AND NOT valeur ? 'campagne'), 1);
+SELECT pg_temp.attendre('Années : une seule campagne à la fois', pg_temp.refuse('SELECT pilotage.ouvrir_campagne(2029)'), 1);
+SELECT pilotage.ouvrir_campagne(2028);
+SELECT pg_temp.attendre('Années : rouvrir la même campagne ne change rien', (SELECT count(*) FROM pilotage.parametres_reseau WHERE annee = 2028), 1);
+DELETE FROM pilotage.parametres_reseau WHERE annee = 2028;
+
 -- ── Coach : lit les budgets et le réel de ses magasins, n'écrit rien
 SET request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
+SELECT pg_temp.attendre('Coach : lit les années', (SELECT count(*) FROM pilotage.annees), 3);
+SELECT pg_temp.attendre('Coach : ne démarre pas le suivi', pg_temp.refuse('SELECT pilotage.demarrer_suivi(2028)'), 1);
+SELECT pg_temp.attendre('Coach : archives des frais de ses magasins seulement', (SELECT count(*) FROM pilotage.frais_archives WHERE store_name <> 'Lille'), 0);
 SELECT pg_temp.attendre('Coach : budgets de ses magasins', (SELECT count(*) FROM pilotage.budgets), 1);
 SELECT pg_temp.attendre('Coach : échanges de ses magasins seulement', (SELECT count(*) FROM pilotage.echanges_budget), 1);
 SELECT pg_temp.attendre('Coach : versions de ses magasins seulement', (SELECT count(*) FROM pilotage.versions_budget WHERE store_name <> 'Lille'), 0);
@@ -408,6 +428,8 @@ SELECT pg_temp.attendre('Sans rôle : aucun magasin', (SELECT cardinality(pilota
 SELECT pg_temp.attendre('Sans rôle : aucun groupe', (SELECT count(*) FROM pilotage.groupes), 0);
 SELECT pg_temp.attendre('Sans rôle : aucun réel', (SELECT count(*) FROM pilotage.reel_mensuel) + (SELECT count(*) FROM pilotage.reel_tickets), 0);
 SELECT pg_temp.attendre('Sans rôle : aucun frais', (SELECT count(*) FROM pilotage.frais), 0);
+SELECT pg_temp.attendre('Sans rôle : aucune année ni archive de frais', (SELECT count(*) FROM pilotage.annees) + (SELECT count(*) FROM pilotage.frais_archives), 0);
+SELECT pg_temp.attendre('Sans rôle : n''ouvre pas de campagne', pg_temp.refuse('SELECT pilotage.demarrer_suivi(2028)'), 1);
 SELECT pg_temp.attendre('Sans rôle : aucune part réalisée', (SELECT count(*) FROM pilotage.parts_realisees), 0);
 SELECT pg_temp.attendre('Sans rôle : aucune correspondance du FEC', (SELECT count(*) FROM pilotage.correspondances_fec), 0);
 SELECT pg_temp.attendre('Sans rôle : aucun quadrimestre', (SELECT count(*) FROM pilotage.quadrimestres), 0);
@@ -449,6 +471,8 @@ SELECT pg_temp.attendre('Visiteur : aucun accès aux dates d''ouverture', pg_tem
 SELECT pg_temp.attendre('Visiteur : aucun accès aux versions nommées', pg_temp.refuse('SELECT count(*) FROM pilotage.versions_nommees'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès à l''équipe', pg_temp.refuse('SELECT count(*) FROM pilotage.equipe'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès aux prêts', pg_temp.refuse('SELECT count(*) FROM pilotage.emprunts'), 1);
+SELECT pg_temp.attendre('Visiteur : aucun accès aux années', pg_temp.refuse('SELECT count(*) FROM pilotage.annees'), 1);
+SELECT pg_temp.attendre('Visiteur : n''ouvre pas de campagne', pg_temp.refuse('SELECT pilotage.ouvrir_campagne(2028)'), 1);
 SELECT pg_temp.attendre('Visiteur : pas de réel du compte', pg_temp.refuse('SELECT pilotage.reel_du_compte(2026)'), 1);
 SELECT pg_temp.attendre('Visiteur : pas de journal des paramètres', pg_temp.refuse('SELECT count(*) FROM pilotage.journal_parametres'), 1);
 SELECT pg_temp.attendre('Visiteur : pas de contrôle de gestion', pg_temp.refuse('SELECT count(*) FROM pilotage.controle_gestion'), 1);

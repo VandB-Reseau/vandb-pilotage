@@ -151,5 +151,5 @@ test('sans chiffres, l’année l’explique et propose la saisie ; le Coach n�
   await expect(page.getByText(`Pas encore de chiffres réels ${N - 1}`)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Saisir un mois' })).toBeVisible()
   await page.goto('./#/imports')
-  await expect(page.getByRole('heading', { level: 1, name: 'Magasins' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: /^Budgets \d{4}$/ })).toBeVisible()
 })

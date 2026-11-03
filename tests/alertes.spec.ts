@@ -78,6 +78,6 @@ test('paramètres réseau : le Directeur règle les seuils, les alertes suivent'
 
   await expect(section).not.toContainText('Valeurs par défaut')
   // Il ne reste que le CA sous le budget
-  await allerVers(page, 'Réel du réseau')
+  await allerVers(page, 'Suivi ')
   await expect(page.getByRole('region', { name: 'Ma semaine' }).getByRole('listitem')).toHaveCount(1)
 })
