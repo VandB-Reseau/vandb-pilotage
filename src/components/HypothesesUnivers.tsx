@@ -15,6 +15,7 @@ import ExpandLessOutlined from '@mui/icons-material/ExpandLessOutlined'
 import ExpandMoreOutlined from '@mui/icons-material/ExpandMoreOutlined'
 import { ecartMilliers, enChiffres, milliers, panier, taux } from '../lib/format'
 import { effetsUnivers } from '../moteur/effetsHypotheses'
+import { effetEbeDuCA } from '../moteur/impact'
 import type { AIDE } from '../lib/aide'
 import {
   cleFamille, ecrireCible, ecrireUnivers, lireCible, moyenneUnivers, niveauLibelle, universRegle, valeurHeritee,
@@ -50,8 +51,11 @@ function Ligne({ nom, aide, avant, origine, champ, reprendre, apres, effet }: {
       <TableCell component="th" scope="row" sx={{ fontWeight: 600 }}>
         <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center' }}>{nom}{aide && <Aide sujet={aide} compact />}</Box>
       </TableCell>
-      <TableCell align="right" sx={gris}>{avant ?? '–'}</TableCell>
-      <TableCell sx={gris}>{origine}</TableCell>
+      {/* Proposition 2 (Joseph, 03/11/2026) : l'année en cours et la proposition du siège dans une seule colonne */}
+      <TableCell sx={{ lineHeight: 1.3 }}>
+        <Box component="span" sx={{ display: 'block', fontVariantNumeric: 'tabular-nums' }}>{avant ?? '–'}</Box>
+        <Box component="span" sx={{ display: 'block', fontSize: '0.8125rem', ...gris }}>{origine}</Box>
+      </TableCell>
       <TableCell sx={{ py: 0.5 }}><Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>{champ}{reprendre}</Box></TableCell>
       <TableCell align="right" sx={{ fontWeight: 600 }}>{apres ?? '–'}</TableCell>
       {effet !== undefined && <TableCell align="right" className="effet">{effet}</TableCell>}
@@ -70,10 +74,18 @@ function Reprendre({ quoi, texte, onClick }: { quoi: string; texte: string; onCl
   )
 }
 
-// Effet d'une hypothèse : « +14 k€ de CA », vert en hausse, rouge en baisse ; rien quand il est nul ou inconnu
-export function Effet({ montant, quoi }: { montant: number | null; quoi: string }) {
-  if (montant === null || Math.round(montant / 100) === 0) return <Box component="span" sx={gris}>–</Box>
-  return <Box component="span" sx={{ fontWeight: 600, color: montant > 0 ? 'success.dark' : 'error.dark' }}>{ecartMilliers(montant)} {quoi}</Box>
+// Effet d'une hypothèse : « +14 k€ CA · +4,8 k€ EBE », vert en hausse, rouge en baisse ; rien quand il est nul ou inconnu.
+// Proposition 2 (Joseph, 03/11/2026) : l'effet sur l'EBE à côté de celui sur le CA ; la marge et la démarque vont droit à l'EBE.
+export function Effet({ ca, ebe }: { ca?: number | null; ebe: number | null }) {
+  const nul = (v: number | null | undefined) => v === null || v === undefined || Math.round(v / 100) === 0
+  if (nul(ca) && nul(ebe)) return <Box component="span" sx={gris}>–</Box>
+  const part = (v: number, quoi: string) => <Box component="span" sx={{ fontWeight: 600, color: v > 0 ? 'success.dark' : 'error.dark', whiteSpace: 'nowrap' }}>{ecartMilliers(v)} {quoi}</Box>
+  return (
+    <Box component="span" sx={{ display: 'inline-flex', flexWrap: 'wrap', justifyContent: 'flex-end', columnGap: 0.75 }}>
+      {!nul(ca) && part(ca!, 'CA')}
+      {!nul(ebe) && part(ebe!, 'EBE')}
+    </Box>
+  )
 }
 
 // Tableau d'hypothèses : en-tête commun à tous les thèmes
@@ -82,16 +94,15 @@ export function TableauHypotheses({ titre, annee, effet, children }: { titre: st
     <TableContainer>
       {/* Mêmes largeurs de colonnes dans tous les tableaux d'hypothèses : les univers se lisent l'un sous l'autre */}
       <Table size="small" className="colonne-fixe" aria-label={titre} sx={{
-        ...styleTableau, tableLayout: { xs: 'auto', md: 'fixed' }, minWidth: { md: 680 }, '& td, & th': { ...styleTableau['& td, & th'], whiteSpace: 'normal' },
-        // Téléphone : sans l'année en cours, la proposition du siège (grisée dans le champ) ni l'effet, le tableau tient dans l'écran
-        '& tr > *:nth-child(2), & tr > *:nth-child(3), & tr > *:nth-child(6)': { display: { xs: 'none', md: 'table-cell' } }, '& td, & th:not([scope=row])': { px: { xs: 0.5, md: 1.25 } }, '& th[scope=row]': { pl: { xs: 1.5, md: 2.5 } },
+        ...styleTableau, tableLayout: { xs: 'auto', md: 'fixed' }, minWidth: { md: 600 }, '& td, & th': { ...styleTableau['& td, & th'], whiteSpace: 'normal' },
+        // Téléphone : sans le point de départ (la proposition du siège est grisée dans le champ) ni l'effet, le tableau tient dans l'écran
+        '& tr > *:nth-child(2), & tr > *:nth-child(5)': { display: { xs: 'none', md: 'table-cell' } }, '& td, & th:not([scope=row])': { px: { xs: 0.5, md: 1.25 } }, '& th[scope=row]': { pl: { xs: 1.5, md: 2.5 } },
       }}>
-        <Box component="colgroup" sx={{ display: { xs: 'none', md: 'table-column-group' } }}>{(effet ? ['21%', '12%', '17%', '17%', '18%', '15%'] : ['24%', '13%', '22%', '17%', '24%']).map((l, i) => <col key={i} style={{ width: l }} />)}</Box>
+        <Box component="colgroup" sx={{ display: { xs: 'none', md: 'table-column-group' } }}>{(effet ? ['19%', '22%', '25%', '14%', '20%'] : ['24%', '26%', '26%', '24%']).map((l, i) => <col key={i} style={{ width: l }} />)}</Box>
         <TableHead>
           <TableRow>
             <TableCell>Hypothèse</TableCell>
-            <TableCell align="right">{annee - 1}</TableCell>
-            <TableCell>Siège propose</TableCell>
+            <TableCell>Point de départ</TableCell>
             <TableCell>Choix du magasin</TableCell>
             <TableCell align="right">{annee}</TableCell>
             {effet && <TableCell align="right">Effet</TableCell>}
@@ -114,16 +125,17 @@ export function HypotheseCle({ cle, nom, libelle, quoi, aide, avant, apres, effe
   const source = herite ? `${niveauLibelle[herite.source]} ${taux(auDessusValeur)}` : 'Rythme actuel'
   return (
     <Ligne nom={nom} aide={aide} avant={avant} apres={apres} effet={effet} origine={source}
-      champ={<ChampTaux compact largeur={96} libelle={libelle} valeur={propre} heritee={auDessusValeur} desactive={lectureSeule} onChange={(v) => onChange(ecrireCible(cibles, cle, v))} />}
+      champ={<ChampTaux compact largeur={96} pas={/^(flux|panier|univers)\//.test(cle) ? 0.01 : 0.005} libelle={libelle} valeur={propre} heritee={auDessusValeur} desactive={lectureSeule} onChange={(v) => onChange(ecrireCible(cibles, cle, v))} />}
       reprendre={propre !== undefined && !lectureSeule ? <Reprendre quoi={quoi} texte={source === 'Rythme actuel' ? `rythme actuel, ${taux(auDessusValeur)}` : source} onClick={() => onChange(ecrireCible(cibles, cle, undefined))} /> : undefined}
     />
   )
 }
 
 // Lot 43 : « suite », les lignes Salaires et frais, réglées ici seulement (plus dans les écrans Équipe et Frais)
-type Props = Commun & { familles: ResultatFamille[]; flux: Budget['flux']; annee: number; suite?: ReactNode }
+// surCA : part du CA payée en redevance, publicité et frais au pourcentage (moteur : tauxSurCA), pour l'effet sur l'EBE
+type Props = Commun & { familles: ResultatFamille[]; flux: Budget['flux']; annee: number; suite?: ReactNode; surCA?: number }
 
-export function HypothesesUnivers({ familles, flux, annee, suite, ...commun }: Props) {
+export function HypothesesUnivers({ familles, flux, annee, suite, surCA = 0, ...commun }: Props) {
   const { cibles, auDessus, onChange, lectureSeule } = commun
   const [ouverts, setOuverts] = useState<Partial<Record<Univers, boolean>>>({})
   const somme = (l: number[]) => l.reduce((a, b) => a + b, 0)
@@ -150,7 +162,7 @@ export function HypothesesUnivers({ familles, flux, annee, suite, ...commun }: P
         // Marge de l'année en cours inconnue (réel importé sans marge) : un tiret, pas 0 %
         avant={type === 'marge' && ca && margeConnue ? taux(margeConnue / ca) : undefined}
         // Moyenne des familles arrondie au dixième de point : « 38,0 % », jamais « 38,0214 » coupé dans le champ
-        champ={<ChampTaux compact largeur={96} libelle={`${nom} : ${nomU}`} valeur={regle ? dixieme(moyenne) : undefined} heritee={dixieme(moyenne)} desactive={lectureSeule}
+        champ={<ChampTaux compact largeur={96} pas={0.005} libelle={`${nom} : ${nomU}`} valeur={regle ? dixieme(moyenne) : undefined} heritee={dixieme(moyenne)} desactive={lectureSeule}
           onChange={(v) => onChange(ecrireUnivers(cibles, familles, u, type, v))} />}
         apres={type === 'marge' ? `${milliers(somme(l.map((f) => f.objectif * f.margeCible)))} avant démarque` : (perte ? `${milliers(perte)} perdus` : 'Aucune perte prévue')}
         origine={regle ? origineTexte : `${origineTexte} ${taux(moyenne)}`}
@@ -178,6 +190,9 @@ export function HypothesesUnivers({ familles, flux, annee, suite, ...commun }: P
           margeAvant: somme(l.map((f) => f.caRealise * f.margeRealisee)), caMargeAvant: somme(l.map((f) => f.caRealise)),
           margeApres: somme(l.map((f) => f.objectif * f.margeCible)), perte: somme(l.map((f) => f.objectif * (f.demarque ?? 0))),
         })
+        // Proposition 2 : la démarque, rarement touchée, ne s'affiche qu'avec le détail tant qu'elle est nulle et non réglée
+        const demarqueVisible = l.some((f) => (f.demarque ?? 0) !== 0) || universRegle(cibles, familles, u, 'demarque')
+        const versEbe = (ca: number | null) => effetEbeDuCA(ca, b ? m / b : 0, surCA)
         const cle = (c: string, nom: string, libelle: string, quoi: string, aide: keyof typeof AIDE, avant?: ReactNode, apres?: ReactNode, effet?: ReactNode) => (
           <HypotheseCle key={c} cle={c} nom={nom} libelle={libelle} quoi={quoi} aide={aide} avant={avant} apres={apres} effet={effet} {...commun} />
         )
@@ -196,17 +211,17 @@ export function HypothesesUnivers({ familles, flux, annee, suite, ...commun }: P
               {fl ? (
                 <>
                   {cle(`flux/${u}`, 'Tickets', `Évolution du nombre de tickets : ${nomU}`, `évolution des tickets ${nomU}`, 'tickets',
-                    enChiffres(Math.round(fl.atterrissage)), enChiffres(Math.round(fl.objectif)), <Effet montant={ef.tickets} quoi="de CA" />)}
+                    enChiffres(Math.round(fl.atterrissage)), enChiffres(Math.round(fl.objectif)), <Effet ca={ef.tickets} ebe={versEbe(ef.tickets)} />)}
                   {cle(`panier/${u}`, 'Panier moyen TTC', `Évolution du panier moyen : ${nomU}`, `évolution du panier ${nomU}`, 'panier',
-                    panier(fl.panierRealiseTTC), panier(fl.panierObjectifTTC), <Effet montant={ef.panier} quoi="de CA" />)}
+                    panier(fl.panierRealiseTTC), panier(fl.panierObjectifTTC), <Effet ca={ef.panier} ebe={versEbe(ef.panier)} />)}
                 </>
-              ) : cle(`univers/${u}`, 'Évolution du CA', `Évolution du CA par univers : ${nomU}`, `évolution du CA ${nomU}`, 'univers', milliers(n), milliers(b), <Effet montant={ef.ca} quoi="de CA" />)}
-              {parUnivers(u, 'marge', nomU, <Effet montant={ef.marge} quoi="de marge" />)}
-              {parUnivers(u, 'demarque', nomU, <Effet montant={ef.demarque} quoi="de marge" />)}
+              ) : cle(`univers/${u}`, 'Évolution du CA', `Évolution du CA par univers : ${nomU}`, `évolution du CA ${nomU}`, 'univers', milliers(n), milliers(b), <Effet ca={ef.ca} ebe={versEbe(ef.ca)} />)}
+              {parUnivers(u, 'marge', nomU, <Effet ebe={ef.marge} />)}
+              {(demarqueVisible || ouvert) && parUnivers(u, 'demarque', nomU, <Effet ebe={ef.demarque} />)}
             </TableauHypotheses>
             <Button onClick={() => setOuverts({ ...ouverts, [u]: !ouvert })} aria-expanded={ouvert} className="pas-a-l-impression"
               endIcon={ouvert ? <ExpandLessOutlined /> : <ExpandMoreOutlined />} sx={{ mt: 0.5, ml: 1.5, minHeight: 48 }}>
-              Détail par famille ({l.length})
+              {demarqueVisible ? 'Détail par famille' : 'Démarque et détail par famille'} ({l.length})
               {aPart && <Box component="span" sx={{ ml: 1, fontWeight: 400, ...gris }}>réglé famille par famille</Box>}
             </Button>
             {ouvert && (

@@ -5,6 +5,23 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Voir l'impact des hypothèses en direct (sans migration)
+
+- Panneau « Impact » dans l'étape Construire (Joseph, 3/11, proposition 1) : collé à droite sur les écrans d'au moins
+  1 280 px, en barre repliée sur l'EBE en bas d'écran ailleurs. CA, marge commerciale, masse salariale (% FP), EBE,
+  résultat net et point bas de trésorerie, avec l'écart face à ce qui est enregistré ou à la proposition du siège
+  (le siège par défaut en lecture seule). Le dernier changement s'affiche avec son effet sur le CA et l'EBE et s'annule
+  d'un clic. Il reste visible sur les thèmes Calendrier, Équipe, Frais et Trésorerie, et porte « Tout annuler » et
+  « Enregistrer les ajustements » : il remplace la bande d'indicateurs et la barre d'enregistrement sur ces pages
+  (la bande reste à l'étape « Envoyer et valider »).
+- Tableau des hypothèses plus étroit (proposition 2) : « Point de départ » réunit l'année en cours et la proposition du
+  siège ; la colonne Effet donne le CA et l'EBE (« +4 k€ CA · +1,3 k€ EBE ») ; la démarque, nulle et non réglée, ne
+  s'affiche qu'avec « Démarque et détail par famille ».
+- Boutons − et + sur chaque taux des hypothèses (proposition 3) : 1 point pour les tickets, le panier et l'évolution du
+  CA, 0,5 point pour la marge, la démarque, les salaires et les frais. Flèches haut et bas du clavier pour le même pas,
+  Entrée pour passer à l'hypothèse suivante.
+- Moteur : `src/moteur/impact.ts` (indicateurs du panneau, effet d'un gain de CA sur l'EBE, suivi du dernier changement),
+  testé dans `tests/moteur/impact.spec.ts`.
 ### Lot 43 — suivi de la campagne selon le rôle, budget plus simple (aucune migration)
 
 - Campagne des budgets (Joseph, 3/11) : un seul bandeau en tête de la liste des magasins pour le Directeur, les RR et les
