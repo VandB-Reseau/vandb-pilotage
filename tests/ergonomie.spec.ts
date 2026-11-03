@@ -58,9 +58,9 @@ test('l’accueil filtre les magasins, la recherche ignore les accents, le retou
   const cartes = page.locator('main').getByRole('heading', { level: 2 }).filter({ hasNotText: 'À traiter' }).filter({ hasNotText: 'Campagne des budgets' }).filter({ hasNotText: 'Proposer en série' })
   const lignes = isMobile ? cartes : tableau.getByRole('row').filter({ has: page.getByRole('link') })
   await expect(filtres.getByRole('button', { name: 'Tous · 7' })).toHaveAttribute('aria-pressed', 'true')
-  await expect(filtres.getByRole('button', { name: 'Sans budget · 5' })).toBeVisible()
+  await expect(filtres.getByRole('button', { name: 'À proposer · 5' })).toBeVisible()
   await expect(filtres.getByRole('button', { name: 'Équipe à renseigner · 6' })).toBeVisible()
-  await expect(filtres.getByRole('button', { name: /Proposés/ })).toHaveCount(0)
+  await expect(filtres.getByRole('button', { name: /Chez le franchisé/ })).toHaveCount(0)
 
   await filtres.getByRole('button', { name: 'Frais à renseigner · 5' }).click()
   await expect(lignes).toHaveCount(5)
@@ -83,7 +83,7 @@ test('l’accueil filtre les magasins, la recherche ignore les accents, le retou
 
 test('d’un magasin au suivant, dans la liste filtrée, en restant sur le même onglet', async ({ page }) => {
   await seConnecter(page, { magasins: sept, frais: [loyer(MAGASINS[0])] })
-  await page.getByRole('group', { name: 'Filtres' }).getByRole('button', { name: /Sans budget/ }).click()
+  await page.getByRole('group', { name: 'Filtres' }).getByRole('button', { name: /À proposer/ }).click()
   await page.getByText('Port-Navalo', { exact: true }).click()
   await ouvrir(page, 'Frais')
   await page.getByRole('link', { name: 'Magasin suivant : Les Ormes' }).click()

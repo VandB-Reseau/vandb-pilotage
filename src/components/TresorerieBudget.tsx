@@ -1,5 +1,6 @@
 import type { DepartEstime } from '../moteur/reprise'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import Link from '@mui/material/Link'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
@@ -11,14 +12,13 @@ import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import Typography from '@mui/material/Typography'
-import { nombre } from '../import/caisse'
 import ExpandMoreOutlined from '@mui/icons-material/ExpandMoreOutlined'
 import { enChiffres, enMilliers, milliers, MOIS, MOIS_LONGS, QUADRIMESTRES_COURTS } from '../lib/format'
 import { COLONNES, regrouper } from '../moteur/periodes'
 import type { MoisTresorerie, Tresorerie } from '../moteur/tresorerie'
 import { ChoixPeriode, usePeriode } from './ChoixPeriode'
 import { GraphiqueTresorerie } from './GraphiqueTresorerie'
-import { ChampNombre } from './ChampNombre'
+import { texteEstimee } from './TresorerieDepart'
 import { Indicateur } from './Indicateur'
 import { Aide } from './Aide'
 import { styleTableau } from '../theme/tableau'
@@ -42,15 +42,15 @@ export const LIGNES_TRESORERIE: { cle: keyof MoisTresorerie; libelle: string; so
 ]
 
 // Lot 27 : le solde de fin de mois en barres au-dessus du tableau ; tableau par mois, quadrimestre ou année, en € ou k€,
-// replié d'office pour le franchisé (« replie »)
-export function TresorerieBudget({ tresorerie: t, annee, depart, onDepart, lectureSeule, replie = false, estimee }: {
+// replié d'office pour le franchisé (« replie »). Lot 43 : la trésorerie au 1er janvier se règle au point de départ,
+// elle se lit seulement ici
+export function TresorerieBudget({ tresorerie: t, annee, depart, replie = false, estimee, versDepart }: {
   tresorerie: Tresorerie
   annee: number
   depart: number | undefined
   estimee?: DepartEstime | null // lot 42 : trésorerie au 1er janvier estimée depuis les comptes, tant qu'elle n'est pas saisie
-  onDepart: (v: number | undefined) => void
-  lectureSeule: boolean
   replie?: boolean
+  versDepart?: () => void
 }) {
   const [detail, setDetail] = useState(!replie)
   const choix = usePeriode('tresorerie')
@@ -58,15 +58,6 @@ export function TresorerieBudget({ tresorerie: t, annee, depart, onDepart, lectu
   const colonnes = COLONNES[periode]
   const affiche = (v: number) => (unite === 'milliers' ? enMilliers(v) : enChiffres(Math.round(v) || 0))
   const enTete = (c: number[]) => (periode === 'mois' ? MOIS[c[0]] : QUADRIMESTRES_COURTS[c[0] / 4])
-  const [saisie, setSaisie] = useState(depart === undefined ? '' : enChiffres(depart))
-  // Départ changé ailleurs (ajustements chargés après l'ouverture de l'onglet, retour aux valeurs enregistrées) : le champ suit
-  useEffect(() => { setSaisie((s) => { const n = nombre(s); return (n === null ? undefined : n) === depart ? s : depart === undefined ? '' : enChiffres(depart) }) }, [depart])
-  const changer = (v: string) => {
-    setSaisie(v)
-    const n = nombre(v)
-    if (n === null) onDepart(undefined)
-    else if (!Number.isNaN(n)) onDepart(n)
-  }
   const somme = (cle: keyof MoisTresorerie) => t.mois.reduce((a, m) => a + m[cle], 0)
   const rouge = (v: number) => (Math.round(v) < 0 ? { color: 'error.main' } : {})
   const lignes = LIGNES_TRESORERIE.filter((l) => !l.facultative || t.mois.some((m) => Math.round(m[l.cle]) !== 0))
@@ -76,16 +67,15 @@ export function TresorerieBudget({ tresorerie: t, annee, depart, onDepart, lectu
     <Card component="section" aria-label={`Trésorerie ${annee}`}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2.5, pt: 2, pb: 1 }}>
         <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}><Typography variant="h2">Trésorerie {annee}</Typography><Aide sujet="tresorerie" /></Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Typography variant="body2" color="text.secondary">Au 1er janvier</Typography>
-          <ChampNombre libelle="Trésorerie au 1er janvier" valeur={saisie} onChange={changer} desactive={lectureSeule} largeur={160} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }} aria-label="Trésorerie de départ">
+          <Typography variant="body2" color="text.secondary">
+            {`Au 1er janvier : ${milliers(depart ?? estimee?.montant ?? 0)}${depart === undefined ? (estimee ? ', estimée' : ', pas encore connue') : ''}`}
+          </Typography>
+          {versDepart && <Link component="button" type="button" onClick={versDepart} sx={{ minHeight: 48, fontSize: '0.875rem' }}>Modifier au point de départ</Link>}
         </Box>
       </Box>
       {depart === undefined && estimee && (
-        <Typography variant="body2" color="text.secondary" sx={{ px: 2.5, pb: 1 }}>
-          Estimée à {milliers(estimee.montant)} : {milliers(estimee.depuis)} fin {estimee.quadrimestre === 1 ? 'avril' : estimee.quadrimestre === 2 ? 'août' : 'décembre'} {estimee.annee}, plus l’activité prévue jusqu’au 31 décembre.
-          {lectureSeule ? '' : ' Saisis le solde bancaire quand tu le connais.'}
-        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ px: 2.5, pb: 1 }}>{texteEstimee(estimee)}</Typography>
       )}
       <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap', px: 2.5, py: 1.5 }} aria-label="Trésorerie en bref">
         <Indicateur libelle="Fin décembre" aide="tresorerieFin" valeur={milliers(t.fin)} detail={`${t.fin >= t.debut ? '+' : ''}${milliers(t.fin - t.debut)} sur l’année`} />

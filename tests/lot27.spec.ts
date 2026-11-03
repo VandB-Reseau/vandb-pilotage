@@ -103,7 +103,7 @@ test('liste des magasins : tri par colonne, ligne Total, alertes, sans colonne G
   await page.screenshot({ path: `captures/${info.project.name}-liste-magasins.png`, fullPage: true })
 })
 
-test('« À traiter » : budget à proposer, en discussion, action en retard ; jamais pour le franchisé', async ({ page, isMobile }, info) => {
+test('« À traiter » dans la campagne : action en retard, équipe à renseigner ; les étapes du budget sont au-dessus', async ({ page, isMobile }, info) => {
   const enRetard: ActionSimulee = {
     id: 1, store_name: MAGASINS[1], type_alerte: 'ca', intitule: 'Relancer la vente additionnelle', responsable: 'franchise', echeance: '2020-01-31', statut: 'a_faire',
     annee: 2026, depart: null, mois_depart: null, cree_par_role: 'coach', cree_par_nom: 'Coach Nord', cree_le: '2020-01-02T09:00:00Z', faite_le: null,
@@ -112,15 +112,16 @@ test('« À traiter » : budget à proposer, en discussion, action en retard ; j
   const bloc = page.getByRole('region', { name: 'À traiter' })
   const points = bloc.getByRole('listitem')
   await expect(points.filter({ hasText: 'action du plan en retard' })).toContainText(MAGASINS[1])
-  await expect(points.filter({ hasText: /budget \d+ à proposer/ })).toHaveCount(1)
-  await expect(points.filter({ hasText: 'budget en discussion : à valider ou à reprendre' })).toHaveCount(1)
+  // Lot 43 : budgets à proposer et en discussion se lisent dans les étapes de la campagne, plus dans « À traiter »
+  await expect(page.getByRole('region', { name: /^Campagne des budgets/ }).locator(bloc)).toHaveCount(1)
+  await expect(points.filter({ hasText: /à proposer|en discussion/ })).toHaveCount(0)
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-a-traiter.png`, fullPage: true })
 
   // « Afficher ces magasins » filtre la liste
-  await points.filter({ hasText: 'budget en discussion' }).getByRole('button', { name: /^Afficher ces magasins/ }).click()
-  await expect(page.getByRole('group', { name: 'Filtres' }).getByRole('button', { name: /^En discussion/ })).toHaveAttribute('aria-pressed', 'true')
+  await points.filter({ hasText: 'à renseigner' }).first().getByRole('button', { name: /^Afficher ces magasins/ }).click()
+  await expect(page.getByRole('group', { name: 'Filtres' }).getByRole('button', { name: /à renseigner/, pressed: true })).toHaveCount(1)
 
   // Replié, le choix est gardé
   await bloc.getByRole('button', { name: 'Replier' }).click()

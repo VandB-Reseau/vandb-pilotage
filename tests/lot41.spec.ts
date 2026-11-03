@@ -39,6 +39,8 @@ test('le Directeur prépare les propositions en série et envoie celles qu’il 
     reel,
   })
   await allerVers(page, 'Campagne')
+  // Lot 43 : un bouton du bandeau de la campagne ouvre le panneau
+  await page.getByRole('region', { name: /^Campagne des budgets/ }).getByRole('button', { name: 'Proposer en série' }).click()
   const serie = page.getByRole('region', { name: 'Proposer en série' })
   await serie.getByRole('button', { name: /^Préparer les propositions/ }).click()
   const tableau = serie.getByRole('table', { name: 'Propositions préparées' })

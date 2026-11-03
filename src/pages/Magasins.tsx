@@ -1,6 +1,7 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Navigate, Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
 import Chip from '@mui/material/Chip'
 import InputAdornment from '@mui/material/InputAdornment'
@@ -31,7 +32,7 @@ import { EtatVide } from '../components/EtatVide'
 import { Indicateur } from '../components/Indicateur'
 import { Panne } from '../components/Panne'
 import { PastilleStatut } from '../components/PastilleStatut'
-import { anneeBudget, chargerActions, chargerAlertes, chargerBudgets, chargerParametres, departTresorerie, hypothesesDe, parametresDuBudget } from '../data/pilotage'
+import { anneeBudget, chargerActions, chargerAlertes, chargerBudgets, chargerParametres, chargerReelDuCompte, departTresorerie, hypothesesDe, parametresDuBudget } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { aTraiter, correspond, filtrerMagasins, FILTRES, type Filtre } from '../lib/aFaire'
 import { dateHeure, lienMagasin, milliers, taux } from '../lib/format'
@@ -39,8 +40,12 @@ import { calculerBudget } from '../moteur/budget'
 import { tresorerieBudget } from '../moteur/tresorerie'
 import { syntheseBudgets, totalBudgets } from '../moteur/sante'
 import type { Alerte } from '../moteur/alertes'
-import { campagneDe } from '../moteur/campagne'
+import { campagneDe, enRetard } from '../moteur/campagne'
+import { pretsAValider } from '../moteur/changements'
 import { ValidationSerie } from '../components/ValidationSerie'
+import CloseOutlined from '@mui/icons-material/CloseOutlined'
+import DoneAllOutlined from '@mui/icons-material/DoneAllOutlined'
+import PlaylistAddCheckOutlined from '@mui/icons-material/PlaylistAddCheckOutlined'
 import { styleTableau } from '../theme/tableau'
 
 // Liste des magasins (lot 27) : une ligne par magasin, colonnes triables, alertes et EBE / CA lisibles d'un coup d'œil
@@ -87,18 +92,26 @@ export function Magasins() {
   const { donnees, erreur, chargement, recharger } = useChargement(
     async () => {
       // Plan d'action : seulement pour « À traiter » ; sans lui, la liste s'affiche quand même
-      const [d, { parametres }, alertes, actions] = await Promise.all([
+      // Lot 43 : Responsables Régionaux et Coachs de chaque magasin, tenus dans l'app du réseau ; sans eux, la campagne reste globale
+      const [d, { parametres }, alertes, actions, compte] = await Promise.all([
         chargerBudgets(annee), chargerParametres(annee), chargerAlertes(), estEquipe(profil) ? chargerActions().catch(() => []) : Promise.resolve([]),
+        estEquipe(profil) ? chargerReelDuCompte(new Date().getFullYear()).catch(() => null) : Promise.resolve(null),
       ])
       const groupes = new Map(d.groupes.map((g) => [g.id, g.nom]))
+      const campagne = campagneDe(parametres, annee)
+      const aujourdhui = new Date().toISOString().slice(0, 10)
       return {
-        d, parametres, groupes: d.groupes, alertes, actions, campagne: campagneDe(parametres, annee),
+        d, parametres, groupes: d.groupes, alertes, actions, campagne,
         magasins: d.magasins.map((l) => {
           const h = hypothesesDe(l, d)
           const pL = parametresDuBudget(l, parametres)
           const budget = h ? calculerBudget(h.hypotheses, pL) : null
+          const auSiege = l.base ? hypothesesDe(l, d, l.siege ?? {}) : null
+          const rrs = compte?.rrs[l.magasin] ?? [], coach = compte?.coachs[l.magasin] || null
           return {
             ...l, groupe: l.groupeId ? groupes.get(l.groupeId) ?? '' : '', budget,
+            rrs, coach, responsables: [...rrs, ...(coach ? [coach] : [])], enRetard: enRetard(l.statut, campagne, aujourdhui),
+            ebeSiege: auSiege ? calculerBudget(auSiege.hypotheses, pL).ebe : null, ebe: budget?.ebe ?? null,
             pointBas: budget && h ? tresorerieBudget(budget, h.hypotheses, pL, pL.tresorerie, departTresorerie(l, d, pL) ?? 0).pointBas.montant : null,
             aEquipe: !!d.equipes[l.magasin]?.length || !!h?.hypotheses.reprise?.personnel, aFrais: !!d.frais[l.magasin]?.length || !!h?.hypotheses.reprise?.frais,
           }
@@ -112,6 +125,9 @@ export function Magasins() {
   const filtre = (FILTRES.some((f) => f.cle === params.get('filtre')) ? params.get('filtre') : 'tous') as Filtre
   const recherche = params.get('q') ?? ''
   const groupe = params.get('groupe') ? Number(params.get('groupe')) : null
+  const responsable = params.get('responsable')
+  // Lot 43 : panneau ouvert depuis le bandeau de la campagne (proposer ou valider en série)
+  const [panneau, setPanneau] = useState<'proposer' | 'valider' | null>(null)
   const changer = (cle: string, valeur: string | null) => setParams((p) => { const n = new URLSearchParams(p); if (valeur) n.set(cle, valeur); else n.delete(cle); return n }, { replace: true })
 
   const tous = donnees?.magasins ?? []
@@ -125,7 +141,7 @@ export function Magasins() {
   // Sans tri choisi, l'ordre du réseau (celui des fiches précédente et suivante)
   const sens = params.get('sens') === 'desc' ? 'desc' : params.get('sens') === 'asc' ? 'asc' : tri ? SENS_DEFAUT[tri] : 'asc'
   const visibles = useMemo(() => {
-    const l = filtrerMagasins(tous, filtre, recherche, groupe)
+    const l = filtrerMagasins(tous, filtre, recherche, groupe, responsable)
     if (!tri) return l
     const valeur = (m: (typeof l)[number]): number | string | null => {
       switch (tri) {
@@ -149,7 +165,7 @@ export function Magasins() {
       const c = typeof x === 'string' ? x.localeCompare(String(y), 'fr') : x - (y as number)
       return (sens === 'asc' ? c : -c) || a.magasin.localeCompare(b.magasin, 'fr')
     })
-  }, [tous, filtre, recherche, groupe, tri, sens, alertesDe])
+  }, [tous, filtre, recherche, groupe, responsable, tri, sens, alertesDe])
   const trier = (cle: Tri) => setParams((p) => {
     const n = new URLSearchParams(p)
     n.set('tri', cle)
@@ -160,6 +176,7 @@ export function Magasins() {
   const total = totalBudgets(visibles.flatMap((m) => (m.budget ? [m.budget] : [])))
   const ebeMax = Math.max(0.01, ...visibles.map((m) => Math.abs(m.budget?.ratios.ebeSurCA ?? 0)))
   const synthese = tous.length > 1 ? syntheseBudgets(tous) : null
+  const prets = donnees ? pretsAValider(donnees.d.magasins.filter((l) => l.base)).length : 0
   const etat = { liste: visibles.map((m) => m.magasin), retour: params.toString() }
 
   const entete = (
@@ -187,31 +204,49 @@ export function Magasins() {
 
       {donnees && tous.length > 0 && (
         <>
-          {estEquipe(profil) && (
+          {/* Lot 43 (Joseph, 03/11/2026) : un seul bandeau, la campagne, ses actions en série et ce qui reste à traiter */}
+          {estEquipe(profil) && profil && (
             <Box sx={{ mb: 3 }}>
-              <ATraiter
-                items={aTraiter(tous, donnees.alertes, donnees.actions, estDirecteur(profil), new Date().toISOString().slice(0, 10))}
-                annee={annee} directeur={estDirecteur(profil)} etat={{ liste: tous.map((m) => m.magasin) }}
-                filtrer={(f) => { changer('filtre', f === 'tous' ? null : f); document.querySelector('[aria-label="Filtres"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}
-              />
-            </Box>
-          )}
-          {estEquipe(profil) && (
-            <Box sx={{ mb: 3 }}>
-              <CampagneBudgets annee={annee} campagne={donnees.campagne} magasins={tous} aujourdhui={new Date().toISOString().slice(0, 10)} />
+              <CampagneBudgets
+                annee={annee} campagne={donnees.campagne} magasins={tous} aujourdhui={new Date().toISOString().slice(0, 10)} role={profil.role}
+                chiffres={synthese ? { ca: synthese.ca, ebe: synthese.ebe, ebeSurCA: synthese.ebeSurCA, avecBudget: synthese.avecBudget } : null}
+                filtrer={(f, r) => {
+                  setParams((p) => { const n = new URLSearchParams(p); if (f === 'tous') n.delete('filtre'); else n.set('filtre', f); if (r) n.set('responsable', r); else n.delete('responsable'); return n }, { replace: true })
+                  document.querySelector('[aria-label="Filtres"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }}
+                actions={(estDirecteur(profil) || (profil.role === 'rr' && prets > 0)) ? (
+                  <Stack direction="row" useFlexGap spacing={1.5} sx={{ flexWrap: 'wrap' }} className="pas-a-l-impression" aria-label="Actions en série">
+                    {estDirecteur(profil) && (
+                      <Button variant={panneau === 'proposer' ? 'contained' : 'outlined'} startIcon={<PlaylistAddCheckOutlined />} aria-expanded={panneau === 'proposer'}
+                        onClick={() => setPanneau(panneau === 'proposer' ? null : 'proposer')} sx={{ minHeight: 48 }}>Proposer en série</Button>
+                    )}
+                    {prets > 0 && (
+                      <Button variant={panneau === 'valider' ? 'contained' : 'outlined'} color="success" startIcon={<DoneAllOutlined />} aria-expanded={panneau === 'valider'}
+                        onClick={() => setPanneau(panneau === 'valider' ? null : 'valider')} sx={{ minHeight: 48 }}>{`Valider en série · ${prets}`}</Button>
+                    )}
+                  </Stack>
+                ) : undefined}
+              >
+                <ATraiter
+                  items={aTraiter(tous, donnees.alertes, donnees.actions, new Date().toISOString().slice(0, 10))}
+                  etat={{ liste: tous.map((m) => m.magasin) }}
+                  filtrer={(f) => { changer('filtre', f === 'tous' ? null : f); document.querySelector('[aria-label="Filtres"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}
+                />
+              </CampagneBudgets>
             </Box>
           )}
           {/* Lot 42 (proposition 6) : le RR ou le Directeur valide d'un coup les budgets envoyés sans changement */}
-          {(estDirecteur(profil) || profil?.role === 'rr') && (
+          {panneau === 'valider' && (estDirecteur(profil) || profil?.role === 'rr') && (
             <ValidationSerie d={donnees.d} parametres={donnees.parametres} annee={annee} apres={recharger} />
           )}
           {/* Lot 41 (proposition 1) : le Directeur propose et met à jour les budgets de la liste affichée en une fois */}
-          {estDirecteur(profil) && (
+          {panneau === 'proposer' && estDirecteur(profil) && (
             <Box sx={{ mb: 3 }} className="pas-a-l-impression">
               <PropositionsSerie annee={annee} magasins={visibles.map((m) => m.magasin)} apres={recharger} />
             </Box>
           )}
-          {synthese && (
+          {/* Lot 43 : les chiffres des budgets sont dans le bandeau de la campagne ; le franchisé à plusieurs magasins les garde */}
+          {synthese && !estEquipe(profil) && (
             <Box component="section" aria-label={`Budgets ${annee} en chiffres`} sx={{ display: 'grid', gap: 2, mb: 4, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' } }}>
               <Indicateur libelle={`Budgets ${annee} validés`} valeur={`${synthese.valides} sur ${synthese.magasins}`} detail={`${synthese.avecBudget} magasin${synthese.avecBudget > 1 ? 's' : ''} avec un budget`} />
               <Indicateur libelle="CA HT budgété" valeur={milliers(synthese.ca)} detail={`Somme des ${synthese.avecBudget} budgets`} />
@@ -257,6 +292,11 @@ export function Magasins() {
                 />
               )
             })}
+            {/* Lot 43 : Responsable Régional ou Coach choisi dans la campagne */}
+            {responsable && (
+              <Chip label={responsable} onDelete={() => changer('responsable', null)} deleteIcon={<CloseOutlined aria-label={`Retirer le filtre : ${responsable}`} />}
+                color="primary" sx={{ height: { xs: 48, md: 36 }, fontSize: '0.875rem' }} />
+            )}
           </Stack>
 
           {visibles.length === 0 && (

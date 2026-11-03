@@ -37,3 +37,70 @@ export function avancementCampagne(
   }
   return [...lignes.values()].sort((a, b) => b.enRetard - a.enRetard || (a.nom === '' ? 1 : b.nom === '' ? -1 : a.nom.localeCompare(b.nom, 'fr')))
 }
+
+// Lot 43 (Joseph, 03/11/2026) : la campagne se lit en quatre étapes, les mêmes pour tous les rôles
+export type EtapeCampagne = 'a_proposer' | 'chez_franchise' | 'retour' | 'valide'
+export const ETAPES_CAMPAGNE: { cle: EtapeCampagne; libelle: string }[] = [
+  { cle: 'a_proposer', libelle: 'À proposer' },
+  { cle: 'chez_franchise', libelle: 'Chez le franchisé' },
+  { cle: 'retour', libelle: 'Retour du franchisé' },
+  { cle: 'valide', libelle: 'Validés' },
+]
+export const etapeCampagne = (statut: StatutBudget): EtapeCampagne =>
+  !statut ? 'a_proposer' : statut === 'propose' ? 'chez_franchise' : statut === 'en_discussion' ? 'retour' : 'valide'
+
+// Jours entiers écoulés entre une date ISO et aujourd'hui (AAAA-MM-JJ) ; null sans date
+export function joursDepuis(iso: string | null | undefined, aujourdhui: string): number | null {
+  if (!iso) return null
+  const j = (s: string) => Date.UTC(Number(s.slice(0, 4)), Number(s.slice(5, 7)) - 1, Number(s.slice(8, 10)))
+  return Math.max(0, Math.round((j(aujourdhui) - j(iso.slice(0, 10))) / 86_400_000))
+}
+
+// Depuis quand le budget attend à son étape : chez le franchisé depuis la dernière modification (la proposition ou la
+// dernière mise à jour), en retour depuis l'envoi au siège (à défaut la dernière modification). Rien à proposer ni validé.
+export function attente(m: { statut: StatutBudget; majLe: string | null; envoyeLe?: string | null }, aujourdhui: string): number | null {
+  if (m.statut === 'propose') return joursDepuis(m.majLe, aujourdhui)
+  if (m.statut === 'en_discussion') return joursDepuis(m.envoyeLe ?? m.majLe, aujourdhui)
+  return null
+}
+
+// Vue du Directeur : une ligne par Responsable Régional, dépliée sur les Coachs de ses magasins
+export interface AvancementRR extends Avancement { coachs: Avancement[] }
+export function avancementParRR(
+  magasins: { statut: StatutBudget; rrs: string[]; coach: string | null }[], c: Campagne, aujourdhui: string,
+): AvancementRR[] {
+  return avancementCampagne(magasins.map((m) => ({ statut: m.statut, responsables: m.rrs })), c, aujourdhui).map((l) => ({
+    ...l,
+    coachs: avancementCampagne(
+      magasins.filter((m) => (l.nom === '' ? !m.rrs.length : m.rrs.includes(l.nom))).map((m) => ({ statut: m.statut, responsables: m.coach ? [m.coach] : [] })),
+      c, aujourdhui),
+  }))
+}
+
+// Vue du Coach : ses magasins un par un, en retard d'abord, puis l'attente la plus longue
+export interface MagasinCampagne { magasin: string; etape: EtapeCampagne; attente: number | null; enRetard: boolean }
+export function magasinsCampagne(
+  magasins: { magasin: string; statut: StatutBudget; majLe: string | null; envoyeLe?: string | null }[], c: Campagne, aujourdhui: string,
+): MagasinCampagne[] {
+  const rang: Record<EtapeCampagne, number> = { a_proposer: 0, chez_franchise: 1, retour: 2, valide: 3 }
+  return magasins.map((m) => ({ magasin: m.magasin, etape: etapeCampagne(m.statut), attente: attente(m, aujourdhui), enRetard: enRetard(m.statut, c, aujourdhui) }))
+    .sort((a, b) => Number(b.enRetard) - Number(a.enRetard) || (b.attente ?? -1) - (a.attente ?? -1) || rang[a.etape] - rang[b.etape] || a.magasin.localeCompare(b.magasin, 'fr'))
+}
+
+// Lot 43 : marque courte de l'état de chaque étape du budget dans le menu, selon qui regarde.
+// « changements » : ajustements du magasin enregistrés mais pas encore envoyés au siège ; « ici » : l'étape affichée,
+// qui porte « Non enregistré » quand une saisie y attend (le point de départ pour la trésorerie, sinon « Construire »).
+export function marquesEtapes(e: {
+  statut: StatutBudget; propose: boolean; modifie: boolean; changements: number
+  role: 'directeur' | 'rr' | 'coach' | 'franchise' | 'aucun'; ici?: 'depart' | 'budget' | 'echanges'
+}): Record<'depart' | 'budget' | 'echanges', string> {
+  const ici = e.ici === 'depart' ? 'depart' : 'budget'
+  const franchise = e.role === 'franchise', valideur = e.role === 'directeur' || e.role === 'rr'
+  const depart = e.modifie && ici === 'depart' ? 'Non enregistré' : e.propose ? 'Fait' : e.role === 'directeur' ? 'À proposer' : 'En attente du siège'
+  const budget = !e.propose ? '' : e.statut === 'valide' ? 'Validé' : e.modifie && ici === 'budget' ? 'Non enregistré'
+    : franchise && e.statut === 'propose' ? (e.changements ? `${e.changements} changement${e.changements > 1 ? 's' : ''} à envoyer` : 'À relire') : ''
+  const echanges = !e.propose ? '' : e.statut === 'valide' ? 'Validé'
+    : e.statut === 'en_discussion' ? (valideur ? 'À valider' : franchise ? 'Envoyé au siège' : 'Retour du franchisé')
+      : franchise ? 'À envoyer' : 'Chez le franchisé'
+  return { depart, budget, echanges }
+}

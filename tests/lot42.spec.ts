@@ -35,8 +35,9 @@ test('budget sans équipe ni frais saisis : repris des comptes de l’année, tr
   await expect(equipe).not.toContainText('à renseigner')
   await expect(equipe).toContainText('150 k€')
   await expect(main.getByRole('region', { name: 'Frais', exact: true })).toContainText(`Comptes ${N} (8 mois)`)
-  // Trésorerie au 1er janvier : 30 000 € fin août, plus l'activité prévue jusqu'en décembre
-  await expect(main.getByRole('region', { name: 'Trésorerie', exact: true })).toContainText('estimée')
+  // Trésorerie au 1er janvier : 30 000 € fin août, plus l'activité prévue jusqu'en décembre ; elle se lit sous le
+  // résultat et se règle au point de départ (lot 43)
+  await expect(main.getByLabel('Trésorerie de départ')).toContainText('estimée')
   await expect(main.getByText(/^Estimée à .* fin août/)).toBeVisible()
   // Le menu ne signale plus l'équipe à renseigner
   if (!isMobile) await expect(page.getByRole('navigation', { name: 'Menu principal' }).getByRole('link', { name: /^1 · Construire/ })).not.toContainText('équipe')
@@ -80,6 +81,8 @@ test('le Responsable Régional valide en une fois les budgets envoyés sans chan
     ],
     quadrimestres: comptes(MAGASINS[0]),
   })
+  // Lot 43 : « Valider en série » est un bouton du bandeau de la campagne
+  await page.getByRole('region', { name: /^Campagne des budgets/ }).getByRole('button', { name: 'Valider en série · 1' }).click()
   const prets = page.getByRole('region', { name: 'Budgets prêts à valider' })
   await expect(prets).toContainText('1 budget prêt à valider')
   await expect(prets).toContainText(`Envoyés sans changement par rapport au siège : ${MAGASINS[0]}.`)

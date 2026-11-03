@@ -1,15 +1,17 @@
 import type { Statut } from '../data/pilotage'
 
 // Filtres de la liste des magasins : avancement du budget et données à renseigner
-export type Filtre = 'tous' | Statut | 'sans_budget' | 'equipe' | 'frais'
-export interface MagasinListe { magasin: string; statut: Statut | null; groupeId: number | null; aEquipe: boolean; aFrais: boolean }
+// Lot 43 : les étapes de la campagne (à proposer, chez le franchisé, retour, validés) et les budgets en retard
+export type Filtre = 'tous' | Statut | 'sans_budget' | 'en_retard' | 'equipe' | 'frais'
+export interface MagasinListe { magasin: string; statut: Statut | null; groupeId: number | null; aEquipe: boolean; aFrais: boolean; enRetard?: boolean; responsables?: string[] }
 
 export const FILTRES: { cle: Filtre; libelle: string }[] = [
   { cle: 'tous', libelle: 'Tous' },
-  { cle: 'sans_budget', libelle: 'Sans budget' },
-  { cle: 'propose', libelle: 'Proposés par le siège' },
-  { cle: 'en_discussion', libelle: 'En discussion' },
+  { cle: 'sans_budget', libelle: 'À proposer' },
+  { cle: 'propose', libelle: 'Chez le franchisé' },
+  { cle: 'en_discussion', libelle: 'Retour du franchisé' },
   { cle: 'valide', libelle: 'Validés' },
+  { cle: 'en_retard', libelle: 'En retard' },
   { cle: 'equipe', libelle: 'Équipe à renseigner' },
   { cle: 'frais', libelle: 'Frais à renseigner' },
 ]
@@ -18,6 +20,7 @@ export function correspond(m: MagasinListe, f: Filtre): boolean {
   switch (f) {
     case 'tous': return true
     case 'sans_budget': return !m.statut
+    case 'en_retard': return !!m.enRetard
     case 'equipe': return !m.aEquipe
     case 'frais': return !m.aFrais
     default: return m.statut === f
@@ -26,9 +29,11 @@ export function correspond(m: MagasinListe, f: Filtre): boolean {
 
 // Recherche sans tenir compte des accents ni des majuscules
 const simple = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
-export function filtrerMagasins<T extends MagasinListe>(l: T[], f: Filtre, recherche: string, groupe: number | null): T[] {
+// Lot 43 : « responsable », un Responsable Régional ou un Coach choisi depuis la campagne
+export function filtrerMagasins<T extends MagasinListe>(l: T[], f: Filtre, recherche: string, groupe: number | null, responsable: string | null = null): T[] {
   const q = simple(recherche)
-  return l.filter((m) => correspond(m, f) && (groupe === null || m.groupeId === groupe) && (!q || simple(m.magasin).includes(q)))
+  return l.filter((m) => correspond(m, f) && (groupe === null || m.groupeId === groupe) && (!q || simple(m.magasin).includes(q))
+    && (responsable === null || (m.responsables ?? []).includes(responsable)))
 }
 
 // Réel en retard : le dernier mois terminé n'est pas encore là (rien d'attendu en janvier)
@@ -81,7 +86,7 @@ export function nombreChangements(a: unknown, b: unknown): number {
 
 // « À traiter » de l'accueil (lot 27) : ce qui attend le Directeur, le RR ou le Coach sur son périmètre, du plus urgent au moins urgent
 export interface ATraiter {
-  cle: 'alertes' | 'actions' | 'a_proposer' | 'en_discussion' | 'equipe' | 'frais'
+  cle: 'alertes' | 'actions' | 'equipe' | 'frais'
   nombre: number
   magasins: string[]
   filtre?: Filtre
@@ -90,7 +95,6 @@ export function aTraiter(
   magasins: MagasinListe[],
   alertes: { magasin: string }[],
   actions: { magasin: string; statut: string; echeance: string | null }[],
-  directeur: boolean,
   aujourdhui: string,          // AAAA-MM-JJ
 ): ATraiter[] {
   const uniques = (l: string[]) => [...new Set(l)]
@@ -102,9 +106,7 @@ export function aTraiter(
     { cle: 'actions', nombre: enRetard.length, magasins: uniques(enRetard.map((a) => a.magasin)) },
   ]
   const parMagasin = (cle: ATraiter['cle'], filtre: Filtre, l: MagasinListe[]) => items.push({ cle, filtre, nombre: l.length, magasins: noms(l) })
-  // Proposer un budget est l'affaire du Directeur seul
-  if (directeur) parMagasin('a_proposer', 'sans_budget', magasins.filter((m) => !m.statut))
-  parMagasin('en_discussion', 'en_discussion', magasins.filter((m) => m.statut === 'en_discussion'))
+  // Lot 43 : budgets à proposer et retours du franchisé se lisent dans les étapes de la campagne, juste au-dessus
   parMagasin('equipe', 'equipe', magasins.filter((m) => !m.aEquipe))
   parMagasin('frais', 'frais', magasins.filter((m) => !m.aFrais))
   return items.filter((x) => x.nombre > 0)

@@ -71,7 +71,7 @@ function Reprendre({ quoi, texte, onClick }: { quoi: string; texte: string; onCl
 }
 
 // Effet d'une hypothèse : « +14 k€ de CA », vert en hausse, rouge en baisse ; rien quand il est nul ou inconnu
-function Effet({ montant, quoi }: { montant: number | null; quoi: string }) {
+export function Effet({ montant, quoi }: { montant: number | null; quoi: string }) {
   if (montant === null || Math.round(montant / 100) === 0) return <Box component="span" sx={gris}>–</Box>
   return <Box component="span" sx={{ fontWeight: 600, color: montant > 0 ? 'success.dark' : 'error.dark' }}>{ecartMilliers(montant)} {quoi}</Box>
 }
@@ -120,9 +120,10 @@ export function HypotheseCle({ cle, nom, libelle, quoi, aide, avant, apres, effe
   )
 }
 
-type Props = Commun & { familles: ResultatFamille[]; flux: Budget['flux']; annee: number }
+// Lot 43 : « suite », les lignes Salaires et frais, réglées ici seulement (plus dans les écrans Équipe et Frais)
+type Props = Commun & { familles: ResultatFamille[]; flux: Budget['flux']; annee: number; suite?: ReactNode }
 
-export function HypothesesUnivers({ familles, flux, annee, ...commun }: Props) {
+export function HypothesesUnivers({ familles, flux, annee, suite, ...commun }: Props) {
   const { cibles, auDessus, onChange, lectureSeule } = commun
   const [ouverts, setOuverts] = useState<Partial<Record<Univers, boolean>>>({})
   const somme = (l: number[]) => l.reduce((a, b) => a + b, 0)
@@ -216,6 +217,12 @@ export function HypothesesUnivers({ familles, flux, annee, ...commun }: Props) {
           </Box>
         )
       })}
+      {suite && (
+        <Box component="section" aria-label="Salaires et frais" sx={{ pt: 2, pb: 1, borderTop: 1, borderColor: 'divider' }}>
+          <Typography variant="h3" sx={{ fontSize: '1.125rem', mb: 1, px: 2.5 }}>Salaires et frais</Typography>
+          <TableauHypotheses titre={`Hypothèses ${annee} : salaires et frais`} annee={annee} effet>{suite}</TableauHypotheses>
+        </Box>
+      )}
     </Box>
   )
 }

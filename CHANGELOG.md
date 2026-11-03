@@ -5,6 +5,28 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 43 — suivi de la campagne selon le rôle, budget plus simple (aucune migration)
+
+- Campagne des budgets (Joseph, 3/11) : un seul bandeau en tête de la liste des magasins pour le Directeur, les RR et les
+  Coachs. Quatre étapes lisibles par tous (À proposer, Chez le franchisé, Retour du franchisé, Validés) et les budgets en
+  retard ; chaque chiffre ouvre la liste filtrée. Le détail change selon qui regarde : le Directeur par Responsable
+  Régional, dépliable sur ses Coachs ; le RR par Coach ; le Coach ses magasins un par un, avec l'étape, le nombre de jours
+  d'attente (depuis la dernière modification, ou depuis l'envoi au siège), l'EBE proposé et celui du franchisé.
+- Liste des magasins : filtres renommés comme les étapes, filtre « En retard », filtre par Responsable Régional ou Coach
+  (pastille à retirer d'un clic).
+- Page Magasins plus courte : « À traiter », la campagne et les chiffres des budgets (CA et EBE budgétés) dans le même
+  bandeau ; « Proposer en série » et « Valider en série » sont deux boutons du bandeau qui ouvrent les panneaux.
+  « À traiter » ne garde que les alertes, les actions en retard, l'équipe et les frais à renseigner.
+- Trésorerie au 1er janvier dans l'étape « 0 · Point de départ », à côté de l'atterrissage : estimée tant que le budget
+  n'est pas proposé, puis saisie par le Directeur ou le franchisé. La carte et l'écran « Trésorerie » de « Construire »
+  disparaissent ; le plan de trésorerie reste sous le résultat, avec un lien vers le point de départ. L'ancienne adresse
+  `tresoBudget` mène au point de départ.
+- Hausse générale des salaires et inflation des frais : réglées à un seul endroit, dans le tableau des hypothèses de
+  « Construire », avec leur effet sur l'EBE. Elles ne se répètent plus dans les écrans Équipe et Frais ni dans un tableau à
+  part.
+- Menu du budget : sous chaque étape, son état en quelques mots (Fait, À proposer, À relire, 3 changements à envoyer,
+  Non enregistré, À envoyer, À valider, Validé…), selon le rôle.
+
 ### Stock de fin de mois face à sa cible (Base : migration `0023_stock_fin_de_mois.sql` à passer)
 
 - Nouvelle page « Stock » dans l'espace Suivi (Joseph, 3/11) : la valeur du stock en fin de mois face à sa cible, en

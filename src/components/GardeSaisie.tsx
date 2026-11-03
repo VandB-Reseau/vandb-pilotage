@@ -8,20 +8,25 @@ import DialogTitle from '@mui/material/DialogTitle'
 import Typography from '@mui/material/Typography'
 
 // Saisies non enregistrées : quitter l'onglet, la page ou l'app demande confirmation au lieu de tout perdre
-interface Garde { signaler: (id: string, modifie: boolean) => void; demander: (action: () => void) => void }
+// Lot 43 : une saisie « forte » (qui ne vit que dans son écran) est gardée même entre deux étapes du budget, où les
+// ajustements en cours restent en mémoire
+interface Garde { signaler: (id: string, modifie: boolean, fort?: boolean) => void; demander: (action: () => void, entreEtapes?: boolean) => void }
 const Contexte = createContext<Garde>({ signaler: () => {}, demander: (a) => a() })
 
 export function GardeSaisie({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const enCours = useRef(new Set<string>())
+  const forts = useRef(new Set<string>())
   const [attente, setAttente] = useState<(() => void) | null>(null)
 
-  const signaler = useCallback((id: string, modifie: boolean) => {
+  const signaler = useCallback((id: string, modifie: boolean, fort = false) => {
     if (modifie) enCours.current.add(id)
     else enCours.current.delete(id)
+    if (modifie && fort) forts.current.add(id)
+    else forts.current.delete(id)
   }, [])
-  const demander = useCallback((action: () => void) => {
-    if (enCours.current.size === 0) action()
+  const demander = useCallback((action: () => void, entreEtapes = false) => {
+    if ((entreEtapes ? forts : enCours).current.size === 0) action()
     else setAttente(() => action)
   }, [])
 
@@ -33,7 +38,7 @@ export function GardeSaisie({ children }: { children: ReactNode }) {
       if (!enCours.current.size || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return
       const lien = (e.target as HTMLElement | null)?.closest<HTMLAnchorElement>('a[href^="#/"]')
       // Lot 36 : lien marqué « sans garde » (étape suivante du budget) : les ajustements en cours restent en mémoire
-      if (!lien || lien.hasAttribute('data-sans-garde')) return
+      if (!lien || (lien.hasAttribute('data-sans-garde') && !forts.current.size)) return
       e.preventDefault()
       const cible = lien.getAttribute('href')!.slice(1)
       setAttente(() => () => navigate(cible))
@@ -46,6 +51,7 @@ export function GardeSaisie({ children }: { children: ReactNode }) {
   const quitter = () => {
     const action = attente
     enCours.current.clear()
+    forts.current.clear()
     setAttente(null)
     action?.()
   }
@@ -68,10 +74,11 @@ export function GardeSaisie({ children }: { children: ReactNode }) {
 }
 
 // À appeler par un écran de saisie : tant que « modifie » est vrai, toute sortie demande confirmation
-export function useSaisieEnCours(modifie: boolean) {
+// (« fort » : gardée aussi entre deux étapes du budget)
+export function useSaisieEnCours(modifie: boolean, fort = false) {
   const { signaler } = useContext(Contexte)
   const id = useId()
-  useEffect(() => { signaler(id, modifie) }, [id, modifie, signaler])
+  useEffect(() => { signaler(id, modifie, fort) }, [id, modifie, fort, signaler])
   useEffect(() => () => signaler(id, false), [id, signaler])
 }
 

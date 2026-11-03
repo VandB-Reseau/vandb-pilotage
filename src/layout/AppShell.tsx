@@ -97,7 +97,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const [menuTelephone, setMenuTelephone] = useState(false)
   const [pastilles, setPastilles] = useState<Record<string, boolean>>({})
-  const publierPastilles = useCallback((p: Record<string, boolean>) => setPastilles(p), [])
+  const [marques, setMarques] = useState<Record<string, string>>({})
+  const publierPastilles = useCallback((p: Record<string, boolean>, m?: Record<string, string>) => { setPastilles(p); setMarques(m ?? {}) }, [])
   useEffect(() => setMenuTelephone(false), [pathname])
 
   // Lot 36 : trois espaces. L'espace et le magasin affichés viennent de l'adresse ; sur une page qui n'appartient à aucun
@@ -123,7 +124,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const cibleEspace = (e: Espace) => (magasin ? lienMagasin(magasin, PARTIE_PAR_DEFAUT[e]) : reseau[e][0]?.chemin ?? '/')
   const parties = partiesDe(espace)
   // Passer d'une étape du budget à l'autre garde les ajustements en cours : pas de confirmation (sauf en quittant l'équipe)
-  const libre = (cle: string) => espace === 'budget' && partieActive !== null && partieActive !== 'equipe' && partieActive !== 'depart' && espaceDe(cle) === 'budget'
+  const libre = (cle: string) => espace === 'budget' && partieActive !== null && partieActive !== 'equipe' && espaceDe(cle) === 'budget'
   const actif = (chemin: string) => !fiche && (chemin === '/' ? pathname === '/' : pathname.startsWith(chemin))
 
   const lien = (d: Destination) => (
@@ -163,7 +164,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 data-sans-garde={libre(p.cle) ? '' : undefined} sx={{ minHeight: 48, mb: 0.25, pl: 2 }}>
                 <ListItemText primary={
                   <Badge variant="dot" color="warning" invisible={!pastilles[p.cle] || fiche?.nom !== magasin} sx={{ '& .MuiBadge-dot': { right: -8, top: 4 } }}>{p.libelle}</Badge>
-                } />
+                } secondary={marques[p.cle] && fiche?.nom === magasin ? marques[p.cle] : undefined}
+                  slotProps={{ secondary: { sx: { fontSize: '0.75rem', fontWeight: 600, color: 'text.secondary' } } }} />
               </ListItemButton>
             ))}
           </>
