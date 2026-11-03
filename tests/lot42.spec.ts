@@ -39,8 +39,8 @@ test('budget sans équipe ni frais saisis : repris des comptes de l’année, tr
   // résultat et se règle au point de départ (lot 43)
   await expect(main.getByLabel('Trésorerie de départ')).toContainText('estimée')
   await expect(main.getByText(/^Estimée à .* fin août/)).toBeVisible()
-  // Le menu ne signale plus l'équipe à renseigner
-  if (!isMobile) await expect(page.getByRole('navigation', { name: 'Menu principal' }).getByRole('link', { name: /^1 · Construire/ })).not.toContainText('équipe')
+  // L'onglet de l'étape ne signale plus l'équipe à renseigner
+  await expect(page.getByRole('navigation', { name: 'Pages du magasin' }).getByRole('tab', { name: /^1 · Construire/ })).not.toContainText('équipe')
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-lot42-reprise.png`, fullPage: true })

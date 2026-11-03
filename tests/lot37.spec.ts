@@ -94,7 +94,8 @@ test('fiche : « Changer de magasin » ouvre la liste des magasins avec recherch
   // Lot 42 : le magasin n'est plus dans le menu de gauche ; Joseph (03/11/2026) : ni dans la barre du haut, on en change depuis la fiche
   const menu = page.getByRole('navigation', { name: 'Menu principal' })
   await expect(menu.getByText(MAGASINS[0], { exact: true })).toHaveCount(0)
-  await expect(menu.getByText('Pages du magasin')).toHaveCount(isMobile ? 0 : 1)
+  // Joseph (03/11/2026) : les pages du magasin sont des onglets de sa fiche, plus dans le menu
+  await expect(menu.getByText('Pages du magasin')).toHaveCount(0)
   await expect(page.getByRole('banner').getByRole('button', { name: /Changer de magasin/ })).toHaveCount(0)
   const selecteur = page.locator('main').getByRole('button', { name: `Changer de magasin (magasin ouvert : ${MAGASINS[0]})` })
   await selecteur.click()

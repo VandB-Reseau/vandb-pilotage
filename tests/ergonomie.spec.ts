@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { ouvrir, partiesAffichees, seConnecter, textesTropPetits, zonesTropPetites, type FraisSimule, type MagasinSimule, type PersonneSimulee } from './supabase-simule'
+import { ongletEspace, ouvrir, partiesAffichees, seConnecter, textesTropPetits, zonesTropPetites, type FraisSimule, type MagasinSimule, type PersonneSimulee } from './supabase-simule'
 
 // Ergonomie : saisie jamais perdue, filtres de l'accueil, magasin précédent et suivant, pastilles, saisie rapide.
 // Données fictives uniquement : dépôt public.
@@ -31,7 +31,7 @@ test('une saisie en cours n’est jamais perdue sans confirmation', async ({ pag
   await page.getByLabel('Locations immobilières', { exact: true }).fill('48000')
 
   // Changer d'espace : on reste, la saisie est intacte (Équipe et Frais sont dans l'année en cours depuis le 29/10/2026)
-  await (isMobile ? page.getByRole('navigation', { name: 'Espaces du pilotage' }) : page.getByRole('group', { name: 'Espaces' })).getByRole('link', { name: 'Budget' }).click()
+  await ongletEspace(page, 'Budget').click()
   const garde = page.getByRole('dialog', { name: 'Modifications non enregistrées' })
   await expect(garde).toBeVisible()
   expect(await textesTropPetits(page)).toEqual([])
@@ -101,14 +101,13 @@ test('les onglets signalent ce qui manque', async ({ page, isMobile }) => {
   await ouvrir(page, 'Hypothèses')
   // Budget en 4 étapes (lot 37) ; l'équipe manquante est signalée sur l'étape des hypothèses
   await expect(partiesAffichees(page)).toHaveText([/^0 · Point de départ/, /^1 · Construire/, /^2 · Envoyer et valider/])
-  // Téléphone : le détail dans l'onglet ; PC (lot 38) : la pastille sur le lien du menu
-  const signale = (nom: RegExp) => (isMobile ? expect(page.getByRole('tab', { name: nom })).toBeVisible()
-    : expect(page.getByRole('navigation', { name: 'Menu principal' }).getByRole('link', { name: nom }).locator('.MuiBadge-dot:not(.MuiBadge-invisible)')).toBeVisible())
-  await signale(isMobile ? /^1 · Construire \(équipe à renseigner\)/ : /^1 · Construire/)
+  // La pastille et son détail dans l'onglet de l'étape (03/11/2026 : sur PC comme sur téléphone)
+  const signale = (nom: RegExp) => expect(page.getByRole('navigation', { name: 'Pages du magasin' }).getByRole('tab', { name: nom }).locator('.MuiBadge-dot:not(.MuiBadge-invisible)')).toBeVisible()
+  await signale(/^1 · Construire \(équipe à renseigner\)/)
   await page.getByRole('link', { name: `Magasin suivant : ${MAGASINS[1]}` }).click()
   await page.getByRole('link', { name: `Magasin suivant : ${MAGASINS[2]}` }).click()
   // Directeur : budget à proposer, depuis le point de départ
-  await signale(isMobile ? /^0 · Point de départ \(budget à proposer\)/ : /^0 · Point de départ/)
+  await signale(/^0 · Point de départ \(budget à proposer\)/)
 })
 
 test('un franchisé avec un seul magasin arrive sur sa fiche', async ({ page }) => {

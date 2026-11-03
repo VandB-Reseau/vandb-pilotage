@@ -1,6 +1,6 @@
 // Navigation en trois espaces (lot 36, Joseph 02/11/2026) : Données (ce qui entre), Budget (construit une fois par an,
 // depuis l'atterrissage de l'année en cours), Suivi (réel face au budget). Chaque partie de la fiche d'un magasin a son
-// adresse : #/magasins/<nom>/<partie>.
+// adresse : #/magasins/<nom>/<partie>. Depuis le 03/11/2026, ces espaces sont des onglets de la fiche du magasin.
 export type Espace = 'donnees' | 'budget' | 'suivi'
 
 export interface Partie { cle: string; libelle: string }
@@ -66,14 +66,6 @@ export function espaceDe(cle: string): Espace {
   return DONNEES.includes(p) ? 'donnees' : BUDGET.includes(p) ? 'budget' : 'suivi'
 }
 export const partieConnue = (cle: string) => [...DONNEES, ...BUDGET, 'synthese', 'stock', 'tresorerie'].includes(partieDe(cle))
-
-// Pages du réseau : l'espace auquel elles appartiennent (les paramètres n'en changent pas)
-export function espaceDePage(chemin: string): Espace | null {
-  if (chemin === '/' || chemin.startsWith('/hypotheses')) return 'budget'
-  if (chemin.startsWith('/imports')) return 'donnees'
-  if (chemin.startsWith('/reseau')) return 'suivi'
-  return null
-}
 
 // Magasin et partie lus dans l'adresse
 export function magasinDeChemin(chemin: string): { nom: string; partie: string | null } | null {

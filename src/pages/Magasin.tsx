@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link as RouterLink, useLocation, useNavigate, useParams } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
@@ -13,7 +13,6 @@ import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import useMediaQuery from '@mui/material/useMediaQuery'
-import { useTheme } from '@mui/material/styles'
 import ArrowBack from '@mui/icons-material/ArrowBack'
 import ChevronLeftOutlined from '@mui/icons-material/ChevronLeftOutlined'
 import ChevronRightOutlined from '@mui/icons-material/ChevronRightOutlined'
@@ -77,8 +76,7 @@ import { useChargement } from '../data/useChargement'
 import { nombreChangements, reelEnRetard } from '../lib/aFaire'
 import { feuillesBudget } from '../lib/exports'
 import { lienMagasin, milliers, MOIS_LONGS, taux } from '../lib/format'
-import { espaceDe, estTheme, etapeDe, partieConnue, partieDe, partiesDe, sectionDe, THEMES } from '../lib/navigation'
-import { MenuMagasin } from '../layout/menuMagasin'
+import { ESPACES, PARTIE_PAR_DEFAUT, espaceDe, estTheme, etapeDe, partieConnue, partieDe, partiesDe, sectionDe, THEMES, type Espace } from '../lib/navigation'
 import { classeur, nomFichier, telecharger } from '../lib/xlsx'
 import { syntheseReel } from '../moteur/reel'
 import { calculerBudget, effetTravaux } from '../moteur/budget'
@@ -92,11 +90,14 @@ import { trancheMillesime } from '../moteur/projection'
 
 
 // Onglet avec une pastille quand il manque quelque chose ; le détail est lu par les lecteurs d'écran
-function LibelleOnglet({ texte, manque, detail }: { texte: string; manque: boolean; detail: string }) {
+function LibelleOnglet({ texte, manque, detail, marque }: { texte: string; manque: boolean; detail: string; marque?: string }) {
   return (
-    <Badge variant="dot" color="warning" invisible={!manque} sx={{ '& .MuiBadge-dot': { right: -6, top: 2 } }}>
-      {texte}{manque && <Box component="span" sx={visuellementCache}> ({detail})</Box>}
-    </Badge>
+    <Box component="span" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.3 }}>
+      <Badge variant="dot" color="warning" invisible={!manque} sx={{ '& .MuiBadge-dot': { right: -6, top: 2 } }}>
+        {texte}{manque && <Box component="span" sx={visuellementCache}> ({detail})</Box>}
+      </Badge>
+      {marque && <Box component="span" sx={{ fontSize: '0.75rem', fontWeight: 600, opacity: 0.8 }}>{marque}</Box>}
+    </Box>
   )
 }
 // Lot 36 : la fiche se découpe en parties rangées dans trois espaces (Données, Budget, Suivi), voir lib/navigation
@@ -109,11 +110,8 @@ export function Magasin() {
   const { nom = '', partie: partieUrl } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
-  const theme = useTheme()
-  const telephone = useMediaQuery(theme.breakpoints.down('md'))
   // Panneau Impact (03/11/2026) : à droite dès que l'écran laisse la place au tableau des hypothèses à côté
   const impactACote = useMediaQuery('(min-width:1280px)')
-  const menu = useContext(MenuMagasin)
   const { profil } = useAuth()
   const annee = anneeBudget()
   const { donnees, erreur, chargement, recharger } = useChargement(
@@ -200,23 +198,13 @@ export function Magasin() {
   // Quitter le budget sans enregistrer (la garde a demandé confirmation) : on repart des ajustements enregistrés
   const espaceAffiche = espaceDe(onglet)
   useEffect(() => { if (espaceAffiche !== 'budget' && ligne) setBrouillon(ligne.ajustements) }, [espaceAffiche]) // eslint-disable-line react-hooks/exhaustive-deps
-  // Pastilles du menu de gauche
-  const pastillesMenu = ligne && donnees ? {
-    reel: !!reel.donnees && reelEnRetard(syntheseReel(reel.donnees.lignes, reel.donnees.tickets).moisRenseignes),
-    frais: !donnees.d.frais[ligne.magasin]?.length,
-    budget: !donnees.d.equipes[ligne.magasin]?.length && !donnees.d.comptes?.[ligne.magasin]?.quadrimestres.length,
-    depart: directeur && !ligne.statut,
-  } : {}
-  // Lot 43 (Joseph, 03/11/2026) : l'état de chaque étape du budget, lu dans le menu sans ouvrir l'étape
+  // Lot 43 (Joseph, 03/11/2026) : l'état de chaque étape du budget, lu dans les onglets sans ouvrir l'étape
   const modifieMenu = !!ligne && brouillonDe === ligne && JSON.stringify(brouillon) !== JSON.stringify(ligne.ajustements)
   const marquesMenu: Record<string, string> = ligne ? marquesEtapes({
     statut: ligne.statut, propose: !!ligne.base, modifie: modifieMenu, role: profil?.role ?? 'aucun',
     changements: ligne.statut === 'propose' ? changementsCibles(ligne.siege ?? {}, ligne.ajustements).length : 0,
     ici: partieUrl === 'depart' ? 'depart' : 'budget',
   }) : {}
-  const clePastilles = JSON.stringify([pastillesMenu, marquesMenu])
-  useEffect(() => { const [p, m] = JSON.parse(clePastilles) as [Record<string, boolean>, Record<string, string>]; menu(p, m) }, [clePastilles, menu])
-  useEffect(() => () => menu({}), [menu])
 
   if (chargement && !donnees) return <Box>{retour}<Skeleton variant="rounded" height={160} /></Box>
   if (erreur) return <Box>{retour}<Panne quoi="Les chiffres du magasin" recharger={recharger} /></Box>
@@ -456,15 +444,25 @@ export function Magasin() {
         </Typography>
       )}
 
-      {/* Lot 38 (D1) : sur PC, les parties ne sont que dans le menu de gauche ; sur téléphone (menu replié), en onglets */}
-      {telephone && (
+      {/* Joseph (03/11/2026) : le menu de gauche mène aux thèmes du réseau ; les pages du magasin sont des onglets de sa
+          fiche, sur PC comme sur téléphone : l'espace (Données, Budget, Suivi), puis ses pages avec leur état */}
+      <Box component="nav" aria-label="Pages du magasin" className="pas-a-l-impression" sx={{ mb: 3 }}>
+        <Tabs value={espace} onChange={(_, v: Espace) => garde(() => aller(PARTIE_PAR_DEFAUT[v]), v === espace)} variant="scrollable" scrollButtons={false}
+          aria-label="Espaces du magasin" sx={{ borderBottom: 1, borderColor: 'divider', '& .MuiTab-root': { minHeight: 48, fontWeight: 700, fontSize: '1rem', px: { xs: 2, md: 3 } } }}>
+          {ESPACES.map((e) => <Tab key={e.cle} value={e.cle} label={e.libelle} />)}
+        </Tabs>
         <Tabs value={etapeDe(onglet)} onChange={(_, v: string) => allerEtape(v)} variant="scrollable" scrollButtons="auto"
-          aria-label={espace === 'budget' ? `Étapes du budget ${annee}` : espace === 'donnees' ? 'Données du magasin' : 'Suivi du magasin'} className="pas-a-l-impression" sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+          aria-label={espace === 'budget' ? `Étapes du budget ${annee}` : espace === 'donnees' ? 'Données du magasin' : 'Suivi du magasin'}
+          sx={{ mt: 1, minHeight: 48, '& .MuiTabs-indicator': { display: 'none' }, '& .MuiTabs-flexContainer': { gap: 1 },
+            '& .MuiTab-root': { minHeight: 48, borderRadius: 999, px: 2, py: 0.75, alignItems: 'flex-start', textAlign: 'left', color: 'text.primary', border: 1, borderColor: 'divider', bgcolor: 'background.paper' },
+            '& .MuiTab-root.Mui-selected': { bgcolor: 'text.primary', color: 'background.paper', borderColor: 'text.primary' } }}>
           {parties.map((x) => (
-            <Tab key={x.cle} value={x.cle} onClick={themeOuvert && x.cle === 'budget' ? () => (onglet === 'equipe' ? garde(() => aller('budget')) : aller('budget')) : undefined} label={manques[x.cle] ? <LibelleOnglet texte={x.libelle} manque detail={manques[x.cle]!.detail} /> : x.libelle} sx={{ minHeight: 48 }} />
+            <Tab key={x.cle} value={x.cle} aria-current={etapeDe(onglet) === x.cle ? 'page' : undefined}
+              onClick={themeOuvert && x.cle === 'budget' ? () => (onglet === 'equipe' ? garde(() => aller('budget')) : aller('budget')) : undefined}
+              label={<LibelleOnglet texte={x.libelle} manque={!!manques[x.cle]} detail={manques[x.cle]?.detail ?? ''} marque={marquesMenu[x.cle]} />} />
           ))}
         </Tabs>
-      )}
+      </Box>
       {themeOuvert && (
         <Box className="pas-a-l-impression" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2, flexWrap: 'wrap' }}>
           <Button component={RouterLink} to={lienMagasin(ligne.magasin, 'budget')} data-sans-garde={onglet === 'equipe' ? undefined : ''} startIcon={<ArrowBack />} sx={{ minHeight: 48 }}>

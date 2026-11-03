@@ -163,14 +163,14 @@ test('budget pas encore proposé : la trésorerie au 1er janvier se lit, estimé
   await expect(depart.getByLabel('Trésorerie au 1er janvier', { exact: true })).toHaveCount(0)
 })
 
-test('menu du budget : l’état de chaque étape selon qui regarde', async ({ page, isMobile }) => {
-  test.skip(isMobile, 'Menu de gauche sur PC ; sur téléphone, le même menu s’ouvre par le bouton')
+test('étapes du budget : l’état de chaque étape selon qui regarde', async ({ page }) => {
   await seConnecter(page, { role: 'franchise', magasins: [budget(MAGASINS[0], 'propose')] })
   await ouvrir(page, 'Ventes')
-  const menu = page.getByRole('navigation', { name: 'Menu principal' })
-  await expect(menu.getByRole('link', { name: /^0 · Point de départ/ })).toContainText('Fait')
-  await expect(menu.getByRole('link', { name: /^1 · Construire/ })).toContainText('À relire')
-  await expect(menu.getByRole('link', { name: /^2 · Envoyer et valider/ })).toContainText('À envoyer')
+  // 03/11/2026 : dans les onglets de la fiche, sur PC comme sur téléphone
+  const menu = page.getByRole('navigation', { name: 'Pages du magasin' })
+  await expect(menu.getByRole('tab', { name: /^0 · Point de départ/ })).toContainText('Fait')
+  await expect(menu.getByRole('tab', { name: /^1 · Construire/ })).toContainText('À relire')
+  await expect(menu.getByRole('tab', { name: /^2 · Envoyer et valider/ })).toContainText('À envoyer')
   await page.getByLabel('Évolution du nombre de tickets : Cave').fill('5')
-  await expect(menu.getByRole('link', { name: /^1 · Construire/ })).toContainText('Non enregistré')
+  await expect(menu.getByRole('tab', { name: /^1 · Construire/ })).toContainText('Non enregistré')
 })
