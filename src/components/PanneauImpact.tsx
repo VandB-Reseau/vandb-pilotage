@@ -130,7 +130,7 @@ export function PanneauImpact({
   if (cote) {
     return (
       <Card component="aside" aria-label="Impact des changements" className="pas-a-l-impression"
-        sx={{ position: 'sticky', top: 84, p: 2, display: 'flex', flexDirection: 'column', gap: 1.5, boxShadow: 3, maxHeight: 'calc(100vh - 100px)', overflowY: 'auto' }}>
+        sx={{ position: 'sticky', top: 84, zIndex: 6, p: 2, display: 'flex', flexDirection: 'column', gap: 1.5, boxShadow: 3, maxHeight: 'calc(100vh - 100px)', overflowY: 'auto' }}>
         <Typography variant="h2" sx={{ fontSize: '1.125rem' }}>Impact</Typography>
         {choix}
         {blocDernier}
@@ -143,7 +143,7 @@ export function PanneauImpact({
   // Barre basse (téléphone et écrans étroits) : l'EBE et son écart ; un appui déplie le reste
   return (
     <Box ref={boite} component="aside" aria-label="Impact des changements" className="pas-a-l-impression" sx={{
-      position: 'sticky', bottom: { xs: 'calc(var(--barre-basse, 0px) + 8px)', md: 16 }, zIndex: 5, mt: 3,
+      position: 'sticky', bottom: { xs: 'calc(var(--barre-basse, 0px) + 8px)', md: 16 }, zIndex: 6, mt: 3,
       bgcolor: 'background.paper', borderRadius: 3, px: 2, py: 1, boxShadow: '0 -4px 18px rgba(0, 0, 0, 0.18)', display: 'flex', flexDirection: 'column', gap: 1,
     }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -163,7 +163,11 @@ export function PanneauImpact({
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', columnGap: 2, rowGap: 1 }}>
             {lignes.map((i) => (
               <Box key={i.cle} data-impact={i.cle} sx={{ minWidth: 0 }}>
-                <Typography component="span" sx={{ fontSize: '0.8125rem', color: 'text.secondary', display: 'block' }}>{COURTS[i.cle]}</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, minWidth: 0 }}>
+                  <Typography component="span" sx={{ fontSize: '0.8125rem', color: 'text.secondary' }}>{COURTS[i.cle]}</Typography>
+                  {AIDES[i.cle] && <Aide sujet={AIDES[i.cle]!} compact />}
+                  {infos[i.cle]}
+                </Box>
                 <Typography component="span" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: i.cle === 'pointBas' && i.valeur < 0 ? 'error.main' : 'text.primary' }}>{milliers(i.valeur)}</Typography>{' '}
                 <Typography component="span" sx={{ fontSize: '0.8125rem', fontWeight: 700, color: couleur(i), fontVariantNumeric: 'tabular-nums' }}>{ecartTexte(i)}</Typography>
               </Box>

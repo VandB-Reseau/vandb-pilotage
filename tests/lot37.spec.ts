@@ -49,7 +49,7 @@ test('hypothèses en cartes : chaque carte ouvre son tableau, les changements re
   // sans proposition du siège, « Rythme actuel » ; la flèche reprend la valeur du niveau au-dessus
   await expect(cave.getByRole('row', { name: /^Marge visée/ })).toContainText('36,0 %')
   if (!isMobile) {
-    await expect(cave.getByRole('row', { name: /^Tickets/ })).toContainText(/\+10\sk€ de CA$/)
+    await expect(cave.getByRole('row', { name: /^Tickets/ })).toContainText(/\+10\sk€ CA/)
     await expect(cave.getByRole('row', { name: /^Tickets/ })).toContainText('Rythme actuel')
   }
   await expect(cave.getByRole('button', { name: 'Reprendre la valeur du niveau au-dessus : évolution des tickets Cave' })).toBeVisible()

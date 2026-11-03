@@ -19,6 +19,7 @@ test.afterEach(async ({ page }) => {
 test('le budget reprend l’équipe et les frais de l’année en cours ; « + » dans chaque thème', async ({ page, isMobile }, info) => {
   await seConnecter(page, { role: 'franchise', magasins, frais: [loyer] })
   await ouvrir(page, 'Cartes des hypothèses')
+  if (isMobile) await page.getByRole('complementary', { name: 'Impact des changements' }).getByRole('button', { name: 'Voir l’impact' }).click()
   await expect(page.getByRole('button', { name: 'Aide : % FP (frais de personnel)' })).toBeVisible()
   // Lot 37 : l'équipe et les frais ont chacun leur carte dans les hypothèses
   const resume = page.locator('main').getByRole('region', { name: 'Équipe', exact: true })

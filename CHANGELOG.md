@@ -20,6 +20,7 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 - Boutons − et + sur chaque taux des hypothèses (proposition 3) : 1 point pour les tickets, le panier et l'évolution du
   CA, 0,5 point pour la marge, la démarque, les salaires et les frais. Flèches haut et bas du clavier pour le même pas,
   Entrée pour passer à l'hypothèse suivante.
+- Correctif (Joseph, 3/11) : les titres des tableaux ne passent plus par-dessus la bande d'indicateurs collée en haut.
 - Moteur : `src/moteur/impact.ts` (indicateurs du panneau, effet d'un gain de CA sur l'EBE, suivi du dernier changement),
   testé dans `tests/moteur/impact.spec.ts`.
 ### Lot 43 — suivi de la campagne selon le rôle, budget plus simple (aucune migration)
