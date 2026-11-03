@@ -29,11 +29,12 @@ test('hypothèses par univers : marge et démarque de la Cave en un champ, famil
 
   // Marge visée 38 % et démarque 2 % : 200 000 × (38 % − 2 %) = 72 000
   await page.getByLabel('Marge visée : Cave').fill('38')
+  // Démarque nulle : elle ne s'affiche qu'avec le détail (03/11/2026)
+  await cave.getByRole('button', { name: /^Démarque et détail par famille/ }).click()
   await page.getByLabel('Démarque : Cave').fill('2')
   await expect(cave).toContainText(/Marge 2027 : 72\sk€/)
   await expect(cave.getByRole('row', { name: /^Démarque/ })).toContainText(/4\sk€ perdus/)
   // Le détail montre la famille réglée
-  await cave.getByRole('button', { name: /^Détail par famille \(1\)/ }).click()
   await expect(page.getByLabel('Marge visée par famille : Bière (Cave)')).toHaveValue('38')
   await page.getByRole('button', { name: 'Enregistrer les ajustements' }).click()
   await expect(page.getByText(/Ajustements enregistrés/)).toBeVisible()

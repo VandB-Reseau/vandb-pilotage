@@ -32,6 +32,7 @@ test('imports : chaque import propose son modèle', async ({ page, isMobile }) =
 test('fiche : picto (i) sur les chiffres clés et les lignes calculées du compte de résultat et de la trésorerie', async ({ page, isMobile }, info) => {
   await seConnecter(page, { role: 'franchise', magasins: magasins() })
   await ouvrir(page, 'Cartes des hypothèses')
+  if (isMobile) await page.getByRole('complementary', { name: 'Impact des changements' }).getByRole('button', { name: 'Voir l’impact' }).click()
   await expect(page.getByRole('button', { name: 'Comment c’est calculé : EBE' })).toBeVisible()
   await expect(page.getByText('D’où vient ce chiffre ?')).toHaveCount(0)
   await page.getByRole('button', { name: 'Aide : % FP (frais de personnel)' }).click()

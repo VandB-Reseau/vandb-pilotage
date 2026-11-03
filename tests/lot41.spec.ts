@@ -178,7 +178,7 @@ test('hypothèses du réseau en une grille : tous les magasins, puis par ancienn
   await page.getByLabel('Salaires et frais : Inflation des frais').fill('1,5')
   await page.getByLabel('Année 1 : évolution des tickets Cave').fill('10')
   await expect(page.getByLabel('Part de la famille dans son univers : Bière (Cave)')).toBeHidden()
-  await page.getByRole('button', { name: /^Détail par famille/ }).click()
+  await page.getByRole('button', { name: /[Dd]étail par famille/ }).click()
   await expect(page.getByLabel('Part de la famille dans son univers : Bière (Cave)')).toBeVisible()
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])

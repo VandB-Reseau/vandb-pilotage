@@ -49,13 +49,13 @@ test('budget sans équipe ni frais saisis : repris des comptes de l’année, tr
 test('budget sur une page : le résultat suit chaque changement ; « D’accord » par thème, enregistré avec les ajustements', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { role: 'franchise', magasins: [{ magasin: MAGASINS[0], statut: 'propose', hypotheses: magasinFictif, base: magasinFictif, maj_le: null, ajustements_siege: {} }] })
   await ouvrir(page, 'Construire')
-  const resultat = page.getByRole('region', { name: 'Indicateurs clés' })
-  await expect(resultat).toContainText('Identique au siège')
-  const ebeAvant = await resultat.textContent()
+  // Panneau Impact (03/11/2026) : il remplace la bande des indicateurs clés
+  const resultat = page.getByRole('complementary', { name: 'Impact des changements' })
+  if (isMobile) await resultat.getByRole('button', { name: 'Voir l’impact' }).click()
+  await expect(resultat.locator('[data-impact="ebe"]')).toContainText('inchangé')
   // Hypothèses et résultat sur la même page : + 5 % de tickets Cave, l'EBE bouge sans changer de page
   await page.getByLabel('Évolution du nombre de tickets : Cave').fill('5')
-  await expect(resultat).toContainText('face au siège')
-  expect(await resultat.textContent()).not.toBe(ebeAvant)
+  await expect(resultat.locator('[data-impact="ebe"]')).not.toContainText('inchangé')
   await expect(page.getByRole('table', { name: /mois par mois$/ })).toBeVisible()
   // Le thème changé le dit ; un autre thème s'accepte d'un clic
   await expect(page.getByLabel('Ventes et marge : changé par le magasin')).toBeVisible()

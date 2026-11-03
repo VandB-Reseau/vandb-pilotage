@@ -171,7 +171,7 @@ test('le Directeur propose le budget de l’an prochain à partir de l’atterri
   expect(envoi.base.caMensuelReference[11]).toBeCloseTo(65_000, 6)
   await expect(page.getByRole('button', { name: `Mettre à jour la proposition ${B}` })).toBeVisible()
   await ouvrir(page, 'Cartes des hypothèses')
-  await expect(page.getByRole('region', { name: 'Indicateurs clés' })).toBeVisible()
+  await expect(page.getByRole('complementary', { name: 'Impact des changements' })).toBeVisible()
 })
 
 test('sans réel de l’année, l’atterrissage renvoie vers le réel', async ({ page }) => {

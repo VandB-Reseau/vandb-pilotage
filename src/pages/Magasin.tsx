@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from 'react'
+import { useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link as RouterLink, useLocation, useNavigate, useParams } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
@@ -64,6 +64,8 @@ import { changementsCibles, effetsChangements, pointsAvantValidation, themeDeCle
 import { marquesEtapes } from '../moteur/campagne'
 import { tresorerieDepartEstimee } from '../moteur/reprise'
 import { ResultatDirect } from '../components/ResultatDirect'
+import { PanneauImpact } from '../components/PanneauImpact'
+import { impactBudget, libelleDernier, suivreDernier, tauxSurCA } from '../moteur/impact'
 import { AccordTheme } from '../components/AccordTheme'
 import {
   anneeBudget, avecEquipeEtFrais, changerStatut, chargerBudgets, envoyerAuSiege, envoyerMessage, chargerParametres, chargerReel, enregistrerAjustements, hypothesesDe, niveauxDe, parametresDuBudget, statutLibelle, valeursSansCible, type LigneMagasin,
@@ -106,6 +108,8 @@ export function Magasin() {
   const navigate = useNavigate()
   const theme = useTheme()
   const telephone = useMediaQuery(theme.breakpoints.down('md'))
+  // Panneau Impact (03/11/2026) : à droite dès que l'écran laisse la place au tableau des hypothèses à côté
+  const impactACote = useMediaQuery('(min-width:1280px)')
   const menu = useContext(MenuMagasin)
   const { profil } = useAuth()
   const annee = anneeBudget()
@@ -145,6 +149,14 @@ export function Magasin() {
   const [brouillonDe, setBrouillonDe] = useState<object | null>(null)
   useEffect(() => { setBrouillon(ligne?.ajustements ?? {}); setBrouillonDe(ligne) }, [ligne])
   useSaisieEnCours(!!ligne && brouillonDe === ligne && JSON.stringify(brouillon) !== JSON.stringify(ligne.ajustements))
+  // Panneau Impact : les hypothèses telles qu'avant le dernier changement (moteur : suivreDernier)
+  const [avantDernier, setAvantDernier] = useState<Cibles | null>(null)
+  const brouillonPrecedent = useRef<Cibles>(brouillon)
+  useEffect(() => {
+    const precedent = brouillonPrecedent.current, enregistre = ligne?.ajustements ?? {}
+    setAvantDernier((a) => suivreDernier(a, precedent, brouillon, enregistre))
+    brouillonPrecedent.current = brouillon
+  }, [brouillon]) // eslint-disable-line react-hooks/exhaustive-deps
   const garde = useGarde()
   // Réel de l'année : pastille de l'onglet si le dernier mois terminé manque (gardé en mémoire pour les onglets Réel et Atterrissage)
   const reel = useChargement(() => chargerReel(nom, anneeEnCours), [nom, anneeEnCours])
@@ -229,7 +241,9 @@ export function Magasin() {
   const tresorerie = b && resolu ? tresorerieBudget(b, resolu.hypotheses, parametres, parametres.tresorerie, departDe(brouillon)) : null
   // Lot 42 (proposition 4) : EBE de la proposition du siège, pour lire l'écart en direct
   const auSiege = ligne.base ? hypothesesDe(ligne, d, ligne.siege ?? {}) : null
-  const ebeSiege = auSiege ? calculerBudget(auSiege.hypotheses, parametres).ebe : null
+  const bSiege = auSiege ? calculerBudget(auSiege.hypotheses, parametres) : null
+  const ebeSiege = bSiege ? bSiege.ebe : null
+  const tresoSiege = bSiege && auSiege ? tresorerieBudget(bSiege, auSiege.hypotheses, parametres, parametres.tresorerie, departDe(ligne.siege ?? {})) : null
   const sansTravaux = resolu?.hypotheses.travaux ? calculerBudget({ ...resolu.hypotheses, travaux: undefined }, parametres) : null
   // Lot 42 (proposition 3) : copie thème par thème vers les magasins dont le budget est proposé ou en discussion
   const groupesNoms = new Map(d.groupes.map((g) => [g.id, g.nom]))
@@ -350,7 +364,9 @@ export function Magasin() {
           {message.details?.length ? <Box component="ul" sx={{ m: 0, mt: 0.5, pl: 2.5 }}>{message.details.map((t) => <li key={t}>{t}</li>)}</Box> : null}
         </Alert>
   ) : null
-  const barreBudget = espace === 'budget' && peutAjuster && modifie && b ? (
+  // Panneau Impact (Joseph, 03/11/2026) : sur l'étape Construire et ses thèmes, il remplace la barre d'enregistrement
+  const avecImpact = espace === 'budget' && !!b && !!ligne.base && (onglet === 'budget' || estTheme(onglet))
+  const barreBudget = espace === 'budget' && peutAjuster && modifie && b && !avecImpact ? (
     <BarreEnregistrement
           changements={nombreChangements(ligne.ajustements, brouillon)} occupe={occupe} desactive={!enregistrable}
           libelle="Enregistrer les ajustements" onAnnuler={() => setBrouillon(ligne.ajustements)} onEnregistrer={enregistrer}
@@ -361,6 +377,23 @@ export function Magasin() {
             ...(tresoAvant && tresorerie ? [{ libelle: 'Trésorerie fin décembre', avant: milliers(tresoAvant.fin), apres: milliers(tresorerie.fin) }] : []),
           ] : []}
         />
+  ) : null
+
+  const avantH = avecImpact && avantDernier && peutAjuster ? hypothesesDe(ligne, d, avantDernier) : null
+  const bDernier = avantH ? calculerBudget(avantH.hypotheses, parametres) : null
+  const panneau = avecImpact && b && bAvant ? (
+    <PanneauImpact
+      key={ligne.magasin} cote={impactACote}
+      enregistre={impactBudget(b, bAvant, tresorerie, tresoAvant)}
+      siege={bSiege ? impactBudget(b, bSiege, tresorerie, tresoSiege) : null}
+      referenceParDefaut={peutAjuster ? 'enregistre' : 'siege'}
+      dernier={bDernier && avantDernier ? { libelle: libelleDernier(avantDernier, brouillon, nomsFrais), ca: b.ca - bDernier.ca, ebe: b.ebe - bDernier.ebe } : null}
+      onAnnulerDernier={avantDernier ? () => setBrouillon(avantDernier) : undefined}
+      changements={peutAjuster && modifie ? nombreChangements(ligne.ajustements, brouillon) : 0}
+      onAnnuler={() => setBrouillon(ligne.ajustements)} onEnregistrer={peutAjuster ? enregistrer : undefined}
+      occupe={occupe} desactive={!enregistrable} avertissement={enregistrable ? undefined : 'La saisonnalité doit faire 100 %.'}
+      infos={{ ca: <DetailCalcul quoi="ca" budget={b} annee={annee} />, marge: <DetailCalcul quoi="marge" budget={b} annee={annee} />, ebe: <DetailCalcul quoi="ebe" budget={b} annee={annee} /> }}
+    />
   ) : null
 
   // Lot 38 (D1) : passer d'une étape du budget à la suivante sans remonter en haut de page
@@ -436,6 +469,7 @@ export function Magasin() {
         </Box>
       )}
 
+      <AvecImpact panneau={panneau} cote={impactACote}>
       {onglet === 'synthese' ? (
         <SyntheseMagasin key={ligne.magasin} magasin={ligne.magasin} d={d} annee={anneeEnCours} parametres={donnees.parametresN} allerA={aller}
           visiteEtActions={!franchise && profil?.role !== 'aucun'} proposerAction={!franchise && profil?.role !== 'aucun' ? (intitule) => setProposition({ intitule, n: Date.now() }) : undefined}
@@ -524,9 +558,9 @@ export function Magasin() {
 
       {b && !themeOuvert && (
         <>
-          {/* Lot 42 (proposition 4) : le résultat reste en vue et se recalcule à chaque changement */}
-          <ResultatDirect budget={b} ebeSiege={ebeSiege} tresorerie={tresorerie} annee={annee}
-            infos={{ ca: <DetailCalcul quoi="ca" budget={b} annee={annee} />, marge: <DetailCalcul quoi="marge" budget={b} annee={annee} />, ebe: <DetailCalcul quoi="ebe" budget={b} annee={annee} /> }} />
+          {/* Lot 42 (proposition 4) : le résultat reste en vue et se recalcule à chaque changement ; sur Construire, c'est le panneau Impact */}
+          {!avecImpact && <ResultatDirect budget={b} ebeSiege={ebeSiege} tresorerie={tresorerie} annee={annee}
+            infos={{ ca: <DetailCalcul quoi="ca" budget={b} annee={annee} />, marge: <DetailCalcul quoi="marge" budget={b} annee={annee} />, ebe: <DetailCalcul quoi="ebe" budget={b} annee={annee} /> }} />}
 
           {(peutValider && ligne.base) || (directeur && ligne.base && !copie) || (franchise && peutAjuster && onglet !== 'echanges') ? <Stack direction="row" useFlexGap spacing={1.5} className="pas-a-l-impression" sx={{ flexWrap: 'wrap' }} aria-label="Actions sur le budget">
             {/* Lot 41 : envoyer et valider se font à l'étape 3, après le résultat, devant les changements du magasin */}
@@ -593,12 +627,12 @@ export function Magasin() {
           <Stack spacing={3} className={partie('ventes')} id="partie-ventes" sx={{ scrollMarginTop: 200 }}>
             {communHypotheses && (
               <Card component="section" aria-label="Hypothèses du magasin">
-                <HypothesesUnivers familles={b.familles} flux={b.flux} annee={annee} {...communHypotheses} suite={resolu ? <>
+                <HypothesesUnivers familles={b.familles} flux={b.flux} annee={annee} surCA={resolu ? tauxSurCA(resolu.hypotheses.frais, parametres) : 0} {...communHypotheses} suite={resolu ? <>
                   {/* Lot 43 : la hausse des salaires et l'inflation des frais se règlent ici seulement, avec leur effet sur l'EBE */}
                   <HypotheseCle cle="hausseSalaires" nom="Hausse générale des salaires" libelle="Hausse générale des salaires" quoi="hausse générale des salaires" aide="hausseSalaires"
-                    apres={`${milliers(b.personnel)} · ${taux(b.ratios.pctFP)} de FP`} effet={<Effet montant={b.ebe - ebeAvec('hausseSalaires', 0)} quoi="d’EBE" />} {...communHypotheses} />
+                    apres={`${milliers(b.personnel)} · ${taux(b.ratios.pctFP)} de FP`} effet={<Effet ebe={b.ebe - ebeAvec('hausseSalaires', 0)} />} {...communHypotheses} />
                   <HypotheseCle cle="inflationFrais" nom="Inflation des frais" libelle="Inflation des frais" quoi="inflation des frais" aide="inflationFrais"
-                    apres={`${milliers(b.chargesExternes + b.impotsTaxes - b.redevance - b.publicite)} de frais`} effet={<Effet montant={b.ebe - ebeAvec('inflationFrais', 0)} quoi="d’EBE" />} {...communHypotheses} />
+                    apres={`${milliers(b.chargesExternes + b.impotsTaxes - b.redevance - b.publicite)} de frais`} effet={<Effet ebe={b.ebe - ebeAvec('inflationFrais', 0)} />} {...communHypotheses} />
                 </> : undefined} />
                 {accordTheme && <Box className="pas-a-l-impression" sx={{ px: 2.5, pb: 2 }}>{accordTheme('ventes', 'Ventes et marge')}</Box>}
               </Card>
@@ -667,7 +701,20 @@ export function Magasin() {
 
       {barreBudget}
       </Stack>)}
+      </AvecImpact>
       {piedEtapes}
+    </Box>
+  )
+}
+
+// Panneau Impact : colonne de droite sur grand écran, barre en bas d'écran sinon ; sans panneau, la page telle quelle
+function AvecImpact({ panneau, cote, children }: { panneau: ReactNode; cote: boolean; children: ReactNode }) {
+  if (!panneau) return <>{children}</>
+  if (!cote) return <>{children}{panneau}</>
+  return (
+    <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 300px', columnGap: 3, alignItems: 'start' }}>
+      <Box sx={{ minWidth: 0 }}>{children}</Box>
+      {panneau}
     </Box>
   )
 }

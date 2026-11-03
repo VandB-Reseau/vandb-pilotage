@@ -32,7 +32,7 @@ export function ResultatDirect({ budget: b, ebeSiege, tresorerie, annee, infos =
   ]
   return (
     <Card component="section" aria-label="Indicateurs clés" data-annee={annee}
-      sx={{ position: { md: 'sticky' }, top: { md: 76 }, zIndex: 3, px: 2.5, py: 1.5, boxShadow: { md: 3 } }}>
+      sx={{ position: { md: 'sticky' }, top: { md: 76 }, zIndex: 6, px: 2.5, py: 1.5, boxShadow: { md: 3 } }}>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))', lg: `repeat(${cases.length}, minmax(0, 1fr))` }, columnGap: 3, rowGap: 1.5 }}>
         {cases.map((c) => (
           <Box key={c.libelle} sx={{ minWidth: 0 }}>
