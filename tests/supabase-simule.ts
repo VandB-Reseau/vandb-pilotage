@@ -68,6 +68,9 @@ export interface OptionsSimulation {
   journal?: JournalSimule[]
   comptesConnus?: string[] // emails de comptes de connexion existants
   // Années du pilotage (0027) ; absentes : table pas encore créée, l'app suit le calendrier
+  // Préparation de la fusion (0028) ; absentes : fonctions pas encore créées
+  concordance?: { store_name: string; mois: string; ca_caisse: number | null; tickets_caisse: number | null; ca_reseau: number | null; tickets_reseau: number | null }[]
+  orphelins?: { store_name: string; lignes: number; nouveau_nom: string | null }[]
   annees?: { annee: number; etat: 'campagne' | 'suivi' | 'close'; campagne_le?: string | null; suivi_le?: string | null; close_le?: string | null }[]
 }
 export type StockSimule = { store_name: string; annee: number; mois: number; cave: number | null; bar: number | null }
@@ -149,6 +152,12 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
       return route.fulfill({ json: { parametrer: options.role === undefined || options.role === 'directeur' || !!options.parametreur, controle_gestion: !!controle } })
     }
     if (url.pathname === '/rest/v1/rpc/budgets_du_compte') return route.fulfill({ json: { magasins, reseau, groupes } })
+    if (url.pathname === '/rest/v1/rpc/concordance_ca' || url.pathname === '/rest/v1/rpc/magasins_orphelins') {
+      if (!options.concordance) return route.fulfill({ status: 404, json: { code: 'PGRST202', message: 'Could not find the function in the schema cache' } })
+      if (url.pathname === '/rest/v1/rpc/magasins_orphelins') return route.fulfill({ json: options.orphelins ?? [] })
+      const annee = (req.postDataJSON() as { p_annee: number }).p_annee
+      return route.fulfill({ json: options.concordance.filter((l) => l.mois.startsWith(String(annee))) })
+    }
     if (url.pathname === '/rest/v1/rpc/ouvertures_reseau') return route.fulfill({ json: options.ouverturesReseau ?? [] })
     // Réel totalisé par magasin et par mois, comme pilotage.reel_du_compte
     if (url.pathname === '/rest/v1/rpc/reel_du_compte') {
@@ -221,6 +230,14 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
           ? { resolu_le: new Date().toISOString(), resolu_par_role: options.role ?? 'directeur', resolu_par_nom: nomDuRole[options.role ?? 'directeur'] ?? null }
           : { resolu_le: null, resolu_par_role: null, resolu_par_nom: null })
         return route.fulfill({ status: 204, body: '' })
+      }
+      // Rattachement d'un magasin renommé (0028) : Directeur seul ; ses lignes passent au nouveau nom
+      if (table === 'rpc/renommer_magasin') {
+        if ((options.role ?? 'directeur') !== 'directeur') return route.fulfill({ status: 400, json: { message: 'acces_refuse' } })
+        const c = corps as { p_ancien: string; p_nouveau: string }
+        const i = (options.orphelins ?? []).findIndex((o) => o.store_name === c.p_ancien)
+        const lignes = i >= 0 ? options.orphelins!.splice(i, 1)[0].lignes : 0
+        return route.fulfill({ json: { deplacees: Math.max(0, lignes - 1), restees: lignes ? 1 : 0 } })
       }
       // Années (0027) : mêmes règles que ouvrir_campagne, demarrer_suivi et clore_annee
       if (annees && ['rpc/ouvrir_campagne', 'rpc/demarrer_suivi', 'rpc/clore_annee'].includes(table)) {

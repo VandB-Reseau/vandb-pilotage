@@ -25,6 +25,10 @@ INSERT INTO public.app_config (key, value) VALUES
   ('store_renames', '{"Arras ancien":"Arras"}') ON CONFLICT (key) DO NOTHING;
 INSERT INTO public.store_overrides (store_name, open_date) VALUES ('Lille', '2019-03-12') ON CONFLICT (store_name) DO NOTHING;
 
+-- Chiffres saisis dans l'app réseau (0028) : Lille en septembre, Arras en août (absent de la caisse)
+INSERT INTO public.store_finance (store_name, month, ca_cave, ca_bar) VALUES ('Lille', '2026-09-01', 0.6, 0.3) ON CONFLICT DO NOTHING;
+INSERT INTO public.store_finance (store_name, month, ca_ext, freq) VALUES ('Arras', '2026-08-01', 5, 2) ON CONFLICT DO NOTHING;
+
 CREATE OR REPLACE FUNCTION pg_temp.refuse(appel text) RETURNS bigint LANGUAGE plpgsql AS $$
 BEGIN
   EXECUTE appel; RETURN 0;
@@ -49,7 +53,7 @@ INSERT INTO pilotage.reel_mensuel (store_name, mois, univers, famille, ca_ht) VA
 SELECT pg_temp.attendre('Directeur : tous les magasins', (SELECT cardinality(pilotage.mes_magasins())), 3);
 SELECT pg_temp.attendre('Directeur : tous les budgets', (SELECT count(*) FROM pilotage.budgets), 3);
 SELECT pg_temp.attendre('Directeur : tableau des magasins', (SELECT jsonb_array_length(pilotage.magasins_du_compte(2027))), 3);
-SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 27);
+SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 28);
 -- Date d'ouverture de la fiche magasin réseau (0024) : surcharge d'abord, renommage suivi, dates inconnues ou illisibles écartées
 SELECT pg_temp.attendre('Directeur : dates d''ouverture du réseau', (SELECT count(*) FROM pilotage.ouvertures_reseau()), 2);
 SELECT pg_temp.attendre('Ouverture réseau : la surcharge l''emporte, au 1er du mois', (SELECT count(*) FROM pilotage.ouvertures_reseau() WHERE store_name = 'Lille' AND ouverture = '2019-03-01'), 1);
@@ -197,10 +201,33 @@ SELECT pilotage.ouvrir_campagne(2028);
 SELECT pg_temp.attendre('Années : rouvrir la même campagne ne change rien', (SELECT count(*) FROM pilotage.parametres_reseau WHERE annee = 2028), 1);
 DELETE FROM pilotage.parametres_reseau WHERE annee = 2028;
 
+-- ── Préparation de la fusion (0028) : CA caisse face à l'app réseau, magasins renommés rattachés par le Directeur
+SELECT pg_temp.attendre('Concordance : mois de la caisse absent de l''app réseau', (SELECT count(*) FROM pilotage.concordance_ca(2026) WHERE store_name = 'Nice' AND mois = '2026-09-01' AND ca_caisse = 1 AND ca_reseau IS NULL), 1);
+SELECT pg_temp.attendre('Concordance : une seule ligne par magasin et mois', (SELECT count(*) FROM (SELECT store_name, mois FROM pilotage.concordance_ca(2026) GROUP BY 1, 2 HAVING count(*) > 1) d), 0);
+SELECT pg_temp.attendre('Concordance : CA de l''app réseau = cave + bar + extérieur', (SELECT count(*) FROM pilotage.concordance_ca(2026) WHERE store_name = 'Lille' AND ca_caisse = 1 AND ca_reseau = 0.9), 1);
+SELECT pg_temp.attendre('Concordance : mois de l''app réseau absent de la caisse', (SELECT count(*) FROM pilotage.concordance_ca(2026) WHERE store_name = 'Arras' AND ca_caisse IS NULL AND ca_reseau = 5 AND tickets_reseau = 2), 1);
+SELECT pg_temp.attendre('Concordance : rien pour une autre année', (SELECT count(*) FROM pilotage.concordance_ca(2025)), 0);
+INSERT INTO pilotage.frais (store_name, code, libelle, rubrique, annuel) VALUES
+  ('Arras', 'loyer', 'Locations immobilières', 'immobilier', 30000),
+  ('Arras ancien', 'loyer', 'Locations immobilières', 'immobilier', 29000),
+  ('Arras ancien', 'energie', 'Électricité, eau, gaz', 'energies', 1200);
+SELECT pg_temp.attendre('Orphelins : ancien nom repéré, avec son nouveau nom', (SELECT count(*) FROM pilotage.magasins_orphelins() WHERE store_name = 'Arras ancien' AND lignes = 2 AND nouveau_nom = 'Arras'), 1);
+SELECT pg_temp.attendre('Orphelins : un magasin connu n''est pas orphelin', (SELECT count(*) FROM pilotage.magasins_orphelins() WHERE store_name IN ('Lille', 'Arras', 'Nice')), 0);
+WITH r AS (SELECT pilotage.renommer_magasin('Arras ancien', 'Arras') AS j)
+SELECT pg_temp.attendre('Renommage : une ligne déplacée, celle déjà présente sous le nouveau nom reste', (SELECT (j->>'deplacees')::int * 10 + (j->>'restees')::int FROM r), 11);
+SELECT pg_temp.attendre('Renommage : le loyer du nouveau nom n''est pas écrasé', (SELECT count(*) FROM pilotage.frais WHERE store_name = 'Arras' AND code = 'loyer' AND annuel = 30000), 1);
+SELECT pg_temp.attendre('Renommage : noms identiques refusés', pg_temp.refuse('SELECT pilotage.renommer_magasin(''Arras'', ''Arras'')'), 1);
+DELETE FROM pilotage.frais WHERE store_name IN ('Arras', 'Arras ancien');
+SET request.jwt.claim.sub = '00000000-0000-0000-0000-000000000001';
+SELECT pg_temp.attendre('Contrôle de gestion : lit la concordance des CA', (SELECT count(*) FROM pilotage.concordance_ca(2026) WHERE store_name = 'Lille' AND mois = '2026-09-01'), 1);
+SELECT pg_temp.attendre('Contrôle de gestion : ne renomme pas', pg_temp.refuse('SELECT pilotage.renommer_magasin(''Nice'', ''Nice 2'')'), 1);
+SET request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
+
 -- ── Coach : lit les budgets et le réel de ses magasins, n'écrit rien
 SET request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000c';
 SELECT pg_temp.attendre('Coach : lit les années', (SELECT count(*) FROM pilotage.annees), 3);
 SELECT pg_temp.attendre('Coach : ne démarre pas le suivi', pg_temp.refuse('SELECT pilotage.demarrer_suivi(2028)'), 1);
+SELECT pg_temp.attendre('Coach : ni concordance, ni orphelins, ni renommage', pg_temp.refuse('SELECT pilotage.concordance_ca(2026)') + pg_temp.refuse('SELECT pilotage.magasins_orphelins()') + pg_temp.refuse('SELECT pilotage.renommer_magasin(''Lille'', ''X'')'), 3);
 SELECT pg_temp.attendre('Coach : archives des frais de ses magasins seulement', (SELECT count(*) FROM pilotage.frais_archives WHERE store_name <> 'Lille'), 0);
 SELECT pg_temp.attendre('Coach : budgets de ses magasins', (SELECT count(*) FROM pilotage.budgets), 1);
 SELECT pg_temp.attendre('Coach : échanges de ses magasins seulement', (SELECT count(*) FROM pilotage.echanges_budget), 1);
@@ -322,6 +349,7 @@ SELECT pg_temp.attendre('RR : pas la liste des RR', (SELECT count(*) FROM jsonb_
 
 -- ── Franchisé : son magasin ; modifie ses hypothèses, jamais la proposition ni la validation
 SET request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000f';
+SELECT pg_temp.attendre('Franchisé : ni concordance, ni orphelins, ni renommage', pg_temp.refuse('SELECT pilotage.concordance_ca(2026)') + pg_temp.refuse('SELECT pilotage.magasins_orphelins()') + pg_temp.refuse('SELECT pilotage.renommer_magasin(''Lille'', ''X'')'), 3);
 SELECT pg_temp.attendre('Franchisé : son budget seulement', (SELECT count(*) FROM pilotage.budgets), 1);
 SELECT pg_temp.attendre('Franchisé : son réel seulement', (SELECT count(*) FROM pilotage.reel_mensuel WHERE store_name <> 'Lille'), 0);
 SELECT pg_temp.attendre('Franchisé : réel du compte limité à son magasin', (SELECT (pg_temp.reel_magasins(2026) = 'Lille')::int), 1);
@@ -429,6 +457,7 @@ SELECT pg_temp.attendre('Sans rôle : aucun groupe', (SELECT count(*) FROM pilot
 SELECT pg_temp.attendre('Sans rôle : aucun réel', (SELECT count(*) FROM pilotage.reel_mensuel) + (SELECT count(*) FROM pilotage.reel_tickets), 0);
 SELECT pg_temp.attendre('Sans rôle : aucun frais', (SELECT count(*) FROM pilotage.frais), 0);
 SELECT pg_temp.attendre('Sans rôle : aucune année ni archive de frais', (SELECT count(*) FROM pilotage.annees) + (SELECT count(*) FROM pilotage.frais_archives), 0);
+SELECT pg_temp.attendre('Sans rôle : ni concordance, ni orphelins, ni renommage', pg_temp.refuse('SELECT pilotage.concordance_ca(2026)') + pg_temp.refuse('SELECT pilotage.magasins_orphelins()') + pg_temp.refuse('SELECT pilotage.renommer_magasin(''Lille'', ''X'')'), 3);
 SELECT pg_temp.attendre('Sans rôle : n''ouvre pas de campagne', pg_temp.refuse('SELECT pilotage.demarrer_suivi(2028)'), 1);
 SELECT pg_temp.attendre('Sans rôle : aucune part réalisée', (SELECT count(*) FROM pilotage.parts_realisees), 0);
 SELECT pg_temp.attendre('Sans rôle : aucune correspondance du FEC', (SELECT count(*) FROM pilotage.correspondances_fec), 0);
@@ -472,6 +501,7 @@ SELECT pg_temp.attendre('Visiteur : aucun accès aux versions nommées', pg_temp
 SELECT pg_temp.attendre('Visiteur : aucun accès à l''équipe', pg_temp.refuse('SELECT count(*) FROM pilotage.equipe'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès aux prêts', pg_temp.refuse('SELECT count(*) FROM pilotage.emprunts'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès aux années', pg_temp.refuse('SELECT count(*) FROM pilotage.annees'), 1);
+SELECT pg_temp.attendre('Visiteur : ni concordance ni renommage', pg_temp.refuse('SELECT pilotage.concordance_ca(2026)') + pg_temp.refuse('SELECT pilotage.renommer_magasin(''Lille'', ''X'')'), 2);
 SELECT pg_temp.attendre('Visiteur : n''ouvre pas de campagne', pg_temp.refuse('SELECT pilotage.ouvrir_campagne(2028)'), 1);
 SELECT pg_temp.attendre('Visiteur : pas de réel du compte', pg_temp.refuse('SELECT pilotage.reel_du_compte(2026)'), 1);
 SELECT pg_temp.attendre('Visiteur : pas de journal des paramètres', pg_temp.refuse('SELECT count(*) FROM pilotage.journal_parametres'), 1);

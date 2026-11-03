@@ -541,6 +541,12 @@ export const AIDE = {
     quoi: 'L’argent que l’activité de l’année laisse au magasin pour rembourser ses emprunts et investir.',
     calcul: 'CAF = résultat net + dotations aux amortissements. Trésorerie dégagée = CAF − capital remboursé. Variation de l’année = trésorerie dégagée − investissements + emprunts et apport (hors stock et décalages de TVA). Échéances ÷ CAF : part de la CAF prise par les emprunts.',
   },
+  fusion: {
+    titre: 'Avant la fusion avec l’app réseau',
+    quoi: 'Le CA de la caisse comparé, mois par mois, aux chiffres saisis à la main dans l’app réseau, et les magasins dont le nom a changé dans l’app réseau. À la fusion, la caisse devient la seule source du CA et les chiffres saisis dans l’app réseau sont retirés.',
+    remplir: 'Un mois connu de l’app réseau mais absent de la caisse serait perdu : importe-le avant la fusion. Un magasin renommé dans l’app réseau se rattache ici, ses budgets, son réel et son équipe suivent son nouveau nom.',
+    calcul: 'CA de l’app réseau = CA cave + CA bar + CA extérieur. Écart = (caisse − app réseau) ÷ app réseau, sur les mois chiffrés des deux côtés. Au-delà de 2 % sur un mois, le magasin est signalé.',
+  },
 } satisfies Record<string, TexteAide>
 
 export type SujetAide = keyof typeof AIDE

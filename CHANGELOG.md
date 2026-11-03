@@ -5,6 +5,16 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Avant la fusion avec l'app réseau (Base : 0028)
+
+- Base : passer `supabase/migrations/0028_preparation_fusion.sql` (lecture seule des tables de l'app réseau, aucun
+  accès ouvert au franchisé, au Coach ni au RR).
+- Joseph (3/11, décisions sur la fusion) : la caisse devient la seule source du CA. Dans Imports de caisse, la carte
+  « Avant la fusion avec l'app réseau » compare, magasin par magasin, le CA de la caisse et celui saisi dans l'app
+  réseau : mois absents de la caisse d'abord (ils seraient perdus), puis écarts de plus de 2 % sur un mois.
+- Un magasin renommé dans l'app réseau gardait ses budgets, son réel et son équipe sous l'ancien nom : la même carte
+  les signale et le Directeur les rattache au nouveau nom en un clic, sans rien écraser.
+
 ### Suivi et Budgets d'une année sur l'autre (Base : 0027)
 
 - Base : passer `supabase/migrations/0027_annees.sql` (années du pilotage, archives des frais). Elle démarre avec
