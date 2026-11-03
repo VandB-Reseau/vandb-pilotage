@@ -576,8 +576,9 @@ export async function chargerMesures(aujourdhui = new Date()): Promise<Record<st
 export interface RatiosMagasin { magasin: string; groupeId: number | null; ratios: Ratios }
 export async function chargerComparaison(aujourdhui = new Date()): Promise<{ annee: number; anneeBudget: number; groupes: { id: number; nom: string }[]; reel: RatiosMagasin[]; budget: RatiosMagasin[]; familles: { magasin: string; groupeId: number | null; familles: Famille[] }[]; magasinsFamille: number }> {
   const annee = aujourdhui.getFullYear(), aB = anneeBudget(aujourdhui)
-  const [d, { parametres }, dB, { parametres: pB }, reel] = await Promise.all([
+  const [d, { parametres }, dB, { parametres: pB }, reel, quadrimestres] = await Promise.all([
     chargerBudgets(annee), chargerParametres(annee), chargerBudgets(aB), chargerParametres(aB), chargerReelDuCompte(annee),
+    chargerQuadrimestres(annee).catch((): SaisiesQuadrimestres => ({})),
   ])
   const p = { tauxRedevance: parametres.tauxRedevance, tauxPublicite: parametres.tauxPublicite, charges: parametres.charges, annee }
   const douze = (): MoisReel[] => Array.from({ length: 12 }, () => ({ caHT: 0, margeHT: 0, caAvecMarge: 0, caTTC: 0, tickets: 0 }))
@@ -591,6 +592,7 @@ export async function chargerComparaison(aujourdhui = new Date()): Promise<{ ann
       const ligne = ligneReseau({
         magasin: l.magasin, n: r.n, n1: r.n1 ?? douze(), budget: h ? calculerBudget(h.hypotheses, parametresDuBudget(l, parametres)) : null,
         equipe: d.equipes[l.magasin], frais: frais?.length ? fraisDepuisLignes(frais).frais : undefined,
+        quadrimestres: quadrimestres[l.magasin] ?? {},
       }, p)
       return ligne.moisRealises ? [{ magasin: l.magasin, groupeId: l.groupeId, ratios: ratiosDuReel(ligne) }] : []
     }),

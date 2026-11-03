@@ -28,7 +28,8 @@ import { useChargement } from '../data/useChargement'
 import { nombre } from '../import/caisse'
 import { enChiffres, ecartMontant, milliers, montant, MOIS, MOIS_LONGS } from '../lib/format'
 import { calculerBudget } from '../moteur/budget'
-import { coutVentesDe, stockParDefaut, suiviStock, type EtatStock, type StockSaisi } from '../moteur/stock'
+import { coutVentesDe, stockComplete, stockParDefaut, suiviStock, type EtatStock, type StockSaisi } from '../moteur/stock'
+import { Aide } from './Aide'
 import { brand } from '../theme/theme'
 import { styleTableau } from '../theme/tableau'
 
@@ -50,7 +51,8 @@ export function StockMagasin({ magasin, annee, peutSaisir }: { magasin: string; 
     () => Promise.all([
       chargerParametres(annee), chargerReel(magasin, annee), chargerReel(magasin, annee - 1), chargerSecours(magasin, annee).catch(() => undefined),
       chargerStocks(magasin, annee), chargerBudgets(annee + 1).catch(() => null), chargerParametres(annee + 1).catch(() => null),
-    ]).then(([p, reel, reelN1, secours, stocks, budgetsSuivants, pSuivants]) => ({ parametres: p.parametres, reel, reelN1, secours, stocks, budgetsSuivants, pSuivants })),
+      chargerStocks(magasin, annee - 1).catch(() => null),
+    ]).then(([p, reel, reelN1, secours, stocks, budgetsSuivants, pSuivants, stocksN1]) => ({ parametres: p.parametres, reel, reelN1, secours, stocks, budgetsSuivants, pSuivants, decembre: stocksN1?.[11] ?? null })),
     [magasin, annee])
   const [mois, setMois] = useState<number | null>(null)
   const [champs, setChamps] = useState({ cave: '', bar: '' })
@@ -146,7 +148,17 @@ export function StockMagasin({ magasin, annee, peutSaisir }: { magasin: string; 
     )
   }
 
-  const s = suiviStock(coutVentesDe(atterri.budget, budgetSuivant), saisies, parametresStock)
+  const cout = coutVentesDe(atterri.budget, budgetSuivant)
+  const s = suiviStock(cout, saisies, parametresStock)
+  // Mois non saisis retrouvés entre deux saisies (03/11/2026), en italique précédés de « ≈ »
+  const complet = stockComplete(cout, saisies, donnees.decembre)
+  const aDesEstimes = complet.some((m) => m.estime)
+  const caseStock = (saisi: number | null, valeur: number | null, cle: number) => (
+    <TableCell key={cle} align="right" data-source={saisi === null && valeur !== null ? 'estime' : undefined}
+      sx={saisi === null && valeur !== null ? { fontStyle: 'italic', color: 'text.secondary', position: 'relative' } : undefined}>
+      {valeur === null ? '' : saisi === null ? <><Box component="span" sx={{ fontStyle: 'normal' }}>≈ </Box>{enChiffres(Math.round(valeur))}<Box component="span" sx={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}> estimé</Box></> : enChiffres(Math.round(valeur))}
+    </TableCell>
+  )
   const d = s.dernier
   const reglage = `Cave ${reglageMois.format(parametresStock.mois.cave)} mois, Bar ${reglageMois.format(parametresStock.mois.bar)} mois d’achats à venir`
   // Sans stock saisi : la cible du dernier mois de ventes connu
@@ -173,7 +185,10 @@ export function StockMagasin({ magasin, annee, peutSaisir }: { magasin: string; 
       {boutonSaisie && <Box>{boutonSaisie}</Box>}
 
       <Card component="section" aria-label={`Stock de fin de mois ${annee}`} sx={{ p: { xs: 2, md: 2.5 } }}>
-        <Typography variant="h2" sx={{ mb: 2 }}>Stock de fin de mois</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 2 }}>
+          <Typography variant="h2">Stock de fin de mois</Typography>
+          {aDesEstimes && <Aide sujet="stockEstime" />}
+        </Box>
         <GraphiqueMois
           titre={`Stock de fin de mois ${annee} face à la cible`}
           format={montant}
@@ -181,6 +196,7 @@ export function StockMagasin({ magasin, annee, peutSaisir }: { magasin: string; 
           series={[
             { nom: 'Fourchette visée', forme: 'bande', couleur: 'rgba(58, 143, 141, 0.22)', valeurs: s.mois.map((m) => m.maxi), bas: s.mois.map((m) => m.mini) },
             { nom: 'Stock saisi', forme: 'barre', couleur: brand.vert, valeurs: s.mois.map((m) => m.reel), couleurs: s.mois.map((m) => (m.etat ? ETAT[m.etat].couleur : null)) },
+            ...(aDesEstimes ? [{ nom: 'Stock estimé', forme: 'contour' as const, couleur: brand.vertFonce, valeurs: complet.map((m, i) => (s.mois[i].reel === null && m.estime ? m.total : null)) }] : []),
             { nom: 'Cible', forme: 'ligne', couleur: theme.palette.text.primary, pointille: true, valeurs: s.mois.map((m) => m.cible) },
           ]}
         />
@@ -205,15 +221,15 @@ export function StockMagasin({ magasin, annee, peutSaisir }: { magasin: string; 
             <TableBody>
               <TableRow>
                 <TableCell>Stock Cave</TableCell>
-                {s.mois.map((m) => <TableCell key={m.mois} align="right">{m.reelUnivers.cave === null ? '' : enChiffres(Math.round(m.reelUnivers.cave))}</TableCell>)}
+                {s.mois.map((m, i) => caseStock(m.reelUnivers.cave, complet[i].cave, m.mois))}
               </TableRow>
               <TableRow>
                 <TableCell>Stock Bar</TableCell>
-                {s.mois.map((m) => <TableCell key={m.mois} align="right">{m.reelUnivers.bar === null ? '' : enChiffres(Math.round(m.reelUnivers.bar))}</TableCell>)}
+                {s.mois.map((m, i) => caseStock(m.reelUnivers.bar, complet[i].bar, m.mois))}
               </TableRow>
               <TableRow className="ligne-forte" sx={{ '& td': { fontWeight: 700 } }}>
                 <TableCell>Stock total</TableCell>
-                {s.mois.map((m) => <TableCell key={m.mois} align="right">{m.reel === null ? '' : enChiffres(Math.round(m.reel))}</TableCell>)}
+                {s.mois.map((m, i) => caseStock(m.reel, m.reel ?? complet[i].total, m.mois))}
               </TableRow>
               <TableRow>
                 <TableCell>Cible</TableCell>
