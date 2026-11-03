@@ -72,6 +72,7 @@ export function changementsCibles(siege: Cibles, magasin: Cibles, nomsFrais: Rec
   const s = siege as Record<string, unknown>, m = magasin as Record<string, unknown>
   const l: Changement[] = []
   for (const k of [...new Set([...Object.keys(s), ...Object.keys(m)])].sort((a, b) => rang(a) - rang(b) || a.localeCompare(b))) {
+    if (k === 'accords') continue // lot 42 : thèmes acceptés par le franchisé, pas une hypothèse
     if (estParEntree(k)) {
       const a = (s[k] ?? {}) as Record<string, unknown>, b = (m[k] ?? {}) as Record<string, unknown>
       for (const e of [...new Set([...Object.keys(a), ...Object.keys(b)])].sort((x, y) => x.localeCompare(y, 'fr'))) {
@@ -93,10 +94,40 @@ export function effetsChangements(siege: Cibles, magasin: Cibles, changements: C
 
 // Ce que la validation doit signaler avant de figer le budget
 export interface PointValidation { cle: 'tresorerie' | 'pointBas' | 'envoi'; texte: string }
-export function pointsAvantValidation(e: { tresorerieDepart: number | undefined; pointBas: { montant: number; mois: number } | null; changementsNonEnvoyes: boolean }, mois: readonly string[]): PointValidation[] {
+export function pointsAvantValidation(e: { tresorerieDepart: number | undefined; pointBas: { montant: number; mois: number } | null; changementsNonEnvoyes: boolean; estimee?: string }, mois: readonly string[]): PointValidation[] {
   const p: PointValidation[] = []
-  if (e.tresorerieDepart === undefined) p.push({ cle: 'tresorerie', texte: 'La trésorerie au 1er janvier n’est pas saisie : le plan de trésorerie part de zéro.' })
+  // Lot 42 : trésorerie estimée depuis les comptes ; la validation la fige, le solde bancaire reste plus sûr
+  if (e.tresorerieDepart === undefined && e.estimee) p.push({ cle: 'tresorerie', texte: `La trésorerie au 1er janvier n’est pas saisie : elle est estimée à ${e.estimee} depuis les comptes, et sera figée à ce montant.` })
+  else if (e.tresorerieDepart === undefined) p.push({ cle: 'tresorerie', texte: 'La trésorerie au 1er janvier n’est pas saisie : le plan de trésorerie part de zéro.' })
   if (e.pointBas && e.pointBas.montant < 0) p.push({ cle: 'pointBas', texte: `La trésorerie passe sous zéro en ${mois[e.pointBas.mois]} (point bas du plan).` })
   if (e.changementsNonEnvoyes) p.push({ cle: 'envoi', texte: 'Le franchisé a des changements enregistrés qu’il n’a pas encore envoyés.' })
   return p
+}
+
+// Lot 42 (proposition 6) : budgets envoyés au siège sans aucun changement par rapport à sa proposition (la trésorerie au
+// 1er janvier saisie n'en est pas un : c'est un constat, pas un désaccord). Le Responsable
+// Régional ou le Directeur peut les valider ensemble ; les autres se revoient un par un.
+export interface BudgetAValider { magasin: string; statut: string | null; envoyeLe: string | null; siege: Cibles | null; ajustements: Cibles }
+export function pretsAValider<T extends BudgetAValider>(budgets: T[]): T[] {
+  return budgets.filter((b) => b.statut === 'en_discussion' && !!b.envoyeLe && changementsCibles(b.siege ?? {}, b.ajustements).every((c) => c.cle === 'tresorerieDepart'))
+}
+
+// Lot 42 : avancement du franchisé, thème par thème (« D'accord » ou un changement dans le thème)
+export const THEMES_ACCORD = ['ventes', 'calendrier', 'equipe', 'fraisBudget', 'tresoBudget'] as const
+export type ThemeAccord = (typeof THEMES_ACCORD)[number]
+const CLES_THEME: Record<ThemeAccord, string[]> = {
+  ventes: ['evolutionFlux', 'evolutionPanier', 'evolutionUnivers', 'evolutionFamille', 'mixFamille', 'margeFamille', 'demarqueFamille', 'rythme'],
+  calendrier: ['poidsMois', 'travaux', 'tempsForts', 'ajustementsCA'],
+  equipe: ['hausseSalaires'],
+  fraisBudget: ['inflationFrais', 'fraisBudget'],
+  tresoBudget: ['tresorerieDepart'],
+}
+export function themeDeCle(cle: string): ThemeAccord | null {
+  const racine = cle.split('/')[0]
+  return THEMES_ACCORD.find((t) => CLES_THEME[t].includes(racine)) ?? null
+}
+// Un thème est vu quand le franchisé l'a accepté ou y a changé quelque chose
+export function themesVus(siege: Cibles, magasin: Cibles): ThemeAccord[] {
+  const changes = new Set(changementsCibles(siege, magasin).map((c) => themeDeCle(c.cle)).filter((t): t is ThemeAccord => !!t))
+  return THEMES_ACCORD.filter((t) => changes.has(t) || (magasin.accords ?? []).includes(t))
 }

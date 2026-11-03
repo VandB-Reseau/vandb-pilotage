@@ -65,6 +65,8 @@ export interface Hypotheses {
   rythme?: Partial<Record<UniversTickets, ChoixRythme>>
   tempsForts?: TempsFort[]
   ajustementsCA?: AjustementCA[]
+  // Lot 42 : masse salariale ou frais repris des comptes de l'année en cours, faute d'équipe ou de frais saisis
+  reprise?: { annee: number; mois: number; personnel: boolean; frais: boolean }
 }
 
 export type UniversTickets = 'cave' | 'bar'

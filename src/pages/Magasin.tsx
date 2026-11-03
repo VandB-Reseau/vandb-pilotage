@@ -201,7 +201,7 @@ export function Magasin() {
   const peutAjuster = (directeur || profil?.role === 'franchise') && !!ligne.base && ligne.statut !== 'valide'
   const nbEcarts = resolu ? ecarts(resolu.provenance).length : 0
   // Lot 35 : frais du budget à partir des frais de l'année en cours ; inflation des frais pour les lignes sans choix
-  const baseFrais = ligne.base ? avecEquipeEtFrais(ligne.base, d.equipes[ligne.magasin], d.frais[ligne.magasin]) : null
+  const baseFrais = ligne.base ? avecEquipeEtFrais(ligne.base, d.equipes[ligne.magasin], d.frais[ligne.magasin], d.comptes?.[ligne.magasin]) : null
   const inflation = resolu?.provenance.find((x) => x.cle === 'inflationFrais')?.valeur ?? 0
   const enregistrable = poidsValides(brouillon.poidsMois)
   // Effet des travaux : même budget sans eux

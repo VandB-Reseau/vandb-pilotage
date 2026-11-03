@@ -36,6 +36,8 @@ export interface Cibles {
   // Lot 35 : magasin seulement, frais du budget ligne par ligne (code de la ligne, ou amortissements, interets,
   // remboursementCapital) ; une ligne sans choix suit l'inflation des frais
   fraisBudget?: Record<string, ChoixFrais>
+  // Lot 42 : magasin seulement, thèmes que le franchisé a acceptés tels que le siège les propose
+  accords?: string[]
 }
 // Panier selon l'ancienneté : en plus de la hausse tarifaire
 export interface ValeursMillesime { evolutionFlux?: Partial<Record<UniversTickets, number>>; evolutionPanier?: Partial<Record<UniversTickets, number>> }
@@ -243,4 +245,27 @@ export function ecrireUnivers(c: Cibles, familles: ResultatFamille[], u: Univers
 // Au moins une famille de l'univers a sa valeur propre à ce niveau
 export function universRegle(c: Cibles, familles: ResultatFamille[], u: Univers, type: ReglageUnivers): boolean {
   return familles.some((f) => f.univers === u && lireCible(c, `${type}/${cleFamille(f)}`) !== undefined)
+}
+
+// Lot 42 (proposition 3, idée de Joseph) : copier les hypothèses d'un magasin vers d'autres, thème par thème. Seules les
+// clés des thèmes choisis viennent du magasin modèle ; le reste du magasin visé ne bouge pas. Jamais copiés : travaux et
+// trésorerie au 1er janvier (propres à chaque magasin), rythme de sortie (mesuré sur chaque magasin).
+export type ThemeCopie = 'ventes' | 'marge' | 'equipe' | 'frais' | 'calendrier'
+export const THEMES_COPIE: { cle: ThemeCopie; libelle: string; cles: (keyof Cibles)[] }[] = [
+  { cle: 'ventes', libelle: 'Ventes (tickets, panier, évolutions, mix)', cles: ['evolutionFlux', 'evolutionPanier', 'evolutionUnivers', 'evolutionFamille', 'mixFamille'] },
+  { cle: 'marge', libelle: 'Marge visée et démarque', cles: ['margeFamille', 'demarqueFamille'] },
+  { cle: 'equipe', libelle: 'Hausse des salaires', cles: ['hausseSalaires'] },
+  { cle: 'frais', libelle: 'Frais (inflation, lignes choisies)', cles: ['inflationFrais', 'fraisBudget'] },
+  { cle: 'calendrier', libelle: 'Calendrier (saisonnalité, temps forts, clients gagnés ou perdus)', cles: ['poidsMois', 'tempsForts', 'ajustementsCA'] },
+]
+export function copieParThemes(source: Cibles, cible: Cibles, themes: ThemeCopie[]): Cibles {
+  const r = structuredClone(cible) as Record<string, unknown>
+  const s = source as Record<string, unknown>
+  for (const t of THEMES_COPIE.filter((x) => themes.includes(x.cle))) {
+    for (const k of t.cles) {
+      if (s[k] === undefined) delete r[k]
+      else r[k] = structuredClone(s[k])
+    }
+  }
+  return r as Cibles
 }
