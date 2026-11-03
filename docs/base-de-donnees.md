@@ -5,13 +5,13 @@ fonctions (`mon_role()`, `est_directeur()`, `magasins_visibles()`, `mes_magasins
 et `app_config` (lue seulement : fiche des Responsables Régionaux, clé `drs_data` ; renommages des magasins, clé `store_renames`, 0028),
 et `store_finance` (lue seulement, par `concordance_ca`, 0028).
 
-Mis à jour le 03/11/2026 (migration `0028`).
+Mis à jour le 03/11/2026 (migration `0029`).
 
 ## Principes
 
 - **Rôle lu dans la base** (fonctions de l'app réseau), jamais dans le seul jeton de connexion.
 - **Un magasin est identifié par son nom** (`store_name`), comme dans l'app réseau.
-- **Magasins du compte** (`pilotage.mes_magasins()`) : Directeur, tous (`perimetre_equipe` et magasins ayant un budget) ;
+- **Magasins du compte** (`pilotage.mes_magasins()`) : Directeur et contrôle de gestion (0029), tous (`perimetre_equipe` et magasins ayant un budget) ;
   Coach et RR, leur périmètre (`magasins_visibles()`) ; franchisé, ses magasins (`mes_magasins()`) ; sinon aucun.
 - **Montants HT**, taux en fractions (0,02 = 2 %).
 
@@ -153,6 +153,7 @@ garanties, testées), et la règle de l'app réseau s'écrit : « un franchisé 
 `pilotage`, seulement les lignes de ses magasins ». Les médianes et comparaisons du réseau ne lui arrivent jamais par
 une table : `budgets_du_compte()` les lui retire.
 
-Contrôle de gestion : désigné dans `controle_gestion` (0021), sans rôle dans l'app réseau. Décision de Joseph : à la
-fusion, il devient un rôle de l'app réseau qui voit les paramètres et les chiffres de tous les magasins, sans écrire
-dans les fiches. À faire dans le dépôt de l'app réseau (`mon_acces()`, menu, « Paramètres »).
+Contrôle de gestion : désigné dans `controle_gestion` (0021), sans rôle dans l'app réseau. Décision de Joseph : il voit
+les paramètres et les chiffres de tous les magasins. Depuis 0029, `mes_magasins()` lui donne les magasins du Directeur ;
+il n'écrit dans aucune table d'un magasin (chaque règle d'écriture exige le rôle Directeur, RR, Coach ou franchisé).
+Dans l'app réseau, un compte sans rôle désigné au contrôle de gestion ouvre un espace réduit aux budgets.

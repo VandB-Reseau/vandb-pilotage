@@ -53,7 +53,7 @@ INSERT INTO pilotage.reel_mensuel (store_name, mois, univers, famille, ca_ht) VA
 SELECT pg_temp.attendre('Directeur : tous les magasins', (SELECT cardinality(pilotage.mes_magasins())), 3);
 SELECT pg_temp.attendre('Directeur : tous les budgets', (SELECT count(*) FROM pilotage.budgets), 3);
 SELECT pg_temp.attendre('Directeur : tableau des magasins', (SELECT jsonb_array_length(pilotage.magasins_du_compte(2027))), 3);
-SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 28);
+SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 29);
 -- Date d'ouverture de la fiche magasin réseau (0024) : surcharge d'abord, renommage suivi, dates inconnues ou illisibles écartées
 SELECT pg_temp.attendre('Directeur : dates d''ouverture du réseau', (SELECT count(*) FROM pilotage.ouvertures_reseau()), 2);
 SELECT pg_temp.attendre('Ouverture réseau : la surcharge l''emporte, au 1er du mois', (SELECT count(*) FROM pilotage.ouvertures_reseau() WHERE store_name = 'Lille' AND ouverture = '2019-03-01'), 1);
@@ -180,7 +180,18 @@ SELECT pg_temp.attendre('Contrôle de gestion : lit le journal', (SELECT count(*
 SELECT pg_temp.attendre('Contrôle de gestion : ne désigne personne', pg_temp.refuse('SELECT pilotage.ajouter_controle_gestion(''sansrole@exemple.fr'')'), 1);
 WITH m AS (DELETE FROM pilotage.controle_gestion RETURNING 1)
 SELECT pg_temp.attendre('Contrôle de gestion : ne retire personne', (SELECT count(*) FROM m), 0);
-SELECT pg_temp.attendre('Contrôle de gestion : aucun magasin', (SELECT count(*) FROM pilotage.budgets), 0);
+-- 0029 (Joseph, 3/11) : il lit les chiffres de tous les magasins, sans rien y écrire
+SELECT pg_temp.attendre('Contrôle de gestion : lit tous les budgets (0029)', (SELECT count(*) FROM pilotage.budgets), 3);
+SELECT pg_temp.attendre('Contrôle de gestion : lit le réel de tous les magasins (0029)', (SELECT count(DISTINCT store_name) FROM pilotage.reel_mensuel WHERE store_name IN ('Lille', 'Nice')), 2);
+WITH m AS (UPDATE pilotage.budgets SET hypotheses = '{"v":9}' WHERE store_name = 'Lille' RETURNING 1)
+SELECT pg_temp.attendre('Contrôle de gestion : ne modifie aucun budget', (SELECT count(*) FROM m), 0);
+SELECT pg_temp.attendre('Contrôle de gestion : ne crée pas de budget', pg_temp.refuse('INSERT INTO pilotage.budgets (store_name, annee) VALUES (''Lille'', 2030)'), 1);
+SELECT pg_temp.attendre('Contrôle de gestion : n''écrit ni frais, ni équipe, ni prêt, ni stock', pg_temp.refuse('INSERT INTO pilotage.frais (store_name, code, libelle, rubrique, annuel) VALUES (''Lille'', ''cfe'', ''CFE'', ''impots_taxes'', 1)')
+  + pg_temp.refuse('INSERT INTO pilotage.equipe (store_name, poste, categorie, heures_hebdo, brut_mensuel) VALUES (''Lille'', ''X'', ''employe'', 35, 1)')
+  + pg_temp.refuse('INSERT INTO pilotage.emprunts (store_name, libelle, montant, duree, debut) VALUES (''Lille'', ''X'', 1000, 5, ''2027-04-01'')')
+  + pg_temp.refuse('INSERT INTO pilotage.stocks (store_name, annee, mois, cave) VALUES (''Lille'', 2026, 11, 1)'), 4);
+SELECT pg_temp.attendre('Contrôle de gestion : n''importe pas de réel', pg_temp.refuse('SELECT pilotage.remplacer_reel(''[{"store_name":"Lille","mois":"2026-04-01","univers":"bar","famille":"Fût","ca_ht":1}]'', ''[]'')'), 1);
+SELECT pg_temp.attendre('Contrôle de gestion : n''écrit pas de commentaire', pg_temp.refuse('INSERT INTO pilotage.echanges_budget (store_name, annee, texte) VALUES (''Lille'', 2027, ''x'')'), 1);
 SET request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
 DELETE FROM pilotage.parametres_reseau WHERE annee = 2028;
 
