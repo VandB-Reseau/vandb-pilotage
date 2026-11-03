@@ -5,6 +5,27 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Écrans du budget plus clairs (Base : migration 0024 à passer)
+
+- Construire : toutes les hypothèses en cartes, les ventes de chaque univers comme le Calendrier, l'Équipe et les Frais
+  (Joseph, 3/11). Chaque carte dit où elle en est (« À faire », « À vérifier », « Fait ») et son bouton suit
+  (« Remplir », « Vérifier », « Modifier »). Le tableau des ventes s'ouvre depuis la carte de l'univers (thème
+  « Ventes et marge »), la hausse des salaires dans le thème Équipe, l'inflation des frais dans le thème Frais.
+- Calendrier : trois questions numérotées (travaux ou fermeture, temps forts, clients gagnés ou perdus) ; « Oui, saisir »
+  mène au bloc, « Rien de prévu » répond sans rien saisir (`rienPrevu` dans les ajustements).
+- Point de départ : la saisonnalité sort du Calendrier et remplace la « Projection des mois restants » : une carte
+  « Saisonnalité » donne la fin d'année en cours par univers puis la part de chaque mois du budget. La « Base du CA »
+  y est aussi.
+- Date d'ouverture lue dans la fiche magasin de l'app réseau ; la saisie ne reste qu'en secours, pour le Directeur,
+  quand la fiche n'en a pas.
+- « Que faut-il pour… » : un seul simulateur remplace « Objectif d'EBE » et la rémunération du gérant visée ; il vise
+  un EBE ou une rémunération et donne le CA à atteindre.
+- Un (i) sur chaque ligne calculée : chiffre d'affaires, charges externes, impôts et taxes, résultat avant impôt,
+  total des décaissements, variation du mois, trésorerie en fin de mois…
+- Thème et barre du haut de l'app réseau : barre noire de 68 px, recherche en pilule de 44 px, fond crème, titres
+  32 px. Plus de magasin imposé en haut : « Changer de magasin » est dans la page du magasin.
+- Base : `0024_ouvertures_reseau.sql` (fonction `pilotage.ouvertures_reseau()`, lecture seule de la fiche magasin).
+
 ### Voir l'impact des hypothèses en direct (sans migration)
 
 - Panneau « Impact » dans l'étape Construire (Joseph, 3/11, proposition 1) : collé à droite sur les écrans d'au moins

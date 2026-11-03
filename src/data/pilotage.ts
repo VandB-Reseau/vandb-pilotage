@@ -628,11 +628,17 @@ export async function chargerSecours(magasin: string, annee: number): Promise<Se
   return { parts: parts[magasin] ?? {}, saisonnaliteReseau: saisonnaliteMediane(Object.values(reel.magasins).map((r) => r.n1.map((x) => x.caHT)), mini), ouverture: ouvertures[magasin] ?? null }
 }
 
-// Date d'ouverture des magasins (lot 24), tenue par le Directeur ; sans la table (migration pas encore passée), aucune
+// Date d'ouverture des magasins (lot 24), tenue par le Directeur ; sans la table (migration pas encore passée), aucune.
+// Joseph (03/11/2026) : la fiche magasin de l'app réseau fait foi (0024) ; la saisie du pilotage ne sert qu'aux magasins dont
+// l'app réseau ne connaît pas la date. Sans la fonction (0024 pas encore passée), la saisie seule.
+const enOuverture = (d: string, reseau: boolean): Ouverture => ({ annee: Number(d.slice(0, 4)), mois: Number(d.slice(5, 7)), ...(reseau ? { reseau: true } : {}) })
 export const chargerOuvertures = (): Promise<Record<string, Ouverture>> => memo('ouvertures', async () => {
-  const { data, error } = await pilotage().from('ouvertures').select('store_name, ouverture')
-  if (error || !Array.isArray(data)) return {}
-  return Object.fromEntries((data as { store_name: string; ouverture: string }[]).map((l) => [l.store_name, { annee: Number(l.ouverture.slice(0, 4)), mois: Number(l.ouverture.slice(5, 7)) }]))
+  const [saisies, reseau] = await Promise.all([pilotage().from('ouvertures').select('store_name, ouverture'), pilotage().rpc('ouvertures_reseau')])
+  const l = (r: { data: unknown; error: unknown }) => (!r.error && Array.isArray(r.data) ? (r.data as { store_name: string; ouverture: string }[]).filter((x) => /^\d{4}-\d{2}/.test(x.ouverture ?? '')) : [])
+  return {
+    ...Object.fromEntries(l(saisies).map((x) => [x.store_name, enOuverture(x.ouverture, false)])),
+    ...Object.fromEntries(l(reseau).map((x) => [x.store_name, enOuverture(x.ouverture, true)])),
+  }
 })
 export async function enregistrerOuverture(magasin: string, o: Ouverture | null) {
   if (!o) verifier(await pilotage().from('ouvertures').delete().eq('store_name', magasin))

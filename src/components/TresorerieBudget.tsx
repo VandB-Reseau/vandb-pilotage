@@ -35,10 +35,10 @@ export const LIGNES_TRESORERIE: { cle: keyof MoisTresorerie; libelle: string; so
   { cle: 'tva', libelle: 'TVA reversée', sortie: true, aide: 'tvaTreso' },
   { cle: 'emprunts', libelle: 'Emprunts (intérêts et capital)', sortie: true, aide: 'empruntsTreso' },
   { cle: 'impot', libelle: 'Impôt sur les sociétés', sortie: true, facultative: true, aide: 'impotSocietes' },
-  { cle: 'travaux', libelle: 'Travaux', sortie: true, facultative: true },
+  { cle: 'travaux', libelle: 'Travaux', sortie: true, facultative: true, aide: 'travauxTreso' },
   { cle: 'consignesVersees', libelle: 'Consignes versées aux fournisseurs', sortie: true, facultative: true, aide: 'consignesTreso' },
-  { cle: 'decaissements', libelle: 'Total des décaissements', sortie: true, fort: true },
-  { cle: 'flux', libelle: 'Variation du mois', fort: true },
+  { cle: 'decaissements', libelle: 'Total des décaissements', sortie: true, fort: true, aide: 'decaissements' },
+  { cle: 'flux', libelle: 'Variation du mois', fort: true, aide: 'fluxMois' },
 ]
 
 // Lot 27 : le solde de fin de mois en barres au-dessus du tableau ; tableau par mois, quadrimestre ou année, en € ou k€,
@@ -128,7 +128,7 @@ export function TresorerieBudget({ tresorerie: t, annee, depart, replie = false,
               )
             })}
             <TableRow className="ligne-forte">
-              <TableCell sx={{ fontWeight: 700 }}>Trésorerie en fin de mois</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Trésorerie en fin de mois<Aide sujet="tresorerieFinMois" compact /></TableCell>
               {regrouper(t.mois.map((m) => m.fin), periode, 'dernier').map((v, i) => <TableCell key={i} align="right" sx={{ fontWeight: 700, ...rouge(v) }}>{affiche(v)}</TableCell>)}
               <TableCell align="right" sx={{ fontWeight: 700, ...rouge(t.fin) }}>{affiche(t.fin)}</TableCell>
             </TableRow>

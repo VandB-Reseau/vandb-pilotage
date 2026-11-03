@@ -17,7 +17,8 @@ test.afterEach(async ({ page }) => {
 
 test('le panneau Impact suit chaque changement, isole le dernier et enregistre', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { role: 'franchise', magasins: [{ magasin: MAGASINS[0], statut: 'propose', hypotheses: magasinFictif, base: magasinFictif, maj_le: null, ajustements_siege: {} }] })
-  await ouvrir(page, 'Construire')
+  // Joseph (03/11/2026) : les hypothèses de ventes s'ouvrent depuis la carte de l'univers ; le panneau les suit
+  await ouvrir(page, 'Ventes')
   const impact = page.getByRole('complementary', { name: 'Impact des changements' })
   await expect(impact).toBeVisible()
   // L'ancienne bande d'indicateurs ne double plus le panneau

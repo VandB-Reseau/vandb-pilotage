@@ -139,8 +139,8 @@ test('un Coach lit les hypothèses sans pouvoir les modifier ; une écriture qui
   await page.getByRole('menuitem', { name: 'Se déconnecter' }).click()
   await seConnecter(page, { role: 'franchise', magasins: avecBase(), reseau, panneEcriture: true })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  // Lot 43 : la hausse générale des salaires se règle dans Construire
-  await ouvrir(page, 'Construire')
+  // Joseph (03/11/2026) : la hausse générale des salaires se règle dans le thème Équipe
+  await ouvrir(page, 'Équipe')
   await page.getByLabel('Hausse générale des salaires').fill('1')
   await page.getByRole('button', { name: 'Enregistrer les ajustements' }).click()
   await expect(page.getByText('L’enregistrement n’a pas abouti. Vérifie ta connexion, puis réessaie.')).toBeVisible()

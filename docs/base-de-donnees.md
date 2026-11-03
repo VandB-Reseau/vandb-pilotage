@@ -35,7 +35,7 @@ Mis à jour le 02/11/2026 (migration `0022`).
 | `versions_budget` | Version du budget à sa création et à chaque changement de statut, de base ou d'ajustements : `statut`, `base`, `ajustements`, auteur, rôle, nom, date (0011) | `id` ; index `store_name`, `annee`, `cree_le` | Magasins du compte | Déclencheur `versions_budget_trace` seul |
 | `versions_nommees` | Version du budget enregistrée sous un nom pour comparer : `nom` (1 à 80 caractères), `base` (hypothèses avec l'équipe et les frais du jour), `ajustements`, auteur, rôle, nom et date posés par le déclencheur `versions_nommees_auteur` (0015) | `id` ; index `store_name`, `annee` | Magasins du compte | Ajout : Directeur, franchisé sur ses magasins ; retrait : Directeur ou auteur |
 | `actions` | Action du plan d'un magasin : `type_alerte` (`ca`, `marge`, `reel`, `tresorerie`, `autre` ; `tickets` et `panier` depuis 0016), `intitule`, `responsable` (`franchise`, `coach`, `rr`, `directeur`), `echeance`, `statut` (`a_faire`, `faite`, `abandonnee`), `annee`, `depart` et `mois_depart` (mesure de l'alerte le jour de l'action), auteur et dates posés par la base (0012) | `id` ; index `store_name`, `statut` | Magasins du compte | Directeur partout ; RR et Coach sur leurs magasins ; le franchisé ne change que le statut |
-| `ouvertures` | Date d'ouverture d'un magasin, le 1er du mois : `ouverture`, `maj_le`, `maj_par`. Donne son ancienneté (année 1, 2, 3, 4 et plus) et écarte le rythme de sortie des 2 mois qui suivent l'ouverture (0014) | `store_name` | Magasins du compte | Directeur |
+| `ouvertures` | Date d'ouverture d'un magasin, le 1er du mois : `ouverture`, `maj_le`, `maj_par`. Donne son ancienneté (année 1, 2, 3, 4 et plus) et écarte le rythme de sortie des 2 mois qui suivent l'ouverture (0014). Depuis 0024, ne sert plus qu'en secours : la date de la fiche magasin de l'app réseau passe avant | `store_name` | Magasins du compte | Directeur |
 | `groupes` | Groupes libres de magasins (centre-ville, zone commerciale…) : `nom` | `id` | Équipe | Directeur |
 | `groupe_magasins` | Groupe d'un magasin (un au plus) | `store_name` | Équipe | Directeur |
 | `cibles_reseau` | Cibles du réseau pour l'année : `valeur` (format `Cibles`) | `annee` | Équipe | Directeur |
@@ -82,6 +82,8 @@ Mis à jour le 02/11/2026 (migration `0022`).
 | `pilotage.mes_droits()` | `{ parametrer, controle_gestion }` : droits du compte propres au pilotage, lus par l'app à la connexion (0021) |
 | `pilotage.ajouter_controle_gestion(email)` | Directeur seul : désigne un compte de connexion existant comme contrôle de gestion ; faux si aucun compte n'a cet email (0021) |
 | `pilotage.budgets_du_compte(annee)` | `{ magasins, reseau, groupes }` : budgets du compte (base, ajustements, hypothèses, groupe, paramètres figés depuis 0020, position du siège et date d’envoi depuis 0022), cibles du réseau, groupes utiles au compte avec leurs cibles |
+| `pilotage.ouvertures_reseau()` | `(store_name, ouverture)` : date d'ouverture des magasins du compte (`mes_magasins()`) d'après la fiche magasin de l'app réseau, ramenée au 1er du mois. Lit `public.store_overrides.open_date`, sinon la liste `store_adds` d'`app_config` (noms passés par `store_renames`) ; écarte les dates de remplissage (`2020-01-01`, `2027-01-01`). Lecture seule, `SECURITY DEFINER`, comptes connectés seulement (0024) |
+| `pilotage.date_sure(texte)` | Convertit un texte en date, vide s'il n'en est pas une (0024) |
 
 ## Rejouer les migrations
 

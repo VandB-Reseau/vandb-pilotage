@@ -19,11 +19,20 @@ import { Aide } from './Aide'
 import { ChoixPeriode, usePeriode } from './ChoixPeriode'
 import { classeLigne, styleTableau } from '../theme/tableau'
 
-// Lot 32 : picto (i) sur chaque ligne calculée (pas sur le CA ni les rubriques qui ne font qu'additionner des frais)
+// Lot 32 : picto (i) sur chaque ligne calculée. Joseph (03/11/2026) : aussi sur les totaux et sous-totaux ; seules les
+// lignes de frais saisies une à une n'en ont pas (elles viennent telles quelles de l'écran Frais)
 const AIDE_LIGNE: Record<string, SujetAide> = {
-  achats: 'achatsConsommes', marge: 'margeCommerciale', 'externes/publicite': 'publiciteRedevance', 'externes/redevance': 'publiciteRedevance',
+  ca: 'chiffreAffaires', achats: 'achatsConsommes', marge: 'margeCommerciale', externes: 'chargesExternes', 'externes/theme/reseau': 'redevancesReseau',
+  'externes/publicite': 'publiciteRedevance', 'externes/redevance': 'publiciteRedevance', impots: 'impotsTaxes', autres: 'autresCharges',
   'externes/consignes': 'demarqueConsignes', 'externes/evenements': 'chargesEvenements', capital: 'capitalRembourse', reintegres: 'amortissementsReintegres', personnel: 'fraisPersonnel', ebe: 'ebe', amortissements: 'amortissements',
-  exploitation: 'resultatExploitation', impot: 'impotSocietes', net: 'resultatNet', tresorerie: 'tresorerieDegagee', productivite: 'productivite',
+  exploitation: 'resultatExploitation', interets: 'interets', avant_impot: 'resultatAvantImpot', impot: 'impotSocietes', net: 'resultatNet', tresorerie: 'tresorerieDegagee',
+  productivite: 'productivite', heures: 'heures',
+}
+export function aideLigneCompte(cle: string): SujetAide | null {
+  if (AIDE_LIGNE[cle]) return AIDE_LIGNE[cle]
+  if (cle.startsWith('ca/')) return 'caUnivers'
+  if (cle.startsWith('externes/theme/')) return 'themeFrais'
+  return null
 }
 
 // Compte de résultat sur 12 mois : rubriques repliées, dépliables d'un clic ; titres et libellés figés au défilement.
@@ -94,7 +103,7 @@ export function CompteResultatMois({ lignes, titre, libelleTableau, projeteA, en
                         {l.libelle}
                       </ButtonBase>
                     ) : l.libelle}
-                    {AIDE_LIGNE[l.cle] && <Aide sujet={AIDE_LIGNE[l.cle]} compact />}
+                    {aideLigneCompte(l.cle) && <Aide sujet={aideLigneCompte(l.cle)!} compact />}
                   </TableCell>
                   {l.mois.map((v, i) => (
                     <TableCell key={i} align="right" className={enCours(colonnes[i])} sx={{ ...style, ...(projete(colonnes[i]) ? { color: 'text.secondary' } : {}), ...(v !== null && v < 0 && l.fort ? { color: 'error.main' } : {}) }}>

@@ -60,3 +60,32 @@ BEGIN
 EXCEPTION WHEN others THEN
   RETURN NULL;
 END $$;
+
+-- 0001_tables_de_base.sql : fiche des magasins (surcharges), lue par pilotage.ouvertures_reseau() (0024)
+CREATE TABLE IF NOT EXISTS public.store_overrides (
+  store_name text PRIMARY KEY,
+  tel        text,
+  email_mag  text,
+  tel_cs     text,
+  email_cs   text,
+  resp       text,
+  tel_resp   text,
+  email_resp text,
+  adj        text,
+  tel_adj    text,
+  addr       text,
+  num        text,
+  rue        text,
+  cp         text,
+  ville      text,
+  code       text,
+  plat       text,
+  open_date  text,                   -- AAAA-MM-JJ
+  dept       text,
+  franchise  boolean DEFAULT true,   -- true = franchisé, false = intégré
+  pays       text,                   -- vide = France
+  rr         text,                   -- identifiant du RR qui gère le magasin en direct
+  lon        double precision,
+  lat        double precision,
+  updated_at timestamptz DEFAULT now()
+);

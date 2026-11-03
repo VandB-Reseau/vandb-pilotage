@@ -102,11 +102,11 @@ export function PlanTresorerieAnnee({ annee, plan, prevue, seuil, enCours, sourc
               </TableRow>
             )}
             <TableRow>
-              <TableCell>Décaissements prévus</TableCell>
+              <TableCell>Décaissements prévus<Aide sujet="decaissements" compact /></TableCell>
               {plan.mois.map((m, i) => <TableCell key={i} align="right" className={i === enCours ? 'en-cours' : undefined} sx={{ color: 'text.secondary' }}>{k(-m.decPrevu)}</TableCell>)}
             </TableRow>
             <TableRow className="ligne-cle">
-              <TableCell>Trésorerie en fin de mois</TableCell>
+              <TableCell>Trésorerie en fin de mois<Aide sujet="tresorerieFinMois" compact /></TableCell>
               {plan.mois.map((m, i) => {
                 const v = m.finReelle ?? m.finPrevue
                 return (
@@ -119,7 +119,7 @@ export function PlanTresorerieAnnee({ annee, plan, prevue, seuil, enCours, sourc
             </TableRow>
             {plan.mois.some((m) => m.finProjetee !== null) && (
               <TableRow>
-                <TableCell>Trésorerie projetée</TableCell>
+                <TableCell>Trésorerie projetée<Aide sujet="tresorerieGlissante" compact /></TableCell>
                 {plan.mois.map((m, i) => (
                   <TableCell key={i} align="right" className={i === enCours ? 'en-cours' : undefined} sx={{ fontStyle: m.finReelle === null ? 'italic' : undefined, color: m.finProjetee !== null && m.finProjetee < 0 ? 'error.main' : undefined }}>
                     {m.finProjetee === null ? '' : k(m.finProjetee)}

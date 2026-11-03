@@ -23,8 +23,9 @@ test('hypothèses en cartes : chaque carte ouvre son tableau, les changements re
   await expect(partiesAffichees(page))
     .toHaveText([/^0 · Point de départ/, /^1 · Construire/, /^2 · Envoyer et valider/])
   const main = page.locator('main')
-  // Lot 42 : ventes et résultat sur la page, les autres thèmes en cartes
-  await expect(main.getByRole('region', { name: 'Hypothèses du magasin' })).toBeVisible()
+  // Joseph (03/11/2026) : toutes les hypothèses en cartes, ventes de chaque univers comprises ; le résultat reste sur la page
+  await expect(main.getByRole('region', { name: 'Hypothèses du magasin' })).toBeHidden()
+  await expect(main.getByRole('region', { name: 'Ventes Cave' })).toBeVisible()
   await expect(main.getByRole('table', { name: /mois par mois$/ })).toBeVisible()
   // Lot 43 : plus de carte Trésorerie, la trésorerie au 1er janvier est au point de départ
   await expect(main.getByRole('region', { name: 'Trésorerie', exact: true })).toHaveCount(0)
@@ -32,12 +33,14 @@ test('hypothèses en cartes : chaque carte ouvre son tableau, les changements re
     await expect(main.getByRole('region', { name: t, exact: true })).toBeVisible()
   }
   // Sans équipe : la carte le dit
-  await expect(main.getByRole('region', { name: 'Équipe', exact: true })).toContainText('à renseigner')
+  await expect(main.getByRole('region', { name: 'Équipe', exact: true })).toContainText('À renseigner')
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-hypotheses-cartes.png`, fullPage: true })
 
-  // Ventes : un tableau court par univers, de l'année en cours à l'année du budget, sur la même page (lot 42)
+  // Ventes : un tableau court par univers, de l'année en cours à l'année du budget, ouvert depuis la carte de l'univers
+  await main.getByRole('region', { name: 'Ventes Cave' }).getByRole('link').click()
+  await expect(page).toHaveURL(/\/ventes$/)
   await partieAffichee(page, /^1 · Construire/)
   const cave = page.getByRole('table', { name: /^Hypothèses \d{4} : Cave/ })
   await expect(cave.getByRole('columnheader')).toHaveText(isMobile ? [/^Hypothèse/, /^Choix du magasin/, /^\d{4}$/] : [/^Hypothèse/, /^Point de départ/, /^Choix du magasin/, /^\d{4}$/, /^Effet$/])
@@ -59,10 +62,11 @@ test('hypothèses en cartes : chaque carte ouvre son tableau, les changements re
 
   // Lot 42 : le résultat a suivi (tickets Cave + 5 %) ; puis Frais : pas de question, le changement reste
   await expect(page.getByRole('dialog', { name: 'Modifications non enregistrées' })).toHaveCount(0)
+  await page.getByRole('link', { name: 'Toutes les hypothèses' }).click()
   await main.getByRole('region', { name: 'Frais', exact: true }).getByRole('link').click()
   await expect(page).toHaveURL(/\/fraisBudget$/)
-  // Lot 43 : l'inflation des frais se règle dans Construire seulement
-  await expect(page.locator('main').getByLabel('Inflation des frais', { exact: true })).toBeHidden()
+  // Joseph (03/11/2026) : avec les cartes, l'inflation des frais se règle dans le thème Frais
+  await expect(page.locator('main').getByLabel('Inflation des frais', { exact: true })).toBeVisible()
   await expect(barre).toContainText('1 changement')
   await expect(page.getByRole('region', { name: 'Indicateurs clés' })).toHaveCount(0)
 })
@@ -81,17 +85,18 @@ test('Suivi : une page Trésorerie ; Données : la saisie du quadrimestre seule'
   await expect(page.getByRole('heading', { level: 2, name: 'Comptes du quadrimestre' })).toBeVisible()
 })
 
-test('barre du haut : le magasin ouvert, son nom ouvre la liste des magasins avec recherche ; le menu ne le montre plus', async ({ page, isMobile }) => {
+test('fiche : « Changer de magasin » ouvre la liste des magasins avec recherche ; ni le menu ni la barre du haut ne le montrent', async ({ page, isMobile }) => {
   const autre: MagasinSimule = { ...propose, magasin: MAGASINS[1] }
   await seConnecter(page, { magasins: [propose, autre] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Résultat')
   await expect(page).toHaveURL(/\/budget$/)
-  // Lot 42 (Joseph, 02/11/2026) : le magasin n'est plus dans le menu de gauche, il est dans la barre du haut
+  // Lot 42 : le magasin n'est plus dans le menu de gauche ; Joseph (03/11/2026) : ni dans la barre du haut, on en change depuis la fiche
   const menu = page.getByRole('navigation', { name: 'Menu principal' })
   await expect(menu.getByText(MAGASINS[0], { exact: true })).toHaveCount(0)
   await expect(menu.getByText('Pages du magasin')).toHaveCount(isMobile ? 0 : 1)
-  const selecteur = page.getByRole('banner').getByRole('button', { name: `Changer de magasin (magasin ouvert : ${MAGASINS[0]})` })
+  await expect(page.getByRole('banner').getByRole('button', { name: /Changer de magasin/ })).toHaveCount(0)
+  const selecteur = page.locator('main').getByRole('button', { name: `Changer de magasin (magasin ouvert : ${MAGASINS[0]})` })
   await selecteur.click()
   const dialogue = page.getByRole('dialog', { name: 'Changer de magasin' })
   await dialogue.getByLabel('Nom du magasin').fill(MAGASINS[1].slice(0, 4))

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
 import AppBar from '@mui/material/AppBar'
+import Avatar from '@mui/material/Avatar'
 import BottomNavigation from '@mui/material/BottomNavigation'
 import BottomNavigationAction from '@mui/material/BottomNavigationAction'
 import Box from '@mui/material/Box'
@@ -34,7 +35,7 @@ import TrendingUpOutlined from '@mui/icons-material/TrendingUpOutlined'
 import LeaderboardOutlined from '@mui/icons-material/LeaderboardOutlined'
 import { GardeSaisie } from '../components/GardeSaisie'
 import { Logo } from '../components/Logo'
-import { RechercheMagasin, SelecteurMagasin } from '../components/RechercheMagasin'
+import { RechercheMagasin } from '../components/RechercheMagasin'
 import { useAuth } from '../auth/AuthContext'
 import { estDirecteur, estEquipe, libelleProfil, seulementParametres, voitParametres } from '../auth/roles'
 import { installerChampSuivant } from '../lib/champSuivant'
@@ -44,7 +45,7 @@ import { anneeBudget } from '../data/pilotage'
 import { MenuMagasin } from './menuMagasin'
 import { brandStripe } from '../theme/theme'
 
-const LARGEUR_MENU = 248
+const LARGEUR_MENU = 264 // comme l'app réseau (Joseph, 03/11/2026)
 
 interface Destination { chemin: string; nom: string; icone: ReactNode }
 
@@ -102,14 +103,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => setMenuTelephone(false), [pathname])
 
   // Lot 36 : trois espaces. L'espace et le magasin affichés viennent de l'adresse ; sur une page qui n'appartient à aucun
-  // espace (paramètres), on garde le dernier espace et le dernier magasin ouverts.
+  // espace (paramètres), on garde le dernier espace ouvert.
+  // Joseph (03/11/2026) : plus de magasin imposé. Hors de la fiche d'un magasin, on est au niveau du réseau, sans magasin.
   const fiche = magasinDeChemin(pathname)
-  const [dernier, setDernier] = useState<{ espace: Espace; magasin: string | null }>({ espace: 'budget', magasin: null })
-  const espace: Espace = fiche?.partie ? espaceDe(fiche.partie) : espaceDePage(pathname) ?? dernier.espace
-  const magasin = fiche?.nom ?? dernier.magasin
+  const [dernierEspace, setDernierEspace] = useState<Espace>('budget')
+  const espace: Espace = fiche?.partie ? espaceDe(fiche.partie) : espaceDePage(pathname) ?? dernierEspace
+  const magasin = fiche?.nom ?? null
   useEffect(() => {
-    if (espace !== dernier.espace || magasin !== dernier.magasin) setDernier({ espace, magasin })
-  }, [espace, magasin]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (espace !== dernierEspace) setDernierEspace(espace)
+  }, [espace]) // eslint-disable-line react-hooks/exhaustive-deps
   const partieActive = fiche?.partie ? partieDe(fiche.partie) : null
 
   // Pages du réseau de chaque espace : imports, hypothèses et paramètres au Directeur seul, comme dans l'app réseau
@@ -134,7 +136,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     </ListItemButton>
   )
   const sousTitre = (t: string) => (
-    <ListSubheader disableSticky sx={{ bgcolor: 'transparent', lineHeight: '32px', fontSize: '0.75rem', fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'text.secondary', px: 1 }}>{t}</ListSubheader>
+    <ListSubheader disableSticky sx={{ bgcolor: 'transparent', lineHeight: '36px', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'text.secondary', px: 1 }}>{t}</ListSubheader>
   )
   const contenuMenu = seulementParametres(profil) ? (
     <List component="nav" aria-label="Menu principal" dense disablePadding>
@@ -184,24 +186,23 @@ export function AppShell({ children }: { children: ReactNode }) {
     <GardeSaisie>
     <Box className="fond-app" sx={{ minHeight: '100dvh', bgcolor: 'background.default' }}>
       {/* Ce qu'on fait défiler jusqu'à l'écran ne se cache ni sous la barre du haut, ni sous la barre basse du téléphone */}
-      <GlobalStyles styles={{ html: { scrollPaddingTop: 80, scrollPaddingBottom: telephone && avecMenu ? 88 : 0, '--barre-basse': telephone && avecMenu ? '72px' : '0px' } }} />
+      <GlobalStyles styles={{ html: { scrollPaddingTop: 88, scrollPaddingBottom: telephone && avecMenu ? 88 : 0, '--barre-basse': telephone && avecMenu ? '72px' : '0px' } }} />
       <GlobalStyles styles={impression} />
-      <AppBar position="sticky" className="pas-a-l-impression" sx={{ bgcolor: '#1d1d1b', color: '#ffffff', zIndex: (t) => t.zIndex.drawer + 1 }}>
-        <Toolbar sx={{ gap: 1.5 }}>
+      {/* Joseph (03/11/2026) : barre du haut à l'identique de l'app réseau (noir, 68 px sur PC, logo et nom, recherche au centre) */}
+      <AppBar position="sticky" className="pas-a-l-impression" sx={{ bgcolor: '#000000', color: '#ffffff', zIndex: (t) => t.zIndex.drawer + 1 }}>
+        <Toolbar sx={{ minHeight: { xs: 60, md: 68 }, gap: { xs: 0.5, sm: 2 } }}>
           {telephone && avecMenu && (
             <IconButton color="inherit" aria-label="Ouvrir le menu" onClick={() => setMenuTelephone(true)} sx={{ width: 48, height: 48, ml: -1 }}><MenuOutlined /></IconButton>
           )}
-          <Box component={RouterLink} to="/" aria-label="Accueil du pilotage" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'inherit', textDecoration: 'none', minHeight: 48 }}>
-            <Logo size={18} />
-            <Typography variant="h3" component="span" sx={{ fontSize: '1.125rem', display: telephone && magasin ? 'none' : 'inline' }}>Pilotage</Typography>
+          <Box component={RouterLink} to="/" aria-label="Accueil du pilotage" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'inherit', textDecoration: 'none', minHeight: 48, width: telephone ? 'auto' : LARGEUR_MENU - 24 }}>
+            <Logo size={telephone ? 20 : 22} />
+            <Typography variant="subtitle1" component="span" sx={{ fontWeight: 600, display: { xs: 'none', sm: 'inline' } }}>Pilotage</Typography>
           </Box>
-          <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 1.5, justifyContent: telephone ? 'flex-end' : 'flex-start', pl: telephone ? 0 : `${LARGEUR_MENU - 160}px` }}>
-            {/* Lot 42 : le magasin ouvert, toujours au même endroit, quel que soit l'espace ; un clic pour en changer */}
-            {magasin && profil && profil.role !== 'aucun' && !seulementParametres(profil) && <SelecteurMagasin magasin={magasin} sombre />}
+          <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: telephone ? 'flex-end' : 'center' }}>
             {profil && profil.role !== 'aucun' && <RechercheMagasin telephone={telephone} />}
           </Box>
           <IconButton color="inherit" aria-label="Mon compte" onClick={(e) => setMenuCompte(e.currentTarget)} sx={{ width: 48, height: 48 }}>
-            <AccountCircleOutlined />
+            <Avatar sx={{ width: 36, height: 36, bgcolor: 'secondary.main', color: 'secondary.contrastText', fontWeight: 600 }}>{(profil?.nom ?? '').slice(0, 1).toUpperCase() || <AccountCircleOutlined />}</Avatar>
           </IconButton>
           <Menu anchorEl={menuCompte} open={!!menuCompte} onClose={() => setMenuCompte(null)}>
             <Box sx={{ px: 2, py: 1 }}>
@@ -218,7 +219,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </AppBar>
 
       {!telephone && avecMenu && (
-        <Drawer variant="permanent" className="pas-a-l-impression" sx={{ width: LARGEUR_MENU, flexShrink: 0, '& .MuiDrawer-paper': { width: LARGEUR_MENU, boxSizing: 'border-box', top: 68, height: 'calc(100% - 68px)', p: 1.5 } }}>
+        <Drawer variant="permanent" className="pas-a-l-impression" sx={{ width: LARGEUR_MENU, flexShrink: 0, '& .MuiDrawer-paper': { width: LARGEUR_MENU, boxSizing: 'border-box', top: 72, height: 'calc(100% - 72px)', p: 1.5, borderRight: '1px solid', borderColor: 'divider', bgcolor: 'background.default' } }}>
           {contenuMenu}
         </Drawer>
       )}

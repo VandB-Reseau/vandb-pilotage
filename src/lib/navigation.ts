@@ -39,7 +39,9 @@ export function partiesDe(espace: Espace, annee: number = new Date().getFullYear
 // Lot 37 (Joseph, 02/11/2026) : les hypothèses du budget se lisent en cartes par thème ; chaque carte ouvre un tableau
 // court du thème. Ces thèmes ont leur adresse mais restent sous l'étape « 1 · Hypothèses ».
 // Lot 42 : les ventes et le résultat sont sur la page « Construire » ; restent en détail les thèmes ci-dessous.
+// Joseph (03/11/2026) : les ventes aussi, ouvertes depuis les cartes des univers
 export const THEMES: Partie[] = [
+  { cle: 'ventes', libelle: 'Ventes et marge' },
   { cle: 'calendrier', libelle: 'Calendrier' },
   { cle: 'equipe', libelle: 'Équipe' },
   { cle: 'fraisBudget', libelle: 'Frais' },
@@ -53,7 +55,7 @@ export const PARTIE_PAR_DEFAUT: Record<Espace, string> = { donnees: 'reel', budg
 
 // Anciennes clés (liens, alertes, « à faire ») : la partie qui les montre désormais, et la section où défiler
 // Lot 43 : l'ancien thème « Trésorerie » du budget est au point de départ
-const ANCIENNES: Record<string, string> = { tresoBudget: 'depart', atterrissage: 'depart', plan: 'synthese', suivi: 'synthese', resultat: 'budget', ventes: 'budget' }
+const ANCIENNES: Record<string, string> = { tresoBudget: 'depart', atterrissage: 'depart', plan: 'synthese', suivi: 'synthese', resultat: 'budget' }
 export const partieDe = (cle: string) => ANCIENNES[cle] ?? cle
 export const sectionDe = (cle: string) => (ANCIENNES[cle] && cle !== 'atterrissage' ? cle : null)
 

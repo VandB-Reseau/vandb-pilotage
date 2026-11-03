@@ -51,6 +51,7 @@ export interface OptionsSimulation {
   actions?: ActionSimulee[]
   versions?: VersionSimulee[]
   ouvertures?: { store_name: string; ouverture: string }[]
+  ouverturesReseau?: { store_name: string; ouverture: string }[] // 0024 : fiche magasin de l'app réseau
   versionsNommees?: VersionNommeeSimulee[]
   panne?: boolean
   panneEcriture?: boolean
@@ -136,6 +137,7 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
       return route.fulfill({ json: { parametrer: options.role === undefined || options.role === 'directeur' || !!options.parametreur, controle_gestion: !!controle } })
     }
     if (url.pathname === '/rest/v1/rpc/budgets_du_compte') return route.fulfill({ json: { magasins, reseau, groupes } })
+    if (url.pathname === '/rest/v1/rpc/ouvertures_reseau') return route.fulfill({ json: options.ouverturesReseau ?? [] })
     // Réel totalisé par magasin et par mois, comme pilotage.reel_du_compte
     if (url.pathname === '/rest/v1/rpc/reel_du_compte') {
       const annee = (req.postDataJSON() as { p_annee: number }).p_annee
@@ -385,8 +387,9 @@ const PARTIES: [string, { espace: string; libelle: RegExp; theme?: string }][] =
   // Lot 42 : hypothèses, ventes et résultat sur la page « 1 · Construire »
   ['Cartes des hypothèses', { espace: 'Budget', libelle: /^1 · Construire/ }],
   ['Construire', { espace: 'Budget', libelle: /^1 · Construire/ }],
-  ['Hypothèses', { espace: 'Budget', libelle: /^1 · Construire/ }],
-  ['Ventes', { espace: 'Budget', libelle: /^1 · Construire/ }],
+  // Joseph (03/11/2026) : les hypothèses de ventes s'ouvrent depuis les cartes des univers
+  ['Hypothèses', { espace: 'Budget', libelle: /^1 · Construire/, theme: 'Ventes Cave' }],
+  ['Ventes', { espace: 'Budget', libelle: /^1 · Construire/, theme: 'Ventes Cave' }],
   ['Calendrier', { espace: 'Budget', libelle: /^1 · Construire/, theme: 'Calendrier' }],
   ['Équipe', { espace: 'Budget', libelle: /^1 · Construire/, theme: 'Équipe' }],
   ['Résultat', { espace: 'Budget', libelle: /^1 · Construire/ }],

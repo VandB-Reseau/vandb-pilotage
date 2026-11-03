@@ -140,17 +140,15 @@ test('trésorerie au 1er janvier au point de départ ; hausse des salaires et in
   await expect(main.getByRole('region', { name: 'Trésorerie', exact: true })).toHaveCount(0)
   await expect(main.getByLabel('Trésorerie au 1er janvier', { exact: true })).toHaveCount(0)
   await expect(main.getByLabel('Trésorerie de départ')).toContainText(/Au 1er janvier : 20\sk€/)
-  // Salaires et frais : deux lignes du tableau des hypothèses, avec leur effet
-  const sf = main.getByRole('table', { name: `Hypothèses ${N + 1} : salaires et frais` })
-  await expect(sf.getByRole('row', { name: /^Hausse générale des salaires/ })).toBeVisible()
-  await expect(sf.getByRole('row', { name: /^Inflation des frais/ })).toBeVisible()
-  if (!isMobile) await expect(sf.getByRole('columnheader', { name: 'Effet' })).toBeVisible()
-  await expect(main.getByLabel('Hausse générale des salaires')).toBeVisible()
+  // Salaires et frais (03/11/2026) : chacun dans son thème, avec son effet ; plus de tableau commun sur Construire
+  await expect(main.getByRole('table', { name: `Hypothèses ${N + 1} : salaires et frais` })).toHaveCount(0)
   await ouvrir(page, 'Équipe')
-  await expect(page.locator('main').getByLabel('Hausse générale des salaires')).toBeHidden()
+  const sal = page.locator('main').getByRole('table', { name: `Hypothèses ${N + 1} : salaires` })
+  await expect(sal.getByRole('row', { name: /^Hausse générale des salaires/ })).toBeVisible()
+  if (!isMobile) await expect(sal.getByRole('columnheader', { name: 'Effet' })).toBeVisible()
   await main.getByRole('link', { name: 'Toutes les hypothèses' }).click()
   await main.getByRole('region', { name: 'Frais', exact: true }).getByRole('link').click()
-  await expect(page.locator('main').getByLabel('Inflation des frais', { exact: true })).toBeHidden()
+  await expect(page.locator('main').getByRole('table', { name: `Hypothèses ${N + 1} : frais` }).getByRole('row', { name: /^Inflation des frais/ })).toBeVisible()
   // L'ancienne adresse du thème Trésorerie mène au point de départ
   await page.goto(`./#/magasins/${encodeURIComponent(MAGASINS[0])}/tresoBudget`)
   await expect(page).toHaveURL(/\/depart$/)
@@ -168,7 +166,7 @@ test('budget pas encore proposé : la trésorerie au 1er janvier se lit, estimé
 test('menu du budget : l’état de chaque étape selon qui regarde', async ({ page, isMobile }) => {
   test.skip(isMobile, 'Menu de gauche sur PC ; sur téléphone, le même menu s’ouvre par le bouton')
   await seConnecter(page, { role: 'franchise', magasins: [budget(MAGASINS[0], 'propose')] })
-  await ouvrir(page, 'Construire')
+  await ouvrir(page, 'Ventes')
   const menu = page.getByRole('navigation', { name: 'Menu principal' })
   await expect(menu.getByRole('link', { name: /^0 · Point de départ/ })).toContainText('Fait')
   await expect(menu.getByRole('link', { name: /^1 · Construire/ })).toContainText('À relire')

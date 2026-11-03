@@ -99,7 +99,7 @@ export function RechercheMagasin({ telephone }: { telephone: boolean }) {
       noOptionsText="Aucun magasin ne correspond" openText="Ouvrir la liste" closeText="Fermer la liste"
       popupIcon={null} forcePopupIcon={false}
       slotProps={{ listbox: { sx: { '& .MuiAutocomplete-option': { minHeight: 48 } } }, popper: { sx: { zIndex: 1500 } } }}
-      sx={{ width: enDialogue ? '100%' : 360 }}
+      sx={{ width: '100%', maxWidth: enDialogue ? undefined : 560 }}
       renderInput={(p) => (
         <TextField
           {...p} inputRef={champ} autoFocus={enDialogue} placeholder={enDialogue ? 'Nom du magasin' : 'Rechercher un magasin (Ctrl+K)'}
@@ -108,9 +108,16 @@ export function RechercheMagasin({ telephone }: { telephone: boolean }) {
             htmlInput: { ...p.slotProps.htmlInput, 'aria-label': 'Rechercher un magasin' },
             input: { ...p.slotProps.input, startAdornment: <InputAdornment position="start"><SearchOutlined /></InputAdornment> },
           }}
-          sx={{
+          // Joseph (03/11/2026) : dans la barre noire, la recherche en pilule de 44 px de l'app réseau
+          sx={enDialogue ? {
             '& .MuiInputBase-root': { py: '0 !important', bgcolor: '#ffffff', borderRadius: 2 },
-            '& input': { height: enDialogue ? 48 : 40, boxSizing: 'border-box' },
+            '& input': { height: 48, boxSizing: 'border-box' },
+          } : {
+            '& .MuiInputBase-root': { py: '0 !important', px: 2, height: 44, bgcolor: 'rgba(255,255,255,0.12)', borderRadius: 999, color: '#ffffff', fontSize: '0.875rem' },
+            '& .MuiOutlinedInput-notchedOutline': { border: 0 },
+            '& .MuiInputAdornment-root, & .MuiSvgIcon-root': { color: '#ffffff' },
+            '& input': { height: 44, boxSizing: 'border-box' },
+            '& input::placeholder': { color: 'rgba(255,255,255,0.78)', opacity: 1 },
           }}
         />
       )}
@@ -151,8 +158,9 @@ export function SelecteurMagasin({ magasin, sombre = false }: { magasin: string;
   const recents = lireRecents().filter((x) => magasins.includes(x) && x !== magasin)
   const options = [...recents, ...magasins.filter((x) => !recents.includes(x) && x !== magasin)]
   const visibles = options.filter((m) => simple(m).includes(simple(texte)))
-  const titre = <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left', flex: 1 }}>{magasin}</Box>
+  const titre = <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left', flex: 1 }}>{sombre ? magasin : 'Changer de magasin'}</Box>
   if (magasins.length <= 1) {
+    if (!sombre) return null
     return <Box aria-label={`Magasin ouvert : ${magasin}`} sx={{ display: 'flex', minWidth: 0, maxWidth: { xs: 160, md: 280 }, px: 1, py: 1, fontWeight: 700, fontSize: '0.9375rem' }}>{titre}</Box>
   }
   const choisir = (nom: string | null) => {
@@ -166,7 +174,7 @@ export function SelecteurMagasin({ magasin, sombre = false }: { magasin: string;
       <Button onClick={() => { setTexte(''); setOuvert(true) }} aria-label={`Changer de magasin (magasin ouvert : ${magasin})`} endIcon={<UnfoldMoreOutlined />}
         sx={sombre
           ? { minWidth: 0, maxWidth: { xs: 170, md: 280 }, minHeight: 48, px: 1.5, color: '#ffffff', fontWeight: 700, fontSize: '0.9375rem', textTransform: 'none', justifyContent: 'space-between', border: 1, borderColor: 'rgba(255,255,255,0.45)', borderRadius: 2, '&:hover': { borderColor: '#ffffff', bgcolor: 'rgba(255,255,255,0.08)' } }
-          : { width: '100%', minHeight: 48, px: 1, mt: 0.5, color: 'text.primary', fontWeight: 700, fontSize: '0.9375rem', textTransform: 'none', justifyContent: 'space-between', border: 1, borderColor: 'divider', borderRadius: 2 }}>
+          : { minWidth: 0, maxWidth: { xs: 220, md: 280 }, minHeight: 48, px: 1.5, color: 'text.primary', fontWeight: 600, fontSize: '0.875rem', textTransform: 'none', justifyContent: 'space-between', border: 1, borderColor: 'divider', borderRadius: 2 }}>
         {titre}
       </Button>
       <Dialog open={ouvert} onClose={() => setOuvert(false)} fullWidth maxWidth="xs" aria-labelledby="selecteur-titre" slotProps={{ paper: { sx: { alignSelf: 'flex-start', mt: 10 } } }}>

@@ -54,9 +54,9 @@ export const theme = createTheme({
         warning: { main: brand.orange, dark: '#b84a1e' },
         error: { main: brand.brique },
         success: { main: brand.vert, dark: brand.vertFonce },
-        background: { default: '#f8f6f2', paper: '#ffffff' },
+        background: { default: '#fbf7f0', paper: '#ffffff' },
         text: { primary: brand.noir, secondary: '#5a5550' },
-        divider: '#eeeae3',
+        divider: '#ebe3d6',
         action: { selected: 'rgba(248, 187, 9, 0.28)' },
       },
     },
@@ -79,9 +79,10 @@ export const theme = createTheme({
     fontFamily,
     // Aucune taille sous 12 px dans l'app
     // Titres de page compacts sur téléphone, pour laisser la place au contenu
-    h1: { fontFamily: titres, fontSize: '1.625rem', fontWeight: 700, letterSpacing: '0.02em', textTransform: 'uppercase', [telephone]: { fontSize: '1.25rem' } },
-    h2: { fontFamily: titres, fontSize: '1.25rem', fontWeight: 700 },
-    h3: { fontFamily: titres, fontSize: '1.125rem', fontWeight: 700 },
+    // Joseph (03/11/2026) : titres, fond, filets et cartes repris à l'identique de l'app réseau, pour une fusion sans écart
+    h1: { fontFamily: titres, fontSize: '2rem', fontWeight: 800, letterSpacing: '0.01em', textTransform: 'uppercase', [telephone]: { fontSize: '1.375rem' } },
+    h2: { fontFamily: titres, fontSize: '1.5rem', fontWeight: 700 },
+    h3: { fontFamily: titres, fontSize: '1.25rem', fontWeight: 700 },
     h4: { fontSize: '1.125rem', fontWeight: 700 },
     h5: { fontSize: '1rem', fontWeight: 700 },
     h6: { fontSize: '1rem', fontWeight: 700 },
@@ -168,15 +169,10 @@ export const theme = createTheme({
     },
     MuiAppBar: { defaultProps: { elevation: 0, color: 'inherit' } },
     MuiPaper: { defaultProps: { elevation: 0 } },
-    // Cartes blanches sans bordure appuyée : une ombre à peine visible les détache du fond (lot 6)
+    // Cartes à bord fin, coins de 16 px, comme l'app réseau (Joseph, 03/11/2026)
     MuiCard: {
-      defaultProps: { variant: 'elevation', elevation: 0 },
-      styleOverrides: {
-        root: ({ theme }) => ({
-          borderRadius: 14, boxShadow: '0 1px 2px rgba(29, 29, 27, 0.06), 0 0 0 1px rgba(29, 29, 27, 0.04)',
-          ...theme.applyStyles('dark', { boxShadow: 'none', border: `1px solid ${theme.palette.divider}` }),
-        }),
-      },
+      defaultProps: { variant: 'outlined' },
+      styleOverrides: { root: { borderRadius: 16 } },
     },
     // Tableaux aérés : titres de colonnes discrets, lignes séparées d'un filet léger
     MuiTableCell: {

@@ -125,10 +125,11 @@ test('objectif d’EBE : la valeur de chaque levier, reportée dans les hypothè
   await seConnecter(page, { magasins: [{ magasin: MAGASINS[0], statut: 'propose', hypotheses: parTickets, base: parTickets, ajustements: {}, maj_le: '2026-10-20T09:30:00Z' }] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Résultat')
-  const objectif = page.getByRole('region', { name: 'Objectif d’EBE' })
+  // Joseph (03/11/2026) : l'objectif d'EBE est dans le simulateur « Que faut-il pour… »
+  const objectif = page.getByRole('region', { name: 'Que faut-il pour…' })
   await objectif.getByLabel('EBE visé').fill('30000')
   await expect(objectif).toContainText(/Aujourd’hui 23\sk€ : il manque 6,8\sk€/)
-  const leviers = objectif.getByRole('table', { name: 'Leviers pour atteindre l’EBE visé' })
+  const leviers = objectif.getByRole('table', { name: 'Leviers pour atteindre : ebe visé' })
   await expect(leviers.getByRole('row', { name: /^Tickets Cave/ })).toBeVisible()
   await expect(leviers.getByRole('row', { name: /^Masse salariale/ })).toBeVisible()
   expect(await textesTropPetits(page)).toEqual([])
