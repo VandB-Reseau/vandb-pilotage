@@ -99,15 +99,17 @@ test('les onglets signalent ce qui manque', async ({ page, isMobile }) => {
   await seConnecter(page, { magasins: sept, frais: [loyer(MAGASINS[0])] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Hypothèses')
-  // Budget en 4 étapes (lot 37) ; l'équipe manquante est signalée sur l'étape des hypothèses
-  await expect(partiesAffichees(page)).toHaveText([/^0 · Point de départ/, /^1 · Construire/, /^2 · Envoyer et valider/])
+  // Budget en 3 étapes (03/11/2026) ; l'équipe manquante est signalée sur l'étape des hypothèses
+  await expect(partiesAffichees(page)).toHaveText([/^1 · Construire/, /^2 · Visualiser/, /^3 · Envoyer et valider/])
   // La pastille et son détail dans l'onglet de l'étape (03/11/2026 : sur PC comme sur téléphone)
   const signale = (nom: RegExp) => expect(page.getByRole('navigation', { name: 'Pages du magasin' }).getByRole('tab', { name: nom }).locator('.MuiBadge-dot:not(.MuiBadge-invisible)')).toBeVisible()
   await signale(/^1 · Construire \(équipe à renseigner\)/)
   await page.getByRole('link', { name: `Magasin suivant : ${MAGASINS[1]}` }).click()
   await page.getByRole('link', { name: `Magasin suivant : ${MAGASINS[2]}` }).click()
-  // Directeur : budget à proposer, depuis le point de départ
-  await signale(/^0 · Point de départ \(budget à proposer\)/)
+  // Directeur : budget à proposer, dit par l'étape Construire et signalé sur l'atterrissage, dans le Suivi
+  await expect(page.getByRole('navigation', { name: 'Pages du magasin' }).getByRole('tab', { name: /^1 · Construire/ })).toContainText('À proposer')
+  await ongletEspace(page, 'Suivi').click()
+  await signale(/^Atterrissage \d{4} \(budget à proposer\)/)
 })
 
 test('un franchisé avec un seul magasin arrive sur sa fiche', async ({ page }) => {

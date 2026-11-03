@@ -11,6 +11,10 @@ const ilYa = (jours: number) => new Date(Date.now() - jours * 86_400_000).toISOS
 const budget = (magasin: string, statut: MagasinSimule['statut'], s: Partial<MagasinSimule> = {}): MagasinSimule =>
   statut ? { magasin, statut, hypotheses: magasinFictif, base: magasinFictif, maj_le: ilYa(1), ajustements: {}, ajustements_siege: {}, ...s }
     : { magasin, statut: null, hypotheses: null, maj_le: null }
+const commentaire = (id: number, store_name: string) => ({
+  id, store_name, annee: N + 1, texte: 'À revoir', ancre: 'budget', parent: null, resolu_le: null,
+  auteur: '00000000-0000-0000-0000-0000000000dd', auteur_role: 'directeur', auteur_nom: null, cree_le: ilYa(2),
+})
 // Campagne passée : propositions attendues depuis longtemps, validation à venir ; le budget non proposé est en retard
 const campagne = { proposition: '2020-01-01', retour: '2099-01-01', validation: '2099-01-02' }
 
@@ -29,6 +33,10 @@ test('Directeur : la campagne par étape et par Responsable Régional, dépliée
     magasins: [budget(MAGASINS[0], null), budget(MAGASINS[1], 'propose'), budget(MAGASINS[2], 'valide')],
     rrs: { [MAGASINS[0]]: ['RR Nord'], [MAGASINS[1]]: ['RR Nord'], [MAGASINS[2]]: ['RR Sud'] },
     coachs: { [MAGASINS[0]]: 'Coach Alpha', [MAGASINS[1]]: 'Coach Bêta', [MAGASINS[2]]: 'Coach Bêta' },
+    // Commentaires (03/11/2026) : seuls comptent les commentaires ouverts, pas leurs réponses ni les résolus
+    messages: [
+      commentaire(1, MAGASINS[1]), { ...commentaire(2, MAGASINS[1]), parent: 1 }, { ...commentaire(3, MAGASINS[1]), resolu_le: ilYa(1) }, commentaire(4, MAGASINS[2]),
+    ],
   })
   const bandeau = page.getByRole('region', { name: `Campagne des budgets ${N + 1}` })
   await expect(bandeau).toContainText('1 validé sur 3')
@@ -43,10 +51,11 @@ test('Directeur : la campagne par étape et par Responsable Régional, dépliée
 
   await bandeau.getByRole('button', { name: 'Par Responsable Régional' }).click()
   const parRR = bandeau.getByRole('table', { name: 'Par Responsable Régional' })
-  await expect(parRR.getByRole('row', { name: /^RR Nord/ }).getByRole('cell')).toHaveText(['RR Nord', '2', '1', '1', '0', '0', '1'])
+  await expect(parRR.getByRole('row', { name: /^RR Nord/ }).getByRole('cell')).toHaveText(['RR Nord', '2', '1', '1', '0', '0', '1', '1'])
   await parRR.getByRole('button', { name: 'Voir les Coachs de RR Nord' }).click()
-  await expect(parRR.getByRole('row', { name: /^Coach Alpha/ }).getByRole('cell')).toHaveText(['Coach Alpha', '1', '1', '0', '0', '0', '1'])
-  await expect(parRR.getByRole('row', { name: /^Coach Bêta/ }).getByRole('cell')).toHaveText(['Coach Bêta', '1', '0', '1', '0', '0', '0'])
+  await expect(parRR.getByRole('row', { name: /^Coach Alpha/ }).getByRole('cell')).toHaveText(['Coach Alpha', '1', '1', '0', '0', '0', '1', '0'])
+  await expect(parRR.getByRole('row', { name: /^Coach Bêta/ }).getByRole('cell')).toHaveText(['Coach Bêta', '1', '0', '1', '0', '0', '0', '1'])
+  await expect(parRR.getByRole('row', { name: /^RR Sud/ }).getByRole('cell').last()).toHaveText('1')
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-lot43-campagne-directeur.png`, fullPage: true })
@@ -119,7 +128,7 @@ test('Responsable Régional : par Coach, et « Valider en série » quand un bud
   })
   const bandeau = page.getByRole('region', { name: `Campagne des budgets ${N + 1}` })
   await bandeau.getByRole('button', { name: 'Par Coach' }).click()
-  await expect(bandeau.getByRole('table', { name: 'Par Coach' }).getByRole('row', { name: /^Coach Alpha/ }).getByRole('cell')).toHaveText(['Coach Alpha', '1', '0', '0', '1', '0', '0'])
+  await expect(bandeau.getByRole('table', { name: 'Par Coach' }).getByRole('row', { name: /^Coach Alpha/ }).getByRole('cell')).toHaveText(['Coach Alpha', '1', '0', '0', '1', '0', '0', '0'])
   await expect(page.getByRole('region', { name: 'Budgets prêts à valider' })).toHaveCount(0)
   await bandeau.getByRole('button', { name: 'Valider en série · 1' }).click()
   await expect(page.getByRole('region', { name: 'Budgets prêts à valider' })).toContainText('1 budget prêt à valider')
@@ -143,7 +152,10 @@ test('trésorerie au 1er janvier au point de départ ; hausse des salaires et in
   const main = page.locator('main')
   // Plus de carte Trésorerie : le plan se lit sous le résultat, la trésorerie de départ y renvoie
   await expect(main.getByRole('region', { name: 'Trésorerie', exact: true })).toHaveCount(0)
-  await expect(main.getByLabel('Trésorerie au 1er janvier', { exact: true })).toHaveCount(0)
+  await expect(main.getByLabel('Trésorerie au 1er janvier', { exact: true }).filter({ visible: true })).toHaveCount(0)
+  // Le point de départ est une carte de Construire (03/11/2026) : elle dit la trésorerie au 1er janvier saisie
+  await expect(main.getByRole('region', { name: 'Point de départ', exact: true })).toContainText('20 k€')
+  await ouvrir(page, 'Visualiser')
   await expect(main.getByLabel('Trésorerie de départ')).toContainText(/Au 1er janvier : 20\sk€/)
   // Salaires et frais (03/11/2026) : chacun dans son thème, avec son effet ; plus de tableau commun sur Construire
   await expect(main.getByRole('table', { name: `Hypothèses ${N + 1} : salaires et frais` })).toHaveCount(0)
@@ -159,13 +171,15 @@ test('trésorerie au 1er janvier au point de départ ; hausse des salaires et in
   await expect(page).toHaveURL(/\/depart$/)
 })
 
-test('budget pas encore proposé : la trésorerie au 1er janvier se lit, estimée, sans champ', async ({ page }) => {
+test('budget pas encore proposé : Construire renvoie à l’atterrissage, dans le Suivi', async ({ page }) => {
   await seConnecter(page, { role: 'directeur', magasins: [budget(MAGASINS[0], null)] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await ouvrir(page, 'Point de départ')
-  const depart = page.getByRole('region', { name: `Trésorerie au 1er janvier ${N + 1}` })
-  await expect(depart).toBeVisible()
-  await expect(depart.getByLabel('Trésorerie au 1er janvier', { exact: true })).toHaveCount(0)
+  await ouvrir(page, 'Construire')
+  await expect(page.locator('main')).toContainText(`Pas encore de budget ${N + 1}`)
+  await expect(page.getByRole('navigation', { name: 'Pages du magasin' }).getByRole('tab', { name: /^1 · Construire/ })).toContainText('À proposer')
+  await page.getByRole('button', { name: `Voir l’atterrissage ${N}` }).click()
+  await expect(page).toHaveURL(/\/atterrissage$/)
+  await expect(page.getByRole('navigation', { name: 'Pages du magasin' }).getByRole('tab', { name: `Atterrissage ${N}` })).toHaveAttribute('aria-selected', 'true')
 })
 
 test('étapes du budget : l’état de chaque étape selon qui regarde', async ({ page }) => {
@@ -173,9 +187,10 @@ test('étapes du budget : l’état de chaque étape selon qui regarde', async (
   await ouvrir(page, 'Ventes')
   // 03/11/2026 : dans les onglets de la fiche, sur PC comme sur téléphone
   const menu = page.getByRole('navigation', { name: 'Pages du magasin' })
-  await expect(menu.getByRole('tab', { name: /^0 · Point de départ/ })).toContainText('Fait')
+  // Trois étapes (03/11/2026) : le point de départ est une carte de Construire
+  await expect(menu.getByRole('tab')).toHaveText([/^Données/, /^Budget/, /^Suivi/, /^1 · Construire/, /^2 · Visualiser/, /^3 · Envoyer et valider/])
   await expect(menu.getByRole('tab', { name: /^1 · Construire/ })).toContainText('À relire')
-  await expect(menu.getByRole('tab', { name: /^2 · Envoyer et valider/ })).toContainText('À envoyer')
+  await expect(menu.getByRole('tab', { name: /^3 · Envoyer et valider/ })).toContainText('À envoyer')
   await page.getByLabel('Évolution du nombre de tickets : Cave').fill('5')
   await expect(menu.getByRole('tab', { name: /^1 · Construire/ })).toContainText('Non enregistré')
 })

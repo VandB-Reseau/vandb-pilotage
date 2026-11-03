@@ -26,7 +26,8 @@ import FactCheckOutlined from '@mui/icons-material/FactCheckOutlined'
 import { useAuth } from '../auth/AuthContext'
 import { AFaireFranchise } from '../components/AFaireFranchise'
 import { BarreEnregistrement } from '../components/BarreEnregistrement'
-import { EchangesBudget } from '../components/EchangesBudget'
+import { HistoriqueBudget } from '../components/HistoriqueBudget'
+import { AvecCommentaires, BoutonCommenter } from '../components/Commentaires'
 import { AlertesEtActions } from '../components/PlanAction'
 import { AtterrissageMagasin } from '../components/AtterrissageMagasin'
 import { DetailCalcul } from '../components/DetailCalcul'
@@ -376,7 +377,7 @@ export function Magasin() {
   const bDernier = avantH ? calculerBudget(avantH.hypotheses, parametres) : null
   const panneau = avecImpact && b && bAvant ? (
     <PanneauImpact
-      key={ligne.magasin} cote={impactACote}
+      key={`impact-${ligne.magasin}`} cote={impactACote}
       enregistre={impactBudget(b, bAvant, tresorerie, tresoAvant)}
       siege={bSiege ? impactBudget(b, bSiege, tresorerie, tresoSiege) : null}
       referenceParDefaut={peutAjuster ? 'enregistre' : 'siege'}
@@ -403,7 +404,7 @@ export function Magasin() {
         <Button variant="text" startIcon={<ChevronLeftOutlined />} onClick={() => allerEtape(etapeAvant.cle)} sx={{ minHeight: 48 }}>{sansNumero(etapeAvant.libelle)}</Button>
       )}
       <Box sx={{ flex: 1 }} />
-      <Typography variant="body2" color="text.secondary">Étape {iEtape} sur {parties.length - 1}</Typography>
+      <Typography variant="body2" color="text.secondary">Étape {iEtape + 1} sur {parties.length}</Typography>
       {etapeApres && (
         <Button variant="contained" endIcon={<ChevronRightOutlined />} onClick={() => allerEtape(etapeApres.cle)} sx={{ minHeight: 48 }}>
           Étape suivante : {sansNumero(etapeApres.libelle)}
@@ -463,16 +464,19 @@ export function Magasin() {
           ))}
         </Tabs>
       </Box>
+      <AvecCommentaires actif={espace === 'budget' && !!ligne.base} magasin={ligne.magasin} annee={annee} moi={profil}>
+      {(commentaires, ouvertsC) => (<>
       {themeOuvert && (
         <Box className="pas-a-l-impression" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2, flexWrap: 'wrap' }}>
           <Button component={RouterLink} to={lienMagasin(ligne.magasin, 'budget')} data-sans-garde={onglet === 'equipe' ? undefined : ''} startIcon={<ArrowBack />} sx={{ minHeight: 48 }}>
             Toutes les hypothèses
           </Button>
           <Typography variant="h2">{themeOuvert.libelle} {annee}</Typography>
+          <BoutonCommenter ancre={`theme/${themeOuvert.cle}`} libelle={themeOuvert.libelle} />
         </Box>
       )}
 
-      <AvecImpact panneau={panneau} cote={impactACote}>
+      <AvecImpact panneau={panneau} commentaires={commentaires} cote={impactACote}>
       {onglet === 'synthese' ? (
         <SyntheseMagasin key={ligne.magasin} magasin={ligne.magasin} d={d} annee={anneeEnCours} parametres={donnees.parametresN} allerA={aller}
           visiteEtActions={!franchise && profil?.role !== 'aucun'} proposerAction={!franchise && profil?.role !== 'aucun' ? (intitule) => setProposition({ intitule, n: Date.now() }) : undefined}
@@ -607,12 +611,12 @@ export function Magasin() {
               franchise={franchise} themes={revue.themes} total={revue.total} ebeSiege={revue.ebeSiege} ebeMagasin={revue.ebeMagasin}
               envoyeLe={ligne.envoyeLe} statut={ligne.statut} occupe={occupe} onEnvoyer={franchise && peutAjuster ? envoyer : undefined}
               validation={boutonValider ? {
-                points: pointsAvantValidation({ tresorerieDepart: brouillon.tresorerieDepart, estimee: estimee ? milliers(estimee.montant) : undefined, pointBas: tresorerie?.pointBas ?? null, changementsNonEnvoyes: ligne.statut === 'propose' && revue.effets.length > 0 }, MOIS_LONGS),
+                points: pointsAvantValidation({ tresorerieDepart: brouillon.tresorerieDepart, estimee: estimee ? milliers(estimee.montant) : undefined, pointBas: tresorerie?.pointBas ?? null, changementsNonEnvoyes: ligne.statut === 'propose' && revue.effets.length > 0, commentairesOuverts: ouvertsC }, MOIS_LONGS),
                 bouton: boutonValider,
               } : undefined}
             />
           )}
-          {profil && <EchangesBudget key={`echanges-${ligne.magasin}`} ligne={ligne} d={d} annee={annee} parametres={parametres} moi={profil} />}
+          {profil && <HistoriqueBudget key={`historique-${ligne.magasin}`} ligne={ligne} d={d} annee={annee} parametres={parametres} />}
           {profil && ligne.base && b && (
             <VersionsBudget
               key={`versions-${ligne.magasin}`} ligne={ligne} d={d} annee={annee} parametres={parametres} budget={b} ajustements={brouillon}
@@ -717,7 +721,10 @@ export function Magasin() {
           )}
           <Stack spacing={3} className={partie('visualiser')} id="partie-resultat" sx={{ scrollMarginTop: 200 }}>
             {/* Joseph (03/11/2026) : le résultat et la trésorerie ont leur étape, « 2 · Visualiser » */}
-            <Typography variant="h2" className="pas-a-l-impression">Résultat et trésorerie {annee}</Typography>
+            <Box className="pas-a-l-impression" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h2">Résultat et trésorerie {annee}</Typography>
+              <BoutonCommenter ancre="visualiser" libelle={`Résultat et trésorerie ${annee}`} />
+            </Box>
             {resolu && <CompteResultatMois lignes={compteResultat(b, resolu.hypotheses, parametres)} titre={`Compte de résultat ${annee}`} libelleTableau={`Budget ${annee} mois par mois`} />}
             <CapaciteAutofinancement budget={b} annee={annee} />
             {resolu && b && <EconomieFranchise budget={b} hypotheses={resolu.hypotheses} parametres={parametres} annee={annee} />}
@@ -742,18 +749,24 @@ export function Magasin() {
       </Stack>)}
       </AvecImpact>
       {piedEtapes}
+      </>)}
+      </AvecCommentaires>
     </Box>
   )
 }
 
-// Panneau Impact : colonne de droite sur grand écran, barre en bas d'écran sinon ; sans panneau, la page telle quelle
-function AvecImpact({ panneau, cote, children }: { panneau: ReactNode; cote: boolean; children: ReactNode }) {
-  if (!panneau) return <>{children}</>
-  if (!cote) return <>{children}{panneau}</>
+// Panneau Impact et commentaires (Joseph, 03/11/2026) : colonne de droite sur grand écran, l'Impact en haut et les
+// commentaires dessous ; sinon les commentaires en fin de page et l'Impact en barre en bas d'écran
+function AvecImpact({ panneau, commentaires, cote, children }: { panneau: ReactNode; commentaires: ReactNode; cote: boolean; children: ReactNode }) {
+  if (!panneau && !commentaires) return <>{children}</>
+  if (!cote) return <>{children}{commentaires && <Box sx={{ mt: 3 }}>{commentaires}</Box>}{panneau}</>
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 300px', columnGap: 3, alignItems: 'start' }}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', columnGap: 3, alignItems: 'start' }}>
       <Box sx={{ minWidth: 0 }}>{children}</Box>
-      {panneau}
+      <Box sx={{ position: 'sticky', top: 84, zIndex: 6, maxHeight: 'calc(100vh - 100px)', overflowY: 'auto', display: 'grid', gap: 2, pb: 0.5, px: 0.5, mx: -0.5 }}>
+        {panneau}
+        {commentaires}
+      </Box>
     </Box>
   )
 }

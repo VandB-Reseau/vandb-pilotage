@@ -38,7 +38,7 @@ test('trois espaces : le magasin ouvert reste le même, chaque espace a ses page
     await expect(menu.getByRole('link')).toHaveText([/^Campagne \d{4}/, /^Hypothèses du réseau/, /^Réel du réseau/, /^Imports de caisse/, /^Paramètres réseau/])
   }
   await ongletEspace(page, 'Suivi').click()
-  await expect(partiesAffichees(page)).toHaveText([/^Où en est le magasin/, /^Stock$/, /^Trésorerie/])
+  await expect(partiesAffichees(page)).toHaveText([/^Où en est le magasin/, /^Atterrissage \d{4}/, /^Stock$/, /^Trésorerie/])
   await expect(page).toHaveURL(/\/synthese$/)
 })
 

@@ -84,9 +84,10 @@ test('le franchisé prévoit un temps fort et un client gagné : la base perd l�
   // Sans rythme mesuré, la base est l'atterrissage
   await expect(page.getByRole('region', { name: 'Base du CA' })).toContainText('Base : atterrissage 2026')
 
-  await ouvrir(page, 'Calendrier')
-  await page.getByRole('button', { name: 'Prévoir un temps fort' }).click()
-  const tf = page.getByRole('region', { name: 'Temps forts' })
+  // Joseph (03/11/2026) : « Évènements & Temps forts », un seul tableau face à l'an passé
+  await ouvrir(page, 'Évènements')
+  await page.getByRole('button', { name: 'Ajouter un temps fort' }).click()
+  const tf = page.getByRole('table', { name: 'Temps forts et clients extérieurs 2027' })
   await tf.getByLabel('Nom du temps fort 1').fill('Oktoberfest')
   await expect(tf.getByLabel('Univers : Oktoberfest')).toHaveValue('exterieur')
   await expect(tf.getByLabel('Mois : Oktoberfest')).toHaveValue('6')
@@ -95,29 +96,21 @@ test('le franchisé prévoit un temps fort et un client gagné : la base perd l�
   await tf.getByLabel('CA 2027 : Oktoberfest').fill('15 000')
   await ouvrir(page, 'Résultat et trésorerie')
   await expect(ca).toContainText(/595\s000\s€/)
-  await ouvrir(page, 'Calendrier')
-  await expect(tf).toContainText(/CA 2026 retiré : 12\sk€ · CA 2027 ajouté : 15\sk€/)
+  await ouvrir(page, 'Évènements')
+  await expect(tf.getByRole('row', { name: /Oktoberfest/ }).first()).toContainText(/\+3\s000\s€/)
+  // Les charges du temps fort se déplient sous sa ligne
+  await tf.getByRole('button', { name: 'Déplier le détail : Oktoberfest' }).click()
   await expect(tf.getByLabel('Extras de personnel : Oktoberfest')).toHaveCount(0)
   await tf.getByLabel('Autres charges : Oktoberfest').fill('2 200')
-  await expect(tf).toContainText(/Charges : 2,2\sk€/)
 
-  // Une association gagnée : 1 000 € par mois toute l'année
-  await page.getByRole('button', { name: 'Ajouter un client gagné ou perdu' }).click()
-  const clients = page.getByRole('region', { name: 'Clients gagnés ou perdus' })
-  await clients.getByLabel('Client ou événement 1').fill('Association sportive')
-  await clients.getByLabel('Montant par mois : Association sportive').fill('1 000')
+  // Une association gagnée face à 2026 : 12 000 € sur l'année, soit 1 000 € par mois
+  await page.getByRole('button', { name: 'Ajouter un client extérieur' }).click()
+  await tf.getByLabel('Nom du client 1').fill('Association sportive')
+  await tf.getByLabel('CA 2027 : Association sportive').fill('12 000')
+  await expect(tf.getByRole('row', { name: /Association sportive/ })).toContainText('Client gagné')
   await ouvrir(page, 'Résultat et trésorerie')
   await expect(ca).toContainText(/607\s000\s€/)
-  await ouvrir(page, 'Calendrier')
-  await expect(clients).toContainText(/CA 2027 : \+12\sk€/)
-  // En part du CA : − 10 % sur le Bar d'octobre à décembre (300 000 × 30 % × 10 %)
-  await clients.getByLabel('Univers : Association sportive').selectOption('bar')
-  await clients.getByLabel('Unité : Association sportive').selectOption('taux')
-  await clients.getByLabel('De : Association sportive').selectOption('10')
-  await clients.getByLabel('Part du CA : Association sportive').fill('-10')
-  await ouvrir(page, 'Résultat et trésorerie')
-  await expect(ca).toContainText(/586\s000\s€/)
-  await ouvrir(page, 'Calendrier')
+  await ouvrir(page, 'Évènements')
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-temps-forts.png`, fullPage: true })
@@ -127,11 +120,12 @@ test('le franchisé prévoit un temps fort et un client gagné : la base perd l�
   const envoi = ecritures.find((e) => e.table === 'budgets' && e.methode === 'PATCH')?.corps as { ajustements: unknown }
   expect(envoi.ajustements).toEqual({
     tempsForts: [{ nom: 'Oktoberfest', type: 'exterieur', mois: 6, univers: 'exterieur', caAnPasse: 12_000, ca: 15_000, autresCharges: 2_200, moisAchats: 5 }],
-    ajustementsCA: [{ libelle: 'Association sportive', univers: 'bar', de: 10, a: 12, taux: -0.1 }],
+    ajustementsCA: [{ libelle: 'Association sportive', univers: 'exterieur', de: 1, a: 12, caAnPasse: 0, ca: 12_000 }],
   })
-  // Retirer le temps fort : la carte revient au bouton
+  // Retirer le temps fort : reste le client
   await page.getByRole('button', { name: 'Retirer Oktoberfest' }).click()
-  await expect(page.getByRole('button', { name: 'Prévoir un temps fort' })).toBeVisible()
+  await expect(tf.getByLabel('Nom du temps fort 1')).toHaveCount(0)
+  await expect(tf.getByLabel('Nom du client 1')).toHaveValue('Association sportive')
 })
 
 test('le Directeur fixe la hausse tarifaire et les valeurs par ancienneté ; le budget du magasin les reprend', async ({ page, isMobile }) => {

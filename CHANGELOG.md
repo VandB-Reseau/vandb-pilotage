@@ -5,6 +5,24 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Investissements & Financements, Évènements & Temps forts, budget en 3 étapes, commentaires (Base : 0025)
+
+- Base : passer `supabase/migrations/0025_commentaires.sql` (commentaires ancrés, réponses, « Résolu »). Sans elle, l'app
+  lit encore les anciens messages mais ne peut ni répondre ni résoudre.
+- Budget en trois étapes : 1 · Construire (le point de départ devient une carte), 2 · Visualiser (compte de résultat,
+  capacité d'autofinancement, trésorerie, simulateur), 3 · Envoyer et valider. L'atterrissage de l'année en cours passe
+  dans le Suivi ; ses mois restants suivent la répartition par mois saisie (total atterri inchangé).
+- Nouvelle carte « Investissements & Financements » : travaux (sortis du calendrier), achats amortis (équipement,
+  mobilier, informatique), nouveaux emprunts à échéances constantes, apport, dernier mois des emprunts en cours ; CAF,
+  échéances ÷ CAF et part des investissements autofinancée. Trésorerie : ligne « Nouveaux emprunts et apport ».
+- « Calendrier » devient « Évènements & Temps forts » : un seul tableau des temps forts et des clients extérieurs gagnés
+  ou perdus, saisis en CA de l'an passé et CA de l'année.
+- « Ce que le magasin a changé » : une ligne par thème avec son effet sur l'EBE, le détail à la demande.
+- Les messages deviennent des commentaires posés sur un point précis (carte, thème, ligne d'hypothèse, résultat), avec
+  réponses et « Résolu », dans la colonne de droite sous l'Impact sur les trois étapes (en fin de page sur téléphone).
+  Les anciens messages restent, comme commentaires sur le budget en général. Valider reste possible avec des
+  commentaires ouverts, un avertissement le dit. Colonne « Commentaires ouverts » dans la campagne.
+
 ### Écrans allégés : trésorerie, saisie du réel, pages réseau (sans migration)
 
 - Trésorerie (Joseph, 3/11) : un curseur Mois / Quadrimestre fait basculer ensemble le graphe et le tableau ; le second

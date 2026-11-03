@@ -28,7 +28,7 @@ const pluriel = (n: number, un: string, plusieurs: string) => (n === 1 ? `1 ${un
 // Étape de la campagne → filtre de la liste des magasins
 export const FILTRE_ETAPE: Record<EtapeCampagne, Filtre> = { a_proposer: 'sans_budget', chez_franchise: 'propose', retour: 'en_discussion', valide: 'valide' }
 const COULEUR: Record<EtapeCampagne, string> = { a_proposer: 'divider', chez_franchise: 'grey.500', retour: 'secondary.main', valide: 'success.main' }
-const COLONNES: { cle: Exclude<keyof Avancement, 'nom' | 'magasins'>; libelle: string; filtre: Filtre }[] = [
+const COLONNES: { cle: Exclude<keyof Avancement, 'nom' | 'magasins' | 'commentaires'>; libelle: string; filtre: Filtre }[] = [
   { cle: 'aProposer', libelle: 'À proposer', filtre: 'sans_budget' }, { cle: 'proposes', libelle: 'Chez le franchisé', filtre: 'propose' },
   { cle: 'enDiscussion', libelle: 'Retour', filtre: 'en_discussion' }, { cle: 'valides', libelle: 'Validés', filtre: 'valide' },
   { cle: 'enRetard', libelle: 'En retard', filtre: 'en_retard' },
@@ -37,6 +37,7 @@ const COLONNES: { cle: Exclude<keyof Avancement, 'nom' | 'magasins'>; libelle: s
 export interface MagasinCampagneListe {
   magasin: string; statut: Statut | null; majLe: string | null; envoyeLe?: string | null
   rrs: string[]; coach: string | null; ebeSiege: number | null; ebe: number | null
+  commentaires?: number // commentaires encore ouverts sur le budget
 }
 type Filtrer = (f: Filtre, responsable?: string | null) => void
 
@@ -75,6 +76,7 @@ function TableauResponsables({ titre, lignes, sansNom, filtrer, sousLignes, libe
           <Chiffre n={l[c.cle]} quoi={`${c.libelle.toLowerCase()}, ${l.nom || sansNom}`} rouge={c.cle === 'enRetard'} onClick={() => filtrer(c.filtre, l.nom || null)} />
         </TableCell>
       ))}
+      <TableCell align="right" sx={{ color: l.commentaires ? 'warning.dark' : 'text.secondary', fontWeight: l.commentaires ? 700 : 400 }}>{l.commentaires}</TableCell>
     </TableRow>
   )
   return (
@@ -85,6 +87,7 @@ function TableauResponsables({ titre, lignes, sansNom, filtrer, sousLignes, libe
             <TableCell>{titre}</TableCell>
             <TableCell align="right">Magasins</TableCell>
             {COLONNES.map((c) => <TableCell key={c.cle} align="right">{c.libelle}</TableCell>)}
+            <TableCell align="right">Commentaires ouverts</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -135,7 +138,7 @@ export function CampagneBudgets({ annee, campagne, magasins, aujourdhui, role, c
           <TableHead>
             <TableRow>
               <TableCell>Magasin</TableCell><TableCell>Étape</TableCell><TableCell align="right">Depuis</TableCell>
-              <TableCell align="right">EBE proposé</TableCell><TableCell align="right">EBE du franchisé</TableCell>
+              <TableCell align="right">EBE proposé</TableCell><TableCell align="right">EBE du franchisé</TableCell><TableCell align="right">Commentaires ouverts</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -143,13 +146,14 @@ export function CampagneBudgets({ annee, campagne, magasins, aujourdhui, role, c
               const m = de.get(l.magasin)!
               return (
                 <TableRow key={l.magasin}>
-                  <TableCell><Link component={RouterLink} to={lienMagasin(l.magasin, l.etape === 'a_proposer' ? 'depart' : 'echanges')} sx={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', minHeight: 48 }}>{l.magasin}</Link></TableCell>
+                  <TableCell><Link component={RouterLink} to={lienMagasin(l.magasin, l.etape === 'a_proposer' ? 'atterrissage' : 'echanges')} sx={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', minHeight: 48 }}>{l.magasin}</Link></TableCell>
                   <TableCell>{ETAPES_CAMPAGNE.find((e) => e.cle === l.etape)!.libelle.replace(/s$/, '')}</TableCell>
                   <TableCell align="right" sx={l.enRetard ? { color: 'error.main', fontWeight: 700 } : undefined}>
                     {l.attente !== null ? pluriel(l.attente, 'jour', 'jours') : l.enRetard ? 'En retard' : ''}{l.attente !== null && l.enRetard ? ', en retard' : ''}
                   </TableCell>
                   <TableCell align="right">{m.ebeSiege === null ? '' : milliers(m.ebeSiege)}</TableCell>
                   <TableCell align="right">{l.etape === 'retour' || l.etape === 'valide' ? (m.ebe === null ? '' : milliers(m.ebe)) : ''}</TableCell>
+                  <TableCell align="right" sx={{ color: m.commentaires ? 'warning.dark' : 'text.secondary', fontWeight: m.commentaires ? 700 : 400 }}>{m.commentaires ?? 0}</TableCell>
                 </TableRow>
               )
             })}
@@ -163,7 +167,7 @@ export function CampagneBudgets({ annee, campagne, magasins, aujourdhui, role, c
       sousLignes={avecCoach ? (nom) => avancementParRR(magasins, campagne, aujourdhui).find((l) => l.nom === nom)?.coachs ?? [] : undefined} />
   ) : avecCoach ? (
     <TableauResponsables titre="Par Coach" sansNom="Sans Coach" filtrer={filtrer}
-      lignes={avancementCampagne(magasins.map((m) => ({ statut: m.statut, responsables: m.coach ? [m.coach] : [] })), campagne, aujourdhui)} />
+      lignes={avancementCampagne(magasins.map((m) => ({ statut: m.statut, responsables: m.coach ? [m.coach] : [], commentaires: m.commentaires })), campagne, aujourdhui)} />
   ) : null
 
   const titreDetail = role === 'coach' ? 'Mes magasins, jours d’attente' : role === 'directeur' && avecRR ? 'Par Responsable Régional' : 'Par Coach'

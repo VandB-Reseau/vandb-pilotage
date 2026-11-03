@@ -23,6 +23,7 @@ import {
 } from '../moteur/cibles'
 import { UNIVERS, universLibelle, type Budget, type ResultatFamille, type Univers } from '../moteur/types'
 import { styleTableau } from '../theme/tableau'
+import { BoutonCommenter } from './Commentaires'
 import { Aide } from './Aide'
 import { ChampTaux } from './ChampTaux'
 import { GrilleHypotheses } from './GrilleHypotheses'
@@ -43,13 +44,14 @@ const dixieme = (v: number) => Math.round(v * 1000) / 1000
 
 // Ligne d'une hypothèse. Refonte A (Joseph, 02/11/2026) : lignes basses sur PC, la proposition du siège seulement quand
 // elle existe, « reprendre » en petite flèche à côté du champ, et l'effet en euros quand le tableau en a la colonne.
-function Ligne({ nom, aide, avant, origine, champ, reprendre, apres, effet }: {
+function Ligne({ nom, aide, avant, origine, champ, reprendre, apres, effet, ancre }: {
   nom: string; aide?: keyof typeof AIDE; avant?: ReactNode; origine: ReactNode; champ: ReactNode; reprendre?: ReactNode; apres?: ReactNode; effet?: ReactNode
+  ancre?: { ancre: string; libelle: string }
 }) {
   return (
     <TableRow>
       <TableCell component="th" scope="row" sx={{ fontWeight: 600 }}>
-        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center' }}>{nom}{aide && <Aide sujet={aide} compact />}</Box>
+        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center' }}>{nom}{aide && <Aide sujet={aide} compact />}{ancre && <BoutonCommenter compact ligne {...ancre} />}</Box>
       </TableCell>
       {/* Proposition 2 (Joseph, 03/11/2026) : l'année en cours et la proposition du siège dans une seule colonne */}
       <TableCell sx={{ lineHeight: 1.3 }}>
@@ -124,7 +126,7 @@ export function HypotheseCle({ cle, nom, libelle, quoi, aide, avant, apres, effe
   // Sans proposition du siège (valeur reprise du réalisé) : « Rythme actuel »
   const source = herite ? `${niveauLibelle[herite.source]} ${taux(auDessusValeur)}` : 'Rythme actuel'
   return (
-    <Ligne nom={nom} aide={aide} avant={avant} apres={apres} effet={effet} origine={source}
+    <Ligne nom={nom} aide={aide} avant={avant} apres={apres} effet={effet} origine={source} ancre={{ ancre: `ligne/${cle}`, libelle }}
       champ={<ChampTaux compact largeur={96} pas={/^(flux|panier|univers)\//.test(cle) ? 0.01 : 0.005} libelle={libelle} valeur={propre} heritee={auDessusValeur} desactive={lectureSeule} onChange={(v) => onChange(ecrireCible(cibles, cle, v))} />}
       reprendre={propre !== undefined && !lectureSeule ? <Reprendre quoi={quoi} texte={source === 'Rythme actuel' ? `rythme actuel, ${taux(auDessusValeur)}` : source} onClick={() => onChange(ecrireCible(cibles, cle, undefined))} /> : undefined}
     />
@@ -158,7 +160,7 @@ export function HypothesesUnivers({ familles, flux, annee, suite, surCA = 0, ...
     // margeRealisee est un taux : la marge de l'univers pondère chaque famille par son CA
     const margeConnue = somme(l.map((f) => f.caRealise * f.margeRealisee))
     return (
-      <Ligne key={type} nom={nom} aide={type === 'marge' ? 'margeUnivers' : 'demarqueUnivers'} effet={effet}
+      <Ligne key={type} nom={nom} aide={type === 'marge' ? 'margeUnivers' : 'demarqueUnivers'} effet={effet} ancre={{ ancre: `ligne/${type}/${u}`, libelle: `${nom} : ${nomU}` }}
         // Marge de l'année en cours inconnue (réel importé sans marge) : un tiret, pas 0 %
         avant={type === 'marge' && ca && margeConnue ? taux(margeConnue / ca) : undefined}
         // Moyenne des familles arrondie au dixième de point : « 38,0 % », jamais « 38,0214 » coupé dans le champ
@@ -199,7 +201,7 @@ export function HypothesesUnivers({ familles, flux, annee, suite, surCA = 0, ...
         return (
           <Box key={u} component="section" aria-label={nomU} sx={{ pt: 2, pb: 1, borderTop: 1, borderColor: 'divider', '&:first-of-type': { borderTop: 0 } }}>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 2, rowGap: 0.5, mb: 1, px: 2.5 }}>
-              <Typography variant="h3" sx={{ fontSize: '1.125rem' }}>{nomU}</Typography>
+              <Typography variant="h3" sx={{ fontSize: '1.125rem', display: 'inline-flex', alignItems: 'center', alignSelf: 'center' }}>{nomU}<BoutonCommenter compact ancre={`ventes/${u}`} libelle={`Ventes ${nomU}`} /></Typography>
               <Typography sx={{ fontSize: '0.9375rem' }}>
                 <Box component="span" sx={gris}>{milliers(n)} → </Box>
                 <Box component="span" sx={{ fontWeight: 700 }}>{milliers(b)}</Box>

@@ -21,15 +21,15 @@ test('hypothèses en cartes : chaque carte ouvre son tableau, les changements re
   await ouvrir(page, 'Cartes des hypothèses')
   await expect(page).toHaveURL(/\/budget$/)
   await expect(partiesAffichees(page))
-    .toHaveText([/^0 · Point de départ/, /^1 · Construire/, /^2 · Envoyer et valider/])
+    .toHaveText([/^1 · Construire/, /^2 · Visualiser/, /^3 · Envoyer et valider/])
   const main = page.locator('main')
-  // Joseph (03/11/2026) : toutes les hypothèses en cartes, ventes de chaque univers comprises ; le résultat reste sur la page
+  // Joseph (03/11/2026) : toutes les hypothèses en cartes, ventes de chaque univers comprises ; le résultat a son étape
   await expect(main.getByRole('region', { name: 'Hypothèses du magasin' })).toBeHidden()
   await expect(main.getByRole('region', { name: 'Ventes Cave' })).toBeVisible()
-  await expect(main.getByRole('table', { name: /mois par mois$/ })).toBeVisible()
+  await expect(main.getByRole('table', { name: /mois par mois$/ })).toBeHidden()
   // Lot 43 : plus de carte Trésorerie, la trésorerie au 1er janvier est au point de départ
   await expect(main.getByRole('region', { name: 'Trésorerie', exact: true })).toHaveCount(0)
-  for (const t of ['Calendrier', 'Équipe', 'Frais']) {
+  for (const t of ['Point de départ', 'Évènements & Temps forts', 'Investissements & Financements', 'Équipe', 'Frais']) {
     await expect(main.getByRole('region', { name: t, exact: true })).toBeVisible()
   }
   // Sans équipe : la carte le dit
@@ -90,7 +90,7 @@ test('fiche : « Changer de magasin » ouvre la liste des magasins avec recherch
   await seConnecter(page, { magasins: [propose, autre] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Résultat')
-  await expect(page).toHaveURL(/\/budget$/)
+  await expect(page).toHaveURL(/\/visualiser$/)
   // Lot 42 : le magasin n'est plus dans le menu de gauche ; Joseph (03/11/2026) : ni dans la barre du haut, on en change depuis la fiche
   const menu = page.getByRole('navigation', { name: 'Menu principal' })
   await expect(menu.getByText(MAGASINS[0], { exact: true })).toHaveCount(0)
@@ -104,6 +104,6 @@ test('fiche : « Changer de magasin » ouvre la liste des magasins avec recherch
   await expect(dialogue.getByRole('button', { name: MAGASINS[0], exact: true })).toHaveCount(0)
   await dialogue.getByRole('button', { name: MAGASINS[1] }).click()
   // Même étape, autre magasin
-  await expect(page).toHaveURL(new RegExp(`/magasins/${encodeURIComponent(MAGASINS[1])}/budget$`))
+  await expect(page).toHaveURL(new RegExp(`/magasins/${encodeURIComponent(MAGASINS[1])}/visualiser$`))
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
 })

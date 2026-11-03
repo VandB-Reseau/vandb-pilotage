@@ -703,6 +703,45 @@ export async function retirerMessage(id: number) {
   verifier(await pilotage().from('echanges_budget').delete().eq('id', id))
 }
 
+// Commentaires (migration 0025, Joseph 03/11/2026) : posés sur un point du budget (« ancre »), avec réponses et « Résolu ».
+// Sans la migration, les messages d'avant se lisent comme des commentaires sur le budget en général.
+export interface Commentaire {
+  id: number; ancre: string; ancreLibelle: string | null; parent: number | null; texte: string
+  auteur: string | null; auteurRole: Role | null; auteurNom: string | null; creeLe: string
+  resoluLe: string | null; resoluParRole: Role | null; resoluParNom: string | null
+}
+export async function chargerCommentaires(magasin: string, annee: number): Promise<Commentaire[]> {
+  const complet = await pilotage().from('echanges_budget').select('id, ancre, ancre_libelle, parent, texte, auteur, auteur_role, auteur_nom, cree_le, resolu_le, resolu_par_role, resolu_par_nom')
+    .eq('store_name', magasin).eq('annee', annee).order('cree_le')
+  type Brut = { id: number; ancre?: string; ancre_libelle?: string | null; parent?: number | null; texte: string; auteur: string | null; auteur_role: Role | null; auteur_nom: string | null; cree_le: string; resolu_le?: string | null; resolu_par_role?: Role | null; resolu_par_nom?: string | null }
+  let lignes = complet.data as Brut[] | null
+  if (complet.error) {
+    const ancien = await pilotage().from('echanges_budget').select('id, texte, auteur, auteur_role, auteur_nom, cree_le').eq('store_name', magasin).eq('annee', annee).order('cree_le')
+    if (ancien.error) throw new ErreurChargement()
+    lignes = ancien.data as Brut[]
+  }
+  return (lignes ?? []).map((x) => ({
+    id: x.id, ancre: x.ancre ?? 'budget', ancreLibelle: x.ancre_libelle ?? null, parent: x.parent ?? null, texte: x.texte, auteur: x.auteur,
+    auteurRole: x.auteur_role, auteurNom: x.auteur_nom, creeLe: x.cree_le, resoluLe: x.resolu_le ?? null, resoluParRole: x.resolu_par_role ?? null, resoluParNom: x.resolu_par_nom ?? null,
+  }))
+}
+// Commentaires encore ouverts par magasin, pour la campagne ; sans la migration 0025, aucun
+export async function chargerCommentairesOuverts(annee: number): Promise<Record<string, number>> {
+  const { data, error } = await pilotage().from('echanges_budget').select('store_name').eq('annee', annee).is('parent', null).is('resolu_le', null)
+  if (error) return {}
+  const n: Record<string, number> = {}
+  for (const x of data as { store_name: string }[]) n[x.store_name] = (n[x.store_name] ?? 0) + 1
+  return n
+}
+export async function envoyerCommentaire(magasin: string, annee: number, c: { ancre: string; libelle: string; texte: string; parent?: number }) {
+  verifier(await pilotage().from('echanges_budget').insert({
+    store_name: magasin, annee, texte: c.texte.trim(), ...(c.parent ? { parent: c.parent } : { ancre: c.ancre, ancre_libelle: c.libelle.slice(0, 160) }),
+  }))
+}
+export async function resoudreCommentaire(id: number, resolu: boolean) {
+  verifier(await pilotage().rpc('resoudre_commentaire', { p_id: id, p_resolu: resolu }))
+}
+
 // Versions nommées du budget (lot 26) : enregistrées sans toucher au budget en cours, comparées côte à côte
 export interface VersionNommee { id: number; nom: string; base: Hypotheses; ajustements: Cibles; auteur: string | null; auteurRole: Role | null; auteurNom: string | null; creeLe: string }
 export async function chargerVersionsNommees(magasin: string, annee: number): Promise<VersionNommee[]> {

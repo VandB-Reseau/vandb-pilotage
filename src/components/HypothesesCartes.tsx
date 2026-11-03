@@ -6,6 +6,7 @@ import CardActionArea from '@mui/material/CardActionArea'
 import Chip from '@mui/material/Chip'
 import Typography from '@mui/material/Typography'
 import ChevronRightOutlined from '@mui/icons-material/ChevronRightOutlined'
+import { BoutonCommenter } from './Commentaires'
 import { ecartMilliers, ecartTaux, lienMagasin, milliers, taux } from '../lib/format'
 import type { Cibles } from '../moteur/cibles'
 import { universLibelle, type Budget, type Hypotheses } from '../moteur/types'
@@ -24,15 +25,15 @@ const ETATS: Record<EtatCarte, { texte: string; couleur: 'warning' | 'info' | 's
   fait: { texte: 'Fait', couleur: 'success', action: 'Modifier' },
 }
 
-function Carte({ titre, sousTitre, vers, lignes, etat, lectureSeule, magasin, accord }: {
-  titre: string; sousTitre?: ReactNode; vers: string; lignes: Ligne[]; etat?: EtatCarte; lectureSeule: boolean; magasin: string; accord?: ReactNode
+function Carte({ titre, sousTitre, vers, ancre, lignes, etat, lectureSeule, magasin, accord }: {
+  titre: string; sousTitre?: ReactNode; vers: string; ancre?: string; lignes: Ligne[]; etat?: EtatCarte; lectureSeule: boolean; magasin: string; accord?: ReactNode
 }) {
   const action = lectureSeule ? 'Voir le détail' : etat ? ETATS[etat].action : 'Modifier'
   return (
-    <Card component="section" aria-label={titre} sx={{ display: 'flex', flexDirection: 'column' }}>
+    <Card component="section" aria-label={titre} sx={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
       <CardActionArea component={RouterLink} to={lienMagasin(magasin, vers)} data-sans-garde="" aria-label={`${titre} : ${action.toLowerCase()}${etat ? ` (${ETATS[etat].texte.toLowerCase()})` : ''}`}
         sx={{ p: 2.5, pb: accord ? 1 : 2.5, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'stretch', justifyContent: 'flex-start', gap: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', pr: { xs: 5, lg: 4 } }}>
           <Typography variant="h3" component="h3" sx={{ flex: 1 }}>{titre}</Typography>
           {etat && <Chip size="small" color={ETATS[etat].couleur} label={ETATS[etat].texte} />}
         </Box>
@@ -49,6 +50,10 @@ function Carte({ titre, sousTitre, vers, lignes, etat, lectureSeule, magasin, ac
           {action}<ChevronRightOutlined fontSize="small" />
         </Box>
       </CardActionArea>
+      {/* Le commentaire se pose sur la carte, hors du lien qui ouvre le thème : même point que la page du thème */}
+      <Box sx={{ position: 'absolute', top: { xs: 8, lg: 14 }, right: { xs: 6, lg: 10 } }}>
+        <BoutonCommenter ancre={ancre ?? `theme/${vers}`} libelle={titre} />
+      </Box>
       {accord && <Box sx={{ px: 2.5, pb: 2 }}>{accord}</Box>}
     </Card>
   )
@@ -99,7 +104,7 @@ export function HypothesesCartes({ magasin, annee, budget: b, cibles, hausseSala
           { libelle: 'Saisonnalité', valeur: depart.saisonnalite ? 'Propre au magasin' : `Celle de ${depart.annee}` },
         ]} />
       {resumeUnivers(b).map((r) => (
-        <Carte key={r.univers} magasin={magasin} titre={`Ventes ${universLibelle[r.univers]}`} vers="ventes" lectureSeule={lectureSeule}
+        <Carte key={r.univers} magasin={magasin} titre={`Ventes ${universLibelle[r.univers]}`} vers="ventes" ancre={`ventes/${r.univers}`} lectureSeule={lectureSeule}
           sousTitre={<><Box component="span" sx={{ color: 'text.secondary' }}>{milliers(r.depart)} → </Box><b>{milliers(r.ca)}</b>{r.ecart !== null && <Box component="span" sx={{ color: 'text.secondary' }}>{` (${ecartTaux(r.ecart)})`}</Box>}</>}
           lignes={[
             ...(r.tickets !== undefined ? [{ libelle: 'Tickets', valeur: ecartTaux(r.tickets) }, { libelle: 'Panier moyen', valeur: ecartTaux(r.panier ?? 0) }]

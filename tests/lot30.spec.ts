@@ -22,7 +22,7 @@ test.afterEach(async ({ page }) => {
   expect((page as unknown as { erreurs: string[] }).erreurs, 'aucune erreur JavaScript').toEqual([])
 })
 
-test('fiche (lot 36) : le réel et les quadrimestres dans Données, l’atterrissage au départ du budget, chacun à son adresse', async ({ page }) => {
+test('fiche (lot 36) : le réel et les quadrimestres dans Données, l’atterrissage dans le Suivi, chacun à son adresse', async ({ page }) => {
   await seConnecter(page, { reel })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Réel')
@@ -32,11 +32,11 @@ test('fiche (lot 36) : le réel et les quadrimestres dans Données, l’atterris
   await expect(page).toHaveURL(/\/quadrimestres$/)
   await expect(page.getByRole('heading', { name: 'Quadrimestres comptables' })).toBeVisible()
   await ouvrir(page, 'Atterrissage')
-  await expect(page).toHaveURL(/\/depart$/)
+  await expect(page).toHaveURL(/\/atterrissage$/)
   // Une adresse rouverte (actualisation, lien envoyé) affiche la même partie
   await page.reload()
-  await expect(page).toHaveURL(/\/depart$/)
-  await partieAffichee(page, /^0 · Point de départ/)
+  await expect(page).toHaveURL(/\/atterrissage$/)
+  await partieAffichee(page, /^Atterrissage \d{4}/)
 })
 
 test('synthèse en 3 blocs : les chiffres, quoi faire, et le détail replié', async ({ page, isMobile }, info) => {

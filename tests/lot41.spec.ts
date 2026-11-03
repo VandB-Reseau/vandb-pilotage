@@ -65,7 +65,8 @@ test('le Directeur prépare les propositions en série et envoie celles qu’il 
 test('le point de départ dit si la fiche est prête à proposer et mène à ce qui manque', async ({ page, isMobile }) => {
   await seConnecter(page, { magasins: [{ magasin: MAGASINS[0], statut: null, hypotheses: null, maj_le: null }], reel, tickets })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await ouvrir(page, 'Point de départ')
+  // 03/11/2026 : la fiche prête à proposer est sur l'atterrissage, dans le Suivi
+  await ouvrir(page, 'Atterrissage')
   const fiche = page.getByRole('region', { name: 'Fiche prête à proposer' })
   await expect(fiche.getByRole('heading', { name: /^Fiche prête à \d sur 4$/ })).toBeVisible()
   await expect(fiche).toContainText('Il manque de quoi calculer l’EBE')
@@ -85,10 +86,17 @@ test('le franchisé envoie ses changements au siège ; le Directeur les relit et
   const ecritures = await seConnecter(page, { role: 'franchise', magasins: [magasin] })
   await ouvrir(page, 'Échanges')
   const revue = page.getByRole('region', { name: 'Mes changements par rapport au siège' })
-  await expect(revue.getByRole('row', { name: /^Panier moyen Cave/ })).toContainText('Par défaut')
+  // Une ligne par thème (03/11/2026), le détail à la demande
+  await expect(revue.getByRole('row', { name: /^Ventes et marge/ })).toContainText(/^Ventes et marge1/)
+  await revue.getByRole('button', { name: 'Voir le détail : Ventes et marge' }).click()
+  await expect(revue.getByRole('row', { name: /^Panier moyen Cave/ })).toContainText('au lieu de par défaut')
   await expect(revue.getByRole('row', { name: /^EBE/ })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Valider le budget' })).toHaveCount(0)
-  await revue.getByLabel('Un mot pour le siège (facultatif)').fill('Le panier monte avec la nouvelle gamme.')
+  // Le mot pour le siège est un commentaire, posé avant l'envoi
+  const commentaires = page.getByRole('region', { name: 'Commentaires', exact: true })
+  await commentaires.getByRole('textbox', { name: 'Commenter : Le budget en général' }).fill('Le panier monte avec la nouvelle gamme.')
+  await commentaires.getByRole('button', { name: 'Commenter', exact: true }).click()
+  await expect(commentaires.getByRole('listitem')).toHaveCount(1)
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-lot41-envoi.png`, fullPage: true })
@@ -113,7 +121,7 @@ test('le Directeur voit ce que le magasin a changé et ce qu’il faut regarder 
   await page.getByRole('button', { name: 'Revoir et valider' }).click()
   const revue = page.getByRole('region', { name: 'Ce que le magasin a changé' })
   await expect(revue).toContainText('Envoyé au siège le 3 novembre')
-  await expect(revue.getByRole('row', { name: /^Panier moyen Cave/ })).toBeVisible()
+  await expect(revue.getByRole('row', { name: /^Ventes et marge/ })).toBeVisible()
   await expect(revue).toContainText('La trésorerie au 1er janvier n’est pas saisie')
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])

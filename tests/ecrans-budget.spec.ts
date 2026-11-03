@@ -32,7 +32,11 @@ test('Construire : toutes les hypothèses en cartes, chacune dit ce qu’il rest
   const cartes = page.getByRole('region', { name: `Hypothèses ${B} en cartes` })
   await expect(cartes.getByRole('region', { name: 'Ventes Cave' })).toContainText('Tickets')
   await expect(cartes.getByRole('region', { name: 'Ventes Cave' })).toContainText('Marge visée')
-  const calendrier = cartes.getByRole('region', { name: 'Calendrier', exact: true })
+  // 03/11/2026 : « Évènements & Temps forts » et « Investissements & Financements », le point de départ en carte
+  await expect(cartes.getByRole('region').first()).toHaveAccessibleName('Point de départ')
+  await expect(cartes.getByRole('region').last()).toHaveAccessibleName('Frais')
+  await expect(cartes.getByRole('region', { name: 'Investissements & Financements', exact: true })).toContainText('Capacité d’autofinancement')
+  const calendrier = cartes.getByRole('region', { name: 'Évènements & Temps forts', exact: true })
   await expect(calendrier).toContainText('À faire')
   await expect(calendrier).toContainText('À répondre')
   await expect(calendrier.getByRole('link')).toContainText('Remplir')
@@ -47,37 +51,39 @@ test('Construire : toutes les hypothèses en cartes, chacune dit ce qu’il rest
   await expect(page.getByRole('heading', { name: `Ventes et marge ${B}` })).toBeVisible()
 })
 
-test('Calendrier : trois questions, « Rien de prévu » répond, la carte passe à « Fait »', async ({ page, isMobile }, info) => {
+test('Évènements & Temps forts : deux questions, « Rien de prévu » répond, la carte passe à « Fait »', async ({ page, isMobile }, info) => {
   await seConnecter(page, { magasins: [propose()] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await ouvrir(page, 'Calendrier')
-  const questions = page.getByRole('region', { name: 'Questions du calendrier' })
-  await expect(questions).toContainText(`1. Des travaux ou une fermeture en ${B} ?`)
-  await expect(questions.getByText('À répondre', { exact: true })).toHaveCount(3)
-  // La saisonnalité n'est plus dans le Calendrier
+  await ouvrir(page, 'Évènements')
+  const questions = page.getByRole('region', { name: 'Questions : temps forts, clients extérieurs' })
+  await expect(questions).toContainText(`1. Des temps forts en ${B}`)
+  await expect(questions).toContainText(`2. Des clients extérieurs gagnés ou perdus face à ${B - 1}`)
+  await expect(questions.getByText('À répondre', { exact: true })).toHaveCount(2)
+  // Ni la saisonnalité ni les travaux ne sont plus ici
   await expect(page.locator('main').getByRole('region', { name: 'Saisonnalité', exact: true })).toBeHidden()
-  for (const q of ['travaux ou fermeture', 'temps forts', 'clients gagnés ou perdus']) await questions.getByRole('button', { name: `Rien de prévu : ${q}` }).click()
-  await expect(questions.getByText('Rien de prévu', { exact: true })).toHaveCount(3)
+  await expect(questions).not.toContainText('travaux')
+  for (const q of ['temps forts', 'clients extérieurs']) await questions.getByRole('button', { name: `Rien de prévu : ${q}` }).click()
+  await expect(questions.getByText('Rien de prévu', { exact: true })).toHaveCount(2)
   await expect(questions).toContainText('Fait')
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-ecrans-questions.png`, fullPage: true })
-  // « Oui, saisir » mène au bloc ; une saisie répond à la question
+  // « Oui, saisir » mène au tableau ; une saisie répond à la question
   await questions.getByRole('button', { name: 'Annuler la réponse : temps forts' }).click()
   await questions.getByRole('button', { name: 'Oui, saisir : temps forts' }).click()
-  await page.getByRole('button', { name: 'Prévoir un temps fort' }).click()
+  await page.getByRole('button', { name: 'Ajouter un temps fort' }).click()
   await expect(questions).toContainText('Oui, 1 temps fort prévu')
   await page.getByRole('link', { name: 'Toutes les hypothèses' }).click()
-  await expect(page.getByRole('region', { name: 'Calendrier', exact: true })).toContainText('Fait')
+  await expect(page.getByRole('region', { name: 'Évènements & Temps forts', exact: true })).toContainText('Fait')
 })
 
 test('point de départ : la saisonnalité finit l’année et répartit le budget ; la date d’ouverture vient de la fiche magasin', async ({ page, isMobile }, info) => {
   await seConnecter(page, { magasins: [propose()], reel, ouverturesReseau: [{ store_name: MAGASINS[0], ouverture: '2019-03-01' }] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Point de départ')
-  const saison = page.getByRole('region', { name: 'Saisonnalité', exact: true })
-  await expect(saison.getByRole('table', { name: `Mois restants ${N} par univers` })).toBeVisible()
-  await expect(saison.getByRole('region', { name: `Saisonnalité du budget ${B}` })).toBeVisible()
+  // 03/11/2026 : la saisonnalité du budget au point de départ, les mois restants de l'année dans l'atterrissage (Suivi)
+  const saison = page.locator('main').getByRole('region', { name: 'Saisonnalité', exact: true })
+  await expect(saison.getByRole('table', { name: 'Saisonnalité du budget' })).toBeVisible()
   await expect(page.getByRole('region', { name: 'Projection des mois restants' })).toHaveCount(0)
   const base = page.getByRole('region', { name: 'Base du CA' })
   await expect(base).toContainText('Ouvert en mars 2019, d’après la fiche magasin')
@@ -85,6 +91,8 @@ test('point de départ : la saisonnalité finit l’année et répartit le budge
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-ecrans-depart.png`, fullPage: true })
+  await ouvrir(page, 'Atterrissage')
+  await expect(page.locator('main').getByRole('region', { name: 'Saisonnalité', exact: true }).getByRole('table', { name: `Mois restants ${N} par univers` })).toBeVisible()
 })
 
 test('sans date dans la fiche magasin, le Directeur la saisit en secours', async ({ page }) => {
