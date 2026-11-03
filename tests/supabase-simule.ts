@@ -44,6 +44,7 @@ export interface OptionsSimulation {
   coachs?: Record<string, string>
   rrs?: Record<string, string[]>
   quadrimestres?: QuadrimestreSimule[]
+  stocks?: StockSimule[]
   parts?: PartSimulee[]
   correspondances?: CorrespondanceSimulee[]
   messages?: MessageSimule[]
@@ -60,6 +61,7 @@ export interface OptionsSimulation {
   journal?: JournalSimule[]
   comptesConnus?: string[] // emails de comptes de connexion existants
 }
+export type StockSimule = { store_name: string; annee: number; mois: number; cave: number | null; bar: number | null }
 export type JournalSimule = { id: number; annee: number; rubrique: string; avant: unknown; apres: unknown; par_email: string | null; le: string }
 
 export type VersionNommeeSimulee = { id: number; store_name: string; annee: number; nom: string; base: unknown; ajustements: Record<string, unknown>; auteur: string | null; auteur_role: string | null; auteur_nom: string | null; cree_le: string }
@@ -85,6 +87,7 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
   let equipe = structuredClone(options.equipe ?? [])
   let frais = structuredClone(options.frais ?? [])
   let quadrimestres = structuredClone(options.quadrimestres ?? [])
+  let stocks = structuredClone(options.stocks ?? [])
   let parts = structuredClone(options.parts ?? [])
   let correspondances = structuredClone(options.correspondances ?? [])
   let messages = structuredClone(options.messages ?? [])
@@ -228,6 +231,10 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
           quadrimestres = [...quadrimestres.filter((x) => !(x.store_name === l.store_name && x.annee === l.annee && x.quadrimestre === l.quadrimestre)), l]
         }
       }
+      if (table === 'stocks') {
+        if (req.method() === 'DELETE') { const retirer = new Set(filtrer(stocks, url.searchParams)); stocks = stocks.filter((l) => !retirer.has(l)) }
+        else for (const l of ([] as StockSimule[]).concat(corps as StockSimule)) stocks = [...stocks.filter((x) => !(x.store_name === l.store_name && x.annee === l.annee && x.mois === l.mois)), l]
+      }
       if (table === 'parts_realisees') {
         if (req.method() === 'DELETE') { const retirer = new Set(filtrer(parts, url.searchParams)); parts = parts.filter((l) => !retirer.has(l)) }
         else parts = [...parts, ...([] as PartSimulee[]).concat(corps as PartSimulee)]
@@ -296,6 +303,7 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
     if (table === 'frais') return route.fulfill({ json: page(frais) })
     if (table === 'quadrimestres') return route.fulfill({ json: page(filtrer(quadrimestres, url.searchParams)) })
     if (table === 'parts_realisees') return route.fulfill({ json: page(filtrer(parts, url.searchParams)) })
+    if (table === 'stocks') return route.fulfill({ json: filtrer(stocks, url.searchParams) })
     if (table === 'correspondances_fec') return route.fulfill({ json: filtrer(correspondances, url.searchParams) })
     if (table === 'actions') return route.fulfill({ json: page(filtrer(actions, url.searchParams)) })
     if (table === 'echanges_budget') return route.fulfill({ json: filtrer(messages, url.searchParams).sort((a, b) => a.cree_le.localeCompare(b.cree_le)) })
@@ -371,6 +379,7 @@ const PARTIES: [string, { espace: string; libelle: RegExp; theme?: string }][] =
   ['Où en est le magasin', { espace: 'Suivi', libelle: /^Où en est le magasin/ }],
   ['Trésorerie du budget', { espace: 'Budget', libelle: /^1 · Construire/, theme: 'Trésorerie' }],
   ['Trésorerie', { espace: 'Suivi', libelle: /^Trésorerie/ }],
+  ['Stock', { espace: 'Suivi', libelle: /^Stock$/ }],
   ['Atterrissage', { espace: 'Budget', libelle: /^0 · Point de départ/ }],
   ['Point de départ', { espace: 'Budget', libelle: /^0 · Point de départ/ }],
   // Lot 42 : hypothèses, ventes et résultat sur la page « 1 · Construire »

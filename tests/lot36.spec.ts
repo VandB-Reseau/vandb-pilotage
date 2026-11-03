@@ -37,7 +37,7 @@ test('trois espaces : le magasin ouvert reste le même, chaque espace a ses page
     const menu = page.getByRole('navigation', { name: 'Menu principal' })
     await expect(menu.getByRole('link')).toHaveText([/^Imports de caisse/, /^Réel du mois/, /^Comptes du quadrimestre/, /^Frais \d{4}/, /^Paramètres réseau/])
     await page.getByRole('group', { name: 'Espaces' }).getByRole('link', { name: 'Suivi' }).click()
-    await expect(menu.getByRole('link')).toHaveText([/^Réel du réseau/, /^Où en est le magasin/, /^Trésorerie/, /^Paramètres réseau/])
+    await expect(menu.getByRole('link')).toHaveText([/^Réel du réseau/, /^Où en est le magasin/, /^Stock$/, /^Trésorerie/, /^Paramètres réseau/])
     await expect(page).toHaveURL(/\/synthese$/)
   }
 })

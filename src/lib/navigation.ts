@@ -30,6 +30,8 @@ export function partiesDe(espace: Espace, annee: number = new Date().getFullYear
   // Lot 41 (proposition 5) : Synthèse et Face au budget ne font plus qu'une page
   return [
     { cle: 'synthese', libelle: 'Où en est le magasin' },
+    // Joseph (03/11/2026) : valeur du stock en fin de mois face à sa cible
+    { cle: 'stock', libelle: 'Stock' },
     { cle: 'tresorerie', libelle: 'Trésorerie' },
   ]
 }
@@ -61,7 +63,7 @@ export function espaceDe(cle: string): Espace {
   const p = partieDe(cle)
   return DONNEES.includes(p) ? 'donnees' : BUDGET.includes(p) ? 'budget' : 'suivi'
 }
-export const partieConnue = (cle: string) => [...DONNEES, ...BUDGET, 'synthese', 'tresorerie'].includes(partieDe(cle))
+export const partieConnue = (cle: string) => [...DONNEES, ...BUDGET, 'synthese', 'stock', 'tresorerie'].includes(partieDe(cle))
 
 // Pages du réseau : l'espace auquel elles appartiennent (les paramètres n'en changent pas)
 export function espaceDePage(chemin: string): Espace | null {

@@ -5,6 +5,20 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Stock de fin de mois face à sa cible (Base : migration `0023_stock_fin_de_mois.sql` à passer)
+
+- Nouvelle page « Stock » dans l'espace Suivi (Joseph, 3/11) : la valeur du stock en fin de mois face à sa cible, en
+  barres (rouge sous la fourchette, jaune au-dessus, vert dedans), fourchette visée et ligne de la cible, puis le tableau
+  mois par mois : stock Cave, Bar et total, cible, écart, couverture en mois et état. Années en cours et précédente.
+- Cible : 2,5 mois d'achats des ventes à venir pour la Cave, 1 mois pour le Bar, rien pour l'Extérieur, au prix d'achat.
+  Les ventes à venir sont celles de l'année (réalisé puis atterrissage), prolongées par le budget de l'année suivante
+  s'il existe : la cible monte avant Noël et redescend en janvier. Tolérance de 10 % avant de signaler un écart.
+- Saisie : chaque mois, le franchisé (ou le Coach, le RR, le Directeur) saisit la valeur du stock au prix d'achat HT,
+  Cave et Bar séparés, depuis la page Stock (bouton ou clic sur le mois).
+- Paramètres réseau, Trésorerie : mois de stock de la Cave et du Bar et écart toléré, modifiables. Ils remplacent les
+  « 45 jours de stock » : le stock du fonds de roulement au 31 décembre du budget est désormais la cible de fin décembre.
+- Base : table `stocks` (0023), règles d'accès des quadrimestres, contrôles ajoutés dans `supabase/tests/regles_acces.sql`.
+
 ### Lot 42 — budget plus simple à construire, comptes contrôlés (aucune migration)
 
 - Menu : le magasin ouvert n'est plus dans le menu de gauche (Joseph, 2/11). Son nom est dans la barre du haut, toujours

@@ -1,3 +1,4 @@
+import { cibleStock, coutVentesDe, stockParDefaut, type ParametresStock } from './stock'
 import { UNIVERS, type Budget, type Hypotheses, type Univers } from './types'
 
 // Trésorerie mois par mois du budget : ce qui entre et sort de la banque, TVA comprise, avec les délais de paiement.
@@ -30,9 +31,12 @@ export interface ParametresTresorerie {
     remboursement: number             // mois de remboursement après le retour (1 = 30 jours fin de mois)
     demarque?: number                 // part des consignes versées jamais remboursée : charge externe, retirée du remboursement
   }
-  // Lot 33 : stock moyen en jours d'achats de marchandises, pour le besoin en fonds de roulement (45 jours proposés le
-  // 29/10/2026, à valider par Joseph ; un magasin peut avoir le sien)
+  // Lot 33 : stock moyen en jours d'achats ; remplacé le 03/11/2026 par la cible du stock (stock), gardé pour les
+  // paramètres enregistrés avant, sans effet
   stockJours?: number
+  // Stock cible en mois d'achats des ventes à venir, par univers (Joseph, 03/11/2026 : Cave 2,5, Bar 1), et tolérance.
+  // Sert au graphique du stock et au stock du besoin en fonds de roulement. Absent des paramètres enregistrés avant : défaut.
+  stock?: ParametresStock
 }
 
 export interface OperationReseau { nom: string; mois: number; moisPaiement: number; part: number }
@@ -54,7 +58,7 @@ export const tresorerieParDefaut: ParametresTresorerie = {
   // des clients sont des empreintes bancaires, jamais encaissées : elles ne comptent pas.
   // Démarque des consignes : 0 tant que le Directeur ne l'a pas saisie dans Paramètres réseau (29/10/2026).
   consignes: { achats: { cave: 0.03, bar: 0.15, exterieur: 0.15 }, ecoulement: 1, remboursement: 1, demarque: 0 },
-  stockJours: 45,
+  stock: stockParDefaut,
 }
 
 export interface MoisTresorerie {
@@ -88,7 +92,7 @@ export interface Tresorerie {
 // magasin a payé d'avance (stock, consignes) moins ce qu'il doit encore (fournisseurs, TVA, cotisations, redevance).
 // Les ventes sont encaissées le mois même : pas de créances clients. Montants positifs ; total = emplois − ressources.
 export interface BFR {
-  stock: number               // achats HT de l'année × jours de stock ÷ 365
+  stock: number               // stock cible fin décembre : mois d'achats des ventes de janvier et suivantes, par univers
   consignes: number           // consignes versées, pas encore remboursées
   fournisseurs: number        // achats TTC livrés (facturés) en fin d’année, payés l’an prochain (délai des fournisseurs)
   tva: number                 // TVA due, pas encore reversée (négative : crédit à recevoir)
@@ -149,7 +153,6 @@ export function paiementsAchats(b: Budget, t: ParametresTresorerie): number[] {
 
 export function tresorerieBudget(b: Budget, h: Hypotheses, p: { tauxRedevance: number; tauxPublicite: number }, t: ParametresTresorerie, debut = 0): Tresorerie {
   const ca = b.mois.map((m) => m.ca)
-  const achats = b.mois.map((m) => m.achats)
   const livraisons = livraisonsAchats(b, t)
   const paiements = paiementsAchats(b, t)
   const chargesTempsForts = b.mois.map((m) => m.autresChargesTempsForts ?? 0)
@@ -200,9 +203,11 @@ export function tresorerieBudget(b: Budget, h: Hypotheses, p: { tauxRedevance: n
     }
   })
   const bas = mois.reduce((m, x, i) => (x.fin < mois[m].fin ? i : m), 0)
-  // BFR au 31 décembre : dettes des derniers mois de l'année (délais), stock en jours d'achats
+  // BFR au 31 décembre : dettes des derniers mois de l'année (délais), stock cible de fin décembre (régime établi :
+  // les ventes de janvier et des mois suivants sont celles du budget)
   const derniers = (l: number[], n: number) => somme(l.slice(12 - Math.max(0, Math.min(12, Math.round(n)))))
-  const stock = somme(achats) * (t.stockJours ?? 0) / 365
+  const cible = cibleStock(coutVentesDe(b), 11, t.stock ?? stockParDefaut)
+  const stock = somme(UNIVERS.map((u) => cible[u]))
   const consignes = mois[11].consignesEnAttente
   const fournisseurs = derniers(livraisons, t.delaiFournisseurs) * (1 + t.tvaAchats)
   const tva = derniers(tvaDue, t.tvaTrimestrielle ? 3 : 1)

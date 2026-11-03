@@ -9,7 +9,8 @@ import { MOIS, MOIS_LONGS } from '../lib/format'
 // au survol d'un mois, une infobulle détaille chaque série.
 // Refonte R1 (2/11/2026) : « contour » = barre vide (le budget) dans laquelle se lit la barre du réel, en pointillé les mois
 // sans réel ; « couleurs » colore chaque barre (brique au-delà du seuil d'écart) ; mois en cours surligné.
-export interface Serie { nom: string; valeurs: (number | null)[]; forme: 'barre' | 'ligne' | 'contour'; couleur: string; pointille?: boolean; couleurs?: (string | null)[] }
+// « bande » (stock, 03/11/2026) : fourchette de valeurs[i] (haut) à bas[i], derrière les barres
+export interface Serie { nom: string; valeurs: (number | null)[]; forme: 'barre' | 'ligne' | 'contour' | 'bande'; couleur: string; pointille?: boolean; couleurs?: (string | null)[]; bas?: (number | null)[] }
 export const FOND_MOIS_EN_COURS = 'rgba(248, 187, 9, 0.18)'
 
 const HAUT = 220, BAS = 28, GAUCHE = 52
@@ -46,6 +47,7 @@ export function GraphiqueMois({ titre, series, format, formatAxe, moisEnCours, n
   const barres = series.filter((s) => s.forme === 'barre')
   const lignes = series.filter((s) => s.forme === 'ligne')
   const contours = series.filter((s) => s.forme === 'contour')
+  const bandes = series.filter((s) => s.forme === 'bande')
   const sansBarre = (i: number) => barres.every((s) => s.valeurs[i] === null || s.valeurs[i] === undefined)
   const largeurBarre = Math.min(28, colonne * 0.56)
   const texte = theme.palette.text.secondary
@@ -62,6 +64,9 @@ export function GraphiqueMois({ titre, series, format, formatAxe, moisEnCours, n
         ))}
         {moisEnCours != null && <rect data-en-cours x={GAUCHE + colonne * moisEnCours + 2} y={0} width={colonne - 4} height={HAUT + BAS} rx={6} fill={FOND_MOIS_EN_COURS} />}
         {survol !== null && <rect x={GAUCHE + colonne * survol} y={0} width={colonne} height={HAUT} fill={theme.palette.action.hover} />}
+        {bandes.map((s) => s.valeurs.map((v, i) => v !== null && v > 0 && (
+          <rect key={`${s.nom}-${i}`} data-bande={i + 1} x={GAUCHE + colonne * i + 3} y={y(v)} width={colonne - 6} height={Math.max(2, y(s.bas?.[i] ?? 0) - y(v))} rx={4} fill={s.couleur} />
+        )))}
         {barres.map((s) => s.valeurs.map((v, i) => v !== null && v > 0 && (
           <rect key={`${s.nom}-${i}`} x={x(i) - largeurBarre / 2} y={y(v)} width={largeurBarre} height={HAUT - y(v)} rx={4} fill={s.couleurs?.[i] ?? s.couleur} />
         )))}
@@ -97,7 +102,7 @@ export function GraphiqueMois({ titre, series, format, formatAxe, moisEnCours, n
             <Box key={s.nom} sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: '0.8125rem' }}>
               <Box component="span" sx={{ width: 10, height: 10, borderRadius: s.forme === 'ligne' ? '50%' : '3px', flexShrink: 0, ...(s.forme === 'contour' ? { border: `1.5px solid ${s.couleur}` } : { bgcolor: s.couleurs?.[survol] ?? s.couleur }) }} />
               <Box component="span" sx={{ flex: 1, color: 'text.secondary' }}>{s.nom}</Box>
-              <Box component="span" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{format(s.valeurs[survol]!)}</Box>
+              <Box component="span" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{s.forme === 'bande' && s.bas?.[survol] != null ? `${format(s.bas[survol]!)} à ${format(s.valeurs[survol]!)}` : format(s.valeurs[survol]!)}</Box>
             </Box>
           ))}
         </Paper>
