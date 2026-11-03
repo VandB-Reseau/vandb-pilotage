@@ -366,8 +366,8 @@ export async function zonesTropPetites(page: Page, min = 48): Promise<string[]> 
   }, min)
 }
 
-// Fiche magasin (lot 36) : une partie s'ouvre en choisissant son espace (Données, Budget, Suivi), puis la partie dans le
-// menu de gauche (PC) ou dans les onglets de la page (téléphone). Les anciens noms des tests restent acceptés.
+// Fiche magasin (lot 36) : une partie s'ouvre en choisissant son espace (Données, Budget, Suivi), puis la partie, en
+// onglets de la fiche (03/11/2026). Les anciens noms des tests restent acceptés.
 // Lot 37 : le budget tient en 4 étapes ; les hypothèses s'ouvrent par thème depuis leur carte (« theme »)
 const PARTIES: [string, { espace: string; libelle: RegExp; theme?: string }][] = [
   ['Réel', { espace: 'Données', libelle: /^Réel du mois/ }],
@@ -400,47 +400,40 @@ export async function ouvrir(page: Page, partie: string) {
   const cible = PARTIES.find(([k]) => partie.startsWith(k))?.[1]
   if (!cible) throw new Error(`Partie inconnue : ${partie}`)
   await page.waitForURL(/#\/magasins\//)
-  const telephone = (page.viewportSize()?.width ?? 1440) < 900
-  const espaces = telephone ? page.getByRole('navigation', { name: 'Espaces du pilotage' }) : page.getByRole('group', { name: 'Espaces' })
-  const bouton = espaces.getByRole('link', { name: cible.espace })
-  const lien = telephone ? page.locator('main').getByRole('tab', { name: cible.libelle }) : page.getByRole('navigation', { name: 'Menu principal' }).getByRole('link', { name: cible.libelle })
+  // Joseph (03/11/2026) : l'espace, puis la page, en onglets dans la fiche du magasin (PC et téléphone)
+  const pages = page.getByRole('navigation', { name: 'Pages du magasin' })
+  const bouton = pages.getByRole('tablist', { name: 'Espaces du magasin' }).getByRole('tab', { name: cible.espace })
+  const lien = pages.getByRole('tab', { name: cible.libelle })
   // Juste après l'ouverture de la fiche, le premier clic peut partir avant la fin du chargement : on recommence alors
   for (let essai = 0; ; essai++) {
-    const courant = telephone ? (await bouton.getAttribute('class'))?.includes('Mui-selected') : (await bouton.getAttribute('aria-current')) === 'true'
-    if (!courant) await bouton.click()
-    try { await lien.click({ timeout: essai < 2 ? 5_000 : undefined }); break } catch (e) { if (essai >= 2) throw e }
+    try {
+      if ((await bouton.getAttribute('aria-selected', { timeout: essai < 2 ? 5_000 : undefined })) !== 'true') await bouton.click()
+      await lien.click({ timeout: essai < 2 ? 5_000 : undefined }); break
+    } catch (e) { if (essai >= 2) throw e }
   }
   if (cible.theme) await page.locator('main').getByRole('region', { name: cible.theme, exact: true }).getByRole('link').click()
 }
 
-// Partie affichée (lot 38) : l'onglet sélectionné sur téléphone, le lien en cours du menu de gauche sur PC
+// Onglet d'un espace (Données, Budget, Suivi) de la fiche du magasin
+export const ongletEspace = (page: Page, nom: string) =>
+  page.getByRole('navigation', { name: 'Pages du magasin' }).getByRole('tablist', { name: 'Espaces du magasin' }).getByRole('tab', { name: nom })
+// Page affichée : l'onglet sélectionné de la fiche du magasin
 export function partieAffichee(page: Page, nom: RegExp) {
-  const telephone = (page.viewportSize()?.width ?? 1440) < 900
-  return telephone
-    ? expect(page.locator('main').getByRole('tab', { name: nom })).toHaveAttribute('aria-selected', 'true')
-    : expect(page.getByRole('navigation', { name: 'Menu principal' }).getByRole('link', { name: nom })).toHaveAttribute('aria-current', 'page')
+  return expect(page.getByRole('navigation', { name: 'Pages du magasin' }).getByRole('tab', { name: nom })).toHaveAttribute('aria-selected', 'true')
 }
-// Parties de l'espace affiché : onglets sur téléphone, liens du magasin dans le menu de gauche sur PC
+// Pages de l'espace affiché : la seconde rangée d'onglets de la fiche
 export function partiesAffichees(page: Page) {
-  const telephone = (page.viewportSize()?.width ?? 1440) < 900
-  return telephone ? page.locator('main').getByRole('tab') : page.getByRole('navigation', { name: 'Menu principal' }).getByRole('link').filter({ hasText: /^\d · / })
+  return page.getByRole('navigation', { name: 'Pages du magasin' }).getByRole('tablist').nth(1).getByRole('tab')
 }
 // Année du budget affichée dans l'en-tête de la fiche (lot 38)
 export async function anneeEnTete(page: Page) {
   return Number((await page.locator('main header').getByText(/^Budget \d{4}$/).textContent())?.match(/\d{4}/)?.[0])
 }
 
-// Pages du réseau (lot 36) : chacune dans son espace ; sur téléphone, le menu s'ouvre par l'icône en haut à gauche
-const ESPACE_DE_PAGE: Record<string, string> = { 'Réel du réseau': 'Suivi', 'Imports de caisse': 'Données', 'Hypothèses du réseau': 'Budget', 'Campagne': 'Budget' }
+// Pages du réseau : un thème du menu de gauche ; sur téléphone, le menu s'ouvre par l'icône en haut à gauche
 export async function allerVers(page: Page, nom: string) {
   const telephone = (page.viewportSize()?.width ?? 1440) < 900
   if (telephone) await page.getByRole('button', { name: 'Ouvrir le menu' }).click()
-  const espace = ESPACE_DE_PAGE[nom]
-  const bouton = page.getByRole('group', { name: 'Espaces' }).getByRole('link', { name: espace ?? 'Budget' })
-  if (espace && (await bouton.getAttribute('aria-current')) !== 'true') {
-    await bouton.click()
-    if (telephone) await page.getByRole('button', { name: 'Ouvrir le menu' }).click()
-  }
   await page.getByRole('navigation', { name: 'Menu principal' }).getByRole('link', { name: nom }).click()
 }
 

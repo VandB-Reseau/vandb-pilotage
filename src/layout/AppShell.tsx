@@ -1,12 +1,8 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
 import AppBar from '@mui/material/AppBar'
 import Avatar from '@mui/material/Avatar'
-import BottomNavigation from '@mui/material/BottomNavigation'
-import BottomNavigationAction from '@mui/material/BottomNavigationAction'
 import Box from '@mui/material/Box'
-import Badge from '@mui/material/Badge'
-import Button from '@mui/material/Button'
 import Divider from '@mui/material/Divider'
 import Drawer from '@mui/material/Drawer'
 import GlobalStyles from '@mui/material/GlobalStyles'
@@ -18,14 +14,11 @@ import ListItemText from '@mui/material/ListItemText'
 import ListSubheader from '@mui/material/ListSubheader'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
-import Paper from '@mui/material/Paper'
 import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
 import useMediaQuery from '@mui/material/useMediaQuery'
 import { useTheme } from '@mui/material/styles'
 import AccountCircleOutlined from '@mui/icons-material/AccountCircleOutlined'
-import AccountBalanceOutlined from '@mui/icons-material/AccountBalanceOutlined'
-import InsightsOutlined from '@mui/icons-material/InsightsOutlined'
 import MenuOutlined from '@mui/icons-material/MenuOutlined'
 import LogoutOutlined from '@mui/icons-material/LogoutOutlined'
 import StorefrontOutlined from '@mui/icons-material/StorefrontOutlined'
@@ -39,17 +32,14 @@ import { RechercheMagasin } from '../components/RechercheMagasin'
 import { useAuth } from '../auth/AuthContext'
 import { estDirecteur, estEquipe, libelleProfil, seulementParametres, voitParametres } from '../auth/roles'
 import { installerChampSuivant } from '../lib/champSuivant'
-import { lienMagasin } from '../lib/format'
-import { ESPACES, PARTIE_PAR_DEFAUT, espaceDe, espaceDePage, etapeDe, magasinDeChemin, partieDe, partiesDe, type Espace } from '../lib/navigation'
+import { magasinDeChemin } from '../lib/navigation'
 import { anneeBudget } from '../data/pilotage'
-import { MenuMagasin } from './menuMagasin'
 import { brandStripe } from '../theme/theme'
 
 const LARGEUR_MENU = 264 // comme l'app réseau (Joseph, 03/11/2026)
 
 interface Destination { chemin: string; nom: string; icone: ReactNode }
 
-const ICONES_ESPACE: Record<Espace, ReactNode> = { donnees: <UploadFileOutlined />, budget: <AccountBalanceOutlined />, suivi: <InsightsOutlined /> }
 
 // Page imprimée (budget, vue réseau) : A4 paysage, sans menus ni boutons, tableaux en entier, texte à 9 pt (12 px)
 const impression = {
@@ -97,38 +87,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(installerChampSuivant, [])
 
   const [menuTelephone, setMenuTelephone] = useState(false)
-  const [pastilles, setPastilles] = useState<Record<string, boolean>>({})
-  const [marques, setMarques] = useState<Record<string, string>>({})
-  const publierPastilles = useCallback((p: Record<string, boolean>, m?: Record<string, string>) => { setPastilles(p); setMarques(m ?? {}) }, [])
   useEffect(() => setMenuTelephone(false), [pathname])
 
-  // Lot 36 : trois espaces. L'espace et le magasin affichés viennent de l'adresse ; sur une page qui n'appartient à aucun
-  // espace (paramètres), on garde le dernier espace ouvert.
-  // Joseph (03/11/2026) : plus de magasin imposé. Hors de la fiche d'un magasin, on est au niveau du réseau, sans magasin.
+  // Joseph (03/11/2026) : comme dans l'app réseau, le menu de gauche mène aux thèmes ; les pages d'un magasin
+  // (Données, Budget, Suivi) sont des onglets de sa fiche. Plus de magasin imposé : hors d'une fiche, on est au réseau.
   const fiche = magasinDeChemin(pathname)
-  const [dernierEspace, setDernierEspace] = useState<Espace>('budget')
-  const espace: Espace = fiche?.partie ? espaceDe(fiche.partie) : espaceDePage(pathname) ?? dernierEspace
-  const magasin = fiche?.nom ?? null
-  useEffect(() => {
-    if (espace !== dernierEspace) setDernierEspace(espace)
-  }, [espace]) // eslint-disable-line react-hooks/exhaustive-deps
-  const partieActive = fiche?.partie ? partieDe(fiche.partie) : null
-
-  // Pages du réseau de chaque espace : imports, hypothèses et paramètres au Directeur seul, comme dans l'app réseau
-  const reseau: Record<Espace, Destination[]> = {
-    donnees: estDirecteur(profil) ? [{ chemin: '/imports', nom: 'Imports de caisse', icone: <UploadFileOutlined /> }] : [],
-    budget: [
-      { chemin: '/', nom: profil?.role === 'franchise' ? 'Mes magasins' : `Campagne ${anneeBudget()}`, icone: <StorefrontOutlined /> },
-      ...(estDirecteur(profil) ? [{ chemin: '/hypotheses', nom: 'Hypothèses du réseau', icone: <TrendingUpOutlined /> }] : []),
-    ],
-    suivi: estEquipe(profil) ? [{ chemin: '/reseau', nom: 'Réel du réseau', icone: <LeaderboardOutlined /> }] : [],
-  }
-  const cibleEspace = (e: Espace) => (magasin ? lienMagasin(magasin, PARTIE_PAR_DEFAUT[e]) : reseau[e][0]?.chemin ?? '/')
-  const parties = partiesDe(espace)
-  // Passer d'une étape du budget à l'autre garde les ajustements en cours : pas de confirmation (sauf en quittant l'équipe)
-  const libre = (cle: string) => espace === 'budget' && partieActive !== null && partieActive !== 'equipe' && espaceDe(cle) === 'budget'
   const actif = (chemin: string) => !fiche && (chemin === '/' ? pathname === '/' : pathname.startsWith(chemin))
-
   const lien = (d: Destination) => (
     <ListItemButton key={d.chemin} component={RouterLink} to={d.chemin} selected={actif(d.chemin)} aria-current={actif(d.chemin) ? 'page' : undefined} sx={{ minHeight: 48, mb: 0.25 }}>
       <ListItemIcon sx={{ minWidth: 40 }}>{d.icone}</ListItemIcon>
@@ -138,47 +102,27 @@ export function AppShell({ children }: { children: ReactNode }) {
   const sousTitre = (t: string) => (
     <ListSubheader disableSticky sx={{ bgcolor: 'transparent', lineHeight: '36px', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'text.secondary', px: 1 }}>{t}</ListSubheader>
   )
-  const contenuMenu = seulementParametres(profil) ? (
+  // Thèmes du réseau ; imports, hypothèses et paramètres au Directeur seul, comme dans l'app réseau
+  const themes: { titre: string; liens: Destination[] }[] = seulementParametres(profil) ? [] : [
+    { titre: 'Budgets', liens: [
+      { chemin: '/', nom: profil?.role === 'franchise' ? 'Mes magasins' : `Campagne ${anneeBudget()}`, icone: <StorefrontOutlined /> },
+      ...(estDirecteur(profil) ? [{ chemin: '/hypotheses', nom: 'Hypothèses du réseau', icone: <TrendingUpOutlined /> }] : []),
+    ] },
+    { titre: 'Suivi', liens: estEquipe(profil) ? [{ chemin: '/reseau', nom: 'Réel du réseau', icone: <LeaderboardOutlined /> }] : [] },
+    { titre: 'Données', liens: estDirecteur(profil) ? [{ chemin: '/imports', nom: 'Imports de caisse', icone: <UploadFileOutlined /> }] : [] },
+  ]
+  const avecTitres = profil?.role !== 'franchise'
+  const contenuMenu = (
     <List component="nav" aria-label="Menu principal" dense disablePadding>
-      {sousTitre('Réglages')}
-      {lien({ chemin: '/parametres', nom: 'Paramètres réseau', icone: <TuneOutlined /> })}
+      {themes.filter((t) => t.liens.length).map((t) => (
+        <Box key={t.titre}>
+          {avecTitres && sousTitre(t.titre)}
+          {t.liens.map(lien)}
+        </Box>
+      ))}
+      {voitParametres(profil) && sousTitre('Réglages')}
+      {voitParametres(profil) && lien({ chemin: '/parametres', nom: 'Paramètres réseau', icone: <TuneOutlined /> })}
     </List>
-  ) : (
-    <>
-      <Box role="group" aria-label="Espaces" sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0.5, p: 0.5, mb: 1, borderRadius: 2, bgcolor: 'action.hover' }}>
-        {ESPACES.map((e) => (
-          <Button key={e.cle} component={RouterLink} to={cibleEspace(e.cle)} aria-current={e.cle === espace ? 'true' : undefined}
-            sx={{ minHeight: 48, px: 0.5, fontWeight: 700, fontSize: '0.875rem', color: 'text.primary', borderRadius: 1.5,
-              ...(e.cle === espace ? { bgcolor: 'background.paper', boxShadow: 1, '&:hover': { bgcolor: 'background.paper' } } : {}) }}>
-            {e.libelle}
-          </Button>
-        ))}
-      </Box>
-      <List component="nav" aria-label="Menu principal" dense disablePadding>
-        {reseau[espace].length > 0 && profil?.role !== 'franchise' && sousTitre('Réseau')}
-        {reseau[espace].map(lien)}
-        {magasin && (
-          <>
-            {/* Lot 42 (Joseph, 02/11/2026) : le magasin ouvert n'est plus dans le menu, il est dans la barre du haut */}
-            {sousTitre('Pages du magasin')}
-            {parties.map((p) => (
-              <ListItemButton key={p.cle} component={RouterLink} to={lienMagasin(magasin, p.cle)} selected={partieActive !== null && etapeDe(partieActive) === p.cle} aria-current={partieActive !== null && etapeDe(partieActive) === p.cle ? 'page' : undefined}
-                data-sans-garde={libre(p.cle) ? '' : undefined} sx={{ minHeight: 48, mb: 0.25, pl: 2 }}>
-                <ListItemText primary={
-                  <Badge variant="dot" color="warning" invisible={!pastilles[p.cle] || fiche?.nom !== magasin} sx={{ '& .MuiBadge-dot': { right: -8, top: 4 } }}>{p.libelle}</Badge>
-                } secondary={marques[p.cle] && fiche?.nom === magasin ? marques[p.cle] : undefined}
-                  slotProps={{ secondary: { sx: { fontSize: '0.75rem', fontWeight: 600, color: 'text.secondary' } } }} />
-              </ListItemButton>
-            ))}
-          </>
-        )}
-        {!magasin && profil?.role !== 'franchise' && (
-          <Typography variant="body2" color="text.secondary" sx={{ px: 1, py: 1.5 }}>Ouvre un magasin pour voir ses pages.</Typography>
-        )}
-        {voitParametres(profil) && sousTitre('Réglages')}
-        {voitParametres(profil) && lien({ chemin: '/parametres', nom: 'Paramètres réseau', icone: <TuneOutlined /> })}
-      </List>
-    </>
   )
   const avecMenu = !!profil && (profil.role !== 'aucun' || seulementParametres(profil))
 
@@ -186,7 +130,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <GardeSaisie>
     <Box className="fond-app" sx={{ minHeight: '100dvh', bgcolor: 'background.default' }}>
       {/* Ce qu'on fait défiler jusqu'à l'écran ne se cache ni sous la barre du haut, ni sous la barre basse du téléphone */}
-      <GlobalStyles styles={{ html: { scrollPaddingTop: 88, scrollPaddingBottom: telephone && avecMenu ? 88 : 0, '--barre-basse': telephone && avecMenu ? '72px' : '0px' } }} />
+      <GlobalStyles styles={{ html: { scrollPaddingTop: 88, scrollPaddingBottom: 0, '--barre-basse': '0px' } }} />
       <GlobalStyles styles={impression} />
       {/* Joseph (03/11/2026) : barre du haut à l'identique de l'app réseau (noir, 68 px sur PC, logo et nom, recherche au centre) */}
       <AppBar position="sticky" className="pas-a-l-impression" sx={{ bgcolor: '#000000', color: '#ffffff', zIndex: (t) => t.zIndex.drawer + 1 }}>
@@ -229,20 +173,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         </Drawer>
       )}
 
-      <Box component="main" sx={{ ml: telephone || !avecMenu ? 0 : `${LARGEUR_MENU}px`, px: { xs: 2, md: 5 }, pt: { xs: 2, md: 4 }, pb: telephone && avecMenu ? 12 : 6, maxWidth: 1440 }}>
-        <MenuMagasin.Provider value={publierPastilles}>{children}</MenuMagasin.Provider>
+      <Box component="main" sx={{ ml: telephone || !avecMenu ? 0 : `${LARGEUR_MENU}px`, px: { xs: 2, md: 5 }, pt: { xs: 2, md: 4 }, pb: 6, maxWidth: 1440 }}>
+        {children}
       </Box>
 
-      {/* Téléphone : les trois espaces en bas, le reste du menu derrière l'icône en haut à gauche */}
-      {telephone && avecMenu && (
-        <Paper className="pas-a-l-impression" sx={{ position: 'fixed', left: 0, right: 0, bottom: 0, borderTop: 1, borderColor: 'divider', zIndex: (t) => t.zIndex.appBar }}>
-          <BottomNavigation showLabels value={espace} component="nav" aria-label="Espaces du pilotage">
-            {ESPACES.map((e) => (
-              <BottomNavigationAction key={e.cle} value={e.cle} label={e.libelle} icon={ICONES_ESPACE[e.cle]} component={RouterLink} to={cibleEspace(e.cle)} sx={{ minHeight: 56 }} />
-            ))}
-          </BottomNavigation>
-        </Paper>
-      )}
     </Box>
     </GardeSaisie>
   )

@@ -139,7 +139,7 @@ test('plus de magasin imposé en haut ; barre du haut de l’app réseau', async
   await page.locator('main').getByRole('link', { name: 'Magasins' }).first().click()
   await expect(page.locator('main').getByRole('button', { name: /Changer de magasin/ })).toHaveCount(0)
   if (!isMobile) {
-    await expect(page.getByText('Ouvre un magasin pour voir ses pages.')).toBeVisible()
+    await expect(page.getByRole('navigation', { name: 'Pages du magasin' })).toHaveCount(0)
     const haut = await barre.locator('.MuiToolbar-root').boundingBox()
     expect(haut?.height).toBe(68)
     const recherche = await barre.getByRole('combobox', { name: 'Rechercher un magasin' }).locator('..').boundingBox()

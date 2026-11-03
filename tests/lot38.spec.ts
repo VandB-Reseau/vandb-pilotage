@@ -20,8 +20,9 @@ test('budget : une seule navigation, l’étape suivante en bas de page, un en-t
   await seConnecter(page, { magasins: [propose] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Cartes des hypothèses')
-  // D1 : sur PC, plus d'onglets d'étapes en tête de page (le menu de gauche suffit) ; sur téléphone, ils restent
-  await expect(page.locator('main').getByRole('tablist')).toHaveCount(isMobile ? 1 : 0)
+  // D1, revu le 03/11/2026 : une seule navigation, en onglets dans la fiche (espaces, puis étapes), PC et téléphone
+  await expect(page.locator('main').getByRole('tablist')).toHaveCount(2)
+  await expect(page.getByRole('navigation', { name: 'Menu principal' }).getByRole('link', { name: /^1 · Construire/ })).toHaveCount(0)
   // D2 : nom, budget et statut une seule fois, actions dans l'en-tête
   const entete = page.locator('main header')
   await expect(entete.getByRole('heading', { level: 1, name: MAGASINS[0] })).toBeVisible()
