@@ -4,19 +4,18 @@ import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
 import Checkbox from '@mui/material/Checkbox'
 import FormControlLabel from '@mui/material/FormControlLabel'
-import MenuItem from '@mui/material/MenuItem'
 import Table from '@mui/material/Table'
 import TableBody from '@mui/material/TableBody'
 import TableCell from '@mui/material/TableCell'
 import TableContainer from '@mui/material/TableContainer'
 import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
-import TextField from '@mui/material/TextField'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import ContentCopyOutlined from '@mui/icons-material/ContentCopyOutlined'
 import { milliers } from '../lib/format'
+import { ChoixListe } from './ChoixListe'
 import { THEMES_COPIE, type ThemeCopie } from '../moteur/cibles'
 import { TRANCHES, trancheLibelle, type Tranche } from '../moteur/projection'
 import { styleTableau } from '../theme/tableau'
@@ -47,7 +46,6 @@ export function CopieHypotheses({ source, destinations, ebe, occupe, onCopier, o
   const coches = choisis.filter((m) => visibles.some((x) => x.magasin === m))
   const tous = coches.length === visibles.length && visibles.length > 0
   const basculer = (m: string) => setChoisis((c) => (c.includes(m) ? c.filter((x) => x !== m) : [...c, m]))
-  const selection = { width: { xs: '100%', sm: 220 }, '& .MuiInputBase-root': { minHeight: 48 } }
 
   return (
     <Card component="section" className="pas-a-l-impression" aria-labelledby="titre-copie" sx={{ p: { xs: 2, md: 2.5 } }}>
@@ -60,7 +58,7 @@ export function CopieHypotheses({ source, destinations, ebe, occupe, onCopier, o
       <Box role="group" aria-label="Thèmes à copier" sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 2 }}>
         {THEMES_COPIE.map((t) => (
           <FormControlLabel key={t.cle} label={t.libelle} sx={{ minHeight: 48 }}
-            control={<Checkbox checked={themes.includes(t.cle)} onChange={() => setThemes((l) => (l.includes(t.cle) ? l.filter((x) => x !== t.cle) : [...l, t.cle]))} />} />
+            control={<Checkbox sx={{ width: 48, height: 48 }} checked={themes.includes(t.cle)} onChange={() => setThemes((l) => (l.includes(t.cle) ? l.filter((x) => x !== t.cle) : [...l, t.cle]))} />} />
         ))}
       </Box>
 
@@ -72,15 +70,11 @@ export function CopieHypotheses({ source, destinations, ebe, occupe, onCopier, o
           <ToggleButton value="tous" sx={{ minHeight: 48 }}>Tous</ToggleButton>
         </ToggleButtonGroup>
         {groupes.length > 0 && (
-          <TextField select size="small" label="Groupe" value={groupe} onChange={(e) => setGroupe(e.target.value)} sx={selection}>
-            <MenuItem value="" sx={{ minHeight: 48 }}>Tous les groupes</MenuItem>
-            {groupes.map((g) => <MenuItem key={g} value={g} sx={{ minHeight: 48 }}>{g}</MenuItem>)}
-          </TextField>
+          <ChoixListe libelle="Groupe" valeur={groupe} largeur={220} onChange={setGroupe}
+            options={[{ valeur: '', libelle: 'Tous les groupes' }, ...groupes.map((g) => ({ valeur: g, libelle: g }))]} />
         )}
-        <TextField select size="small" label="Ancienneté en 2027" value={tranche} onChange={(e) => setTranche(e.target.value)} sx={selection}>
-          <MenuItem value="" sx={{ minHeight: 48 }}>Toutes</MenuItem>
-          {TRANCHES.map((t) => <MenuItem key={t} value={t} sx={{ minHeight: 48 }}>{trancheLibelle[t]}</MenuItem>)}
-        </TextField>
+        <ChoixListe libelle="Ancienneté du magasin" valeur={tranche} largeur={220} onChange={setTranche}
+          options={[{ valeur: '', libelle: 'Toutes les anciennetés' }, ...TRANCHES.map((t) => ({ valeur: t as string, libelle: trancheLibelle[t] }))]} />
       </Box>
 
       {visibles.length === 0 ? (
@@ -91,7 +85,7 @@ export function CopieHypotheses({ source, destinations, ebe, occupe, onCopier, o
             <TableHead>
               <TableRow>
                 <TableCell padding="checkbox">
-                  <Checkbox checked={tous} indeterminate={!tous && coches.length > 0} slotProps={{ input: { 'aria-label': 'Tous les magasins affichés' } }}
+                  <Checkbox sx={{ width: 48, height: 48 }} checked={tous} indeterminate={!tous && coches.length > 0} slotProps={{ input: { 'aria-label': 'Tous les magasins affichés' } }}
                     onChange={() => setChoisis((c) => (tous ? c.filter((m) => !visibles.some((x) => x.magasin === m)) : [...new Set([...c, ...visibles.map((x) => x.magasin)])]))} />
                 </TableCell>
                 <TableCell>Magasin</TableCell>
@@ -107,7 +101,7 @@ export function CopieHypotheses({ source, destinations, ebe, occupe, onCopier, o
                 return (
                   <TableRow key={x.magasin} hover onClick={() => basculer(x.magasin)} sx={{ cursor: 'pointer' }}>
                     <TableCell padding="checkbox">
-                      <Checkbox checked={coches.includes(x.magasin)} onClick={(ev) => ev.stopPropagation()} onChange={() => basculer(x.magasin)} slotProps={{ input: { 'aria-label': x.magasin } }} />
+                      <Checkbox sx={{ width: 48, height: 48 }} checked={coches.includes(x.magasin)} onClick={(ev) => ev.stopPropagation()} onChange={() => basculer(x.magasin)} slotProps={{ input: { 'aria-label': x.magasin } }} />
                     </TableCell>
                     <TableCell>{x.magasin}</TableCell>
                     <TableCell sx={{ color: x.statut === 'en_discussion' ? 'warning.dark' : undefined }}>{STATUTS[x.statut]}</TableCell>

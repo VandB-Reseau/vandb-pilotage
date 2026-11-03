@@ -5,6 +5,36 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 42 — budget plus simple à construire, comptes contrôlés (aucune migration)
+
+- Menu : le magasin ouvert n'est plus dans le menu de gauche (Joseph, 2/11). Son nom est dans la barre du haut, toujours
+  au même endroit, et ouvre la liste des magasins avec recherche ; le menu garde les « Pages du magasin ».
+- Budget sur une page, en 3 étapes : 0 · Point de départ, 1 · Construire, 2 · Envoyer et valider. « Construire » réunit
+  hypothèses des ventes, hausse des salaires, inflation des frais, cartes Calendrier, Équipe, Frais et Trésorerie, puis
+  le compte de résultat, l'économie du franchisé, l'objectif d'EBE et la trésorerie. Le résultat (CA, marge, % FP, EBE et
+  écart au siège, résultat net, point bas de trésorerie) reste en haut de l'écran sur PC et suit chaque frappe. Les
+  anciennes adresses « resultat » et « ventes » mènent à « Construire ».
+- Équipe et frais repris des comptes : sans équipe saisie ni lignes de frais, le budget part des comptes des
+  quadrimestres de l'année en cours ramenés à 12 mois (masse salariale ; charges externes hors redevance et publicité ;
+  impôts et taxes), avec la hausse des salaires et l'inflation des frais. La source est affichée (« Comptes 2026,
+  8 mois ») ; l'équipe ou les frais saisis remplacent toujours la reprise. La fiche « prête à proposer » et la
+  proposition en série comptent la reprise comme équipe et frais renseignés.
+- Trésorerie au 1er janvier estimée tant qu'elle n'est pas saisie : trésorerie de fin du dernier quadrimestre saisi,
+  plus l'EBE prévu des mois restants, moins intérêts et capital d'emprunt. Elle est figée dans les hypothèses à la
+  validation (`hypotheses.departEstime`), sans toucher aux ajustements. Point bas de la campagne et alertes de
+  trésorerie l'utilisent.
+- Copier les hypothèses thème par thème (Directeur) : ventes, marge, hausse des salaires, frais, calendrier ; magasins
+  visés filtrés par statut, groupe et ancienneté ; EBE avant et après pour chacun. Travaux et trésorerie de départ ne
+  sont jamais copiés.
+- « D'accord avec le siège » par thème pour le franchisé (enregistré dans `ajustements.accords`, ignoré dans les
+  changements) ; un thème modifié affiche « Changé par le magasin ».
+- Campagne : « Budgets prêts à valider » pour le Responsable Régional et le Directeur, les budgets envoyés sans
+  changement par rapport au siège (la trésorerie de départ saisie n'en est pas un) se valident en une fois.
+- Comptes du quadrimestre contrôlés à la saisie : achats au-dessus du CA, marge réelle à plus de 10 points de la marge
+  de la caisse, variation de stock vide, personnel hors de 10 % à 60 % du CA, charges externes sous la redevance et la
+  publicité ou au-dessus de 50 % du CA, écart de plus de 25 % au budget de la période. Les questions s'affichent sous le
+  tableau ; un second clic confirme et enregistre.
+
 ### Lot 41 — construire et suivre le budget plus simplement (Base : migration `0022_envoi_au_siege.sql` à passer)
 
 - Proposer en série (Campagne, Directeur) : « Préparer les propositions » calcule la proposition de chaque magasin de la
