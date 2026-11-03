@@ -184,42 +184,29 @@ test('sans réel de l’année, l’atterrissage renvoie vers le réel', async (
   await expect(page.getByRole('group', { name: 'Année du réel' }).getByRole('button', { name: String(N), exact: true })).toHaveAttribute('aria-pressed', 'true')
 })
 
-test('sans réel de l’an dernier : part de l’année réalisée saisie par univers, comme dans le prévisionnel', async ({ page, isMobile }, info) => {
+// Joseph (03/11/2026) : la carte « Saisonnalité » de l'atterrissage (part de l'année réalisée par univers) est retirée ;
+// le calcul reste automatique, une part déjà enregistrée reste prise en compte
+test('atterrissage sans carte « Saisonnalité » : projection automatique, part déjà enregistrée reprise', async ({ page, isMobile }) => {
   // Cave : 10 000 € par mois de janvier à août, pas d'an dernier
   const reel: VenteSimulee[] = Array.from({ length: 8 }, (_, i) => ({ store_name: MAGASINS[0], mois: mois(N, i + 1), univers: 'cave', famille: 'Bière', ca_ht: 10_000, ca_ttc: 12_000, marge_ht: 3_600 }))
-  const ecritures = await seConnecter(page, { role: 'franchise', reel })
+  await seConnecter(page, { role: 'franchise', reel })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Atterrissage')
-  const projection = page.getByRole('table', { name: `Mois restants ${N} par univers` })
-  const cave = projection.getByRole('row', { name: /Cave/ })
-  // Sans part ni réseau : la moyenne, 80 000 × 12 / 8 ; mois réguliers, le rythme des 4 derniers mois donne le même chiffre (lot 28)
-  await expect(cave).toContainText('Rythme des 4 derniers mois')
-  await expect(cave).toContainText(/120\s000\s€$/)
-  await page.getByLabel('Part de l’année réalisée : Cave').fill('62,6')
-  // 80 000 / 0,626 = 127 795,53
-  await expect(cave).toContainText('Part saisie')
-  await expect(cave).toContainText(/127\s796\s€$/)
-  expect(await textesTropPetits(page)).toEqual([])
+  const atterrissage = page.locator('main').getByRole('region', { name: `Atterrissage ${N}`, exact: true })
+  // Sans part ni réseau : la moyenne, 80 000 × 12 / 8 = 120 000
+  await expect(atterrissage.getByRole('region', { name: `Atterrissage ${N} en chiffres` })).toContainText(/120\s?k€/)
+  await expect(atterrissage.getByRole('region', { name: 'Saisonnalité', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('table', { name: `Mois restants ${N} par univers` })).toHaveCount(0)
+  await expect(page.getByLabel('Part de l’année réalisée : Cave')).toHaveCount(0)
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
-  await page.getByRole('region', { name: 'Saisonnalité', exact: true }).screenshot({ path: `captures/${info.project.name}-projection.png` })
-  await page.getByRole('button', { name: 'Enregistrer les parts' }).click()
-  await expect(page.getByText('Parts de l’année réalisées enregistrées.')).toBeVisible()
-  expect(ecritures.find((e) => e.table === 'parts_realisees' && e.methode === 'POST')?.corps).toEqual([{ store_name: MAGASINS[0], annee: N, univers: 'cave', part: 0.626 }])
 })
 
-test('part enregistrée reprise ; vidée, la projection redevient automatique', async ({ page }) => {
+test('une part de l’année déjà enregistrée reste prise en compte', async ({ page }) => {
   const reel: VenteSimulee[] = Array.from({ length: 8 }, (_, i) => ({ store_name: MAGASINS[0], mois: mois(N, i + 1), univers: 'cave', famille: 'Bière', ca_ht: 10_000, ca_ttc: 12_000, marge_ht: 3_600 }))
   const parts: PartSimulee[] = [{ store_name: MAGASINS[0], annee: N, univers: 'cave', part: 0.626 }]
-  const ecritures = await seConnecter(page, { role: 'franchise', reel, parts })
+  await seConnecter(page, { role: 'franchise', reel, parts })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Atterrissage')
-  const cave = page.getByRole('table', { name: `Mois restants ${N} par univers` }).getByRole('row', { name: /Cave/ })
-  await expect(cave).toContainText(/127\s796\s€$/)
-  await expect(page.getByLabel('Part de l’année réalisée : Cave')).toHaveValue('62,6')
-  await page.getByLabel('Part de l’année réalisée : Cave').fill('')
-  await expect(cave).toContainText(/120\s000\s€$/)
-  await page.getByRole('button', { name: 'Enregistrer les parts' }).click()
-  await expect(page.getByText('Parts de l’année réalisées enregistrées.')).toBeVisible()
-  expect(ecritures.some((e) => e.table === 'parts_realisees' && e.methode === 'DELETE')).toBe(true)
-  expect(ecritures.some((e) => e.table === 'parts_realisees' && e.methode === 'POST')).toBe(false)
+  // 80 000 / 0,626 = 127 796
+  await expect(page.locator('main').getByRole('region', { name: `Atterrissage ${N} en chiffres` })).toContainText(/128\s?k€/)
 })

@@ -92,7 +92,8 @@ test('point de départ : la saisonnalité finit l’année et répartit le budge
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-ecrans-depart.png`, fullPage: true })
   await ouvrir(page, 'Atterrissage')
-  await expect(page.locator('main').getByRole('region', { name: 'Saisonnalité', exact: true }).getByRole('table', { name: `Mois restants ${N} par univers` })).toBeVisible()
+  // Joseph (03/11/2026) : plus de carte « Saisonnalité » dans l'atterrissage
+  await expect(page.getByRole('table', { name: `Mois restants ${N} par univers` })).toHaveCount(0)
 })
 
 test('sans date dans la fiche magasin, le Directeur la saisit en secours', async ({ page }) => {

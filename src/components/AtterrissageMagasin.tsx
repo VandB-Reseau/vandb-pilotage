@@ -9,42 +9,32 @@ import SendOutlined from '@mui/icons-material/SendOutlined'
 import { CompteResultatMois } from './CompteResultatMois'
 import { EtatVide } from './EtatVide'
 import { Panne } from './Panne'
-import { avecEquipeEtFrais, chargerReel, chargerSecours, enregistrerPartsRealisees, niveauxDe, proposerBudget, type DonneesBudgets, type LigneMagasin, type PartsRealisees } from '../data/pilotage'
+import { avecEquipeEtFrais, chargerReel, chargerSecours, niveauxDe, proposerBudget, type DonneesBudgets, type LigneMagasin } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
-import { ecartTaux, milliers, MOIS_LONGS, montant, taux, tauxCourt } from '../lib/format'
+import { milliers, MOIS_LONGS, taux } from '../lib/format'
 import { compteResultat } from '../moteur/compteResultat'
-import { baseDepuisReel, type MethodeAtterrissage } from '../moteur/atterrissage'
+import { baseDepuisReel } from '../moteur/atterrissage'
 import { reglesDe } from '../moteur/regles'
 import { calculerBudget } from '../moteur/budget'
 import { appliquerCibles } from '../moteur/cibles'
-import { UNIVERS, universLibelle, type ParametresReseau, type Univers } from '../moteur/types'
-import { ChampTaux } from './ChampTaux'
+import type { ParametresReseau } from '../moteur/types'
 import Card from '@mui/material/Card'
-import Table from '@mui/material/Table'
-import TableBody from '@mui/material/TableBody'
-import TableCell from '@mui/material/TableCell'
-import TableHead from '@mui/material/TableHead'
-import TableRow from '@mui/material/TableRow'
-import SaveOutlined from '@mui/icons-material/SaveOutlined'
 import { DetailCalcul } from './DetailCalcul'
 import { Indicateur } from './Indicateur'
-import { styleTableau } from '../theme/tableau'
 import { FichePrete } from './FichePrete'
 import { ebeComplet } from '../moteur/preparation'
 import { syntheseReel } from '../moteur/reel'
 import { reelEnRetard } from '../lib/aFaire'
 import { tresorerieDepartEstimee } from '../moteur/reprise'
 import { TresorerieDepart } from './TresorerieDepart'
-import { useSaisieEnCours } from './GardeSaisie'
 import { Aide } from './Aide'
 
 // Atterrissage de l'année en cours : réel des mois passés, projection des mois restants, équipe et frais du magasin.
 // Le Directeur en tire la proposition du budget de l'an prochain.
-const METHODE: Record<MethodeAtterrissage, string> = {
-  saisie: 'Part saisie', rythme: 'Rythme des 4 derniers mois', magasin: 'Saisonnalité du magasin l’an dernier', reseau: 'Saisonnalité médiane du réseau', moyenne: 'Moyenne des mois réalisés',
-}
+// Joseph (03/11/2026) : la carte « Saisonnalité » (part de l'année réalisée par univers) est retirée ; le calcul reste
+// automatique, et une part déjà enregistrée reste prise en compte.
 
-export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, directeur, peutSaisir, allerA, apresProposition, tresorerieDepart, saisonnaliteBudget, baseCA, repartition }: {
+export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, directeur, allerA, apresProposition, tresorerieDepart, saisonnaliteBudget, baseCA, repartition }: {
   ligne: LigneMagasin
   d: DonneesBudgets
   annee: number
@@ -67,19 +57,12 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
     () => Promise.all([chargerReel(magasin, annee), chargerReel(magasin, annee - 1), chargerSecours(magasin, annee)]).then(([n, n1, secours]) => ({ n, n1, secours })), [magasin, annee])
   const [message, setMessage] = useState<{ gravite: 'success' | 'error'; texte: string } | null>(null)
   const [occupe, setOccupe] = useState(false)
-  // Parts saisies en cours de frappe : null tant que rien n'a changé
-  const [parts, setParts] = useState<PartsRealisees | null>(null)
-  // Lot 43 : parts saisies non enregistrées, gardées même vers une autre étape du budget
-  useSaisieEnCours(parts !== null && JSON.stringify(parts) !== JSON.stringify(donnees?.secours.parts ?? {}), true)
 
   if (chargement && !donnees) return <Skeleton variant="rounded" height={240} />
   if (erreur || !donnees) return <Panne quoi={`Les chiffres réels ${annee}`} recharger={recharger} />
 
-  const enregistrees = donnees.secours.parts ?? {}
-  const vues = parts ?? enregistrees
   const regles = reglesDe(parametres)
-  const r = baseDepuisReel(donnees, annee, [], undefined, { ...donnees.secours, parts: vues, repartition }, regles)
-  const auto = baseDepuisReel(donnees, annee, [], undefined, { ...donnees.secours, parts: {}, repartition }, regles)
+  const r = baseDepuisReel(donnees, annee, [], undefined, { ...donnees.secours, repartition }, regles)
   if (!r) {
     return (
       <Stack spacing={3}>
@@ -116,26 +99,6 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
   }
   const complet = ebeComplet(etatFiche)
   const manque = [!etatFiche.equipe && 'équipe', !etatFiche.frais && 'frais'].filter(Boolean).join(' ni ')
-
-  const modifiees = parts !== null && JSON.stringify(parts) !== JSON.stringify(enregistrees)
-  const enregistrerParts = async () => {
-    if (!parts) return
-    setOccupe(true)
-    setMessage(null)
-    try {
-      await enregistrerPartsRealisees(magasin, annee, parts)
-      setMessage({ gravite: 'success', texte: 'Parts de l’année réalisées enregistrées.' })
-      setParts(null)
-      recharger()
-    } catch {
-      setMessage({ gravite: 'error', texte: 'L’enregistrement n’a pas abouti. Vérifie ta connexion, puis réessaie.' })
-    } finally {
-      setOccupe(false)
-    }
-  }
-  // Univers présents dans le réel de l'année
-  const presents = UNIVERS.filter((u) => r.base.familles.some((f) => f.univers === u && f.caRealise > 0))
-  const realiseDe = (u: Univers) => r.base.familles.filter((f) => f.univers === u).reduce((a, f) => a + f.caRealise, 0)
 
   const proposer = async () => {
     setOccupe(true)
@@ -186,64 +149,11 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
           <Typography variant="body2" color="text.secondary">
             {repartition
               ? `Réel jusqu’à ${MOIS_LONGS[r.moisRealises - 1]}, mois restants répartis selon la saisonnalité du magasin (carte Point de départ du budget)`
-              : `Réel jusqu’à ${MOIS_LONGS[r.moisRealises - 1]}, mois restants projetés par univers selon la saisonnalité (voir plus bas)`}
+              : `Réel jusqu’à ${MOIS_LONGS[r.moisRealises - 1]}, mois restants projetés par univers selon la saisonnalité (détail dans le (i) du CA atterri)`}
           </Typography>
         }
       />
 
-      <Card component="section" aria-label="Saisonnalité">
-        <Box sx={{ px: 2.5, pt: 2, pb: 1, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-          <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}><Typography variant="h2">Saisonnalité</Typography><Aide sujet="saisonnalite" /></Box>
-          {peutSaisir && modifiees && (
-            <Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe} onClick={() => void enregistrerParts()} sx={{ minHeight: 48 }}>Enregistrer les parts</Button>
-          )}
-        </Box>
-        <Typography variant="h3" sx={{ px: 2.5, pt: 1, pb: 0.5, fontSize: '1rem' }}>{`Fin ${annee} : ce que pèsent les mois passés`}</Typography>
-        <Table size="small" aria-label={`Mois restants ${annee} par univers`} sx={styleTableau}>
-          <TableHead>
-            <TableRow>
-              <TableCell>Univers</TableCell>
-              <TableCell align="right">Réalisé à fin {MOIS_LONGS[r.moisRealises - 1]}</TableCell>
-              <TableCell align="right">Part de l’année réalisée</TableCell>
-              <TableCell align="right">Atterrissage</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {presents.map((u) => (
-              <TableRow key={u}>
-                <TableCell sx={{ whiteSpace: 'normal' }}>
-                  <Box component="span" sx={{ display: 'block', fontWeight: 600 }}>{universLibelle[u]}</Box>
-                  <Box component="span" sx={{ display: 'block', fontSize: '0.8125rem', color: 'text.secondary' }}>
-                    {r.methodes[u] === 'rythme' ? `Rythme des ${regles.moisRythme} derniers mois` : METHODE[r.methodes[u]]}
-                  </Box>
-                  {/* Lot 28 : rythme écarté au-delà de 15 % d'écart ; le retenir, c'est saisir sa part de l'année */}
-                  {r.methodes[u] !== 'saisie' && auto?.ecartsRythme?.[u] && (() => {
-                    const e = auto.ecartsRythme[u]!
-                    return (
-                      <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 1.5, color: 'warning.dark', fontSize: '0.875rem' }}>
-                        <span>{`Au rythme de ${MOIS_LONGS[e.de - 1]} à ${MOIS_LONGS[e.a - 1]} : ${milliers(e.atterrissage)} (${ecartTaux(e.ecart)}), écart de plus de ${tauxCourt(regles.ecartRythme)} à confirmer`}</span>
-                        {peutSaisir && (
-                          <Button size="small" onClick={() => setParts({ ...vues, [u]: e.part })} sx={{ minHeight: 48 }}
-                            aria-label={`Retenir le rythme : ${universLibelle[u]}`}>Retenir le rythme</Button>
-                        )}
-                      </Box>
-                    )
-                  })()}
-                </TableCell>
-                <TableCell align="right">{montant(realiseDe(u))}</TableCell>
-                <TableCell align="right">
-                  {peutSaisir
-                    ? <ChampTaux libelle={`Part de l’année réalisée : ${universLibelle[u]}`} valeur={vues[u]} heritee={auto?.base.partRealisee?.[u]}
-                        onChange={(v) => setParts(() => { const { [u]: _, ...reste } = vues; return v === undefined ? reste : { ...reste, [u]: v } })} />
-                    : taux(r.base.partRealisee?.[u] ?? 0)}
-                </TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600 }}>{montant(realiseDe(u) / (r.base.partRealisee?.[u] || 1))}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        {saisonnaliteBudget && <Box sx={{ pt: 2.5 }}>{saisonnaliteBudget}</Box>}
-      </Card>
 
       {baseCA}
     </Stack>
