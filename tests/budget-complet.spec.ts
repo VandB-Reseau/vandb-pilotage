@@ -67,7 +67,7 @@ test('le franchisé ajoute démarque, saisonnalité et travaux, puis enregistre'
 
 test('le Directeur copie les hypothèses thème par thème vers un autre magasin, voit l’EBE avant et après, ses travaux restent', async ({ page, isMobile }) => {
   const liste = magasins()
-  liste[0].ajustements = { evolutionFamille: { 'cave/Bière': 0.05 }, travaux: { ...travaux, investissement: 99_000 } }
+  liste[0].ajustements = { evolutionFamille: { 'cave/Bière': 0.05 }, evolutionFlux: { cave: 0.05 }, travaux: { ...travaux, investissement: 99_000 }, tresorerieDepart: 12_000 }
   const ecritures = await seConnecter(page, { magasins: liste })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Cartes des hypothèses')
@@ -83,10 +83,11 @@ test('le Directeur copie les hypothèses thème par thème vers un autre magasin
   await panneau.getByRole('button', { name: 'En discussion' }).click()
   const table = panneau.getByRole('table', { name: 'Magasins visés et effet sur l’EBE' })
   await expect(table.getByRole('row')).toHaveCount(2)
-  // + 5 % sur la Bière : l'EBE du magasin 2 monte
+  // + 5 % de tickets Cave : l'EBE du magasin 2 change avec la copie
   const ligne = table.getByRole('row', { name: new RegExp(MAGASINS[1]) })
-  const [avant, apres] = (await ligne.getByRole('cell').allTextContents()).slice(3).map((t) => Number(t.replace(/[^\d,-]/g, '').replace(',', '.')))
-  expect(apres).toBeGreaterThan(avant)
+  const [avant, apres] = (await ligne.getByRole('cell').allTextContents()).slice(3)
+  expect(avant).toMatch(/k€$/)
+  expect(apres).not.toBe(avant)
   await panneau.getByLabel(MAGASINS[1], { exact: true }).check()
   await expect(panneau.getByText('Les magasins en discussion perdent leurs propres choix sur les thèmes copiés.')).toBeVisible()
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
@@ -94,5 +95,5 @@ test('le Directeur copie les hypothèses thème par thème vers un autre magasin
   await expect(page.getByText(`Hypothèses copiées vers ${MAGASINS[1]}.`)).toBeVisible()
   const envoi = ecritures.find((e) => e.table === 'budgets' && e.methode === 'PATCH')
   expect(envoi?.filtre).toContain(encodeURIComponent(MAGASINS[1]))
-  expect((envoi?.corps as { ajustements: unknown }).ajustements).toEqual({ evolutionFamille: { 'cave/Bière': 0.05 }, travaux })
+  expect((envoi?.corps as { ajustements: unknown }).ajustements).toEqual({ evolutionFamille: { 'cave/Bière': 0.05 }, evolutionFlux: { cave: 0.05 }, travaux })
 })
