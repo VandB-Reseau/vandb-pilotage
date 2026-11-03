@@ -1,3 +1,4 @@
+import type { DepartEstime } from '../moteur/reprise'
 import { useEffect, useState } from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -42,10 +43,11 @@ export const LIGNES_TRESORERIE: { cle: keyof MoisTresorerie; libelle: string; so
 
 // Lot 27 : le solde de fin de mois en barres au-dessus du tableau ; tableau par mois, quadrimestre ou année, en € ou k€,
 // replié d'office pour le franchisé (« replie »)
-export function TresorerieBudget({ tresorerie: t, annee, depart, onDepart, lectureSeule, replie = false }: {
+export function TresorerieBudget({ tresorerie: t, annee, depart, onDepart, lectureSeule, replie = false, estimee }: {
   tresorerie: Tresorerie
   annee: number
   depart: number | undefined
+  estimee?: DepartEstime | null // lot 42 : trésorerie au 1er janvier estimée depuis les comptes, tant qu'elle n'est pas saisie
   onDepart: (v: number | undefined) => void
   lectureSeule: boolean
   replie?: boolean
@@ -79,6 +81,12 @@ export function TresorerieBudget({ tresorerie: t, annee, depart, onDepart, lectu
           <ChampNombre libelle="Trésorerie au 1er janvier" valeur={saisie} onChange={changer} desactive={lectureSeule} largeur={160} />
         </Box>
       </Box>
+      {depart === undefined && estimee && (
+        <Typography variant="body2" color="text.secondary" sx={{ px: 2.5, pb: 1 }}>
+          Estimée à {milliers(estimee.montant)} : {milliers(estimee.depuis)} fin {estimee.quadrimestre === 1 ? 'avril' : estimee.quadrimestre === 2 ? 'août' : 'décembre'} {estimee.annee}, plus l’activité prévue jusqu’au 31 décembre.
+          {lectureSeule ? '' : ' Saisis le solde bancaire quand tu le connais.'}
+        </Typography>
+      )}
       <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap', px: 2.5, py: 1.5 }} aria-label="Trésorerie en bref">
         <Indicateur libelle="Fin décembre" aide="tresorerieFin" valeur={milliers(t.fin)} detail={`${t.fin >= t.debut ? '+' : ''}${milliers(t.fin - t.debut)} sur l’année`} />
         <Indicateur libelle="Point bas" aide="pointBas" valeur={milliers(t.pointBas.montant)} detail={`Fin ${MOIS_LONGS[t.pointBas.mois]}`} />

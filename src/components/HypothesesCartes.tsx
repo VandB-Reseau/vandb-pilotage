@@ -7,18 +7,21 @@ import Typography from '@mui/material/Typography'
 import ChevronRightOutlined from '@mui/icons-material/ChevronRightOutlined'
 import { lienMagasin, milliers, MOIS_LONGS, taux } from '../lib/format'
 import type { Cibles } from '../moteur/cibles'
-import { UNIVERS, universLibelle, type Budget } from '../moteur/types'
+import type { Budget, Hypotheses } from '../moteur/types'
+import type { ThemeAccord } from '../moteur/changements'
+import type { DepartEstime } from '../moteur/reprise'
 import type { Tresorerie } from '../moteur/tresorerie'
 
-// Lot 37 (Joseph, 02/11/2026, option H2) : toutes les hypothèses du budget sur une page, une carte par thème. Un clic sur
-// une carte ouvre le tableau court du thème ; la carte Résultat mène à l'étape suivante.
+// Lot 37 (Joseph, 02/11/2026, option H2) : une carte par thème ; un clic ouvre le détail du thème.
+// Lot 42 : les ventes et le résultat sont sur la page « Construire » ; restent ici les thèmes en détail, chacun avec son
+// « D'accord » pour le franchisé. L'équipe et les frais repris des comptes, la trésorerie estimée sont dits comme tels.
 type Ligne = { libelle: string; valeur: ReactNode; signal?: boolean }
 
-function Carte({ titre, vers, lignes, action, magasin }: { titre: string; vers: string; lignes: Ligne[]; action: string; magasin: string }) {
+function Carte({ titre, vers, lignes, action, magasin, accord }: { titre: string; vers: string; lignes: Ligne[]; action: string; magasin: string; accord?: ReactNode }) {
   return (
-    <Card component="section" aria-label={titre} sx={{ display: 'flex' }}>
+    <Card component="section" aria-label={titre} sx={{ display: 'flex', flexDirection: 'column' }}>
       <CardActionArea component={RouterLink} to={lienMagasin(magasin, vers)} data-sans-garde=""
-        sx={{ p: 2.5, display: 'flex', flexDirection: 'column', alignItems: 'stretch', justifyContent: 'flex-start', gap: 1 }}>
+        sx={{ p: 2.5, pb: accord ? 1 : 2.5, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'stretch', justifyContent: 'flex-start', gap: 1 }}>
         <Typography variant="h3" sx={{ fontSize: '1.125rem' }}>{titre}</Typography>
         <Box component="dl" sx={{ m: 0, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', columnGap: 2, rowGap: 0.75, flex: 1 }}>
           {lignes.map((l) => (
@@ -32,13 +35,14 @@ function Carte({ titre, vers, lignes, action, magasin }: { titre: string; vers: 
           {action}<ChevronRightOutlined fontSize="small" />
         </Box>
       </CardActionArea>
+      {accord && <Box sx={{ px: 2.5, pb: 2 }}>{accord}</Box>}
     </Card>
   )
 }
 
 const nombre = (n: number, un: string, plusieurs: string) => (n === 0 ? 'Aucun' : `${n} ${n > 1 ? plusieurs : un}`)
 
-export function HypothesesCartes({ magasin, annee, budget: b, cibles, hausseSalaires, inflation, sansEquipe, tresorerie, lectureSeule }: {
+export function HypothesesCartes({ magasin, annee, budget: b, cibles, hausseSalaires, inflation, sansEquipe, tresorerie, lectureSeule, reprise, estimee, accord }: {
   magasin: string
   annee: number
   budget: Budget
@@ -48,49 +52,42 @@ export function HypothesesCartes({ magasin, annee, budget: b, cibles, hausseSala
   sansEquipe: boolean
   tresorerie: Tresorerie | null
   lectureSeule: boolean
+  reprise?: Hypotheses['reprise']
+  estimee?: DepartEstime | null
+  accord?: (theme: ThemeAccord, nom: string) => ReactNode
 }) {
-  const action = lectureSeule ? 'Voir le détail' : 'Modifier'
-  const somme = (l: number[]) => l.reduce((a, x) => a + x, 0)
-  const ventes: Ligne[] = UNIVERS.filter((u) => b.familles.some((f) => f.univers === u)).map((u) => {
-    const l = b.familles.filter((f) => f.univers === u)
-    const n = somme(l.map((f) => f.atterrissage)), o = somme(l.map((f) => f.objectif))
-    return { libelle: universLibelle[u], valeur: `${milliers(o)}${n ? ` (${o >= n ? '+' : ''}${taux(o / n - 1)})` : ''}` }
-  })
-  ventes.push({ libelle: 'Marge commerciale', valeur: taux(b.tauxMarge) })
+  const action = lectureSeule ? 'Voir le détail' : 'Détailler'
   const travaux = cibles.travaux ? cibles.travaux.activite.filter((a) => a < 1).length : 0
   const frais = b.chargesExternes + b.impotsTaxes - b.redevance - b.publicite
   const lignesFrais = Object.keys(cibles.fraisBudget ?? {}).length
+  const depart = cibles.tresorerieDepart
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(3, minmax(0, 1fr))' }, gap: 2 }}>
-      <Carte magasin={magasin} titre="Ventes" vers="ventes" action={action} lignes={ventes} />
-      <Carte magasin={magasin} titre="Calendrier" vers="calendrier" action={action} lignes={[
+    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(4, minmax(0, 1fr))' }, gap: 2 }}>
+      <Carte magasin={magasin} titre="Calendrier" vers="calendrier" action={action} accord={accord?.('calendrier', 'Calendrier')} lignes={[
         { libelle: 'Saisonnalité', valeur: cibles.poidsMois ? 'Propre au magasin' : 'Celle du magasin ou du réseau' },
         { libelle: 'Travaux, fermeture', valeur: travaux ? `${travaux} mois touché${travaux > 1 ? 's' : ''}` : 'Aucun' },
         { libelle: 'Temps forts', valeur: nombre(cibles.tempsForts?.length ?? 0, 'temps fort', 'temps forts') },
         { libelle: 'Clients gagnés ou perdus', valeur: nombre(cibles.ajustementsCA?.length ?? 0, 'changement', 'changements') },
       ]} />
-      <Carte magasin={magasin} titre="Équipe" vers="equipe" action={sansEquipe && !lectureSeule ? 'Renseigner l’équipe' : action} lignes={[
-        ...(sansEquipe ? [{ libelle: 'Équipe', valeur: 'à renseigner', signal: true }] : []),
+      <Carte magasin={magasin} titre="Équipe" vers="equipe" action={sansEquipe && !reprise?.personnel && !lectureSeule ? 'Renseigner l’équipe' : action} accord={accord?.('equipe', 'Équipe')} lignes={[
+        ...(reprise?.personnel ? [{ libelle: 'Équipe', valeur: `Comptes ${reprise.annee} (${reprise.mois} mois)` }]
+          : sansEquipe ? [{ libelle: 'Équipe', valeur: 'à renseigner', signal: true }] : []),
         { libelle: 'Hausse générale des salaires', valeur: taux(hausseSalaires) },
         { libelle: 'Masse salariale', valeur: milliers(b.personnel) },
         { libelle: '% FP', valeur: taux(b.ratios.pctFP) },
       ]} />
-      <Carte magasin={magasin} titre="Frais" vers="fraisBudget" action={action} lignes={[
+      <Carte magasin={magasin} titre="Frais" vers="fraisBudget" action={action} accord={accord?.('fraisBudget', 'Frais')} lignes={[
+        ...(reprise?.frais ? [{ libelle: 'Frais de départ', valeur: `Comptes ${reprise.annee} (${reprise.mois} mois)` }] : []),
         { libelle: 'Inflation des frais', valeur: taux(inflation) },
         { libelle: 'Lignes choisies une à une', valeur: lignesFrais === 0 ? 'Aucune' : String(lignesFrais) },
         { libelle: `Frais ${annee}`, valeur: milliers(frais) },
       ]} />
-      <Carte magasin={magasin} titre="Trésorerie" vers="tresoBudget" action={action} lignes={[
-        { libelle: 'Au 1er janvier', valeur: cibles.tresorerieDepart === undefined ? 'à saisir' : milliers(cibles.tresorerieDepart), signal: cibles.tresorerieDepart === undefined },
+      <Carte magasin={magasin} titre="Trésorerie" vers="tresoBudget" action={action} accord={accord?.('tresoBudget', 'Trésorerie')} lignes={[
+        { libelle: 'Au 1er janvier', valeur: depart !== undefined ? milliers(depart) : estimee ? `${milliers(estimee.montant)}, estimée` : 'à saisir', signal: depart === undefined && !estimee },
         ...(tresorerie ? [
           { libelle: 'Fin décembre', valeur: milliers(tresorerie.fin) },
           { libelle: 'Point bas', valeur: `${milliers(tresorerie.pointBas.montant)} (${MOIS_LONGS[tresorerie.pointBas.mois]})`, signal: tresorerie.pointBas.montant < 0 },
         ] : []),
-      ]} />
-      <Carte magasin={magasin} titre="Résultat" vers="resultat" action="Voir le résultat" lignes={[
-        { libelle: 'Chiffre d’affaires HT', valeur: milliers(b.ca) },
-        { libelle: 'EBE', valeur: `${milliers(b.ebe)} (${taux(b.ratios.ebeSurCA)})` },
-        { libelle: 'Résultat net', valeur: milliers(b.resultatNet) },
       ]} />
     </Box>
   )

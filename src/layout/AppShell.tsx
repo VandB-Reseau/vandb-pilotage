@@ -156,8 +156,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         {reseau[espace].map(lien)}
         {magasin && (
           <>
-            {sousTitre('Magasin')}
-            <Box sx={{ mb: 0.5 }}><SelecteurMagasin magasin={magasin} /></Box>
+            {/* Lot 42 (Joseph, 02/11/2026) : le magasin ouvert n'est plus dans le menu, il est dans la barre du haut */}
+            {sousTitre('Pages du magasin')}
             {parties.map((p) => (
               <ListItemButton key={p.cle} component={RouterLink} to={lienMagasin(magasin, p.cle)} selected={partieActive !== null && etapeDe(partieActive) === p.cle} aria-current={partieActive !== null && etapeDe(partieActive) === p.cle ? 'page' : undefined}
                 data-sans-garde={libre(p.cle) ? '' : undefined} sx={{ minHeight: 48, mb: 0.25, pl: 2 }}>
@@ -191,9 +191,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           )}
           <Box component={RouterLink} to="/" aria-label="Accueil du pilotage" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'inherit', textDecoration: 'none', minHeight: 48 }}>
             <Logo size={18} />
-            <Typography variant="h3" component="span" sx={{ fontSize: '1.125rem' }}>Pilotage</Typography>
+            <Typography variant="h3" component="span" sx={{ fontSize: '1.125rem', display: telephone && magasin ? 'none' : 'inline' }}>Pilotage</Typography>
           </Box>
-          <Box sx={{ flex: 1, display: 'flex', justifyContent: telephone ? 'flex-end' : 'flex-start', pl: telephone ? 0 : `${LARGEUR_MENU - 160}px` }}>
+          <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 1.5, justifyContent: telephone ? 'flex-end' : 'flex-start', pl: telephone ? 0 : `${LARGEUR_MENU - 160}px` }}>
+            {/* Lot 42 : le magasin ouvert, toujours au même endroit, quel que soit l'espace ; un clic pour en changer */}
+            {magasin && profil && profil.role !== 'aucun' && !seulementParametres(profil) && <SelecteurMagasin magasin={magasin} sombre />}
             {profil && profil.role !== 'aucun' && <RechercheMagasin telephone={telephone} />}
           </Box>
           <IconButton color="inherit" aria-label="Mon compte" onClick={(e) => setMenuCompte(e.currentTarget)} sx={{ width: 48, height: 48 }}>

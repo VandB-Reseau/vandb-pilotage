@@ -21,8 +21,8 @@ test('fiche en trois espaces ; la barre d’enregistrement montre l’effet avan
   // Lot 36 : la fiche s'ouvre sur le suivi ; le budget est un espace à part, en 4 étapes (0 : point de départ)
   await expect(page).toHaveURL(/\/synthese$/)
   await ouvrir(page, 'Hypothèses')
-  await partieAffichee(page, /^1 · Hypothèses/)
-  await expect(partiesAffichees(page)).toHaveCount(4)
+  await partieAffichee(page, /^1 · Construire/)
+  await expect(partiesAffichees(page)).toHaveCount(3)
 
   const barre = page.getByRole('region', { name: 'Changements non enregistrés' })
   await expect(barre).toHaveCount(0)

@@ -35,7 +35,6 @@ import { VersionsBudget } from '../components/VersionsBudget'
 import { CompteResultatMois } from '../components/CompteResultatMois'
 import { CopieHypotheses } from '../components/CopieHypotheses'
 import { EtatVide } from '../components/EtatVide'
-import { Indicateur } from '../components/Indicateur'
 import { Panne } from '../components/Panne'
 import { EquipeMagasin } from '../components/EquipeMagasin'
 import { FraisBudget } from '../components/FraisBudget'
@@ -59,7 +58,10 @@ import { HypotheseCle, HypothesesUnivers, TableauHypotheses } from '../component
 import { HypothesesCartes } from '../components/HypothesesCartes'
 import { RevueChangements } from '../components/RevueChangements'
 import { ObjectifEbe } from '../components/ObjectifEbe'
-import { changementsCibles, effetsChangements, pointsAvantValidation } from '../moteur/changements'
+import { changementsCibles, effetsChangements, pointsAvantValidation, themeDeCle, type ThemeAccord } from '../moteur/changements'
+import { tresorerieDepartEstimee } from '../moteur/reprise'
+import { ResultatDirect } from '../components/ResultatDirect'
+import { AccordTheme } from '../components/AccordTheme'
 import {
   anneeBudget, avecEquipeEtFrais, changerStatut, chargerBudgets, envoyerAuSiege, envoyerMessage, chargerParametres, chargerReel, enregistrerAjustements, hypothesesDe, niveauxDe, parametresDuBudget, statutLibelle, valeursSansCible,
 } from '../data/pilotage'
@@ -179,7 +181,7 @@ export function Magasin() {
   const pastillesMenu = ligne && donnees ? {
     reel: !!reel.donnees && reelEnRetard(syntheseReel(reel.donnees.lignes, reel.donnees.tickets).moisRenseignes),
     frais: !donnees.d.frais[ligne.magasin]?.length,
-    budget: !donnees.d.equipes[ligne.magasin]?.length,
+    budget: !donnees.d.equipes[ligne.magasin]?.length && !donnees.d.comptes?.[ligne.magasin]?.quadrimestres.length,
     depart: directeur && !ligne.statut,
   } : {}
   const clePastilles = JSON.stringify(pastillesMenu)
@@ -204,8 +206,14 @@ export function Magasin() {
   const baseFrais = ligne.base ? avecEquipeEtFrais(ligne.base, d.equipes[ligne.magasin], d.frais[ligne.magasin], d.comptes?.[ligne.magasin]) : null
   const inflation = resolu?.provenance.find((x) => x.cle === 'inflationFrais')?.valeur ?? 0
   const enregistrable = poidsValides(brouillon.poidsMois)
+  // Lot 42 (proposition 5) : sans trésorerie au 1er janvier saisie, celle estimée depuis les comptes de l'année
+  const estimee = baseFrais ? tresorerieDepartEstimee(baseFrais, d.comptes?.[ligne.magasin], parametres) : null
+  const departDe = (c: Cibles) => c.tresorerieDepart ?? estimee?.montant ?? 0
   // Effet des travaux : même budget sans eux
-  const tresorerie = b && resolu ? tresorerieBudget(b, resolu.hypotheses, parametres, parametres.tresorerie, brouillon.tresorerieDepart ?? 0) : null
+  const tresorerie = b && resolu ? tresorerieBudget(b, resolu.hypotheses, parametres, parametres.tresorerie, departDe(brouillon)) : null
+  // Lot 42 (proposition 4) : EBE de la proposition du siège, pour lire l'écart en direct
+  const auSiege = ligne.base ? hypothesesDe(ligne, d, ligne.siege ?? {}) : null
+  const ebeSiege = auSiege ? calculerBudget(auSiege.hypotheses, parametres).ebe : null
   const sansTravaux = resolu?.hypotheses.travaux ? calculerBudget({ ...resolu.hypotheses, travaux: undefined }, parametres) : null
   // Copie : magasins dont le budget est proposé ou en discussion
   const destinations = d.magasins.filter((l) => l.magasin !== ligne.magasin && l.base && l.statut && l.statut !== 'valide')
@@ -254,7 +262,7 @@ export function Magasin() {
   const manques: Record<string, { detail: string } | undefined> = {
     reel: reelRetard ? { detail: 'en retard' } : undefined,
     frais: !d.frais[ligne.magasin]?.length ? { detail: 'à renseigner' } : undefined,
-    budget: !d.equipes[ligne.magasin]?.length ? { detail: 'équipe à renseigner' } : undefined,
+    budget: !d.equipes[ligne.magasin]?.length && !d.comptes?.[ligne.magasin]?.quadrimestres.length ? { detail: 'équipe à renseigner' } : undefined,
     depart: directeur && !ligne.statut ? { detail: 'budget à proposer' } : undefined,
   }
   const parties = partiesDe(espace, anneeEnCours)
@@ -269,7 +277,7 @@ export function Magasin() {
   // Effet des changements non enregistrés, face au budget enregistré
   const enregistre = hypothesesDe(ligne, d, ligne.ajustements)
   const bAvant = enregistre ? calculerBudget(enregistre.hypotheses, parametres) : null
-  const tresoAvant = bAvant && enregistre ? tresorerieBudget(bAvant, enregistre.hypotheses, parametres, parametres.tresorerie, ligne.ajustements.tresorerieDepart ?? 0) : null
+  const tresoAvant = bAvant && enregistre ? tresorerieBudget(bAvant, enregistre.hypotheses, parametres, parametres.tresorerie, departDe(ligne.ajustements)) : null
   const anneeChoix = (valeur: number, choisir: (v: number) => void, libelle: string) => (
     <ToggleButtonGroup exclusive size="small" value={valeur} onChange={(_, v: number | null) => v && choisir(v)} aria-label={libelle}>
       {[anneeEnCours, anneeEnCours - 1].map((a) => <ToggleButton key={a} value={a} sx={{ minHeight: 48, minWidth: 72 }}>{a}</ToggleButton>)}
@@ -293,11 +301,25 @@ export function Magasin() {
   const boutonValider = peutValider && ligne.base && ligne.statut !== 'valide' ? (
     <Button variant="contained" color="success" startIcon={<CheckCircleOutlined />} disabled={occupe || !enregistrable} sx={{ minHeight: 48 }}
       onClick={() => resolu && void agir(async () => {
-        if (modifie) await enregistrerAjustements(ligne.magasin, annee, brouillon, resolu.hypotheses)
-        await changerStatut(ligne.magasin, annee, 'valide', resolu.hypotheses)
+        // Lot 42 : la trésorerie estimée est figée avec le budget
+        const aValider = brouillon.tresorerieDepart === undefined && estimee ? { ...brouillon, tresorerieDepart: estimee.montant } : brouillon
+        const h = hypothesesDe(ligne, d, aValider)?.hypotheses ?? resolu.hypotheses
+        if (JSON.stringify(aValider) !== JSON.stringify(ligne.ajustements)) await enregistrerAjustements(ligne.magasin, annee, aValider, h)
+        await changerStatut(ligne.magasin, annee, 'valide', h)
       }, `Budget ${annee} validé.`)}>
       Valider le budget
     </Button>
+  ) : null
+  // Lot 42 (proposition 6) : « D'accord » thème par thème, pour le franchisé qui peut encore ajuster
+  const themesChanges = new Set(changementsCibles(ligne.siege ?? {}, brouillon).map((c) => themeDeCle(c.cle)))
+  const accordTheme = franchise && peutAjuster ? (theme: ThemeAccord, nom: string) => (
+    <AccordTheme nom={nom} change={themesChanges.has(theme)} accepte={(brouillon.accords ?? []).includes(theme)}
+      onChange={(oui) => setBrouillon((c) => {
+        const l = (c.accords ?? []).filter((t) => t !== theme)
+        const accords = oui ? [...l, theme] : l
+        const { accords: _, ...reste } = c
+        return accords.length ? { ...reste, accords } : reste
+      })} />
   ) : null
   const alerteMessage = message ? (
     <Alert severity={message.gravite} onClose={() => setMessage(null)} closeText="Fermer" slotProps={{ closeButton: { sx: { width: 48, height: 48 } } }}>
@@ -468,13 +490,9 @@ export function Magasin() {
 
       {b && !themeOuvert && (
         <>
-          <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap' }} component="section" aria-label="Indicateurs clés">
-            <Indicateur libelle="Chiffre d’affaires HT" valeur={milliers(b.ca)} detail={`Atterrissage de l’année en cours : ${milliers(b.atterrissage)}`} info={<DetailCalcul quoi="ca" budget={b} annee={annee} />} />
-            <Indicateur libelle="Marge commerciale" valeur={taux(b.tauxMarge)} detail={milliers(b.marge)} info={<DetailCalcul quoi="marge" budget={b} annee={annee} />} />
-            <Indicateur libelle="% FP" aide="pctFP" valeur={taux(b.ratios.pctFP)} detail={`${milliers(b.personnel)} de masse salariale`} />
-            <Indicateur libelle="EBE" valeur={milliers(b.ebe)} detail={`${taux(b.ratios.ebeSurCA)} du CA`} info={<DetailCalcul quoi="ebe" budget={b} annee={annee} />} />
-            <Indicateur libelle="Résultat net" aide="resultatNet" valeur={milliers(b.resultatNet)} detail={`Impôt : ${milliers(b.impot)}`} />
-          </Stack>
+          {/* Lot 42 (proposition 4) : le résultat reste en vue et se recalcule à chaque changement */}
+          <ResultatDirect budget={b} ebeSiege={ebeSiege} tresorerie={tresorerie} annee={annee}
+            infos={{ ca: <DetailCalcul quoi="ca" budget={b} annee={annee} />, marge: <DetailCalcul quoi="marge" budget={b} annee={annee} />, ebe: <DetailCalcul quoi="ebe" budget={b} annee={annee} /> }} />
 
           {(peutValider && ligne.base) || (directeur && ligne.base && !copie) || (franchise && peutAjuster && onglet !== 'echanges') ? <Stack direction="row" useFlexGap spacing={1.5} className="pas-a-l-impression" sx={{ flexWrap: 'wrap' }} aria-label="Actions sur le budget">
             {/* Lot 41 : envoyer et valider se font à l'étape 3, après le résultat, devant les changements du magasin */}
@@ -511,7 +529,7 @@ export function Magasin() {
               franchise={franchise} effets={revue.effets} total={revue.total} ebeSiege={revue.ebeSiege} ebeMagasin={revue.ebeMagasin}
               envoyeLe={ligne.envoyeLe} statut={ligne.statut} occupe={occupe} onEnvoyer={franchise && peutAjuster ? envoyer : undefined}
               validation={boutonValider ? {
-                points: pointsAvantValidation({ tresorerieDepart: brouillon.tresorerieDepart, pointBas: tresorerie?.pointBas ?? null, changementsNonEnvoyes: ligne.statut === 'propose' && revue.effets.length > 0 }, MOIS_LONGS),
+                points: pointsAvantValidation({ tresorerieDepart: brouillon.tresorerieDepart, estimee: estimee ? milliers(estimee.montant) : undefined, pointBas: tresorerie?.pointBas ?? null, changementsNonEnvoyes: ligne.statut === 'propose' && revue.effets.length > 0 }, MOIS_LONGS),
                 bouton: boutonValider,
               } : undefined}
             />
@@ -535,17 +553,29 @@ export function Magasin() {
         />
       ) : (
         <>
-          {onglet === 'budget' && resolu && (
-            <Box className="pas-a-l-impression">
-              <HypothesesCartes magasin={ligne.magasin} annee={annee} budget={b} cibles={brouillon} hausseSalaires={resolu.hypotheses.hausseSalaires ?? 0}
-                inflation={inflation} sansEquipe={!d.equipes[ligne.magasin]?.length} tresorerie={tresorerie} lectureSeule={!peutAjuster} />
-            </Box>
-          )}
-          <Stack spacing={3} className={partie('ventes')}>
+          <Stack spacing={3} className={partie('ventes')} id="partie-ventes" sx={{ scrollMarginTop: 200 }}>
             {communHypotheses && (
               <Card component="section" aria-label="Hypothèses du magasin">
                 <HypothesesUnivers familles={b.familles} flux={b.flux} annee={annee} {...communHypotheses} />
+                {accordTheme && <Box className="pas-a-l-impression" sx={{ px: 2.5, pb: 2 }}>{accordTheme('ventes', 'Ventes et marge')}</Box>}
               </Card>
+            )}
+            {communHypotheses && onglet === 'budget' && (
+              <Card component="section" aria-label="Salaires et frais">
+                <TableauHypotheses titre={`Hypothèses ${annee} : salaires et frais`} annee={annee}>
+                  <HypotheseCle cle="hausseSalaires" nom="Hausse générale des salaires" libelle="Hausse générale des salaires" quoi="hausse générale des salaires" aide="hausseSalaires"
+                    apres={`${milliers(b.personnel)} · ${taux(b.ratios.pctFP)} de FP`} {...communHypotheses} />
+                  <HypotheseCle cle="inflationFrais" nom="Inflation des frais" libelle="Inflation des frais" quoi="inflation des frais" aide="inflationFrais"
+                    apres={`${milliers(b.chargesExternes + b.impotsTaxes - b.redevance - b.publicite)} de frais`} {...communHypotheses} />
+                </TableauHypotheses>
+              </Card>
+            )}
+            {onglet === 'budget' && resolu && (
+              <Box className="pas-a-l-impression">
+                <HypothesesCartes magasin={ligne.magasin} annee={annee} budget={b} cibles={brouillon} hausseSalaires={resolu.hypotheses.hausseSalaires ?? 0}
+                  inflation={inflation} sansEquipe={!d.equipes[ligne.magasin]?.length} tresorerie={tresorerie} lectureSeule={!peutAjuster}
+                  reprise={resolu.hypotheses.reprise} estimee={estimee} accord={accordTheme ?? undefined} />
+              </Box>
             )}
             {ligne.base && (
               <BaseCAMagasin
@@ -591,11 +621,12 @@ export function Magasin() {
           )}
           {onglet === 'tresoBudget' && tresorerie && (
             <TresorerieBudget
-              key={`${ligne.magasin}-theme`} tresorerie={tresorerie} annee={annee} depart={brouillon.tresorerieDepart} lectureSeule={!peutAjuster} replie
+              key={`${ligne.magasin}-theme`} tresorerie={tresorerie} annee={annee} depart={brouillon.tresorerieDepart} estimee={estimee} lectureSeule={!peutAjuster} replie
               onDepart={(v) => setBrouillon(({ tresorerieDepart: _, ...reste }) => (v === undefined ? reste : { ...reste, tresorerieDepart: v }))}
             />
           )}
-          <Stack spacing={3} className={partie('resultat')}>
+          <Stack spacing={3} className={partie('resultat')} id="partie-resultat" sx={{ scrollMarginTop: 200 }}>
+            <Typography variant="h2" className="pas-a-l-impression">Résultat et trésorerie {annee}</Typography>
             {resolu && <CompteResultatMois lignes={compteResultat(b, resolu.hypotheses, parametres)} titre={`Compte de résultat ${annee}`} libelleTableau={`Budget ${annee} mois par mois`} />}
             {resolu && b && <EconomieFranchise budget={b} hypotheses={resolu.hypotheses} parametres={parametres} annee={annee} />}
             {/* Lot 41 (proposition 4) : un EBE visé, et ce qu'il faudrait pour l'atteindre, un levier à la fois */}
@@ -609,7 +640,7 @@ export function Magasin() {
             )}
             {tresorerie && (
               <TresorerieBudget
-                key={ligne.magasin} tresorerie={tresorerie} annee={annee} depart={brouillon.tresorerieDepart} lectureSeule={!peutAjuster} replie={franchise}
+                key={ligne.magasin} tresorerie={tresorerie} annee={annee} depart={brouillon.tresorerieDepart} estimee={estimee} lectureSeule={!peutAjuster} replie={franchise}
                 onDepart={(v) => setBrouillon(({ tresorerieDepart: _, ...reste }) => (v === undefined ? reste : { ...reste, tresorerieDepart: v }))}
               />
             )}
