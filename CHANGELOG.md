@@ -5,6 +5,15 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Panneau Impact raccourci (sans migration)
+
+- « Enregistrer les ajustements » passe juste sous le titre du panneau, avec « Tout annuler » à côté du nombre de
+  changements : visible dès qu'on arrive sur Construire, sans dérouler (Joseph, 03/11/2026).
+- Une ligne par indicateur (montant et écart côte à côte, % en petit dessous), « CA HT » et « Marge » en libellés courts,
+  dernier changement sur une ou deux lignes, sélecteur Enregistré / Siège plus fin : le panneau passe d'environ 830 à
+  525 px de haut.
+- Sur PC, les commentaires sous le panneau défilent seuls : ils ne repoussent plus le panneau.
+
 ### Investissements & Financements, Évènements & Temps forts, budget en 3 étapes, commentaires (Base : 0025)
 
 - Base : passer `supabase/migrations/0025_commentaires.sql` (commentaires ancrés, réponses, « Résolu »). Sans elle, l'app
