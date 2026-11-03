@@ -22,7 +22,7 @@ import { Indicateur } from './Indicateur'
 import { nombre } from '../import/caisse'
 import { enChiffres, milliers, montant, taux } from '../lib/format'
 import { CLES_FINANCES, lignesFraisBudget, type ChoixFrais, type LigneFraisBudget, type ModeFrais } from '../moteur/fraisBudget'
-import { LIGNES_SUR_CA, lignesFrais, rubriqueLibelle, THEMES_FRAIS } from '../moteur/parametres'
+import { LIGNES_SUR_CA, lignesActives, lignesFrais, rubriqueLibelle, THEMES_FRAIS, type LigneGrille } from '../moteur/parametres'
 import type { Hypotheses } from '../moteur/types'
 import { styleTableau } from '../theme/tableau'
 
@@ -32,7 +32,7 @@ const enTexte = (c: ChoixFrais) => (c.valeur === undefined ? '' : enChiffres(Mat
 // Lot 35 (Joseph, 02/11/2026) : frais du budget ligne par ligne, à partir des frais de l'année en cours, dans le même
 // tableau par thème que l'onglet Frais. Chaque ligne : même montant, hausse en %, ou nouveau montant ; sans choix, elle
 // suit l'inflation des frais. Les choix vont dans les ajustements du budget (enregistrés avec la barre du budget).
-export function FraisBudget({ base, choix, inflation, annee, anneeEnCours, lectureSeule, tauxSurCA, onChange }: {
+export function FraisBudget({ base, choix, inflation, annee, anneeEnCours, lectureSeule, tauxSurCA, onChange, grille = lignesFrais }: {
   base: Pick<Hypotheses, 'frais' | 'amortissements' | 'interets' | 'remboursementCapital'>
   choix: Record<string, ChoixFrais> | undefined
   inflation: number
@@ -41,17 +41,20 @@ export function FraisBudget({ base, choix, inflation, annee, anneeEnCours, lectu
   lectureSeule: boolean
   tauxSurCA: { publicite: number; redevance: number }
   onChange: (c: Record<string, ChoixFrais> | undefined) => void
+  grille?: LigneGrille[]  // grille des frais de l'année (lot 40)
 }) {
   const [replies, setReplies] = useState<Set<string>>(new Set())
   // Texte en cours de saisie, par ligne : gardé tant qu'il n'est pas un nombre lisible
   const [textes, setTextes] = useState<Record<string, string>>({})
   const [ajout, setAjout] = useState<{ ancre: HTMLElement; theme: string } | null>(null)
-  const lignes = lignesFraisBudget(base, choix, inflation)
+  const lignes = lignesFraisBudget(base, choix, inflation, grille)
   const basculer = (cle: string) => setReplies((o) => { const n = new Set(o); if (n.has(cle)) n.delete(cle); else n.add(cle); return n })
 
   const ecrire = (code: string, c: ChoixFrais | null) => {
     const n = { ...(choix ?? {}) }
-    if (c) n[code] = c
+    // Ligne nouvelle au budget : son libellé et son thème la suivent (lot 40, grille modifiable)
+    const precedent = choix?.[code]
+    if (c) n[code] = c.mode === 'montant' && precedent?.libelle && !c.libelle ? { ...c, libelle: precedent.libelle, rubrique: precedent.rubrique } : c
     else delete n[code]
     onChange(Object.keys(n).length ? n : undefined)
   }
@@ -146,7 +149,7 @@ export function FraisBudget({ base, choix, inflation, annee, anneeEnCours, lectu
     )
   }
   // Lignes de la grille absentes de l'année en cours, à ajouter au budget avec un montant
-  const libres = (r: string) => lignesFrais.filter((g) => g.rubrique === r && !lignes.some((l) => l.code === g.code))
+  const libres = (r: string) => lignesActives(grille).filter((g) => g.rubrique === r && !lignes.some((l) => l.code === g.code))
   const plusTheme = (r: string) => !lectureSeule && libres(r).length > 0 && (
     <IconButton aria-label={`Ajouter une ligne au budget : ${rubriqueLibelle[r as keyof typeof rubriqueLibelle]}`} onClick={(e) => setAjout({ ancre: e.currentTarget, theme: r })}
       sx={{ width: { xs: 48, md: 32 }, height: { xs: 48, md: 32 } }}>
@@ -193,7 +196,7 @@ export function FraisBudget({ base, choix, inflation, annee, anneeEnCours, lectu
       </Card>
       <Menu anchorEl={ajout?.ancre} open={!!ajout} onClose={() => setAjout(null)}>
         {ajout && libres(ajout.theme).map((g) => (
-          <MenuItem key={g.code} sx={{ minHeight: 48 }} onClick={() => { ecrire(g.code, { mode: 'montant', valeur: 0 }); setTextes((t) => ({ ...t, [g.code]: '' })); setAjout(null) }}>{g.libelle}</MenuItem>
+          <MenuItem key={g.code} sx={{ minHeight: 48 }} onClick={() => { ecrire(g.code, { mode: 'montant', valeur: 0, libelle: g.libelle, rubrique: g.rubrique }); setTextes((t) => ({ ...t, [g.code]: '' })); setAjout(null) }}>{g.libelle}</MenuItem>
         ))}
       </Menu>
     </Stack>

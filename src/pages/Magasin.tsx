@@ -74,6 +74,8 @@ import { syntheseReel } from '../moteur/reel'
 import { calculerBudget, effetTravaux } from '../moteur/budget'
 import { campagneDe } from '../moteur/campagne'
 import { compteResultat } from '../moteur/compteResultat'
+import { grilleDe } from '../moteur/parametres'
+import { reglesDe } from '../moteur/regles'
 import { tresorerieBudget } from '../moteur/tresorerie'
 import { ajustementsCopies, ecarts, ecrireCible, valeurHeritee, type Cibles } from '../moteur/cibles'
 
@@ -460,7 +462,7 @@ export function Magasin() {
         </Stack>
       ) : onglet === 'frais' ? (
         <FraisMagasin key={ligne.magasin} magasin={ligne.magasin} lignes={d.frais[ligne.magasin] ?? []} annee={anneeEnCours} peutSaisir={peutSaisir} apresEnregistrement={recharger}
-          tauxSurCA={{ publicite: parametres.tauxPublicite, redevance: parametres.tauxRedevance }}
+          tauxSurCA={{ publicite: parametres.tauxPublicite, redevance: parametres.tauxRedevance }} grille={grilleDe(parametres)}
           budget={b ? { annee, ca: b.ca, ebe: b.ebe } : undefined} />
       ) : (<Stack spacing={3}>
 
@@ -551,7 +553,7 @@ export function Magasin() {
               <BaseCAMagasin
                 key={`base-${ligne.magasin}`}
                 magasin={ligne.magasin} budget={b} annee={annee} ouverture={d.ouvertures?.[ligne.magasin]}
-                rythme={brouillon.rythme} directeur={directeur} peutAjuster={peutAjuster} apresOuverture={recharger}
+                rythme={brouillon.rythme} directeur={directeur} peutAjuster={peutAjuster} apresOuverture={recharger} seuilRythme={reglesDe(parametres).seuilRythme}
                 onRythme={(r) => setBrouillon(({ rythme: _, ...reste }) => (r ? { ...reste, rythme: r } : reste))}
               />
             )}
@@ -585,7 +587,7 @@ export function Magasin() {
                 </Card>
               )}
               <FraisBudget base={baseFrais} choix={brouillon.fraisBudget} inflation={inflation} annee={annee} anneeEnCours={anneeEnCours} lectureSeule={!peutAjuster}
-                tauxSurCA={{ publicite: parametres.tauxPublicite, redevance: parametres.tauxRedevance }}
+                tauxSurCA={{ publicite: parametres.tauxPublicite, redevance: parametres.tauxRedevance }} grille={grilleDe(parametres)}
                 onChange={(c) => setBrouillon(({ fraisBudget: _, ...reste }) => (c ? { ...reste, fraisBudget: c } : reste))} />
             </Stack>
           )}

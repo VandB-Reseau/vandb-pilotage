@@ -1,5 +1,5 @@
 import { masseSalariale } from './equipe'
-import { SEUIL_RYTHME } from './projection'
+import { reglesDe } from './regles'
 import { UNIVERS, type Budget, type DetailCAUnivers, type Hypotheses, type Mois, type ParametresReseau, type ResultatFamille, type RythmeSortie, type TempsFort, type Travaux, type Univers } from './types'
 
 // Moteur du budget annuel d'un magasin. Fonction pure : le même calcul sert à l'écran, au simulateur et aux tests.
@@ -98,7 +98,7 @@ export function calculerBudget(h: Hypotheses, p: ParametresReseau): Budget {
     const annuel = Math.max(0, s.ca - passes(u, s.de, s.a)) / s.poids
     const acquis = annuel / horsTempsForts[u] - 1
     const choix = h.rythme[u] ?? 'auto'
-    const statut: RythmeSortie['statut'] = choix === 'ignore' ? 'ignore' : choix === 'applique' || Math.abs(acquis) <= SEUIL_RYTHME + 1e-9 ? 'applique' : 'a_confirmer'
+    const statut: RythmeSortie['statut'] = choix === 'ignore' ? 'ignore' : choix === 'applique' || Math.abs(acquis) <= reglesDe(p).seuilRythme + 1e-9 ? 'applique' : 'a_confirmer'
     if (statut === 'applique') facteur[u] = annuel / atterriU(u)
     sortie[u] = { atterri: horsTempsForts[u], annuel, acquis, de: s.de, a: s.a, statut }
   }

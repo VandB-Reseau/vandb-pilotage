@@ -1,11 +1,12 @@
-import { lignesFrais } from './parametres'
+import { lignesFrais, type LigneGrille } from './parametres'
 import type { Hypotheses, LigneFrais, Rubrique } from './types'
 
 // Lot 35 (Joseph, 02/11/2026) : frais du budget ligne par ligne, à partir des frais de l'année en cours. Pour chaque
 // ligne : même montant, hausse en %, ou nouveau montant. Sans choix, les frais annuels suivent l'inflation des
 // hypothèses ; ceux en part du CA gardent leur taux ; amortissements, intérêts et capital remboursé gardent leur montant.
 export type ModeFrais = 'meme' | 'taux' | 'montant'
-export interface ChoixFrais { mode: ModeFrais; valeur?: number }
+// libelle et rubrique : ligne nouvelle au budget, telle que la grille la nommait au moment du choix (lot 40)
+export interface ChoixFrais { mode: ModeFrais; valeur?: number; libelle?: string; rubrique?: Rubrique }
 // Clés des montants sous l'EBE, à côté des codes des lignes de frais
 export const FINANCES_BUDGET = { amortissements: 'Dotations aux amortissements', interets: 'Intérêts et charges assimilées', remboursementCapital: 'Capital d’emprunts remboursé' } as const
 export type CleFinance = keyof typeof FINANCES_BUDGET
@@ -27,7 +28,7 @@ function montantApres(avant: number, c: ChoixFrais): number {
   return avant
 }
 
-export function lignesFraisBudget(base: Base, choix: Record<string, ChoixFrais> | undefined, inflation: number): LigneFraisBudget[] {
+export function lignesFraisBudget(base: Base, choix: Record<string, ChoixFrais> | undefined, inflation: number, grille: LigneGrille[] = lignesFrais): LigneFraisBudget[] {
   const ch = choix ?? {}
   const lignes: LigneFraisBudget[] = base.frais.map((l) => {
     if (defini(l.tauxCA) && ch[l.code]?.mode !== 'montant') {
@@ -40,7 +41,7 @@ export function lignesFraisBudget(base: Base, choix: Record<string, ChoixFrais> 
   // Ligne nouvelle au budget : absente de l'année en cours, avec un montant
   for (const [code, c] of Object.entries(ch)) {
     if (c.mode !== 'montant' || !defini(c.valeur) || base.frais.some((l) => l.code === code) || code in FINANCES_BUDGET) continue
-    const g = lignesFrais.find((l) => l.code === code)
+    const g = grille.find((l) => l.code === code) ?? (c.libelle && c.rubrique ? { libelle: c.libelle, rubrique: c.rubrique } : null)
     if (g) lignes.push({ code, libelle: g.libelle, rubrique: g.rubrique, avant: 0, choix: c, parDefaut: false, apres: c.valeur })
   }
   for (const k of CLES_FINANCES) {

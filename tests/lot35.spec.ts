@@ -58,7 +58,7 @@ test('frais du budget : nouveau montant sur une ligne, ligne ajoutée, enregistr
   await page.getByRole('button', { name: 'Enregistrer les ajustements' }).click()
   await expect(page.getByText(/^Ajustements enregistrés/)).toBeVisible()
   const envoi = ecritures.find((e) => e.table === 'budgets' && e.methode === 'PATCH')?.corps as { ajustements: { fraisBudget: unknown } }
-  expect(envoi.ajustements.fraisBudget).toEqual({ loyer: { mode: 'montant', valeur: 66_000 }, budget_communication: { mode: 'montant', valeur: 2_400 } })
+  expect(envoi.ajustements.fraisBudget).toEqual({ loyer: { mode: 'montant', valeur: 66_000 }, budget_communication: { mode: 'montant', valeur: 2_400, libelle: 'Budget communication annuel', rubrique: 'communication' } }) // lot 40 : la ligne ajoutée garde son libellé
 })
 
 test('frais de l’année : un seul tableau, un groupe repliable par thème', async ({ page }) => {

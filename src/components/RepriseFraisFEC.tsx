@@ -11,12 +11,13 @@ import UploadFileOutlined from '@mui/icons-material/UploadFileOutlined'
 import { lireFEC, texteDuFEC } from '../import/fec'
 import { montant } from '../lib/format'
 import { fraisDepuisFEC, type FinanceFEC, type FraisFEC } from '../moteur/fec'
+import { lignesFrais, type LigneGrille } from '../moteur/parametres'
 import { LIBELLES_FINANCES } from '../moteur/saisieFrais'
 import { Aide } from './Aide'
 
 // Lot 33 : frais repris du FEC du comptable, ramenés à l'année. Rien ne part en base : les lignes cochées remplissent la
 // saisie, qui s'enregistre comme d'habitude.
-export function RepriseFraisFEC({ onReprendre }: { onReprendre: (f: FraisFEC, choisis: string[]) => void }) {
+export function RepriseFraisFEC({ onReprendre, grille = lignesFrais }: { onReprendre: (f: FraisFEC, choisis: string[]) => void; grille?: LigneGrille[] }) {
   const entree = useRef<HTMLInputElement>(null)
   const [f, setF] = useState<FraisFEC | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
@@ -26,7 +27,7 @@ export function RepriseFraisFEC({ onReprendre }: { onReprendre: (f: FraisFEC, ch
     setErreur(null)
     try {
       const l = lireFEC(texteDuFEC(await fichier.arrayBuffer()))
-      const r = fraisDepuisFEC(l.ecritures)
+      const r = fraisDepuisFEC(l.ecritures, grille)
       if (!l.ecritures.length || (!r.lignes.length && !Object.keys(r.finances).length)) {
         setErreur('Aucun frais trouvé dans ce fichier. Demande au cabinet l’export FEC du magasin (colonnes CompteNum, EcritureDate, Debit et Credit).')
         return

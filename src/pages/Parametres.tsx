@@ -34,6 +34,9 @@ import { ChoixListe } from '../components/ChoixListe'
 import { EtatVide } from '../components/EtatVide'
 import { Panne } from '../components/Panne'
 import { SectionParametres } from '../components/SectionParametres'
+import { GrilleFraisParametres } from '../components/GrilleFraisParametres'
+import { ReglesCalculParametres } from '../components/ReglesCalculParametres'
+import { reglesDe } from '../moteur/regles'
 import { useAuth } from '../auth/AuthContext'
 import { estDirecteur, peutParametrer } from '../auth/roles'
 import {
@@ -58,10 +61,11 @@ const DE_L_UNIVERS: Record<Univers, string> = { cave: 'de la Cave', bar: 'du Bar
 const egal = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 type Message = { gravite: 'success' | 'error'; texte: string } | null
 const ECHEC = 'L’enregistrement n’a pas abouti. Vérifie ta connexion, puis réessaie.'
-type Onglet = 'franchise' | 'equipe' | 'tresorerie' | 'alertes' | 'journal' | 'acces'
+type Onglet = 'franchise' | 'equipe' | 'tresorerie' | 'alertes' | 'grille' | 'regles' | 'journal' | 'acces'
 const ONGLETS: { cle: Onglet; libelle: string }[] = [
   { cle: 'franchise', libelle: 'Franchise et impôts' }, { cle: 'equipe', libelle: 'Équipe' }, { cle: 'tresorerie', libelle: 'Trésorerie' },
-  { cle: 'alertes', libelle: 'Alertes et campagne' }, { cle: 'journal', libelle: 'Journal' }, { cle: 'acces', libelle: 'Accès' },
+  { cle: 'alertes', libelle: 'Alertes et campagne' }, { cle: 'grille', libelle: 'Grille des frais' }, { cle: 'regles', libelle: 'Règles de calcul' },
+  { cle: 'journal', libelle: 'Journal' }, { cle: 'acces', libelle: 'Accès' },
 ]
 // Franchise et impôts (lot 39) : bornes de saisie
 type Franchise = Pick<ParametresReseau, 'tauxRedevance' | 'tauxPublicite' | 'impot' | 'tvaPanier'>
@@ -268,7 +272,10 @@ export function Parametres() {
       setOccupe(false)
     }
   }
-  const enCours = franchiseModifiee || chargesModifiees || tresoModifiee || alertesModifiees || campagneModifiee
+  // Lot 40 : grille des frais et règles de calcul, saisies dans leurs propres composants
+  const [grilleModifiee, setGrilleModifiee] = useState(false)
+  const [reglesModifiees, setReglesModifiees] = useState(false)
+  const enCours = franchiseModifiee || chargesModifiees || tresoModifiee || alertesModifiees || campagneModifiee || grilleModifiee || reglesModifiees
   const onglets = ONGLETS.filter((o) => o.cle !== 'acces' || directeur)
   const enregistrerBouton = (desactive: boolean, faire: () => Promise<void>) =>
     lecture ? undefined : <Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe || desactive} onClick={() => void faire()} sx={{ minHeight: 48 }}>Enregistrer</Button>
@@ -383,11 +390,11 @@ export function Parametres() {
                 <TableCell align="right"><ChampNombre libelle="Baisse du taux de marge" valeur={seuils.marge} unite="pt" largeur={120} onChange={(v) => setSeuils((x) => ({ ...x, marge: v }))} /></TableCell>
               </TableRow>
               <TableRow>
-                <TableCell>Tickets des 3 derniers mois sous ceux de l’an dernier, Cave ou Bar, de plus de</TableCell>
+                <TableCell>Tickets des {reglesDe(p).moisCommerciaux} derniers mois sous ceux de l’an dernier, Cave ou Bar, de plus de</TableCell>
                 <TableCell align="right"><ChampTaux libelle="Baisse des tickets" valeur={baisseTickets} onChange={setBaisseTickets} /></TableCell>
               </TableRow>
               <TableRow>
-                <TableCell>Panier moyen TTC des 3 derniers mois sous celui de l’an dernier, Cave ou Bar, de plus de</TableCell>
+                <TableCell>Panier moyen TTC des {reglesDe(p).moisCommerciaux} derniers mois sous celui de l’an dernier, Cave ou Bar, de plus de</TableCell>
                 <TableCell align="right"><ChampTaux libelle="Baisse du panier moyen" valeur={baissePanier} onChange={setBaissePanier} /></TableCell>
               </TableRow>
               <TableRow>
@@ -402,6 +409,9 @@ export function Parametres() {
           </Table>
         </SectionParametres>
         )}
+
+        {onglet === 'grille' && <GrilleFraisParametres annee={annee} parametres={p} lecture={lecture} onEnregistre={recharger} onModifie={setGrilleModifiee} />}
+        {onglet === 'regles' && <ReglesCalculParametres annee={annee} parametres={p} lecture={lecture} onEnregistre={recharger} onModifie={setReglesModifiees} />}
 
         {onglet === 'alertes' && campagne && (
           <SectionParametres nom="Campagne des budgets" titre={`Campagne des budgets ${annee}`} parDefaut={!p.campagne}

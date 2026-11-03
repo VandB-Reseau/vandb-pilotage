@@ -21,7 +21,7 @@ export interface ParametresAlertes {
 // Valeurs proposées, modifiables : 5 % sous le budget, 1 point de marge, 1 mois de retard, trésorerie sous zéro ;
 // tickets 5 % et panier 3 % sous l'an dernier (lot 28)
 export const alertesParDefaut: ParametresAlertes = { ecartCA: 0.05, baisseMarge: 0.01, moisRetard: 1, tresorerie: 0, baisseTickets: 0.05, baissePanier: 0.03 }
-export const MOIS_COMMERCIAUX = 3
+export const MOIS_COMMERCIAUX = 3 // par défaut ; lot 40 : règle de calcul moisCommerciaux
 
 export type TypeAlerte = 'ca' | 'marge' | 'reel' | 'tresorerie' | 'tickets' | 'panier'
 export const TYPES_ALERTE: TypeAlerte[] = ['ca', 'marge', 'tickets', 'panier', 'reel', 'tresorerie']
@@ -48,7 +48,7 @@ export interface EntreeAlertes {
 const somme = (l: number[]) => l.reduce((a, b) => a + b, 0)
 const tauxMarge = (l: MoisReel[]) => { const ca = somme(l.map((m) => m.caAvecMarge)); return ca > 0 ? somme(l.map((m) => m.margeHT)) / ca : null }
 
-export function alertesMagasin(e: EntreeAlertes, s: ParametresAlertes): Alerte[] {
+export function alertesMagasin(e: EntreeAlertes, s: ParametresAlertes, moisCommerciaux = MOIS_COMMERCIAUX): Alerte[] {
   const alertes: Alerte[] = []
   const m = dernierMois(e.n)
   const mois = e.n.slice(0, m)
@@ -64,8 +64,8 @@ export function alertesMagasin(e: EntreeAlertes, s: ParametresAlertes): Alerte[]
     if (t !== null && t1 !== null && t - t1 < -s.baisseMarge - 1e-9) alertes.push({ magasin: e.magasin, type: 'marge', taux: t, ecart: t - t1, mois: m })
   }
   // Tickets et panier des 3 derniers mois, Cave et Bar séparés
-  if (m >= MOIS_COMMERCIAUX) {
-    const de = m - MOIS_COMMERCIAUX
+  if (m >= moisCommerciaux) {
+    const de = m - moisCommerciaux
     for (const u of UNIVERS_PANIER) {
       const n = e.n.slice(de, m).map((x) => x.univers?.[u]), n1 = e.n1.slice(de, m).map((x) => x.univers?.[u])
       if (![...n, ...n1].every((x) => x && x.tickets > 0)) continue

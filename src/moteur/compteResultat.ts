@@ -1,4 +1,5 @@
-import { blocDe, LIGNES_SUR_CA, lignesFrais, rubriqueLibelle, THEMES_FRAIS } from './parametres'
+import { blocDe, grilleDe, LIGNES_SUR_CA, rangDans, rubriqueLibelle, THEMES_FRAIS } from './parametres'
+import type { LigneGrille } from './types'
 import { UNIVERS, universLibelle, type Budget, type Hypotheses } from './types'
 
 // Compte de résultat sur 12 mois, ligne par ligne, prêt à afficher : rubriques dépliables (détail par univers ou par ligne de frais).
@@ -19,7 +20,8 @@ export interface LigneCompte {
 const somme = (l: number[]) => l.reduce((a, b) => a + b, 0)
 const negatif = (l: number[]) => l.map((v) => -v)
 
-export function compteResultat(b: Budget, h: Hypotheses, p: { tauxRedevance: number; tauxPublicite: number }): LigneCompte[] {
+export function compteResultat(b: Budget, h: Hypotheses, p: { tauxRedevance: number; tauxPublicite: number; grilleFrais?: LigneGrille[] }): LigneCompte[] {
+  const grille = grilleDe(p)
   const ca = b.mois.map((m) => m.ca)
   const ligne = (cle: string, libelle: string, mois: number[], o: Partial<LigneCompte> = {}): LigneCompte => ({ cle, libelle, mois, total: somme(mois), ...o })
 
@@ -32,8 +34,8 @@ export function compteResultat(b: Budget, h: Hypotheses, p: { tauxRedevance: num
 
   const montantFrais = (l: Hypotheses['frais'][number]) => ca.map((c) => (l.annuel ?? 0) / 12 + c * (l.tauxCA ?? 0))
   // Lignes de frais dans l'ordre et les blocs de l'onglet FFBUD (lot 23) ; les autres charges restent au-dessus de l'EBE
-  const rang = (code: string) => { const i = lignesFrais.findIndex((g) => g.code === code); return i < 0 ? 999 : i }
-  const dansBloc = (b: ReturnType<typeof blocDe>) => h.frais.filter((l) => blocDe(l) === b).sort((x, y) => rang(x.code) - rang(y.code))
+  const rang = rangDans(grille)
+  const dansBloc = (b: ReturnType<typeof blocDe>) => h.frais.filter((l) => blocDe(l, grille) === b).sort((x, y) => rang(x.code) - rang(y.code))
   const externes = dansBloc('charges_externes')
   const impots = dansBloc('impots_taxes')
   const autres = dansBloc('autres_charges')

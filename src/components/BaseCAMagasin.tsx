@@ -13,17 +13,17 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import SaveOutlined from '@mui/icons-material/SaveOutlined'
 import { enregistrerOuverture } from '../data/pilotage'
-import { ecartTaux, milliers, MOIS_LONGS } from '../lib/format'
+import { ecartTaux, milliers, MOIS_LONGS, tauxCourt } from '../lib/format'
 import type { Cibles } from '../moteur/cibles'
 import { trancheLibelle, trancheMillesime, type Ouverture } from '../moteur/projection'
 import { universLibelle, type Budget, type RythmeSortie, type UniversTickets } from '../moteur/types'
 import { Aide } from './Aide'
 
-const STATUT: Record<RythmeSortie['statut'], string> = { applique: 'Rythme de sortie retenu', a_confirmer: 'Écart de plus de 15 % : à confirmer', ignore: 'Atterrissage gardé' }
+const STATUT: Record<RythmeSortie['statut'], string> = { applique: 'Rythme de sortie retenu', a_confirmer: 'Écart de plus de {seuil} : à confirmer', ignore: 'Atterrissage gardé' }
 const enMois = (o: Ouverture | undefined) => (o ? `${o.annee}-${String(o.mois).padStart(2, '0')}` : '')
 
 // Base du CA de l'an prochain : rythme de sortie de la Cave et du Bar face à l'atterrissage, ancienneté du magasin
-export function BaseCAMagasin({ magasin, budget, annee, ouverture, rythme, onRythme, directeur, peutAjuster, apresOuverture }: {
+export function BaseCAMagasin({ magasin, budget, annee, ouverture, rythme, onRythme, directeur, peutAjuster, apresOuverture, seuilRythme = 0.15 }: {
   magasin: string
   budget: Budget
   annee: number
@@ -33,6 +33,7 @@ export function BaseCAMagasin({ magasin, budget, annee, ouverture, rythme, onRyt
   directeur: boolean
   peutAjuster: boolean
   apresOuverture: () => void
+  seuilRythme?: number  // règle de calcul de l'année (lot 40)
 }) {
   const [date, setDate] = useState(enMois(ouverture))
   // Date relue après l'enregistrement
@@ -103,7 +104,7 @@ export function BaseCAMagasin({ magasin, budget, annee, ouverture, rythme, onRyt
                     <TableCell align="right">{milliers(s.atterri)}</TableCell>
                     <TableCell align="right">{milliers(s.annuel)} <Box component="span" sx={{ color: 'text.secondary' }}>({MOIS_LONGS[s.de - 1]} à {MOIS_LONGS[s.a - 1]})</Box></TableCell>
                     <TableCell align="right">{ecartTaux(s.acquis)}</TableCell>
-                    <TableCell sx={{ color: s.statut === 'a_confirmer' ? 'warning.dark' : undefined, fontWeight: s.statut === 'a_confirmer' ? 700 : 400 }}>{STATUT[s.statut]}</TableCell>
+                    <TableCell sx={{ color: s.statut === 'a_confirmer' ? 'warning.dark' : undefined, fontWeight: s.statut === 'a_confirmer' ? 700 : 400 }}>{STATUT[s.statut].replace('{seuil}', tauxCourt(seuilRythme))}</TableCell>
                     {directeur && peutAjuster && (
                       <TableCell className="pas-a-l-impression">
                         {s.statut === 'a_confirmer' && <Button size="small" onClick={() => choisir(u, 'applique')} sx={{ minHeight: 48 }}>Retenir le rythme {universLibelle[u]}</Button>}

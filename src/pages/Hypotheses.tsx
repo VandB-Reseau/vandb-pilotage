@@ -31,6 +31,7 @@ import {
 import { useChargement } from '../data/useChargement'
 import { milliers, taux } from '../lib/format'
 import { saisonnaliteMediane } from '../moteur/atterrissage'
+import { reglesDe } from '../moteur/regles'
 import { niveauxReseau, type Cibles } from '../moteur/cibles'
 import { calageMillesimes, TRANCHES, trancheMillesime, type Tranche } from '../moteur/projection'
 
@@ -69,9 +70,10 @@ export function Hypotheses() {
     const { d, reel } = donnees
     const parTranche = Object.fromEntries(TRANCHES.map((t) => [t, 0])) as Record<Tranche, number>
     for (const l of d.magasins) { const t = trancheMillesime(d.ouvertures?.[l.magasin], annee); if (t) parTranche[t]++ }
+    const regles = reglesDe(donnees.parametres)
     const calage = reel ? calageMillesimes(
       Object.entries(reel.magasins).map(([m, r]) => ({ ouverture: d.ouvertures?.[m], n: r.n, n1: r.n1 })),
-      annee - 1, saisonnaliteMediane(Object.values(reel.magasins).map((r) => r.n1.map((x) => x.caHT))),
+      annee - 1, saisonnaliteMediane(Object.values(reel.magasins).map((r) => r.n1.map((x) => x.caHT)), regles.magasinsSaisonnalite), regles.magasinsCalage,
     ) : null
     return { parTranche, calage }
   }, [donnees, annee])

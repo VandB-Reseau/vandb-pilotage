@@ -16,6 +16,7 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import { chargerCorrespondancesFEC, enregistrerCorrespondancesFEC } from '../data/pilotage'
 import { enChiffres, taux } from '../lib/format'
+import type { LigneGrille } from '../moteur/types'
 import { exceptionsDe, ligneFraisDuCompte, quadrimestresCouverts, RUBRIQUES_FEC, rubriqueFECLibelle, syntheseFEC, type CompteFEC, type EcritureFEC, type RubriqueFEC } from '../moteur/fec'
 import { quadrimestreLibelle, type Quadrimestre, type SaisieQuadrimestre } from '../moteur/quadrimestre'
 
@@ -26,7 +27,7 @@ const champ = { '& .MuiInputBase-root': { minHeight: 48 }, '& .MuiSelect-nativeI
 const jour = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('fr-FR')
 
 // FEC du comptable lu dans le navigateur : montants du quadrimestre, comptes à ranger, contrôle du CA face à la caisse
-export function ImportFEC({ magasin, annee, fichier, caCaisse, libelles, peutGarder, reprendre, fermer }: {
+export function ImportFEC({ magasin, annee, fichier, caCaisse, libelles, peutGarder, reprendre, fermer, grille }: {
   magasin: string
   annee: number
   fichier: FichierFEC
@@ -35,6 +36,7 @@ export function ImportFEC({ magasin, annee, fichier, caCaisse, libelles, peutGar
   peutGarder: boolean
   reprendre: (q: Quadrimestre, montants: SaisieQuadrimestre, avertissement: string | null) => void
   fermer: () => void
+  grille?: LigneGrille[]  // grille des frais de l'année (lot 40)
 }) {
   const couverts = quadrimestresCouverts(fichier.ecritures, annee)
   const [q, setQ] = useState<Quadrimestre | null>(couverts[couverts.length - 1] ?? null)
@@ -104,7 +106,7 @@ export function ImportFEC({ magasin, annee, fichier, caCaisse, libelles, peutGar
               <TableCell sx={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.libelle}</TableCell>
               <TableCell align="right">{enChiffres(Math.round(c.montant))}</TableCell>
               <TableCell sx={{ py: 0.5 }}>{ranger(c)}</TableCell>
-              <TableCell sx={{ color: 'text.secondary' }}>{ligneFraisDuCompte(c.compte) ?? '–'}</TableCell>
+              <TableCell sx={{ color: 'text.secondary' }}>{ligneFraisDuCompte(c.compte, grille) ?? '–'}</TableCell>
             </TableRow>
           ))}
         </TableBody>

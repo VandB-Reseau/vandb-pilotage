@@ -5,6 +5,19 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Lot 40 — grille des frais et règles de calcul modifiables (pas de migration)
+
+- Paramètres réseau, onglet « Grille des frais » : renommer une ligne, changer son thème (charges externes), ses comptes
+  du plan comptable (import FEC), la cocher « courante », la masquer ou la réafficher, ajouter une ligne. Contrôles :
+  libellé vide ou en double, compte hors classe 6, compte sur deux lignes. Une ligne ne se supprime pas ; masquée, elle
+  n'est plus proposée à l'ajout ni retenue à l'import FEC. Les frais des magasins prennent le libellé et le thème de la
+  grille de l'année ; une ligne ajoutée au budget garde son libellé.
+- Onglet « Règles de calcul » : montée en charge (18 mois), mois du rythme récent (4), écart du rythme suivi d'office
+  (15 %), écart du rythme de sortie retenu d'office au budget (15 %), magasins pour publier la saisonnalité (3),
+  l'ancienneté (8) et les familles (3), mois des alertes tickets et panier (3). Bornes de saisie.
+- Grille et règles vont dans `parametres_reseau.valeur` (une année, copiées vers N+1, figées avec un budget validé),
+  écrites seulement si elles diffèrent des valeurs par défaut ; le journal les décrit ligne par ligne.
+
 ### Lot 41 — construire et suivre le budget plus simplement (Base : migration `0022_envoi_au_siege.sql` à passer)
 
 - Proposer en série (Campagne, Directeur) : « Préparer les propositions » calcule la proposition de chaque magasin de la

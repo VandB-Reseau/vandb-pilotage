@@ -30,6 +30,24 @@ export type Rubrique = 'immobilier' | 'energies' | 'entretien' | 'honoraires' | 
 // Une ligne de frais : montant annuel réparti par douzième, ou pourcentage du CA du mois
 export interface LigneFrais { code: string; libelle: string; rubrique: Rubrique; annuel?: number; tauxCA?: number }
 
+// Grille des frais du réseau (lot 23, modifiable depuis Paramètres réseau au lot 40) : une ligne de l'onglet FFBUD, son
+// bloc, ses comptes du plan comptable (racines) pour l'import FEC. Courante : proposée d'office à une première saisie.
+// Masquée : plus proposée à l'ajout ni retenue à l'import FEC ; les magasins qui l'ont la gardent.
+export type BlocFrais = 'charges_externes' | 'impots_taxes' | 'autres_charges'
+export interface LigneGrille { code: string; libelle: string; rubrique: Rubrique; bloc: BlocFrais; racines: string[]; courante?: boolean; masquee?: boolean }
+
+// Règles de calcul de l'atterrissage, du budget, des médianes et des alertes (lot 40), modifiables depuis Paramètres réseau
+export interface ReglesCalcul {
+  jeuneMagasin: number          // mois d'activité sous lesquels le magasin monte encore en charge (18)
+  moisRythme: number            // derniers mois réalisés qui donnent le rythme (4)
+  ecartRythme: number           // atterrissage : écart au-delà duquel le rythme récent n'est pas suivi d'office (15 %)
+  seuilRythme: number           // budget : écart sous lequel le rythme de sortie est appliqué d'office (15 %)
+  magasinsSaisonnalite: number  // magasins complets pour publier la saisonnalité médiane du réseau (3)
+  magasinsCalage: number        // magasins pour publier les valeurs par ancienneté (8)
+  magasinsFamille: number       // magasins pour publier les médianes des familles (3)
+  moisCommerciaux: number       // mois comparés à l'an dernier pour les alertes tickets et panier (3)
+}
+
 export interface Personnel {
   salairesMensuels: number[]    // 12 mois : salaires chargés hors gérance
   remunerationGerance: number   // par mois
@@ -100,6 +118,8 @@ export interface ParametresReseau {
   tresorerie: ParametresTresorerie
   alertes: ParametresAlertes
   campagne?: Campagne     // dates de la campagne des budgets de l'année (lot 28) ; absentes : dates d'exemple
+  grilleFrais?: LigneGrille[] // lot 40 ; absente : grille par défaut (lignesFrais)
+  regles?: ReglesCalcul       // lot 40 ; absentes : règles par défaut (reglesParDefaut)
 }
 
 export interface Mois {
