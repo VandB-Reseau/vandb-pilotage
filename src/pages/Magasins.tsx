@@ -357,7 +357,7 @@ export function Magasins() {
                           <TableCell align="right" sx={m.pointBas !== null && m.pointBas < 0 ? { color: 'error.main', fontWeight: 600 } : undefined}>{m.pointBas === null ? '' : milliers(m.pointBas)}</TableCell>
                           <TableCell>
                             {alertes.length > 0 && <Box component="span" sx={{ color: 'error.main', fontWeight: 600, display: 'block' }}>{texteAlertes(alertes)}</Box>}
-                            {(!m.aEquipe || !m.aFrais) && <Box component="span" sx={{ color: 'text.secondary', display: 'block' }}>{[!m.aEquipe && 'Équipe', !m.aFrais && 'Frais'].filter(Boolean).join(' et ')} à renseigner</Box>}
+                            {(!m.aEquipe || !m.aFrais) && <Box component="span" sx={{ color: 'text.secondary', display: 'block' }}>{!m.aEquipe && !m.aFrais ? 'Équipe et frais' : !m.aEquipe ? 'Équipe' : 'Frais'} à renseigner</Box>}
                           </TableCell>
                         </TableRow>
                       )
