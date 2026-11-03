@@ -26,7 +26,9 @@ test('hypothèses en cartes : chaque carte ouvre son tableau, les changements re
   // Lot 42 : ventes et résultat sur la page, les autres thèmes en cartes
   await expect(main.getByRole('region', { name: 'Hypothèses du magasin' })).toBeVisible()
   await expect(main.getByRole('table', { name: /mois par mois$/ })).toBeVisible()
-  for (const t of ['Calendrier', 'Équipe', 'Frais', 'Trésorerie']) {
+  // Lot 43 : plus de carte Trésorerie, la trésorerie au 1er janvier est au point de départ
+  await expect(main.getByRole('region', { name: 'Trésorerie', exact: true })).toHaveCount(0)
+  for (const t of ['Calendrier', 'Équipe', 'Frais']) {
     await expect(main.getByRole('region', { name: t, exact: true })).toBeVisible()
   }
   // Sans équipe : la carte le dit
@@ -59,7 +61,8 @@ test('hypothèses en cartes : chaque carte ouvre son tableau, les changements re
   await expect(page.getByRole('dialog', { name: 'Modifications non enregistrées' })).toHaveCount(0)
   await main.getByRole('region', { name: 'Frais', exact: true }).getByRole('link').click()
   await expect(page).toHaveURL(/\/fraisBudget$/)
-  await expect(page.getByRole('region', { name: 'Hypothèse des frais' }).getByLabel('Inflation des frais', { exact: true })).toBeVisible()
+  // Lot 43 : l'inflation des frais se règle dans Construire seulement
+  await expect(page.locator('main').getByLabel('Inflation des frais', { exact: true })).toBeHidden()
   await expect(barre).toContainText('1 changement')
   await expect(page.getByRole('region', { name: 'Indicateurs clés' })).toHaveCount(0)
 })

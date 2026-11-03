@@ -43,7 +43,6 @@ export const THEMES: Partie[] = [
   { cle: 'calendrier', libelle: 'Calendrier' },
   { cle: 'equipe', libelle: 'Équipe' },
   { cle: 'fraisBudget', libelle: 'Frais' },
-  { cle: 'tresoBudget', libelle: 'Trésorerie' },
 ]
 const CLES_THEMES = THEMES.map((t) => t.cle)
 export const estTheme = (cle: string) => CLES_THEMES.includes(cle)
@@ -53,7 +52,8 @@ export const etapeDe = (cle: string) => (estTheme(cle) ? 'budget' : cle)
 export const PARTIE_PAR_DEFAUT: Record<Espace, string> = { donnees: 'reel', budget: 'depart', suivi: 'synthese' }
 
 // Anciennes clés (liens, alertes, « à faire ») : la partie qui les montre désormais, et la section où défiler
-const ANCIENNES: Record<string, string> = { atterrissage: 'depart', plan: 'synthese', suivi: 'synthese', resultat: 'budget', ventes: 'budget' }
+// Lot 43 : l'ancien thème « Trésorerie » du budget est au point de départ
+const ANCIENNES: Record<string, string> = { tresoBudget: 'depart', atterrissage: 'depart', plan: 'synthese', suivi: 'synthese', resultat: 'budget', ventes: 'budget' }
 export const partieDe = (cle: string) => ANCIENNES[cle] ?? cle
 export const sectionDe = (cle: string) => (ANCIENNES[cle] && cle !== 'atterrissage' ? cle : null)
 

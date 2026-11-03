@@ -46,8 +46,12 @@ test('budget : trésorerie mois par mois, le franchisé saisit sa trésorerie de
   const finSans = await ligne('Trésorerie en fin de mois').getByRole('cell').last().textContent()
   const lire = (t: string | null) => Number((t ?? '').replace(/[\s\u202f\u00a0]/g, '').replace('−', '-'))
 
-  // 20 000 € au départ : chaque fin de mois monte d'autant
-  await page.getByLabel('Trésorerie au 1er janvier').fill('20000')
+  // 20 000 € au départ, saisis au point de départ (lot 43) : chaque fin de mois monte d'autant
+  await ouvrir(page, 'Point de départ')
+  await page.getByLabel('Trésorerie au 1er janvier', { exact: true }).fill('20000')
+  await ouvrir(page, 'Résultat et trésorerie')
+  await expect(section.getByLabel('Trésorerie de départ')).toContainText(/Au 1er janvier : 20\sk€/)
+  if (!(await tableau.isVisible())) await section.getByRole('button', { name: 'Voir le détail mois par mois' }).click()
   await expect(bref).toContainText(/\+?[-−]?\d+\sk€ sur l’année/)
   await expect.poll(async () => lire(await ligne('Trésorerie en fin de mois').getByRole('cell').last().textContent()) - lire(finSans)).toBe(20_000)
   expect(await textesTropPetits(page)).toEqual([])
@@ -69,9 +73,11 @@ test('budget validé : trésorerie en lecture seule, départ enregistré repris,
   }
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Résultat et trésorerie')
-  await expect(page.getByLabel('Trésorerie au 1er janvier')).toBeDisabled()
-  await expect(page.getByLabel('Trésorerie au 1er janvier')).toHaveValue(/[-−]50\s000/)
   await expect(page.getByLabel('Trésorerie en bref')).toContainText(`${attendu(-50_000).moisNegatifs} mois`)
+  // Lot 43 : la trésorerie au 1er janvier se lit au point de départ, sans pouvoir la changer
+  await ouvrir(page, 'Point de départ')
+  await expect(page.getByLabel('Trésorerie au 1er janvier', { exact: true })).toBeDisabled()
+  await expect(page.getByLabel('Trésorerie au 1er janvier', { exact: true })).toHaveValue(/[-−]50\s000/)
 })
 
 test('paramètres réseau : le Directeur règle délais et TVA de la trésorerie', async ({ page, isMobile }) => {

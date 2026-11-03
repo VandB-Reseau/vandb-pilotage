@@ -170,6 +170,13 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
    et des frais du budget, les règles en paramètre de l'atterrissage, du budget, des médianes et des alertes (valeurs par
    défaut : celles d'avant). Les frais chargés prennent le libellé et le thème de la grille (`chargerBudgets`).
    Tests `tests/moteur/lot40.spec.ts` et `tests/lot40.spec.ts`. Pas de migration.
+43. Lot 43 : campagne des budgets selon le rôle (`src/components/CampagneBudgets.tsx`, bandeau unique de la liste des
+   magasins avec « À traiter » et les boutons Proposer et Valider en série). Moteur `src/moteur/campagne.ts` : étapes
+   (`etapeCampagne`, `ETAPES_CAMPAGNE`), attente (`joursDepuis`, `attente`), `avancementParRR` (Directeur, RR dépliés sur
+   leurs Coachs), `magasinsCampagne` (Coach), `marquesEtapes` (état des étapes dans le menu, passé par `MenuMagasin`).
+   Filtres `en_retard` et par responsable (`filtrerMagasins`). Trésorerie au 1er janvier au point de départ
+   (`src/components/TresorerieDepart.tsx`) ; hausse des salaires et inflation des frais dans `HypothesesUnivers` (`suite`).
+   Tests `tests/moteur/lot43.spec.ts` et `tests/lot43.spec.ts`. Pas de migration.
 
 ## Rôles
 

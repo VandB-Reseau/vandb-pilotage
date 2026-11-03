@@ -5,12 +5,10 @@ import Card from '@mui/material/Card'
 import CardActionArea from '@mui/material/CardActionArea'
 import Typography from '@mui/material/Typography'
 import ChevronRightOutlined from '@mui/icons-material/ChevronRightOutlined'
-import { lienMagasin, milliers, MOIS_LONGS, taux } from '../lib/format'
+import { lienMagasin, milliers, taux } from '../lib/format'
 import type { Cibles } from '../moteur/cibles'
 import type { Budget, Hypotheses } from '../moteur/types'
 import type { ThemeAccord } from '../moteur/changements'
-import type { DepartEstime } from '../moteur/reprise'
-import type { Tresorerie } from '../moteur/tresorerie'
 
 // Lot 37 (Joseph, 02/11/2026, option H2) : une carte par thème ; un clic ouvre le détail du thème.
 // Lot 42 : les ventes et le résultat sont sur la page « Construire » ; restent ici les thèmes en détail, chacun avec son
@@ -42,7 +40,7 @@ function Carte({ titre, vers, lignes, action, magasin, accord }: { titre: string
 
 const nombre = (n: number, un: string, plusieurs: string) => (n === 0 ? 'Aucun' : `${n} ${n > 1 ? plusieurs : un}`)
 
-export function HypothesesCartes({ magasin, annee, budget: b, cibles, hausseSalaires, inflation, sansEquipe, tresorerie, lectureSeule, reprise, estimee, accord }: {
+export function HypothesesCartes({ magasin, annee, budget: b, cibles, hausseSalaires, inflation, sansEquipe, lectureSeule, reprise, accord }: {
   magasin: string
   annee: number
   budget: Budget
@@ -50,19 +48,16 @@ export function HypothesesCartes({ magasin, annee, budget: b, cibles, hausseSala
   hausseSalaires: number
   inflation: number
   sansEquipe: boolean
-  tresorerie: Tresorerie | null
   lectureSeule: boolean
   reprise?: Hypotheses['reprise']
-  estimee?: DepartEstime | null
   accord?: (theme: ThemeAccord, nom: string) => ReactNode
 }) {
   const action = lectureSeule ? 'Voir le détail' : 'Détailler'
   const travaux = cibles.travaux ? cibles.travaux.activite.filter((a) => a < 1).length : 0
   const frais = b.chargesExternes + b.impotsTaxes - b.redevance - b.publicite
   const lignesFrais = Object.keys(cibles.fraisBudget ?? {}).length
-  const depart = cibles.tresorerieDepart
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', xl: 'repeat(4, minmax(0, 1fr))' }, gap: 2 }}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(3, minmax(0, 1fr))' }, gap: 2 }}>
       <Carte magasin={magasin} titre="Calendrier" vers="calendrier" action={action} accord={accord?.('calendrier', 'Calendrier')} lignes={[
         { libelle: 'Saisonnalité', valeur: cibles.poidsMois ? 'Propre au magasin' : 'Celle du magasin ou du réseau' },
         { libelle: 'Travaux, fermeture', valeur: travaux ? `${travaux} mois touché${travaux > 1 ? 's' : ''}` : 'Aucun' },
@@ -82,13 +77,7 @@ export function HypothesesCartes({ magasin, annee, budget: b, cibles, hausseSala
         { libelle: 'Lignes choisies une à une', valeur: lignesFrais === 0 ? 'Aucune' : String(lignesFrais) },
         { libelle: `Frais ${annee}`, valeur: milliers(frais) },
       ]} />
-      <Carte magasin={magasin} titre="Trésorerie" vers="tresoBudget" action={action} accord={accord?.('tresoBudget', 'Trésorerie')} lignes={[
-        { libelle: 'Au 1er janvier', valeur: depart !== undefined ? milliers(depart) : estimee ? `${milliers(estimee.montant)}, estimée` : 'à saisir', signal: depart === undefined && !estimee },
-        ...(tresorerie ? [
-          { libelle: 'Fin décembre', valeur: milliers(tresorerie.fin) },
-          { libelle: 'Point bas', valeur: `${milliers(tresorerie.pointBas.montant)} (${MOIS_LONGS[tresorerie.pointBas.mois]})`, signal: tresorerie.pointBas.montant < 0 },
-        ] : []),
-      ]} />
+      {/* Lot 43 : la trésorerie au 1er janvier se règle au point de départ, le plan se lit sous le résultat */}
     </Box>
   )
 }

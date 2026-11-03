@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -33,6 +33,9 @@ import { FichePrete } from './FichePrete'
 import { ebeComplet } from '../moteur/preparation'
 import { syntheseReel } from '../moteur/reel'
 import { reelEnRetard } from '../lib/aFaire'
+import { tresorerieDepartEstimee } from '../moteur/reprise'
+import { TresorerieDepart } from './TresorerieDepart'
+import { useSaisieEnCours } from './GardeSaisie'
 
 // Atterrissage de l'année en cours : réel des mois passés, projection des mois restants, équipe et frais du magasin.
 // Le Directeur en tire la proposition du budget de l'an prochain.
@@ -40,7 +43,7 @@ const METHODE: Record<MethodeAtterrissage, string> = {
   saisie: 'Part saisie', rythme: 'Rythme des 4 derniers mois', magasin: 'Saisonnalité du magasin l’an dernier', reseau: 'Saisonnalité médiane du réseau', moyenne: 'Moyenne des mois réalisés',
 }
 
-export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, directeur, peutSaisir, allerA, apresProposition }: {
+export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, directeur, peutSaisir, allerA, apresProposition, tresorerieDepart }: {
   ligne: LigneMagasin
   d: DonneesBudgets
   annee: number
@@ -50,6 +53,7 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
   peutSaisir: boolean
   allerA: (onglet: string) => void
   apresProposition: () => void
+  tresorerieDepart?: ReactNode   // lot 43 : budget proposé, la trésorerie au 1er janvier se règle ici
 }) {
   const magasin = ligne.magasin
   const { donnees, erreur, chargement, recharger } = useChargement(
@@ -58,6 +62,8 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
   const [occupe, setOccupe] = useState(false)
   // Parts saisies en cours de frappe : null tant que rien n'a changé
   const [parts, setParts] = useState<PartsRealisees | null>(null)
+  // Lot 43 : parts saisies non enregistrées, gardées même vers une autre étape du budget
+  useSaisieEnCours(parts !== null && JSON.stringify(parts) !== JSON.stringify(donnees?.secours.parts ?? {}), true)
 
   if (chargement && !donnees) return <Skeleton variant="rounded" height={240} />
   if (erreur || !donnees) return <Panne quoi={`Les chiffres réels ${annee}`} recharger={recharger} />
@@ -69,11 +75,14 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
   const auto = baseDepuisReel(donnees, annee, [], undefined, { ...donnees.secours, parts: {} }, regles)
   if (!r) {
     return (
-      <EtatVide
-        titre={`Pas encore de réel ${annee}`}
-        texte={`L’atterrissage ${annee} part des chiffres réels des mois passés.`}
-        action={<Button variant="contained" onClick={() => allerA('reel')} sx={{ minHeight: 48 }}>Voir le réel</Button>}
-      />
+      <Stack spacing={3}>
+        <EtatVide
+          titre={`Pas encore de réel ${annee}`}
+          texte={`L’atterrissage ${annee} part des chiffres réels des mois passés.`}
+          action={<Button variant="contained" onClick={() => allerA('reel')} sx={{ minHeight: 48 }}>Voir le réel</Button>}
+        />
+        {tresorerieDepart ?? <TresorerieDepart annee={anneeBudget} depart={undefined} estimee={null} lectureSeule />}
+      </Stack>
     )
   }
 
@@ -150,6 +159,9 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
         <Indicateur libelle="Marge commerciale" valeur={taux(b.tauxMarge)} detail={milliers(b.marge)} info={<DetailCalcul quoi="marge" budget={b} annee={annee} />} />
         <Indicateur libelle="EBE" valeur={complet ? milliers(b.ebe) : 'Incomplet'} detail={complet ? `${taux(b.ratios.ebeSurCA)} du CA` : `Sans ${manque} : ${milliers(b.ebe)} calculés`} info={<DetailCalcul quoi="ebe" budget={b} annee={annee} />} />
       </Stack>
+
+      {/* Lot 43 (Joseph, 03/11/2026) : la trésorerie au 1er janvier, à côté de l'atterrissage ; estimée tant que le budget n'est pas proposé */}
+      {tresorerieDepart ?? <TresorerieDepart annee={anneeBudget} depart={undefined} estimee={tresorerieDepartEstimee(h, comptes, parametres)} lectureSeule />}
 
       <CompteResultatMois
         lignes={compteResultat(b, h, parametres)} projeteA={r.moisRealises} moisEnCours={annee === new Date().getFullYear() ? new Date().getMonth() : null}

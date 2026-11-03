@@ -2,63 +2,48 @@ import type { ReactNode } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
-import Card from '@mui/material/Card'
 import Collapse from '@mui/material/Collapse'
 import Link from '@mui/material/Link'
 import Typography from '@mui/material/Typography'
 import AssignmentLateOutlined from '@mui/icons-material/AssignmentLateOutlined'
-import EditNoteOutlined from '@mui/icons-material/EditNoteOutlined'
 import ExpandLessOutlined from '@mui/icons-material/ExpandLessOutlined'
 import ExpandMoreOutlined from '@mui/icons-material/ExpandMoreOutlined'
-import ForumOutlined from '@mui/icons-material/ForumOutlined'
 import GroupsOutlined from '@mui/icons-material/GroupsOutlined'
 import NotificationsActiveOutlined from '@mui/icons-material/NotificationsActiveOutlined'
 import ReceiptLongOutlined from '@mui/icons-material/ReceiptLongOutlined'
-import TaskAltOutlined from '@mui/icons-material/TaskAltOutlined'
 import type { ATraiter as Item, Filtre } from '../lib/aFaire'
 import { lienMagasin } from '../lib/format'
 import { usePreference } from '../lib/preferences'
 
 const pluriel = (n: number, un: string, plusieurs: string) => (n === 1 ? `1 ${un}` : `${n} ${plusieurs}`)
 const ICONE: Record<Item['cle'], ReactNode> = {
-  alertes: <NotificationsActiveOutlined />, actions: <AssignmentLateOutlined />, a_proposer: <EditNoteOutlined />,
-  en_discussion: <ForumOutlined />, equipe: <GroupsOutlined />, frais: <ReceiptLongOutlined />,
+  alertes: <NotificationsActiveOutlined />, actions: <AssignmentLateOutlined />, equipe: <GroupsOutlined />, frais: <ReceiptLongOutlined />,
 }
 const PREMIERS = 3
 
-// « À traiter » en tête de l'accueil (lot 27) : ce qui attend le Directeur, le RR ou le Coach, chaque ligne mène à la liste
-// filtrée ou aux magasins concernés ; repliable, le choix est gardé dans le navigateur
-export function ATraiter({ items, annee, directeur, filtrer, etat }: {
+// « À traiter » (lot 27) : ce qui attend le Directeur, le RR ou le Coach, chaque ligne mène à la liste filtrée ou aux
+// magasins concernés ; repliable, le choix est gardé dans le navigateur. Lot 43 : rangé dans le bandeau de la campagne,
+// les étapes du budget n'y sont plus (elles sont dans la campagne) ; rien à traiter, rien d'affiché.
+export function ATraiter({ items, filtrer, etat }: {
   items: Item[]
-  annee: number
-  directeur: boolean
   filtrer: (f: Filtre) => void
   etat?: object
 }) {
   const [ouvert, setOuvert] = usePreference<'ouvert' | 'ferme'>('a-traiter', 'ouvert', ['ouvert', 'ferme'])
-  if (!items.length) {
-    return (
-      <Card component="section" aria-label="À traiter" sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        <TaskAltOutlined color="success" />
-        <Typography>Rien à traiter sur ton périmètre</Typography>
-      </Card>
-    )
-  }
+  if (!items.length) return null
   const texte = (x: Item) => {
     switch (x.cle) {
       case 'alertes': return pluriel(x.nombre, 'magasin en alerte', 'magasins en alerte')
       case 'actions': return pluriel(x.nombre, 'action du plan en retard', 'actions du plan en retard')
-      case 'a_proposer': return pluriel(x.nombre, `budget ${annee} à proposer`, `budgets ${annee} à proposer`)
-      case 'en_discussion': return `${pluriel(x.nombre, 'budget en discussion', 'budgets en discussion')}${directeur ? ' : à valider ou à reprendre' : ''}`
       case 'equipe': return pluriel(x.nombre, 'équipe à renseigner', 'équipes à renseigner')
       case 'frais': return `Frais à renseigner dans ${pluriel(x.nombre, 'magasin', 'magasins')}`
     }
   }
 
   return (
-    <Card component="section" aria-label="À traiter">
-      <Box sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Typography variant="h2" sx={{ flex: 1 }}>À traiter</Typography>
+    <Box component="section" aria-label="À traiter" sx={{ borderTop: 1, borderColor: 'divider' }}>
+      <Box sx={{ px: 2, py: 0.5, display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Typography variant="h3" sx={{ flex: 1 }}>À traiter</Typography>
         <Button onClick={() => setOuvert(ouvert === 'ouvert' ? 'ferme' : 'ouvert')} aria-expanded={ouvert === 'ouvert'} className="pas-a-l-impression"
           endIcon={ouvert === 'ouvert' ? <ExpandLessOutlined /> : <ExpandMoreOutlined />} sx={{ minHeight: 48 }}>
           {ouvert === 'ouvert' ? 'Replier' : `Voir les ${items.length} points`}
@@ -84,6 +69,6 @@ export function ATraiter({ items, annee, directeur, filtrer, etat }: {
           ))}
         </Box>
       </Collapse>
-    </Card>
+    </Box>
   )
 }
