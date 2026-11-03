@@ -1,3 +1,4 @@
+import { financementDe } from './financement'
 import { blocDe, grilleDe, LIGNES_SUR_CA, rangDans, rubriqueLibelle, THEMES_FRAIS } from './parametres'
 import type { LigneGrille } from './types'
 import { UNIVERS, universLibelle, type Budget, type Hypotheses } from './types'
@@ -53,14 +54,15 @@ export function compteResultat(b: Budget, h: Hypotheses, p: { tauxRedevance: num
     return [ligne(cle, rubriqueLibelle[r], negatif(total), { parent: 'externes' }), ...dans.map((l) => detailFrais(l, 'externes', cle))]
   })
 
+  const fin = b.financement ?? financementDe(h, 0)
   const amort = Array(12).fill(-b.amortissements / 12)
-  const interets = Array(12).fill(-h.interets / 12)
+  const interets = negatif(fin.interetsMois)
   // Impôt du mois : part de l'impôt de l'année au prorata du résultat avant impôt (somme des mois = impôt de l'année)
   const rai = b.mois.map((m) => m.resultatAvantImpot)
   const totalRai = somme(rai)
   const impotMois = rai.map((r) => (totalRai ? b.impot * r / totalRai : b.impot / 12))
   const net = rai.map((r, i) => r - impotMois[i])
-  const capital = Array(12).fill(-h.remboursementCapital / 12)
+  const capital = negatif(fin.capitalMois)
   const reintegres = Array(12).fill(b.amortissements / 12)
   // Charges des événements (temps forts), comprises dans les charges externes du mois
   const evenements = b.mois.map((m) => m.autresChargesTempsForts ?? 0)
@@ -90,7 +92,7 @@ export function compteResultat(b: Budget, h: Hypotheses, p: { tauxRedevance: num
     ligne('impot', 'Impôt sur les sociétés', negatif(impotMois)),
     ligne('net', 'Résultat net', net, { fort: true }),
     ...(b.amortissements ? [ligne('reintegres', 'Amortissements réintégrés', reintegres)] : []),
-    ...(h.remboursementCapital ? [ligne('capital', 'Capital des emprunts remboursé', capital)] : []),
+    ...(capital.some((v) => v) ? [ligne('capital', 'Capital des emprunts remboursé', capital)] : []),
     ligne('tresorerie', 'Trésorerie dégagée après emprunts', net.map((v, i) => v + reintegres[i] + capital[i]), { fort: true }),
     ...productivite(b),
   ]

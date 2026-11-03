@@ -92,15 +92,14 @@ export function magasinsCampagne(
 // qui porte « Non enregistré » quand une saisie y attend (le point de départ pour la trésorerie, sinon « Construire »).
 export function marquesEtapes(e: {
   statut: StatutBudget; propose: boolean; modifie: boolean; changements: number
-  role: 'directeur' | 'rr' | 'coach' | 'franchise' | 'aucun'; ici?: 'depart' | 'budget' | 'echanges'
-}): Record<'depart' | 'budget' | 'echanges', string> {
-  const ici = e.ici === 'depart' ? 'depart' : 'budget'
+  role: 'directeur' | 'rr' | 'coach' | 'franchise' | 'aucun'
+}): Record<'budget' | 'visualiser' | 'echanges', string> {
   const franchise = e.role === 'franchise', valideur = e.role === 'directeur' || e.role === 'rr'
-  const depart = e.modifie && ici === 'depart' ? 'Non enregistré' : e.propose ? 'Fait' : e.role === 'directeur' ? 'À proposer' : 'En attente du siège'
-  const budget = !e.propose ? '' : e.statut === 'valide' ? 'Validé' : e.modifie && ici === 'budget' ? 'Non enregistré'
+  // Joseph (03/11/2026) : trois étapes ; « Construire » dit aussi si le budget attend la proposition du siège
+  const budget = !e.propose ? (e.role === 'directeur' ? 'À proposer' : 'En attente du siège') : e.statut === 'valide' ? 'Validé' : e.modifie ? 'Non enregistré'
     : franchise && e.statut === 'propose' ? (e.changements ? `${e.changements} changement${e.changements > 1 ? 's' : ''} à envoyer` : 'À relire') : ''
   const echanges = !e.propose ? '' : e.statut === 'valide' ? 'Validé'
     : e.statut === 'en_discussion' ? (valideur ? 'À valider' : franchise ? 'Envoyé au siège' : 'Retour du franchisé')
       : franchise ? 'À envoyer' : 'Chez le franchisé'
-  return { depart, budget, echanges }
+  return { budget, visualiser: '', echanges }
 }

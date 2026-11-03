@@ -83,6 +83,12 @@ export interface Hypotheses {
   rythme?: Partial<Record<UniversTickets, ChoixRythme>>
   tempsForts?: TempsFort[]
   ajustementsCA?: AjustementCA[]
+  // Investissements & Financements (Joseph, 03/11/2026) : achats amortis, nouveaux emprunts, apport, dernier mois des
+  // emprunts déjà en cours (intérets et remboursementCapital ci-dessus) ; voir moteur/financement
+  investissements?: Investissement[]
+  emprunts?: Emprunt[]
+  apport?: Apport
+  finEmpruntsEnCours?: number
   // Lot 42 : masse salariale ou frais repris des comptes de l'année en cours, faute d'équipe ou de frais saisis
   reprise?: { annee: number; mois: number; personnel: boolean; frais: boolean }
   // Lot 42 : trésorerie au 1er janvier estimée, figée avec le budget à sa validation (le franchisé n'avait pas saisi la sienne)
@@ -105,8 +111,20 @@ export interface TempsFort {
   caAnPasse: number; ca: number; autresCharges: number; moisAchats: number
   extrasPersonnel?: number // retiré le 29/10/2026 : les extras se saisissent dans l'équipe ; ignoré s'il reste enregistré
 }
-// Client gagné ou perdu, concurrent, horaires : montant HT par mois, ou part du CA de l'univers, de tel mois à tel mois
-export interface AjustementCA { libelle: string; univers: Univers; de: number; a: number; montant?: number; taux?: number }
+// Client gagné ou perdu, concurrent, horaires : montant HT par mois, ou part du CA de l'univers, de tel mois à tel mois.
+// Joseph (03/11/2026) : un client extérieur se saisit face à l'an passé, CA HT de l'an passé et de l'année budgétée sur
+// la période (caAnPasse, ca) ; l'écart se répartit à parts égales sur ses mois et remplace montant et taux.
+export interface AjustementCA { libelle: string; univers: Univers; de: number; a: number; montant?: number; taux?: number; caAnPasse?: number; ca?: number }
+
+// Investissement de l'année budgétée hors travaux (équipement, matériel, mobilier…) : HT, mis en service et payé le mois
+// saisi (1 à 12), amorti en ligne sur sa durée en années à partir de ce mois
+export type TypeInvestissement = 'equipement' | 'mobilier' | 'informatique' | 'autre'
+export interface Investissement { libelle: string; type: TypeInvestissement; montant: number; mois: number; duree: number }
+// Nouvel emprunt : capital, taux annuel, durée en années, mois de la première échéance (1 à 12) ; échéances mensuelles
+// constantes, capital encaissé le mois précédant la première échéance (janvier au plus tôt)
+export interface Emprunt { libelle: string; montant: number; taux: number; duree: number; premiereEcheance: number }
+// Apport du franchisé ou en compte courant : entre en trésorerie le mois saisi, sans effet sur le résultat
+export interface Apport { montant: number; mois: number }
 
 // Travaux de l'année budgétée : activité de chaque mois (1 normal, 0 fermé), gain de CA après la réouverture,
 // investissement amorti à partir de la réouverture
@@ -167,6 +185,7 @@ export interface Budget {
   resultatNet: number
   capaciteAutofinancement: number
   tresorerieDegagee: number      // capacité d'autofinancement moins capital remboursé
+  financement: Financement       // investissements, emprunts et capacité d'autofinancement (03/11/2026)
   ratios: { pctFP: number; ebeSurCA: number } // pctFP : % FP, frais de personnel ÷ CA HT
   // Par univers piloté : tickets atterris et visés, panier TTC réalisé et visé, CA atterri et visé
   flux: Partial<Record<'cave' | 'bar', FluxBudget>>
@@ -174,6 +193,21 @@ export interface Budget {
   tempsForts?: { retire: number; ajoute: number; charges: number; ajustements: number }
   paiementsTempsForts?: { mois: number; vente: number; univers: Univers; montant: number }[] // achats HT, mois de 0 à 11
   detailCA?: Record<Univers, DetailCAUnivers>
+}
+// Investissements & Financements de l'année : dotations, intérêts et capital (emprunts en cours puis nouveaux), mois par
+// mois pour le compte de résultat et la trésorerie ; ce qui reste de la capacité d'autofinancement une fois tout payé
+export interface Financement {
+  dotationsEnCours: number; dotationsNouvelles: number    // nouvelles : travaux et investissements de l'année
+  interetsEnCours: number; interetsNouveaux: number
+  capitalEnCours: number; capitalNouveau: number
+  interetsMois: number[]; capitalMois: number[]           // 12 mois, emprunts en cours et nouveaux
+  investissements: number                                 // HT, travaux compris
+  investissementsMois: number[]                           // HT payés chaque mois
+  nouveauxEmprunts: number; apport: number
+  encaissementsMois: number[]                             // capital emprunté et apport encaissés chaque mois
+  echeances: number                                       // intérêts + capital de l'année
+  echeancesSurCAF: number | null                          // null sans capacité d'autofinancement positive
+  variation: number                                       // trésorerie dégagée − investissements + emprunts + apport
 }
 // Étapes du CA d'un univers, pour « D'où vient ce chiffre ? » (lot 25) :
 // atterri → hors temps forts passés → base (rythme de sortie s'il est retenu) × évolutions × ouverture + temps forts + ajustements

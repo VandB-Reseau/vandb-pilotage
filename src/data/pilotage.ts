@@ -171,7 +171,8 @@ export interface Preparation {
 export async function preparerProposition(ligne: LigneMagasin, d: DonneesBudgets, anneeEnCours: number, anneeProposee: number, parametres: ParametresReseau): Promise<Preparation | null> {
   const magasin = ligne.magasin
   const [n, n1, secours] = await Promise.all([chargerReel(magasin, anneeEnCours), chargerReel(magasin, anneeEnCours - 1), chargerSecours(magasin, anneeEnCours)])
-  const r = baseDepuisReel({ n, n1 }, anneeEnCours, [], undefined, secours, reglesDe(parametres))
+  // Comme le bouton « Proposer » de l'atterrissage : les mois restants suivent la répartition saisie du magasin
+  const r = baseDepuisReel({ n, n1 }, anneeEnCours, [], undefined, { ...secours, repartition: ligne.ajustements.poidsMois }, reglesDe(parametres))
   if (!r) return null
   const equipe = d.equipes[magasin], frais = d.frais[magasin]
   const base = { ...avecEquipeEtFrais(r.base, undefined, frais), annee: anneeProposee }

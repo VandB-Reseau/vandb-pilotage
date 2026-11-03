@@ -44,7 +44,7 @@ const METHODE: Record<MethodeAtterrissage, string> = {
   saisie: 'Part saisie', rythme: 'Rythme des 4 derniers mois', magasin: 'Saisonnalité du magasin l’an dernier', reseau: 'Saisonnalité médiane du réseau', moyenne: 'Moyenne des mois réalisés',
 }
 
-export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, directeur, peutSaisir, allerA, apresProposition, tresorerieDepart, saisonnaliteBudget, baseCA }: {
+export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, directeur, peutSaisir, allerA, apresProposition, tresorerieDepart, saisonnaliteBudget, baseCA, repartition }: {
   ligne: LigneMagasin
   d: DonneesBudgets
   annee: number
@@ -59,6 +59,8 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
   // l'année en cours et répartit le budget. La base du CA vient avec, au point de départ.
   saisonnaliteBudget?: ReactNode
   baseCA?: ReactNode
+  // Joseph (03/11/2026) : répartition par mois saisie pour le magasin ; les mois restants de l'année la suivent
+  repartition?: number[]
 }) {
   const magasin = ligne.magasin
   const { donnees, erreur, chargement, recharger } = useChargement(
@@ -76,8 +78,8 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
   const enregistrees = donnees.secours.parts ?? {}
   const vues = parts ?? enregistrees
   const regles = reglesDe(parametres)
-  const r = baseDepuisReel(donnees, annee, [], undefined, { ...donnees.secours, parts: vues }, regles)
-  const auto = baseDepuisReel(donnees, annee, [], undefined, { ...donnees.secours, parts: {} }, regles)
+  const r = baseDepuisReel(donnees, annee, [], undefined, { ...donnees.secours, parts: vues, repartition }, regles)
+  const auto = baseDepuisReel(donnees, annee, [], undefined, { ...donnees.secours, parts: {}, repartition }, regles)
   if (!r) {
     return (
       <Stack spacing={3}>
@@ -181,7 +183,9 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
         titre={`Compte de résultat ${annee}`} libelleTableau={`Atterrissage ${annee} mois par mois`}
         entete={
           <Typography variant="body2" color="text.secondary">
-            {`Réel jusqu’à ${MOIS_LONGS[r.moisRealises - 1]}, mois restants projetés par univers selon la saisonnalité (voir plus bas)`}
+            {repartition
+              ? `Réel jusqu’à ${MOIS_LONGS[r.moisRealises - 1]}, mois restants répartis selon la saisonnalité du magasin (carte Point de départ du budget)`
+              : `Réel jusqu’à ${MOIS_LONGS[r.moisRealises - 1]}, mois restants projetés par univers selon la saisonnalité (voir plus bas)`}
           </Typography>
         }
       />

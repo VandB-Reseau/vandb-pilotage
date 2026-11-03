@@ -1,6 +1,6 @@
 import { fraisDuBudget, type ChoixFrais } from './fraisBudget'
 import type { Tranche } from './projection'
-import { universLibelle, type AjustementCA, type ResultatFamille, type ChoixRythme, type Famille, type Hypotheses, type TempsFort, type Travaux, type Univers, type UniversTickets } from './types'
+import { universLibelle, type AjustementCA, type ResultatFamille, type ChoixRythme, type Famille, type Hypotheses, type TempsFort, type Travaux, type Investissement, type Emprunt, type Apport, type Univers, type UniversTickets } from './types'
 
 // Hypothèses du budget par niveaux : le siège fixe des cibles pour le réseau, éventuellement pour un groupe de magasins,
 // et le magasin peut s'en écarter. Chaque valeur vient du niveau le plus proche du magasin qui la renseigne :
@@ -41,6 +41,11 @@ export interface Cibles {
   // Joseph (03/11/2026) : magasin seulement, questions du Calendrier répondues « Rien de prévu » (travaux, tempsForts,
   // ajustementsCA) ; sans effet sur le calcul
   rienPrevu?: string[]
+  // Joseph (03/11/2026) : magasin seulement, Investissements & Financements
+  investissements?: Investissement[]
+  emprunts?: Emprunt[]
+  apport?: Apport
+  finEmpruntsEnCours?: number                          // dernier mois (1 à 12) des emprunts déjà en cours
 }
 // Panier selon l'ancienneté : en plus de la hausse tarifaire
 export interface ValeursMillesime { evolutionFlux?: Partial<Record<UniversTickets, number>>; evolutionPanier?: Partial<Record<UniversTickets, number>> }
@@ -135,11 +140,15 @@ export function appliquerCibles(base: Hypotheses, niveaux: NiveauCibles[]): { hy
   }
 
   // Saisonnalité, travaux, temps forts et ajustements datés : propres au magasin, repris tels quels du niveau le plus proche
-  const propre = <K extends 'poidsMois' | 'travaux' | 'tempsForts' | 'ajustementsCA' | 'rythme'>(k: K) => [...niveaux].reverse().find((n) => n.cibles?.[k])
+  const propre = <K extends 'poidsMois' | 'travaux' | 'tempsForts' | 'ajustementsCA' | 'rythme' | 'investissements' | 'emprunts' | 'apport' | 'finEmpruntsEnCours'>(k: K) => [...niveaux].reverse().find((n) => n.cibles?.[k])
   const poids = propre('poidsMois')
   const travaux = propre('travaux')
   const tempsForts = propre('tempsForts')?.cibles?.tempsForts
   const ajustementsCA = propre('ajustementsCA')?.cibles?.ajustementsCA
+  const investissements = propre('investissements')?.cibles?.investissements
+  const emprunts = propre('emprunts')?.cibles?.emprunts
+  const apport = propre('apport')?.cibles?.apport
+  const finEmprunts = propre('finEmpruntsEnCours')?.cibles?.finEmpruntsEnCours
   // Rythme de sortie : proposé dès que l'atterrissage l'a mesuré (choix du magasin, sinon automatique)
   const choix = propre('rythme')?.cibles?.rythme
   const rythme = base.sortie ? Object.fromEntries((['cave', 'bar'] as const).filter((u) => base.sortie?.[u]).map((u) => [u, choix?.[u] ?? 'auto'])) : undefined
@@ -157,6 +166,10 @@ export function appliquerCibles(base: Hypotheses, niveaux: NiveauCibles[]): { hy
       ...(rythme ? { rythme } : {}),
       ...(tempsForts?.length ? { tempsForts } : {}),
       ...(ajustementsCA?.length ? { ajustementsCA } : {}),
+      ...(investissements?.length ? { investissements } : {}),
+      ...(emprunts?.length ? { emprunts } : {}),
+      ...(apport ? { apport } : {}),
+      ...(finEmprunts ? { finEmpruntsEnCours: finEmprunts } : {}),
       // Avec l'équipe, la hausse s'applique au brut de chacun (la réduction générale en dépend) ; sinon aux salaires chargés
       ...(base.equipe?.length ? { hausseSalaires: tauxHausse } : {}),
       personnel: base.equipe?.length ? base.personnel : { ...base.personnel, salairesMensuels: base.personnel.salairesMensuels.map((s) => s * (1 + tauxHausse)) },
@@ -220,7 +233,7 @@ export function valeurHeritee(niveauxAuDessus: NiveauCibles[], cle: string): { v
 
 // Ajustements d'un magasin repris sur un autre : tout sauf ce qui est propre à chaque magasin (travaux, trésorerie de
 // départ, rythme de sortie, temps forts, clients gagnés ou perdus), dont ceux du magasin visé restent
-const PROPRES = ['travaux', 'tresorerieDepart', 'rythme', 'tempsForts', 'ajustementsCA', 'fraisBudget'] as const
+const PROPRES = ['travaux', 'tresorerieDepart', 'rythme', 'tempsForts', 'ajustementsCA', 'fraisBudget', 'investissements', 'emprunts', 'apport', 'finEmpruntsEnCours'] as const
 export function ajustementsCopies(source: Cibles, cible: Cibles): Cibles {
   const copie = structuredClone(source)
   for (const k of PROPRES) delete copie[k]
@@ -259,7 +272,7 @@ export const THEMES_COPIE: { cle: ThemeCopie; libelle: string; cles: (keyof Cibl
   { cle: 'marge', libelle: 'Marge visée et démarque', cles: ['margeFamille', 'demarqueFamille'] },
   { cle: 'equipe', libelle: 'Hausse des salaires', cles: ['hausseSalaires'] },
   { cle: 'frais', libelle: 'Frais (inflation, lignes choisies)', cles: ['inflationFrais', 'fraisBudget'] },
-  { cle: 'calendrier', libelle: 'Calendrier (saisonnalité, temps forts, clients gagnés ou perdus)', cles: ['poidsMois', 'tempsForts', 'ajustementsCA'] },
+  { cle: 'calendrier', libelle: 'Évènements & Temps forts (saisonnalité, temps forts, clients extérieurs)', cles: ['poidsMois', 'tempsForts', 'ajustementsCA'] },
 ]
 export function copieParThemes(source: Cibles, cible: Cibles, themes: ThemeCopie[]): Cibles {
   const r = structuredClone(cible) as Record<string, unknown>

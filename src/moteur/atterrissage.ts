@@ -43,6 +43,9 @@ export interface SecoursAtterrissage {
   parts?: Partial<Record<Univers, number>>   // part de l'année réalisée à fin du dernier mois, saisie par univers
   saisonnaliteReseau?: number[] | null       // 12 poids (total 1), médiane du réseau l'année précédente
   ouverture?: Ouverture | null               // date d'ouverture du magasin, si connue
+  // Joseph (03/11/2026) : répartition par mois saisie pour le magasin (12 parts) ; les mois restants la suivent, le total
+  // atterri de chaque univers ne change pas (il vient de la part de l'année réalisée)
+  repartition?: number[] | null
 }
 
 const somme = (l: number[]) => l.reduce((a, b) => a + b, 0)
@@ -123,12 +126,15 @@ export function baseDepuisReel(reel: ReelAnnees, annee: number, frais: LigneFrai
     }
   }
 
-  // Mois projeté i d'une famille : réalisé × (1 / part − 1), réparti selon les poids des mois restants
+  // Mois projeté i d'une famille : réalisé × (1 / part − 1), réparti selon les poids des mois restants (ceux de la
+  // répartition saisie quand elle existe et pèse sur les mois restants)
+  const r = secours.repartition
+  const saisie = r?.length === 12 && r.every((v) => Number.isFinite(v) && v >= 0) && somme(r.slice(m)) > 0 ? r : null
   const caMois = Array(12).fill(0)
   const caMoisU = Object.fromEntries(UNIVERS.map((u) => [u, Array(12).fill(0)])) as Record<Univers, number[]>
   for (const f of s.familles) {
     const ytd = somme(f.parMois.slice(0, m))
-    const w = poids[f.univers], reste = somme(w.slice(m))
+    const w = saisie ?? poids[f.univers], reste = somme(w.slice(m))
     const aProjeter = ytd * (1 / partRealisee[f.univers]! - 1)
     f.parMois.forEach((v, i) => {
       const x = i < m ? v : reste > 0 ? aProjeter * w[i] / reste : 0

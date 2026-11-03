@@ -1,16 +1,22 @@
 import type { Cibles } from './cibles'
 import { UNIVERS, type Budget, type Univers } from './types'
 
-// Joseph (03/11/2026) : une carte d'hypothèses dit ce qu'il reste à faire. Le Calendrier pose trois questions fermées ;
-// « Rien de prévu » est une réponse (gardée dans les ajustements, sans effet sur le calcul), une saisie aussi.
-export const QUESTIONS_CALENDRIER = ['travaux', 'tempsForts', 'ajustementsCA'] as const
-export type QuestionCalendrier = (typeof QUESTIONS_CALENDRIER)[number]
+// Joseph (03/11/2026) : une carte d'hypothèses dit ce qu'il reste à faire, par des questions fermées ; « Rien de prévu »
+// est une réponse (gardée dans les ajustements, sans effet sur le calcul), une saisie aussi.
+// Évènements & Temps forts : temps forts, clients extérieurs ; Investissements & Financements : travaux, achats, emprunts.
+export const QUESTIONS_CALENDRIER = ['tempsForts', 'ajustementsCA'] as const
+export const QUESTIONS_INVESTISSEMENTS = ['travaux', 'investissements', 'emprunts'] as const
+export type QuestionCalendrier = (typeof QUESTIONS_CALENDRIER)[number] | (typeof QUESTIONS_INVESTISSEMENTS)[number]
+const TOUTES: readonly QuestionCalendrier[] = [...QUESTIONS_INVESTISSEMENTS, ...QUESTIONS_CALENDRIER]
 export type Reponse = 'saisie' | 'rien' | 'aRepondre'
 export type EtatCarte = 'aFaire' | 'aVerifier' | 'fait'
 
-// Nombre d'éléments saisis pour une question : mois touchés par des travaux, temps forts, clients gagnés ou perdus
+// Nombre d'éléments saisis pour une question : mois touchés par des travaux, achats, emprunts (apport compris), temps
+// forts, clients
 export function saisiesQuestion(c: Cibles, q: QuestionCalendrier): number {
-  if (q === 'travaux') return c.travaux ? c.travaux.activite.filter((a) => a < 1).length : 0
+  if (q === 'travaux') return c.travaux ? 1 : 0
+  if (q === 'investissements') return c.investissements?.length ?? 0
+  if (q === 'emprunts') return (c.emprunts?.length ?? 0) + (c.apport ? 1 : 0)
   if (q === 'tempsForts') return c.tempsForts?.length ?? 0
   return c.ajustementsCA?.length ?? 0
 }
@@ -26,11 +32,14 @@ export function marquerRienPrevu(c: Cibles, q: QuestionCalendrier, rien: boolean
   if (rien) l.add(q)
   else l.delete(q)
   const { rienPrevu: _, ...reste } = c
-  return l.size ? { ...reste, rienPrevu: QUESTIONS_CALENDRIER.filter((x) => l.has(x)) } : reste
+  return l.size ? { ...reste, rienPrevu: TOUTES.filter((x) => l.has(x)) } : reste
 }
 
 export function etatCalendrier(c: Cibles): EtatCarte {
   return QUESTIONS_CALENDRIER.every((q) => reponseQuestion(c, q) !== 'aRepondre') ? 'fait' : 'aFaire'
+}
+export function etatInvestissements(c: Cibles): EtatCarte {
+  return QUESTIONS_INVESTISSEMENTS.every((q) => reponseQuestion(c, q) !== 'aRepondre') ? 'fait' : 'aFaire'
 }
 
 // Équipe : à faire sans équipe ni masse salariale reprise des comptes ; reprise des comptes, à vérifier

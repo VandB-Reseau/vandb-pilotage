@@ -62,17 +62,15 @@ test('liste filtrée par étape, par retard et par responsable ; « À traiter �
   expect(aTraiter(l, [], [], '2026-11-20')).toEqual([{ cle: 'frais', filtre: 'frais', nombre: 1, magasins: ['B'] }])
 })
 
-test('état des étapes dans le menu, selon qui regarde', () => {
+test('état des étapes dans le menu, selon qui regarde (trois étapes, 03/11/2026)', () => {
   const base = { statut: 'propose' as const, propose: true, modifie: false, changements: 0 }
-  expect(marquesEtapes({ ...base, statut: null, propose: false, role: 'directeur' })).toEqual({ depart: 'À proposer', budget: '', echanges: '' })
-  expect(marquesEtapes({ ...base, statut: null, propose: false, role: 'franchise' })).toEqual({ depart: 'En attente du siège', budget: '', echanges: '' })
-  expect(marquesEtapes({ ...base, role: 'franchise' })).toEqual({ depart: 'Fait', budget: 'À relire', echanges: 'À envoyer' })
+  expect(marquesEtapes({ ...base, statut: null, propose: false, role: 'directeur' })).toEqual({ budget: 'À proposer', visualiser: '', echanges: '' })
+  expect(marquesEtapes({ ...base, statut: null, propose: false, role: 'franchise' })).toEqual({ budget: 'En attente du siège', visualiser: '', echanges: '' })
+  expect(marquesEtapes({ ...base, role: 'franchise' })).toEqual({ budget: 'À relire', visualiser: '', echanges: 'À envoyer' })
   expect(marquesEtapes({ ...base, changements: 3, role: 'franchise' }).budget).toBe('3 changements à envoyer')
   expect(marquesEtapes({ ...base, modifie: true, role: 'franchise' }).budget).toBe('Non enregistré')
-  // Saisie en attente au point de départ (trésorerie au 1er janvier) : c'est lui qui le dit
-  expect(marquesEtapes({ ...base, modifie: true, role: 'franchise', ici: 'depart' })).toEqual({ depart: 'Non enregistré', budget: 'À relire', echanges: 'À envoyer' })
-  expect(marquesEtapes({ ...base, role: 'coach' })).toEqual({ depart: 'Fait', budget: '', echanges: 'Chez le franchisé' })
+  expect(marquesEtapes({ ...base, role: 'coach' })).toEqual({ budget: '', visualiser: '', echanges: 'Chez le franchisé' })
   expect(marquesEtapes({ ...base, statut: 'en_discussion', role: 'rr' }).echanges).toBe('À valider')
   expect(marquesEtapes({ ...base, statut: 'en_discussion', role: 'franchise' }).echanges).toBe('Envoyé au siège')
-  expect(marquesEtapes({ ...base, statut: 'valide', role: 'coach' })).toEqual({ depart: 'Fait', budget: 'Validé', echanges: 'Validé' })
+  expect(marquesEtapes({ ...base, statut: 'valide', role: 'coach' })).toEqual({ budget: 'Validé', visualiser: '', echanges: 'Validé' })
 })

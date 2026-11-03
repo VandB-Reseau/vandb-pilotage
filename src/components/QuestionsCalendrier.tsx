@@ -5,37 +5,44 @@ import Chip from '@mui/material/Chip'
 import Typography from '@mui/material/Typography'
 import { Aide } from './Aide'
 import type { Cibles } from '../moteur/cibles'
-import { etatCalendrier, marquerRienPrevu, QUESTIONS_CALENDRIER, reponseQuestion, saisiesQuestion, type QuestionCalendrier } from '../moteur/questions'
+import { marquerRienPrevu, reponseQuestion, saisiesQuestion, type QuestionCalendrier } from '../moteur/questions'
 
-// Joseph (03/11/2026) : une fois la carte Calendrier ouverte, on voit ce qu'il faut remplir. Trois questions numérotées,
-// chacune avec sa réponse ; « Oui » mène au bloc de saisie, « Rien de prévu » répond sans rien saisir.
-export const ANCRES_QUESTIONS: Record<QuestionCalendrier, string> = { travaux: 'bloc-travaux', tempsForts: 'bloc-temps-forts', ajustementsCA: 'bloc-clients' }
+// Joseph (03/11/2026) : une fois la carte ouverte, on voit ce qu'il faut remplir. Questions numérotées, chacune avec sa
+// réponse ; « Oui » mène au bloc de saisie, « Rien de prévu » répond sans rien saisir. Évènements & Temps forts : temps
+// forts et clients extérieurs ; Investissements & Financements : travaux, achats, emprunts.
+export const ANCRES_QUESTIONS: Record<QuestionCalendrier, string> = {
+  travaux: 'bloc-travaux', investissements: 'bloc-investissements', emprunts: 'bloc-emprunts', tempsForts: 'bloc-temps-forts', ajustementsCA: 'bloc-clients',
+}
 
 function textes(annee: number): Record<QuestionCalendrier, { question: string; court: string; un: string; plusieurs: string }> {
   return {
-    travaux: { question: `Des travaux ou une fermeture en ${annee} ?`, court: 'travaux ou fermeture', un: 'mois touché', plusieurs: 'mois touchés' },
+    travaux: { question: `Des travaux ou une fermeture en ${annee} ?`, court: 'travaux ou fermeture', un: 'chantier prévu', plusieurs: 'chantiers prévus' },
+    investissements: { question: `Des achats d’équipement, de mobilier ou d’informatique en ${annee} ?`, court: 'achats d’équipement', un: 'achat prévu', plusieurs: 'achats prévus' },
+    emprunts: { question: `Un nouvel emprunt ou un apport en ${annee} ?`, court: 'emprunt ou apport', un: 'financement prévu', plusieurs: 'financements prévus' },
     tempsForts: { question: `Des temps forts en ${annee} : salon, marché de Noël, soirée, opération commerciale ?`, court: 'temps forts', un: 'temps fort prévu', plusieurs: 'temps forts prévus' },
-    ajustementsCA: { question: 'Des clients gagnés ou perdus : nouveau marché, association, concurrent, horaires ?', court: 'clients gagnés ou perdus', un: 'changement prévu', plusieurs: 'changements prévus' },
+    ajustementsCA: { question: `Des clients extérieurs gagnés ou perdus face à ${annee - 1} : comité d’entreprise, association, restaurant ?`, court: 'clients extérieurs', un: 'client', plusieurs: 'clients' },
   }
 }
 
-export function QuestionsCalendrier({ cibles, annee, lectureSeule, onChange }: {
+export function QuestionsCalendrier({ cibles, annee, lectureSeule, onChange, questions, etat }: {
   cibles: Cibles
   annee: number
   lectureSeule: boolean
   onChange: (c: Cibles) => void
+  questions: readonly QuestionCalendrier[]
+  etat: 'aFaire' | 'aVerifier' | 'fait'
 }) {
   const t = textes(annee)
-  const fait = etatCalendrier(cibles) === 'fait'
+  const fait = etat === 'fait'
   const allerA = (q: QuestionCalendrier) => document.getElementById(ANCRES_QUESTIONS[q])?.scrollIntoView({ block: 'start' })
   return (
-    <Card component="section" aria-label="Questions du calendrier" sx={{ p: { xs: 2, md: 2.5 } }}>
+    <Card component="section" aria-label={`Questions : ${questions.map((q) => t[q].court).join(', ')}`} sx={{ p: { xs: 2, md: 2.5 } }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 1 }}>
         <Typography variant="h2" sx={{ flex: 1 }}>{`À répondre pour ${annee}`}<Aide sujet="questionsCalendrier" /></Typography>
         <Chip size="small" color={fait ? 'success' : 'warning'} label={fait ? 'Fait' : 'À faire'} />
       </Box>
       <Box component="ol" sx={{ m: 0, p: 0, listStyle: 'none' }}>
-        {QUESTIONS_CALENDRIER.map((q, i) => {
+        {questions.map((q, i) => {
           const r = reponseQuestion(cibles, q)
           const n = saisiesQuestion(cibles, q)
           return (

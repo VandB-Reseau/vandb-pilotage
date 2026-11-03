@@ -43,12 +43,16 @@ function libelleDe(k: string, entree: string | null, nomsFrais: Record<string, s
     case 'poidsMois': return { libelle: 'Saisonnalité', nature: 'liste' }
     case 'travaux': return { libelle: 'Travaux', nature: 'liste' }
     case 'tempsForts': return { libelle: 'Temps forts', nature: 'liste' }
-    case 'ajustementsCA': return { libelle: 'Clients gagnés ou perdus', nature: 'liste' }
+    case 'ajustementsCA': return { libelle: 'Clients extérieurs', nature: 'liste' }
+    case 'investissements': return { libelle: 'Achats d’équipement', nature: 'liste' }
+    case 'emprunts': return { libelle: 'Nouveaux emprunts', nature: 'liste' }
+    case 'apport': return { libelle: 'Apport', nature: 'liste' }
+    case 'finEmpruntsEnCours': return { libelle: 'Dernier mois des emprunts en cours', nature: 'liste' }
     default: return { libelle: k, nature: 'liste' }
   }
 }
 // Ordre de lecture : ventes, marge, équipe, frais, calendrier, trésorerie
-const ORDRE = ['evolutionFlux', 'evolutionPanier', 'evolutionUnivers', 'evolutionFamille', 'mixFamille', 'margeFamille', 'demarqueFamille', 'hausseSalaires', 'inflationFrais', 'fraisBudget', 'poidsMois', 'rythme', 'travaux', 'tempsForts', 'ajustementsCA', 'tresorerieDepart']
+const ORDRE = ['evolutionFlux', 'evolutionPanier', 'evolutionUnivers', 'evolutionFamille', 'mixFamille', 'margeFamille', 'demarqueFamille', 'hausseSalaires', 'inflationFrais', 'fraisBudget', 'poidsMois', 'rythme', 'tempsForts', 'ajustementsCA', 'travaux', 'investissements', 'emprunts', 'apport', 'finEmpruntsEnCours', 'tresorerieDepart']
 const rang = (k: string) => { const i = ORDRE.indexOf(k); return i < 0 ? ORDRE.length : i }
 
 const pareil = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
@@ -92,15 +96,35 @@ export function effetsChangements(siege: Cibles, magasin: Cibles, changements: C
   return { effets: changements.map((c) => ({ ...c, effet: ebe(c.cibles) - ebeSiege })), total: ebeMagasin - ebeSiege, ebeSiege, ebeMagasin }
 }
 
+// Joseph (03/11/2026) : « Ce que le magasin a changé » trop long : une ligne par thème, avec l'effet sur l'EBE de tous les
+// changements du thème ensemble (EBE avec la position du siège et les seuls changements du thème, moins celui du siège),
+// et le détail ligne par ligne à déplier. Les effets des thèmes ne s'additionnent pas toujours exactement au total.
+export interface ThemeChange { theme: ThemeAccord | null; libelle: string; effets: (Changement & { effet: number })[]; effet: number }
+export function changementsParTheme(siege: Cibles, effets: (Changement & { effet: number })[], ebe: (c: Cibles) => number): ThemeChange[] {
+  const ebeSiege = ebe(siege)
+  const ordre: (ThemeAccord | null)[] = [...THEMES_ACCORD, null]
+  return ordre.flatMap((theme) => {
+    const l = effets.filter((e) => themeDeCle(e.cle) === theme)
+    if (!l.length) return []
+    const cibles = l.reduce((c, e) => {
+      const [k, ...reste] = e.cle.split('/')
+      return avecValeur(c, k, estParEntree(k) ? reste.join('/') : null, e.apres)
+    }, siege)
+    return [{ theme, libelle: theme ? themeAccordLibelle[theme] : 'Autres', effets: l, effet: l.length === 1 ? l[0].effet : ebe(cibles) - ebeSiege }]
+  })
+}
+
 // Ce que la validation doit signaler avant de figer le budget
-export interface PointValidation { cle: 'tresorerie' | 'pointBas' | 'envoi'; texte: string }
-export function pointsAvantValidation(e: { tresorerieDepart: number | undefined; pointBas: { montant: number; mois: number } | null; changementsNonEnvoyes: boolean; estimee?: string }, mois: readonly string[]): PointValidation[] {
+export interface PointValidation { cle: 'tresorerie' | 'pointBas' | 'envoi' | 'commentaires'; texte: string }
+export function pointsAvantValidation(e: { tresorerieDepart: number | undefined; pointBas: { montant: number; mois: number } | null; changementsNonEnvoyes: boolean; estimee?: string; commentairesOuverts?: number }, mois: readonly string[]): PointValidation[] {
   const p: PointValidation[] = []
   // Lot 42 : trésorerie estimée depuis les comptes ; la validation la fige, le solde bancaire reste plus sûr
   if (e.tresorerieDepart === undefined && e.estimee) p.push({ cle: 'tresorerie', texte: `La trésorerie au 1er janvier n’est pas saisie : elle est estimée à ${e.estimee} depuis les comptes, et sera figée à ce montant.` })
   else if (e.tresorerieDepart === undefined) p.push({ cle: 'tresorerie', texte: 'La trésorerie au 1er janvier n’est pas saisie : le plan de trésorerie part de zéro.' })
   if (e.pointBas && e.pointBas.montant < 0) p.push({ cle: 'pointBas', texte: `La trésorerie passe sous zéro en ${mois[e.pointBas.mois]} (point bas du plan).` })
   if (e.changementsNonEnvoyes) p.push({ cle: 'envoi', texte: 'Le franchisé a des changements enregistrés qu’il n’a pas encore envoyés.' })
+  // Joseph (03/11/2026) : valider reste possible avec des commentaires ouverts, l'avertissement le dit
+  if (e.commentairesOuverts) p.push({ cle: 'commentaires', texte: e.commentairesOuverts > 1 ? `${e.commentairesOuverts} commentaires sont encore ouverts.` : 'Un commentaire est encore ouvert.' })
   return p
 }
 
@@ -113,14 +137,21 @@ export function pretsAValider<T extends BudgetAValider>(budgets: T[]): T[] {
 }
 
 // Lot 42 : avancement du franchisé, thème par thème (« D'accord » ou un changement dans le thème)
-export const THEMES_ACCORD = ['ventes', 'calendrier', 'equipe', 'fraisBudget', 'tresoBudget'] as const
+// Joseph (03/11/2026) : la saisonnalité va avec la trésorerie au 1er janvier dans le Point de départ (« tresoBudget »,
+// nom gardé pour les accords enregistrés) ; les travaux passent dans Investissements & Financements
+export const THEMES_ACCORD = ['tresoBudget', 'ventes', 'calendrier', 'investissements', 'equipe', 'fraisBudget'] as const
 export type ThemeAccord = (typeof THEMES_ACCORD)[number]
 const CLES_THEME: Record<ThemeAccord, string[]> = {
+  tresoBudget: ['tresorerieDepart', 'poidsMois'],
   ventes: ['evolutionFlux', 'evolutionPanier', 'evolutionUnivers', 'evolutionFamille', 'mixFamille', 'margeFamille', 'demarqueFamille', 'rythme'],
-  calendrier: ['poidsMois', 'travaux', 'tempsForts', 'ajustementsCA'],
+  calendrier: ['tempsForts', 'ajustementsCA'],
+  investissements: ['travaux', 'investissements', 'emprunts', 'apport', 'finEmpruntsEnCours'],
   equipe: ['hausseSalaires'],
   fraisBudget: ['inflationFrais', 'fraisBudget'],
-  tresoBudget: ['tresorerieDepart'],
+}
+export const themeAccordLibelle: Record<ThemeAccord, string> = {
+  tresoBudget: 'Point de départ', ventes: 'Ventes et marge', calendrier: 'Évènements & Temps forts',
+  investissements: 'Investissements & Financements', equipe: 'Équipe', fraisBudget: 'Frais',
 }
 export function themeDeCle(cle: string): ThemeAccord | null {
   const racine = cle.split('/')[0]

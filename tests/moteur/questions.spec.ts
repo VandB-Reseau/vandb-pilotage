@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { etatCalendrier, etatEquipe, etatFrais, marquerRienPrevu, reponseQuestion, resumeUnivers, saisiesQuestion } from '../../src/moteur/questions'
+import { etatCalendrier, etatEquipe, etatInvestissements, etatFrais, marquerRienPrevu, reponseQuestion, resumeUnivers, saisiesQuestion } from '../../src/moteur/questions'
 import { ebePourRemuneration } from '../../src/moteur/economie'
 import { changementsCibles } from '../../src/moteur/changements'
 import type { Cibles } from '../../src/moteur/cibles'
@@ -7,18 +7,26 @@ import type { Budget, ResultatFamille } from '../../src/moteur/types'
 
 // Joseph (03/11/2026) : cartes qui disent ce qu'il reste à faire, simulateur unique. Chiffres ronds vérifiés à la main.
 
-test('calendrier : trois questions, une saisie ou « Rien de prévu » y répond', () => {
+test('Évènements & Temps forts : deux questions ; Investissements & Financements : trois (03/11/2026)', () => {
   const vide: Cibles = {}
   expect(etatCalendrier(vide)).toBe('aFaire')
+  expect(etatInvestissements(vide)).toBe('aFaire')
   expect(reponseQuestion(vide, 'travaux')).toBe('aRepondre')
-  // Travaux de 2 mois (activité sous 100 %) : la question a sa réponse, 2 mois touchés
+  // Travaux saisis : la question des travaux a sa réponse, quelle que soit la fermeture
   const travaux: Cibles = { travaux: { activite: [1, 1, 0, 0.5, 1, 1, 1, 1, 1, 1, 1, 1], gain: 0, investissement: 0, dureeAmortissement: 5 } as Cibles['travaux'] }
-  expect(saisiesQuestion(travaux, 'travaux')).toBe(2)
+  expect(saisiesQuestion(travaux, 'travaux')).toBe(1)
   expect(reponseQuestion(travaux, 'travaux')).toBe('saisie')
-  // Rien de prévu sur les deux autres : tout est répondu
-  const fait = marquerRienPrevu(marquerRienPrevu(travaux, 'tempsForts', true), 'ajustementsCA', true)
+  // Achats et emprunts : un emprunt et un apport font deux réponses
+  const achats: Cibles = { ...travaux, investissements: [{ libelle: 'Tireuse', type: 'equipement', montant: 18000, mois: 3, duree: 5 }] }
+  expect(saisiesQuestion(achats, 'investissements')).toBe(1)
+  const finance = { ...achats, emprunts: [{ libelle: 'Prêt', montant: 60000, taux: 0.04, duree: 7, premiereEcheance: 8 }], apport: { montant: 5000, mois: 2 } }
+  expect(saisiesQuestion(finance, 'emprunts')).toBe(2)
+  expect(etatInvestissements(finance)).toBe('fait')
+  // Le Calendrier ne pose plus la question des travaux : deux « Rien de prévu » suffisent
+  const fait = marquerRienPrevu(marquerRienPrevu(vide, 'tempsForts', true), 'ajustementsCA', true)
   expect(fait.rienPrevu).toEqual(['tempsForts', 'ajustementsCA'])
   expect(etatCalendrier(fait)).toBe('fait')
+  expect(marquerRienPrevu(fait, 'emprunts', true).rienPrevu).toEqual(['emprunts', 'tempsForts', 'ajustementsCA'])
   // Annuler la réponse : la question revient ; liste vide retirée des ajustements
   const annule = marquerRienPrevu(marquerRienPrevu(fait, 'tempsForts', false), 'ajustementsCA', false)
   expect('rienPrevu' in annule).toBe(false)

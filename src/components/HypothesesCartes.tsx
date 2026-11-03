@@ -6,11 +6,11 @@ import CardActionArea from '@mui/material/CardActionArea'
 import Chip from '@mui/material/Chip'
 import Typography from '@mui/material/Typography'
 import ChevronRightOutlined from '@mui/icons-material/ChevronRightOutlined'
-import { ecartTaux, lienMagasin, milliers, taux } from '../lib/format'
+import { ecartMilliers, ecartTaux, lienMagasin, milliers, taux } from '../lib/format'
 import type { Cibles } from '../moteur/cibles'
 import { universLibelle, type Budget, type Hypotheses } from '../moteur/types'
 import type { ThemeAccord } from '../moteur/changements'
-import { etatCalendrier, etatEquipe, etatFrais, reponseQuestion, resumeUnivers, saisiesQuestion, type EtatCarte, type QuestionCalendrier } from '../moteur/questions'
+import { etatCalendrier, etatEquipe, etatFrais, etatInvestissements, QUESTIONS_CALENDRIER, QUESTIONS_INVESTISSEMENTS, reponseQuestion, resumeUnivers, saisiesQuestion, type EtatCarte, type QuestionCalendrier } from '../moteur/questions'
 
 // Lot 37 (Joseph, 02/11/2026, option H2) : une carte par thème ; un clic ouvre le détail du thème.
 // Joseph (03/11/2026) : les ventes de chaque univers en cartes, comme le Calendrier, l'Équipe et les Frais, pour voir d'un
@@ -56,12 +56,18 @@ function Carte({ titre, sousTitre, vers, lignes, etat, lectureSeule, magasin, ac
 
 const nombre = (n: number, un: string, plusieurs: string) => `${n} ${n > 1 ? plusieurs : un}`
 const LIBELLES_QUESTIONS: Record<QuestionCalendrier, { libelle: string; un: string; plusieurs: string }> = {
-  travaux: { libelle: 'Travaux, fermeture', un: 'mois touché', plusieurs: 'mois touchés' },
+  travaux: { libelle: 'Travaux, fermeture', un: 'chantier', plusieurs: 'chantiers' },
+  investissements: { libelle: 'Achats d’équipement', un: 'achat', plusieurs: 'achats' },
+  emprunts: { libelle: 'Emprunt ou apport', un: 'financement', plusieurs: 'financements' },
   tempsForts: { libelle: 'Temps forts', un: 'temps fort', plusieurs: 'temps forts' },
-  ajustementsCA: { libelle: 'Clients gagnés ou perdus', un: 'changement', plusieurs: 'changements' },
+  ajustementsCA: { libelle: 'Clients extérieurs', un: 'client', plusieurs: 'clients' },
 }
 
-export function HypothesesCartes({ magasin, annee, budget: b, cibles, hausseSalaires, inflation, sansEquipe, sansFrais, lectureSeule, reprise, accord }: {
+// Point de départ (Joseph, 03/11/2026 : une carte de « Construire ») : CA atterri de l'année en cours, trésorerie au
+// 1er janvier (saisie ou estimée), saisonnalité du magasin ou de l'an passé
+export interface ResumeDepart { annee: number; tresorerie: number | null; estimee: boolean; saisonnalite: boolean }
+
+export function HypothesesCartes({ magasin, annee, budget: b, cibles, hausseSalaires, inflation, sansEquipe, sansFrais, lectureSeule, reprise, accord, depart }: {
   magasin: string
   annee: number
   budget: Budget
@@ -73,6 +79,7 @@ export function HypothesesCartes({ magasin, annee, budget: b, cibles, hausseSala
   lectureSeule: boolean
   reprise?: Hypotheses['reprise']
   accord?: (theme: ThemeAccord, nom: string) => ReactNode
+  depart: ResumeDepart
 }) {
   const frais = b.chargesExternes + b.impotsTaxes - b.redevance - b.publicite
   const lignesFrais = Object.keys(cibles.fraisBudget ?? {}).length
@@ -80,9 +87,17 @@ export function HypothesesCartes({ magasin, annee, budget: b, cibles, hausseSala
     const r = reponseQuestion(cibles, q), t = LIBELLES_QUESTIONS[q]
     return { libelle: t.libelle, valeur: r === 'saisie' ? nombre(saisiesQuestion(cibles, q), t.un, t.plusieurs) : r === 'rien' ? 'Rien de prévu' : 'À répondre', signal: r === 'aRepondre' }
   }
+  const f = b.financement
+  const ecartEvenements = (b.tempsForts?.ajoute ?? 0) - (b.tempsForts?.retire ?? 0) + (b.tempsForts?.ajustements ?? 0)
   return (
     <Box component="section" aria-label={`Hypothèses ${annee} en cartes`}
       sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(3, minmax(0, 1fr))' }, gap: 2 }}>
+      <Carte magasin={magasin} titre="Point de départ" vers="depart" etat={depart.tresorerie === null || depart.estimee ? 'aVerifier' : 'fait'} lectureSeule={lectureSeule}
+        accord={accord?.('tresoBudget', 'Point de départ')} lignes={[
+          { libelle: `CA atterri ${depart.annee}`, valeur: milliers(b.atterrissage) },
+          { libelle: 'Trésorerie au 1er janvier', valeur: depart.tresorerie === null ? 'À saisir' : `${milliers(depart.tresorerie)}${depart.estimee ? ' (estimée)' : ''}`, signal: depart.tresorerie === null || depart.estimee },
+          { libelle: 'Saisonnalité', valeur: depart.saisonnalite ? 'Propre au magasin' : `Celle de ${depart.annee}` },
+        ]} />
       {resumeUnivers(b).map((r) => (
         <Carte key={r.univers} magasin={magasin} titre={`Ventes ${universLibelle[r.univers]}`} vers="ventes" lectureSeule={lectureSeule}
           sousTitre={<><Box component="span" sx={{ color: 'text.secondary' }}>{milliers(r.depart)} → </Box><b>{milliers(r.ca)}</b>{r.ecart !== null && <Box component="span" sx={{ color: 'text.secondary' }}>{` (${ecartTaux(r.ecart)})`}</Box>}</>}
@@ -92,8 +107,14 @@ export function HypothesesCartes({ magasin, annee, budget: b, cibles, hausseSala
             { libelle: 'Marge visée', valeur: r.marge === null ? '–' : taux(r.marge) },
           ]} />
       ))}
-      <Carte magasin={magasin} titre="Calendrier" vers="calendrier" etat={etatCalendrier(cibles)} lectureSeule={lectureSeule} accord={accord?.('calendrier', 'Calendrier')}
-        lignes={(['travaux', 'tempsForts', 'ajustementsCA'] as const).map(question)} />
+      <Carte magasin={magasin} titre="Évènements & Temps forts" vers="calendrier" etat={etatCalendrier(cibles)} lectureSeule={lectureSeule} accord={accord?.('calendrier', 'Évènements & Temps forts')}
+        lignes={[...QUESTIONS_CALENDRIER.map(question), ...(ecartEvenements ? [{ libelle: `Écart face à ${depart.annee}`, valeur: ecartMilliers(ecartEvenements) }] : [])]} />
+      <Carte magasin={magasin} titre="Investissements & Financements" vers="investissements" etat={etatInvestissements(cibles)} lectureSeule={lectureSeule} accord={accord?.('investissements', 'Investissements & Financements')}
+        lignes={[
+          ...QUESTIONS_INVESTISSEMENTS.map(question),
+          { libelle: 'Capacité d’autofinancement', valeur: milliers(b.capaciteAutofinancement) },
+          ...(f.echeancesSurCAF !== null && f.echeances > 0 ? [{ libelle: 'Échéances ÷ CAF', valeur: taux(f.echeancesSurCAF) }] : []),
+        ]} />
       <Carte magasin={magasin} titre="Équipe" vers="equipe" etat={etatEquipe(sansEquipe, !!reprise?.personnel)} lectureSeule={lectureSeule} accord={accord?.('equipe', 'Équipe')} lignes={[
         ...(reprise?.personnel ? [{ libelle: 'Équipe', valeur: `Comptes ${reprise.annee} (${reprise.mois} mois)` }]
           : sansEquipe ? [{ libelle: 'Équipe', valeur: 'À renseigner', signal: true }] : []),

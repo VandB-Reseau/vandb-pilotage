@@ -1,6 +1,7 @@
 import { masseSalariale } from './equipe'
+import { avecCAF, financementDe } from './financement'
 import { reglesDe } from './regles'
-import { UNIVERS, type Budget, type DetailCAUnivers, type Hypotheses, type Mois, type ParametresReseau, type ResultatFamille, type RythmeSortie, type TempsFort, type Travaux, type Univers } from './types'
+import { UNIVERS, type AjustementCA, type Budget, type DetailCAUnivers, type Hypotheses, type Mois, type ParametresReseau, type ResultatFamille, type RythmeSortie, type TempsFort, type Travaux, type Univers } from './types'
 
 // Moteur du budget annuel d'un magasin. Fonction pure : le même calcul sert à l'écran, au simulateur et aux tests.
 // Il corrige les biais du prévisionnel Excel 2027 (constats du 26/10/2026) :
@@ -66,6 +67,8 @@ export function impotSocietes(resultat: number, deficit: number, p: ParametresRe
 }
 
 const moisValide = (m: number) => Number.isInteger(m) && m >= 1 && m <= 12
+// Client extérieur saisi face à l'an passé (03/11/2026) : l'écart de CA, à parts égales sur ses mois
+export const faceAnPasse = (a: AjustementCA) => Number.isFinite(a.ca) || Number.isFinite(a.caAnPasse)
 const tempsFortsValides = (l: TempsFort[] | undefined) => (l ?? []).filter((t) => moisValide(t.mois) && UNIVERS.includes(t.univers))
 
 export function calculerBudget(h: Hypotheses, p: ParametresReseau): Budget {
@@ -139,10 +142,10 @@ export function calculerBudget(h: Hypotheses, p: ParametresReseau): Budget {
   })) as Record<Univers, number[]>
   const ouvertureU = Object.fromEntries(UNIVERS.map((u) => [u, somme(poidsU[u].map((w, i) => w * travaux.activite[i]))])) as Record<Univers, number>
   const enMois = (u: Univers, i: number) => (ouverture > 0 && ouvertureU[u] > 0 ? base[u] * poidsU[u][i] * travaux.activite[i] / ouvertureU[u] : 0)
-  const ajustements = (h.ajustementsCA ?? []).filter((a) => moisValide(a.de) && moisValide(a.a) && UNIVERS.includes(a.univers))
+  const ajustements = (h.ajustementsCA ?? []).filter((a) => moisValide(a.de) && moisValide(a.a) && a.de <= a.a && UNIVERS.includes(a.univers))
   const ajout = Object.fromEntries(UNIVERS.map((u) => [u, poids.map((_, i) => {
     const tf = somme(tempsForts.filter((t) => t.univers === u && t.mois === i + 1).map((t) => t.ca || 0))
-    const adj = somme(ajustements.filter((a) => a.univers === u && a.de <= i + 1 && i + 1 <= a.a).map((a) => (Number.isFinite(a.montant) ? a.montant! : (a.taux ?? 0) * enMois(u, i))))
+    const adj = somme(ajustements.filter((a) => a.univers === u && a.de <= i + 1 && i + 1 <= a.a).map((a) => (faceAnPasse(a) ? ((a.ca ?? 0) - (a.caAnPasse ?? 0)) / (a.a - a.de + 1) : Number.isFinite(a.montant) ? a.montant! : (a.taux ?? 0) * enMois(u, i))))
     return { tf, adj }
   })])) as Record<Univers, { tf: number; adj: number }[]>
 
@@ -184,7 +187,9 @@ export function calculerBudget(h: Hypotheses, p: ParametresReseau): Budget {
     const l = familles.filter((f) => f.univers === u)
     return [u, ratio(somme(l.map((f) => f.margeObjectif)), somme(l.map((f) => f.objectif)))]
   })) as Record<Univers, number>
-  const amortissements = h.amortissements + travaux.dotation
+  // Investissements & Financements (03/11/2026) : dotations des investissements de l'année, intérêts mois par mois
+  const fin = financementDe(h, travaux.dotation)
+  const amortissements = fin.dotationsEnCours + fin.dotationsNouvelles
   const g = h.personnel
   // Avec l'équipe du magasin, le personnel se calcule personne par personne
   const equipe = h.equipe?.length ? masseSalariale(h.equipe, p.charges, h.annee, h.hausseSalaires ?? 0) : null
@@ -217,7 +222,7 @@ export function calculerBudget(h: Hypotheses, p: ParametresReseau): Budget {
     const heures = equipe ? equipe.parMois[i].heures : g.heuresMensuelles[i] ?? 0
     return {
       ca: caMois, achats: caMois - margeMois, marge: margeMois, chargesExternes: externes, impotsTaxes: impots, personnel, ebe,
-      resultatExploitation, resultatAvantImpot: resultatExploitation - h.interets / 12, productivite: heures > 0 ? caMois / heures : null,
+      resultatExploitation, resultatAvantImpot: resultatExploitation - fin.interetsMois[i], productivite: heures > 0 ? caMois / heures : null,
       univers, autresChargesTempsForts, demarqueConsignes,
     }
   })
@@ -235,7 +240,8 @@ export function calculerBudget(h: Hypotheses, p: ParametresReseau): Budget {
     redevance: ca * p.tauxRedevance, publicite: ca * p.tauxPublicite,
     chargesExternes: total('chargesExternes'), impotsTaxes: total('impotsTaxes'), personnel, ebe,
     resultatExploitation: total('resultatExploitation'), resultatAvantImpot, impot, resultatNet, capaciteAutofinancement,
-    tresorerieDegagee: capaciteAutofinancement - h.remboursementCapital,
+    tresorerieDegagee: capaciteAutofinancement - fin.capitalEnCours - fin.capitalNouveau,
+    financement: avecCAF(fin, capaciteAutofinancement),
     ratios: { pctFP: ratio(personnel, ca), ebeSurCA: ratio(ebe, ca) },
     flux,
     sortie,
