@@ -178,8 +178,9 @@ test('sans réel de l’année, l’atterrissage renvoie vers le réel', async (
   await seConnecter(page, { role: 'franchise' })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Atterrissage')
-  await expect(page.getByText(`Pas encore de réel ${N}`)).toBeVisible()
-  await page.getByRole('button', { name: 'Voir le réel' }).click()
+  const atterrissage = page.locator('main').getByRole('region', { name: `Atterrissage ${N}`, exact: true })
+  await expect(atterrissage.getByText(`Pas encore de réel ${N}`)).toBeVisible()
+  await atterrissage.getByRole('button', { name: 'Voir le réel' }).click()
   await expect(page.getByRole('group', { name: 'Année du réel' }).getByRole('button', { name: String(N), exact: true })).toHaveAttribute('aria-pressed', 'true')
 })
 

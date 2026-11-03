@@ -5,12 +5,15 @@ import Box from '@mui/material/Box'
 import Badge from '@mui/material/Badge'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
+import IconButton from '@mui/material/IconButton'
+import Link from '@mui/material/Link'
 import Skeleton from '@mui/material/Skeleton'
 import Stack from '@mui/material/Stack'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
+import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import useMediaQuery from '@mui/material/useMediaQuery'
 import ArrowBack from '@mui/icons-material/ArrowBack'
@@ -34,7 +37,6 @@ import { DetailCalcul } from '../components/DetailCalcul'
 import { VersionsBudget } from '../components/VersionsBudget'
 import { CompteResultatMois } from '../components/CompteResultatMois'
 import { CopieHypotheses } from '../components/CopieHypotheses'
-import { SelecteurMagasin } from '../components/RechercheMagasin'
 import { ANCRES_QUESTIONS, QuestionsCalendrier } from '../components/QuestionsCalendrier'
 import { EtatVide } from '../components/EtatVide'
 import { Panne } from '../components/Panne'
@@ -43,6 +45,7 @@ import { FraisBudget } from '../components/FraisBudget'
 import { FraisMagasin } from '../components/FraisMagasin'
 import { useGarde, useSaisieEnCours } from '../components/GardeSaisie'
 import { PastilleStatut } from '../components/PastilleStatut'
+import { Repliable } from '../components/Repliable'
 import { ComparaisonMagasin } from '../components/ComparaisonMagasin'
 import { QuadrimestresMagasin } from '../components/QuadrimestresMagasin'
 import { ReelAnnee } from '../components/ReelAnnee'
@@ -78,7 +81,7 @@ import { useChargement } from '../data/useChargement'
 import { nombreChangements, reelEnRetard } from '../lib/aFaire'
 import { feuillesBudget } from '../lib/exports'
 import { lienMagasin, milliers, MOIS_LONGS, taux } from '../lib/format'
-import { ESPACES, PARTIE_PAR_DEFAUT, espaceDe, estTheme, etapeDe, partieConnue, partieDe, partiesDe, sectionDe, THEMES, type Espace } from '../lib/navigation'
+import { ESPACES, PARTIE_PAR_DEFAUT, SECTIONS_SUIVI, espaceDe, estSectionSuivi, estTheme, etapeDe, libelleEspace, partieConnue, partieDe, partiesDe, sectionDe, THEMES, type Espace } from '../lib/navigation'
 import { classeur, nomFichier, telecharger } from '../lib/xlsx'
 import { syntheseReel } from '../moteur/reel'
 import { calculerBudget, effetTravaux } from '../moteur/budget'
@@ -103,6 +106,9 @@ function LibelleOnglet({ texte, manque, detail, marque }: { texte: string; manqu
   )
 }
 // Lot 36 : la fiche se découpe en parties rangées dans trois espaces (Données, Budget, Suivi), voir lib/navigation
+
+// Pastille de l'onglet d'un espace : ce qui manque dans une de ses pages
+const ESPACE_MANQUES: Record<Espace, string[]> = { suivi: ['atterrissage'], budget: ['budget'], donnees: ['reel', 'frais'] }
 
 const visuellementCache = { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' } as const
 
@@ -144,6 +150,9 @@ export function Magasin() {
     const t = window.setTimeout(() => { document.getElementById(`partie-${section}`)?.scrollIntoView({ block: 'start' }); setSection(null) }, 50)
     return () => window.clearTimeout(t)
   }, [section, onglet])
+  // Section du Suivi ouverte d'office : la dernière vers laquelle un lien a mené
+  const [sectionOuverte, setSectionOuverte] = useState<string | null>(estSectionSuivi(etatLien?.section) ? etatLien!.section! : null)
+  useEffect(() => { if (estSectionSuivi(section)) setSectionOuverte(section) }, [section])
   const [anneeReel, setAnneeReel] = useState(anneeEnCours)
   const [anneeQuadri, setAnneeQuadri] = useState(anneeEnCours)
 
@@ -178,21 +187,25 @@ export function Magasin() {
   const rang = liste.indexOf(nom)
   const voisin = (pas: number) => (rang < 0 || liste.length < 2 ? null : liste[(rang + pas + liste.length) % liste.length])
   const precedent = voisin(-1), suivant = voisin(1)
+  // Option A (Joseph, 03/11/2026) : une seule rangée au-dessus du nom, le fil d'Ariane ; on change de magasin par la
+  // recherche de la barre du haut, ou par précédent et suivant dans la liste d'où l'on vient
+  const depuis = state?.depuis ?? { chemin: '/', nom: franchise ? 'Mes magasins' : 'Magasins' }
   const retour = seul ? null : (
-    <Box className="pas-a-l-impression" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-      <Button component={RouterLink} to={`${state?.depuis?.chemin ?? '/'}${state?.retour ? `?${state.retour}` : ''}`} startIcon={<ArrowBack />} sx={{ minHeight: 48 }}>{state?.depuis?.nom ?? 'Magasins'}</Button>
-      {/* Joseph (03/11/2026) : le magasin n'est plus imposé dans la barre du haut ; on en change depuis sa fiche */}
-      {ligne && <SelecteurMagasin magasin={ligne.magasin} />}
+    <Box component="nav" aria-label="Fil d’Ariane" className="pas-a-l-impression" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1, flexWrap: 'wrap', minHeight: 48 }}>
+      <Link component={RouterLink} to={`${depuis.chemin}${state?.retour ? `?${state.retour}` : ''}`} color="text.secondary"
+        sx={{ display: 'inline-flex', alignItems: 'center', minHeight: 48, fontSize: '0.9375rem', textUnderlineOffset: 3 }}>{depuis.nom}</Link>
+      <Typography component="span" color="text.secondary" aria-hidden sx={{ px: 0.5 }}>/</Typography>
+      <Typography component="span" color="text.secondary" aria-current="page" sx={{ fontSize: '0.9375rem' }}>{ligne?.magasin ?? nom}</Typography>
       <Box sx={{ flex: 1 }} />
       {precedent && (
-        <Button component={RouterLink} to={lienMagasin(precedent, onglet)} state={state} startIcon={<ChevronLeftOutlined />} aria-label={`Magasin précédent : ${precedent}`} sx={{ minHeight: 48, maxWidth: 260 }}>
-          <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: { xs: 'none', sm: 'inline' } }}>{precedent}</Box>
-        </Button>
+        <Tooltip title={`Magasin précédent : ${precedent}`}>
+          <IconButton component={RouterLink} to={lienMagasin(precedent, onglet)} state={state} aria-label={`Magasin précédent : ${precedent}`} sx={{ width: 48, height: 48 }}><ChevronLeftOutlined /></IconButton>
+        </Tooltip>
       )}
       {suivant && (
-        <Button component={RouterLink} to={lienMagasin(suivant, onglet)} state={state} endIcon={<ChevronRightOutlined />} aria-label={`Magasin suivant : ${suivant}`} sx={{ minHeight: 48, maxWidth: 260 }}>
-          <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: { xs: 'none', sm: 'inline' } }}>{suivant}</Box>
-        </Button>
+        <Tooltip title={`Magasin suivant : ${suivant}`}>
+          <IconButton component={RouterLink} to={lienMagasin(suivant, onglet)} state={state} aria-label={`Magasin suivant : ${suivant}`} sx={{ width: 48, height: 48 }}><ChevronRightOutlined /></IconButton>
+        </Tooltip>
       )}
     </Box>
   )
@@ -445,24 +458,49 @@ export function Magasin() {
         </Typography>
       )}
 
-      {/* Joseph (03/11/2026) : le menu de gauche mène aux thèmes du réseau ; les pages du magasin sont des onglets de sa
-          fiche, sur PC comme sur téléphone : l'espace (Données, Budget, Suivi), puis ses pages avec leur état */}
+      {/* Option A (Joseph, 03/11/2026) : trois onglets (Suivi, Budget, Saisies). Le Suivi tient sur une page ; les étapes
+          du budget se lisent en frise (une progression, pas des onglets) ; les saisies gardent leurs pages en puces */}
       <Box component="nav" aria-label="Pages du magasin" className="pas-a-l-impression" sx={{ mb: 3 }}>
         <Tabs value={espace} onChange={(_, v: Espace) => garde(() => aller(PARTIE_PAR_DEFAUT[v]), v === espace)} variant="scrollable" scrollButtons={false}
           aria-label="Espaces du magasin" sx={{ borderBottom: 1, borderColor: 'divider', '& .MuiTab-root': { minHeight: 48, fontWeight: 700, fontSize: '1rem', px: { xs: 2, md: 3 } } }}>
-          {ESPACES.map((e) => <Tab key={e.cle} value={e.cle} label={e.libelle} />)}
+          {ESPACES.map((e) => {
+            const manque = ESPACE_MANQUES[e.cle].map((k) => manques[k]).find(Boolean)
+            return <Tab key={e.cle} value={e.cle} label={<LibelleOnglet texte={libelleEspace(e.cle, anneeEnCours, annee)} manque={!!manque} detail={manque?.detail ?? ''} />} />
+          })}
         </Tabs>
-        <Tabs value={etapeDe(onglet)} onChange={(_, v: string) => allerEtape(v)} variant="scrollable" scrollButtons="auto"
-          aria-label={espace === 'budget' ? `Étapes du budget ${annee}` : espace === 'donnees' ? 'Données du magasin' : 'Suivi du magasin'}
-          sx={{ mt: 1, minHeight: 48, '& .MuiTabs-indicator': { display: 'none' }, '& .MuiTabs-flexContainer': { gap: 1 },
-            '& .MuiTab-root': { minHeight: 48, borderRadius: 999, px: 2, py: 0.75, alignItems: 'flex-start', textAlign: 'left', color: 'text.primary', border: 1, borderColor: 'divider', bgcolor: 'background.paper' },
-            '& .MuiTab-root.Mui-selected': { bgcolor: 'text.primary', color: 'background.paper', borderColor: 'text.primary' } }}>
-          {parties.map((x) => (
-            <Tab key={x.cle} value={x.cle} aria-current={etapeDe(onglet) === x.cle ? 'page' : undefined}
-              onClick={themeOuvert && x.cle === 'budget' ? () => (onglet === 'equipe' ? garde(() => aller('budget')) : aller('budget')) : undefined}
-              label={<LibelleOnglet texte={x.libelle} manque={!!manques[x.cle]} detail={manques[x.cle]?.detail ?? ''} marque={marquesMenu[x.cle]} />} />
-          ))}
-        </Tabs>
+        {espace === 'budget' && (
+          <Tabs value={etapeDe(onglet)} onChange={(_, v: string) => allerEtape(v)} variant="scrollable" scrollButtons={false}
+            aria-label={`Étapes du budget ${annee}`}
+            sx={{ mt: 2, minHeight: 56, '& .MuiTabs-indicator': { display: 'none' }, '& .MuiTabs-flexContainer': { gap: 0 },
+              '& .MuiTab-root': { minHeight: 56, px: 1, py: 0.5, alignItems: 'center', textAlign: 'left', color: 'text.primary', opacity: 1, fontWeight: 400, textTransform: 'none',
+                flexDirection: 'row', gap: 1.25, '&:not(:last-of-type)::after': { content: '""', width: { xs: 16, md: 40 }, height: 2, bgcolor: 'divider', ml: { xs: 0.5, md: 1.5 } } },
+              '& .MuiTab-root.Mui-selected': { fontWeight: 800, color: 'text.primary' },
+              '& .rond-etape': { width: 32, height: 32, borderRadius: '50%', display: 'grid', placeItems: 'center', flexShrink: 0, fontWeight: 800, border: 2, borderColor: 'divider', bgcolor: 'background.paper' },
+              '& .Mui-selected .rond-etape': { borderColor: 'text.primary', bgcolor: 'text.primary', color: 'background.paper' } }}>
+            {parties.map((x) => {
+              const [numero, nomEtape] = x.libelle.split(' · ')
+              return (
+                <Tab key={x.cle} value={x.cle} aria-current={etapeDe(onglet) === x.cle ? 'step' : undefined}
+                  onClick={themeOuvert && x.cle === 'budget' ? () => (onglet === 'equipe' ? garde(() => aller('budget')) : aller('budget')) : undefined}
+                  label={<>
+                    <Box component="span" className="rond-etape">{numero}<Box component="span" sx={visuellementCache}> · </Box></Box>
+                    <LibelleOnglet texte={nomEtape ?? x.libelle} manque={!!manques[x.cle]} detail={manques[x.cle]?.detail ?? ''} marque={marquesMenu[x.cle]} />
+                  </>} />
+              )
+            })}
+          </Tabs>
+        )}
+        {espace === 'donnees' && (
+          <Tabs value={onglet} onChange={(_, v: string) => allerEtape(v)} variant="scrollable" scrollButtons="auto" aria-label="Saisies du magasin"
+            sx={{ mt: 1.5, minHeight: 48, '& .MuiTabs-indicator': { display: 'none' }, '& .MuiTabs-flexContainer': { gap: 1 },
+              '& .MuiTab-root': { minHeight: 48, borderRadius: 999, px: 2, py: 0.75, alignItems: 'flex-start', textAlign: 'left', color: 'text.primary', border: 1, borderColor: 'divider', bgcolor: 'background.paper' },
+              '& .MuiTab-root.Mui-selected': { bgcolor: 'text.primary', color: 'background.paper', borderColor: 'text.primary' } }}>
+            {parties.map((x) => (
+              <Tab key={x.cle} value={x.cle} aria-current={onglet === x.cle ? 'page' : undefined}
+                label={<LibelleOnglet texte={x.libelle} manque={!!manques[x.cle]} detail={manques[x.cle]?.detail ?? ''} />} />
+            ))}
+          </Tabs>
+        )}
       </Box>
       <AvecCommentaires actif={espace === 'budget' && !!ligne.base} magasin={ligne.magasin} annee={annee} moi={profil}>
       {(commentaires, ouvertsC) => (<>
@@ -478,6 +516,7 @@ export function Magasin() {
 
       <AvecImpact panneau={panneau} commentaires={commentaires} cote={impactACote}>
       {onglet === 'synthese' ? (
+        <Stack spacing={3}>
         <SyntheseMagasin key={ligne.magasin} magasin={ligne.magasin} d={d} annee={anneeEnCours} parametres={donnees.parametresN} allerA={aller}
           visiteEtActions={!franchise && profil?.role !== 'aucun'} proposerAction={!franchise && profil?.role !== 'aucun' ? (intitule) => setProposition({ intitule, n: Date.now() }) : undefined}
           quoiFaire={<>
@@ -504,27 +543,39 @@ export function Magasin() {
             <FamillesReseau key={`familles-${ligne.magasin}`} magasin={ligne.magasin} directeur={directeur} />
           </>}
         />
-      ) : onglet === 'stock' ? (
-        <Stack spacing={2}>
-          <ToggleButtonGroup exclusive size="small" value={anneeReel} onChange={(_, v: number | null) => v && setAnneeReel(v)} aria-label="Année du stock">
-            {[anneeEnCours, anneeEnCours - 1].map((a) => <ToggleButton key={a} value={a} sx={{ minHeight: 48, minWidth: 72 }}>{a}</ToggleButton>)}
-          </ToggleButtonGroup>
-          <StockMagasin key={`${ligne.magasin}-${anneeReel}`} magasin={ligne.magasin} annee={anneeReel} peutSaisir={peutSaisir} />
+        {/* Option A (Joseph, 03/11/2026) : le Suivi sur une page ; atterrissage, trésorerie et stock en sections repliées,
+            ouvertes d'office quand un lien y mène */}
+        {alerteMessage}
+        {SECTIONS_SUIVI(anneeEnCours).map((x) => (
+          <Box key={`${x.cle}-${sectionOuverte === x.cle}`} id={`partie-${x.cle}`} sx={{ scrollMarginTop: 80 }}>
+            <Repliable titre={x.libelle} nom={x.libelle} ouvert={sectionOuverte === x.cle}
+              droite={manques[x.cle] ? <Typography variant="body2" color="warning.dark" sx={{ fontWeight: 700 }}>{manques[x.cle]!.detail === 'budget à proposer' ? 'Budget à proposer' : manques[x.cle]!.detail}</Typography> : undefined}>
+              <Box sx={{ px: { xs: 2, md: 2.5 }, pb: 2.5 }}>
+                {x.cle === 'atterrissage' ? (
+                  <AtterrissageMagasin
+                    key={ligne.magasin} ligne={ligne} d={d} annee={anneeEnCours} anneeBudget={annee} parametres={donnees.parametresN}
+                    directeur={directeur} peutSaisir={peutSaisir} allerA={aller} apresProposition={recharger} repartition={ligne.ajustements.poidsMois}
+                  />
+                ) : x.cle === 'tresorerie' ? (
+                  <Stack spacing={2}>
+                    {anneeChoix(anneeQuadri, (v) => setAnneeQuadri(v), 'Année de la trésorerie')}
+                    <QuadrimestresMagasin key={`${ligne.magasin}-${anneeQuadri}-tresorerie`} magasin={ligne.magasin} annee={anneeQuadri} peutSaisir={peutSaisir} vue="tresorerie" />
+                  </Stack>
+                ) : (
+                  <Stack spacing={2}>
+                    {anneeChoix(anneeReel, (v) => setAnneeReel(v), 'Année du stock')}
+                    <StockMagasin key={`${ligne.magasin}-${anneeReel}`} magasin={ligne.magasin} annee={anneeReel} peutSaisir={false} />
+                  </Stack>
+                )}
+              </Box>
+            </Repliable>
+          </Box>
+        ))}
         </Stack>
-      ) : onglet === 'tresorerie' ? (
+      ) : onglet === 'saisieStock' ? (
         <Stack spacing={2}>
-          {anneeChoix(anneeQuadri, (v) => setAnneeQuadri(v), 'Année de la trésorerie')}
-          <QuadrimestresMagasin key={`${ligne.magasin}-${anneeQuadri}-tresorerie`} magasin={ligne.magasin} annee={anneeQuadri} peutSaisir={peutSaisir} vue="tresorerie" />
-        </Stack>
-      ) : onglet === 'atterrissage' ? (
-        <Stack spacing={3}>
-          {alerteMessage}
-          {/* Joseph (03/11/2026) : l'atterrissage de l'année en cours est dans le Suivi ; ses mois restants suivent la
-              répartition par mois saisie pour le magasin */}
-          <AtterrissageMagasin
-            key={ligne.magasin} ligne={ligne} d={d} annee={anneeEnCours} anneeBudget={annee} parametres={donnees.parametresN}
-            directeur={directeur} peutSaisir={peutSaisir} allerA={aller} apresProposition={recharger} repartition={ligne.ajustements.poidsMois}
-          />
+          {anneeChoix(anneeReel, (v) => setAnneeReel(v), 'Année du stock')}
+          <StockMagasin key={`${ligne.magasin}-${anneeReel}-saisie`} magasin={ligne.magasin} annee={anneeReel} peutSaisir={peutSaisir} />
         </Stack>
       ) : onglet === 'reel' ? (
         <Stack spacing={2}>

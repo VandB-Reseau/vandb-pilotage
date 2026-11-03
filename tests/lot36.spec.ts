@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { magasinFictif, MAGASINS } from './donnees-fictives'
-import { allerVers, ongletEspace, ouvrir, partieAffichee, partiesAffichees, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule } from './supabase-simule'
+import { allerVers, ongletEspace, ouvrir, ouvrirSection, partieAffichee, partiesAffichees, seConnecter, textesTropPetits, zonesTropPetites, type MagasinSimule } from './supabase-simule'
 
 // Lot 36 (Joseph, 02/11/2026) : trois espaces séparés, Données (ce qui entre), Budget (de l'atterrissage de l'année en
 // cours aux hypothèses de l'an prochain), Suivi (réel face au budget). Chaque partie a son adresse. Données fictives.
@@ -29,16 +29,17 @@ test('trois espaces : le magasin ouvert reste le même, chaque espace a ses page
 
   await ouvrir(page, 'Réel')
   await expect(page.getByRole('heading', { level: 1, name: MAGASINS[0] })).toBeVisible()
-  await expect(partiesAffichees(page)).toHaveText([/^Réel du mois/, /^Comptes du quadrimestre/, /^Frais/])
+  await expect(partiesAffichees(page)).toHaveText([/^Réel du mois/, /^Stock de fin de mois/, /^Comptes du quadrimestre/, /^Frais/])
   await page.screenshot({ path: `captures/${info.project.name}-espace-donnees.png`, fullPage: true })
 
   // Joseph (03/11/2026) : le menu de gauche ne montre que les thèmes du réseau ; les espaces sont des onglets de la fiche
   if (!isMobile) {
     const menu = page.getByRole('navigation', { name: 'Menu principal' })
-    await expect(menu.getByRole('link')).toHaveText([/^Campagne \d{4}/, /^Hypothèses du réseau/, /^Réel du réseau/, /^Imports de caisse/, /^Paramètres réseau/])
+    await expect(menu.getByRole('link')).toHaveText([/^Magasins/, /^Réel du réseau/, /^Hypothèses du réseau/, /^Imports de caisse/, /^Paramètres réseau/])
   }
   await ongletEspace(page, 'Suivi').click()
-  await expect(partiesAffichees(page)).toHaveText([/^Où en est le magasin/, /^Atterrissage \d{4}/, /^Stock$/, /^Trésorerie/])
+  // Option A (03/11/2026) : le Suivi tient sur une page, sans seconde rangée d'onglets
+  await expect(page.getByRole('navigation', { name: 'Pages du magasin' }).getByRole('tablist')).toHaveCount(1)
   await expect(page).toHaveURL(/\/synthese$/)
 })
 
@@ -78,7 +79,7 @@ test('téléphone : les trois espaces en onglets de la fiche, les thèmes du ré
   test.skip(!isMobile, 'téléphone seulement')
   await seConnecter(page, { magasins: [propose] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await expect(page.getByRole('navigation', { name: 'Pages du magasin' }).getByRole('tablist', { name: 'Espaces du magasin' }).getByRole('tab')).toHaveText(['Données', 'Budget', 'Suivi'])
+  await expect(page.getByRole('navigation', { name: 'Pages du magasin' }).getByRole('tablist', { name: 'Espaces du magasin' }).getByRole('tab')).toHaveText([/^Suivi \d{4}/, /^Budget \d{4}/, /^Saisies/])
   await expect(page.getByRole('navigation', { name: 'Espaces du pilotage' })).toHaveCount(0)
   await page.getByRole('button', { name: 'Ouvrir le menu' }).click()
   const menu = page.getByRole('navigation', { name: 'Menu principal' })
@@ -87,8 +88,8 @@ test('téléphone : les trois espaces en onglets de la fiche, les thèmes du ré
   expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-menu.png` })
   await page.keyboard.press('Escape')
-  await page.getByRole('navigation', { name: 'Pages du magasin' }).getByRole('tab', { name: /^Trésorerie/ }).click()
-  await expect(page).toHaveURL(/\/tresorerie$/)
+  await ouvrirSection(page, /^Trésorerie$/)
+  await expect(page).toHaveURL(/\/synthese$/)
   await allerVers(page, 'Réel du réseau')
   await expect(page.getByRole('heading', { level: 1, name: 'Réseau' })).toBeVisible()
 })

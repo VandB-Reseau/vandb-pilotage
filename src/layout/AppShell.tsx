@@ -33,7 +33,6 @@ import { useAuth } from '../auth/AuthContext'
 import { estDirecteur, estEquipe, libelleProfil, seulementParametres, voitParametres } from '../auth/roles'
 import { installerChampSuivant } from '../lib/champSuivant'
 import { magasinDeChemin } from '../lib/navigation'
-import { anneeBudget } from '../data/pilotage'
 import { brandStripe } from '../theme/theme'
 
 const LARGEUR_MENU = 264 // comme l'app réseau (Joseph, 03/11/2026)
@@ -102,26 +101,23 @@ export function AppShell({ children }: { children: ReactNode }) {
   const sousTitre = (t: string) => (
     <ListSubheader disableSticky sx={{ bgcolor: 'transparent', lineHeight: '36px', fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'text.secondary', px: 1 }}>{t}</ListSubheader>
   )
-  // Thèmes du réseau ; imports, hypothèses et paramètres au Directeur seul, comme dans l'app réseau
-  const themes: { titre: string; liens: Destination[] }[] = seulementParametres(profil) ? [] : [
-    { titre: 'Budgets', liens: [
-      { chemin: '/', nom: profil?.role === 'franchise' ? 'Mes magasins' : `Campagne ${anneeBudget()}`, icone: <StorefrontOutlined /> },
-      ...(estDirecteur(profil) ? [{ chemin: '/hypotheses', nom: 'Hypothèses du réseau', icone: <TrendingUpOutlined /> }] : []),
-    ] },
-    { titre: 'Suivi', liens: estEquipe(profil) ? [{ chemin: '/reseau', nom: 'Réel du réseau', icone: <LeaderboardOutlined /> }] : [] },
-    { titre: 'Données', liens: estDirecteur(profil) ? [{ chemin: '/imports', nom: 'Imports de caisse', icone: <UploadFileOutlined /> }] : [] },
+  // Option A (Joseph, 03/11/2026) : comme l'app réseau, le menu liste ce qui porte sur tout le réseau ; tout ce qui
+  // concerne un magasin est dans sa fiche. Les réglages du Directeur sont rangés sous « Paramètres ».
+  const principales: Destination[] = seulementParametres(profil) ? [] : [
+    { chemin: '/', nom: profil?.role === 'franchise' ? 'Mes magasins' : 'Magasins', icone: <StorefrontOutlined /> },
+    ...(estEquipe(profil) ? [{ chemin: '/reseau', nom: 'Réel du réseau', icone: <LeaderboardOutlined /> }] : []),
   ]
-  const avecTitres = profil?.role !== 'franchise'
+  const reglages: Destination[] = [
+    ...(estDirecteur(profil) ? [{ chemin: '/hypotheses', nom: 'Hypothèses du réseau', icone: <TrendingUpOutlined /> }] : []),
+    ...(estDirecteur(profil) ? [{ chemin: '/imports', nom: 'Imports de caisse', icone: <UploadFileOutlined /> }] : []),
+    ...(voitParametres(profil) ? [{ chemin: '/parametres', nom: 'Paramètres réseau', icone: <TuneOutlined /> }] : []),
+  ]
   const contenuMenu = (
     <List component="nav" aria-label="Menu principal" dense disablePadding>
-      {themes.filter((t) => t.liens.length).map((t) => (
-        <Box key={t.titre}>
-          {avecTitres && sousTitre(t.titre)}
-          {t.liens.map(lien)}
-        </Box>
-      ))}
-      {voitParametres(profil) && sousTitre('Réglages')}
-      {voitParametres(profil) && lien({ chemin: '/parametres', nom: 'Paramètres réseau', icone: <TuneOutlined /> })}
+      {principales.map(lien)}
+      {reglages.length > 0 && <Divider sx={{ my: 1.5, mx: 1 }} />}
+      {reglages.length > 0 && sousTitre('Paramètres')}
+      {reglages.map(lien)}
     </List>
   )
   const avecMenu = !!profil && (profil.role !== 'aucun' || seulementParametres(profil))

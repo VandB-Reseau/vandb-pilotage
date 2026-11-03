@@ -141,11 +141,12 @@ test('plus de magasin imposé en haut ; barre du haut de l’app réseau', async
   await seConnecter(page)
   const barre = page.getByRole('banner')
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await expect(page.locator('main').getByRole('button', { name: `Changer de magasin (magasin ouvert : ${MAGASINS[0]})` })).toBeVisible()
-  await expect(barre.getByRole('button', { name: /Changer de magasin/ })).toHaveCount(0)
+  // Option A (03/11/2026) : un fil d'Ariane dans la fiche, plus de « Changer de magasin »
+  await expect(page.getByRole('navigation', { name: 'Fil d’Ariane' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Changer de magasin/ })).toHaveCount(0)
   // Retour au réseau : aucun magasin ne reste ouvert
   await page.locator('main').getByRole('link', { name: 'Magasins' }).first().click()
-  await expect(page.locator('main').getByRole('button', { name: /Changer de magasin/ })).toHaveCount(0)
+  await expect(page.getByRole('navigation', { name: 'Fil d’Ariane' })).toHaveCount(0)
   if (!isMobile) {
     await expect(page.getByRole('navigation', { name: 'Pages du magasin' })).toHaveCount(0)
     const haut = await barre.locator('.MuiToolbar-root').boundingBox()
