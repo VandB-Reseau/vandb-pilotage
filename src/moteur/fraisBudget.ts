@@ -18,6 +18,7 @@ export interface LigneFraisBudget {
   tauxCA?: number               // ligne en part du CA : son taux, gardé
   choix: ChoixFrais; parDefaut: boolean
   apres: number                 // montant annuel du budget (lignes en part du CA : 0, calculées sur le CA)
+  depuisPrets?: boolean         // intérêts et capital tirés des prêts du magasin (03/11/2026), sans choix possible
 }
 type Base = Pick<Hypotheses, 'frais' | 'amortissements' | 'interets' | 'remboursementCapital'>
 
@@ -62,4 +63,14 @@ export function fraisDuBudget(base: Base, choix: Record<string, ChoixFrais> | un
     })),
     amortissements: fin('amortissements'), interets: fin('interets'), remboursementCapital: fin('remboursementCapital'),
   }
+}
+
+// Prêts du magasin (03/11/2026) : intérêts et capital de chaque année ajoutés aux lignes sous l'EBE, qui ne gardent
+// des frais que les comptes courants et les agios (voir avecPrets)
+export interface PretsDeuxAnnees { avant: { interets: number; capital: number }; apres: { interets: number; capital: number } }
+export function avecPretsBudget(lignes: LigneFraisBudget[], prets: PretsDeuxAnnees | null | undefined): LigneFraisBudget[] {
+  if (!prets) return lignes
+  return lignes.map((l) => l.code === 'interets' ? { ...l, avant: l.avant + prets.avant.interets, apres: l.apres + prets.apres.interets, depuisPrets: true }
+    : l.code === 'remboursementCapital' ? { ...l, avant: prets.avant.capital, apres: prets.apres.capital, depuisPrets: true }
+    : l)
 }

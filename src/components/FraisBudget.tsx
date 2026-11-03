@@ -21,7 +21,7 @@ import { ChampNombre } from './ChampNombre'
 import { Indicateur } from './Indicateur'
 import { nombre } from '../import/caisse'
 import { enChiffres, milliers, montant, taux } from '../lib/format'
-import { CLES_FINANCES, lignesFraisBudget, type ChoixFrais, type LigneFraisBudget, type ModeFrais } from '../moteur/fraisBudget'
+import { avecPretsBudget, CLES_FINANCES, lignesFraisBudget, type ChoixFrais, type LigneFraisBudget, type ModeFrais, type PretsDeuxAnnees } from '../moteur/fraisBudget'
 import { LIGNES_SUR_CA, lignesActives, lignesFrais, rubriqueLibelle, THEMES_FRAIS, type LigneGrille } from '../moteur/parametres'
 import type { Hypotheses } from '../moteur/types'
 import { styleTableau } from '../theme/tableau'
@@ -32,7 +32,7 @@ const enTexte = (c: ChoixFrais) => (c.valeur === undefined ? '' : enChiffres(Mat
 // Lot 35 (Joseph, 02/11/2026) : frais du budget ligne par ligne, à partir des frais de l'année en cours, dans le même
 // tableau par thème que l'onglet Frais. Chaque ligne : même montant, hausse en %, ou nouveau montant ; sans choix, elle
 // suit l'inflation des frais. Les choix vont dans les ajustements du budget (enregistrés avec la barre du budget).
-export function FraisBudget({ base, choix, inflation, annee, anneeEnCours, lectureSeule, tauxSurCA, onChange, grille = lignesFrais }: {
+export function FraisBudget({ base, choix, inflation, annee, anneeEnCours, lectureSeule, tauxSurCA, onChange, grille = lignesFrais, prets }: {
   base: Pick<Hypotheses, 'frais' | 'amortissements' | 'interets' | 'remboursementCapital'>
   choix: Record<string, ChoixFrais> | undefined
   inflation: number
@@ -42,12 +42,13 @@ export function FraisBudget({ base, choix, inflation, annee, anneeEnCours, lectu
   tauxSurCA: { publicite: number; redevance: number }
   onChange: (c: Record<string, ChoixFrais> | undefined) => void
   grille?: LigneGrille[]  // grille des frais de l'année (lot 40)
+  prets?: PretsDeuxAnnees | null  // prêts du magasin : intérêts et capital des deux années
 }) {
   const [replies, setReplies] = useState<Set<string>>(new Set())
   // Texte en cours de saisie, par ligne : gardé tant qu'il n'est pas un nombre lisible
   const [textes, setTextes] = useState<Record<string, string>>({})
   const [ajout, setAjout] = useState<{ ancre: HTMLElement; theme: string } | null>(null)
-  const lignes = lignesFraisBudget(base, choix, inflation, grille)
+  const lignes = avecPretsBudget(lignesFraisBudget(base, choix, inflation, grille), prets)
   const basculer = (cle: string) => setReplies((o) => { const n = new Set(o); if (n.has(cle)) n.delete(cle); else n.add(cle); return n })
 
   const ecrire = (code: string, c: ChoixFrais | null) => {
@@ -82,6 +83,7 @@ export function FraisBudget({ base, choix, inflation, annee, anneeEnCours, lectu
 
   const choixLigne = (l: LigneFraisBudget) => {
     if (l.tauxCA !== undefined) return <Typography variant="body2" color="text.secondary">Part du CA gardée</Typography>
+    if (l.depuisPrets) return <Typography variant="body2" color="text.secondary">Calculé depuis les prêts</Typography>
     if (lectureSeule) {
       return <Typography variant="body2" color={l.parDefaut ? 'text.secondary' : 'text.primary'}>
         {l.choix.mode === 'meme' ? 'Même montant' : l.choix.mode === 'taux' ? `${taux(l.choix.valeur ?? 0)}${l.parDefaut ? ' (inflation)' : ''}` : 'Nouveau montant'}

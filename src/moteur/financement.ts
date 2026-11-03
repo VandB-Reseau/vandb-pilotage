@@ -1,9 +1,12 @@
-import type { Apport, Emprunt, Financement, Hypotheses, Investissement } from './types'
+import type { Apport, Emprunt, Financement, Hypotheses, Investissement, Pret } from './types'
 
 // Investissements & Financements (Joseph, 03/11/2026). Fonctions pures, testées dans tests/moteur/financement.spec.ts.
 // - Investissement : payé HT le mois de sa mise en service, amorti en ligne sur sa durée à partir de ce mois
 //   (dotation de l'année = montant ÷ durée × mois restants ÷ 12, mois de mise en service compris).
 // - Nouvel emprunt : échéances mensuelles constantes ; capital encaissé le mois précédant la première échéance.
+// - Prêts du magasin (fiche du magasin) : leur échéancier de l'année, prêt par prêt. Un prêt saisi est déjà dépensé
+//   (Joseph, 03/11/2026) : il n'entre jamais en trésorerie, seules ses échéances sortent. Ils remplacent les intérêts
+//   d'emprunts et le capital des frais (voir avecPrets).
 // - Emprunts en cours : intérêts et capital annuels repris des frais, payés par douzième jusqu'au dernier mois s'il est
 //   saisi (un emprunt qui finit en avril ne compte que 4 mois).
 // - Capacité d'autofinancement (CAF) = résultat net + dotations ; trésorerie dégagée = CAF − capital remboursé ;
@@ -40,6 +43,71 @@ export function echeancier(e: Emprunt): { interets: number[]; capital: number[];
   return { interets, capital, echeance, encaisse: Math.max(0, e.premiereEcheance - 2) }
 }
 
+// ── Prêts du magasin (Joseph, 03/11/2026) : un échéancier mois par mois, lu pour n'importe quelle année
+const MAX_ECHEANCES = 600
+const moisAbsolu = (aaaamm: string) => { const m = /^(\d{4})-(\d{2})$/.exec(aaaamm); return m && +m[2] >= 1 && +m[2] <= 12 ? +m[1] * 12 + +m[2] - 1 : null }
+export const versAAAAMM = (abs: number) => `${Math.floor(abs / 12)}-${String((abs % 12) + 1).padStart(2, '0')}`
+export function pretValide(p: Pret): boolean {
+  if (moisAbsolu(p.debut) === null || !(positif(p.montant) > 0)) return false
+  return p.mode === 'restant' ? positif(p.mensualite) > positif(p.montant) * positif(p.taux) / 12 : positif(p.duree) * 12 > Math.max(0, p.differe ?? 0)
+}
+export const pretsValides = (l: Pret[] | undefined) => (l ?? []).filter(pretValide)
+// Échéance d'amortissement constante (après le différé) ; « restant » : la mensualité saisie
+export function mensualitePret(p: Pret): number {
+  if (p.mode === 'restant') return positif(p.mensualite)
+  const d = Math.max(0, Math.round(p.differe ?? 0))
+  return echeanceMensuelle({ montant: p.montant, taux: p.taux, duree: Math.max(0, positif(p.duree) - d / 12) })
+}
+// Toutes les échéances : mois (absolu), intérêts, capital ; plus le mois et le montant encaissés (prêt « initial »)
+export function echeancesPret(p: Pret): { echeances: { mois: number; interets: number; capital: number }[]; encaisse: { mois: number; montant: number } | null } {
+  const debut = moisAbsolu(p.debut)
+  if (debut === null || !pretValide(p)) return { echeances: [], encaisse: null }
+  const r = positif(p.taux) / 12, l: { mois: number; interets: number; capital: number }[] = []
+  let reste = positif(p.montant)
+  if (p.mode === 'restant') {
+    const m = positif(p.mensualite)
+    for (let k = 0; reste > 0.005 && k < MAX_ECHEANCES; k++) {
+      const int = reste * r, cap = Math.min(reste, m - int)
+      l.push({ mois: debut + k, interets: int, capital: cap }); reste -= cap
+    }
+    return { echeances: l, encaisse: null }
+  }
+  const n = Math.round(positif(p.duree) * 12), d = Math.min(n - 1, Math.max(0, Math.round(p.differe ?? 0))), m = mensualitePret(p)
+  for (let k = 0; k < n; k++) {
+    const int = reste * r, cap = k < d ? 0 : k === n - 1 ? reste : Math.min(reste, m - int)
+    l.push({ mois: debut + k, interets: int, capital: cap }); reste -= cap
+  }
+  return { echeances: l, encaisse: { mois: debut - 1, montant: positif(p.montant) } }
+}
+// Dernière échéance (AAAA-MM) et capital restant dû au 1er janvier d'une année
+export function finPret(p: Pret): string | null { const e = echeancesPret(p).echeances; return e.length ? versAAAAMM(e[e.length - 1].mois) : null }
+export function restantDu(p: Pret, annee: number): number {
+  const x = echeancesPret(p), debutAnnee = annee * 12
+  if (x.encaisse && x.encaisse.mois >= debutAnnee) return 0
+  return Math.max(0, positif(p.montant) - somme(x.echeances.filter((e) => e.mois < debutAnnee).map((e) => e.capital)))
+}
+// Intérêts et capital des prêts, mois par mois, sur une année ; « nouveaux » : prêts signés dans l'année (le mois avant
+// leur 1re échéance), « enCours » : les autres. encaissementsMois et montant ne disent que la signature : aucun flux de trésorerie
+export interface PretsAnnee { interetsMois: number[]; capitalMois: number[]; encaissementsMois: number[]; enCours: { interets: number; capital: number }; nouveaux: { interets: number; capital: number; montant: number } }
+export function pretsDeLAnnee(prets: Pret[] | undefined, annee: number): PretsAnnee {
+  const r: PretsAnnee = { interetsMois: Array(12).fill(0), capitalMois: Array(12).fill(0), encaissementsMois: Array(12).fill(0), enCours: { interets: 0, capital: 0 }, nouveaux: { interets: 0, capital: 0, montant: 0 } }
+  const debutAnnee = annee * 12
+  for (const p of pretsValides(prets)) {
+    const x = echeancesPret(p)
+    const nouveau = !!x.encaisse && x.encaisse.mois >= debutAnnee && x.encaisse.mois < debutAnnee + 12
+    if (x.encaisse && x.encaisse.mois >= debutAnnee + 12) continue
+    if (nouveau) { r.encaissementsMois[x.encaisse!.mois - debutAnnee] += x.encaisse!.montant; r.nouveaux.montant += x.encaisse!.montant }
+    for (const e of x.echeances) {
+      const i = e.mois - debutAnnee
+      if (i < 0 || i > 11) continue
+      r.interetsMois[i] += e.interets; r.capitalMois[i] += e.capital
+      const cible = nouveau ? r.nouveaux : r.enCours
+      cible.interets += e.interets; cible.capital += e.capital
+    }
+  }
+  return r
+}
+
 // Investissement des travaux : payé le premier mois touché par les travaux (janvier sans fermeture)
 export function moisTravaux(t: Hypotheses['travaux']): number {
   if (!t?.investissement) return -1
@@ -47,12 +115,15 @@ export function moisTravaux(t: Hypotheses['travaux']): number {
 }
 
 // Tout le financement de l'année, sauf la CAF qui dépend du résultat net (voir avecCAF)
-export function financementDe(h: Pick<Hypotheses, 'amortissements' | 'interets' | 'remboursementCapital' | 'finEmpruntsEnCours' | 'investissements' | 'emprunts' | 'apport' | 'travaux'>, dotationTravaux: number): Omit<Financement, 'echeancesSurCAF' | 'variation'> {
-  const fin = moisValide(h.finEmpruntsEnCours ?? 0) ? h.finEmpruntsEnCours! : 12
+export function financementDe(h: Pick<Hypotheses, 'annee' | 'amortissements' | 'interets' | 'remboursementCapital' | 'finEmpruntsEnCours' | 'investissements' | 'emprunts' | 'apport' | 'travaux' | 'prets'>, dotationTravaux: number): Omit<Financement, 'echeancesSurCAF' | 'variation'> {
+  // Avec des prêts saisis, leur échéancier fait foi : le « dernier mois des emprunts en cours » ne sert plus
+  const prets = h.prets?.length ? pretsDeLAnnee(h.prets, h.annee) : null
+  const fin = !prets && moisValide(h.finEmpruntsEnCours ?? 0) ? h.finEmpruntsEnCours! : 12
   const parMois = (annuel: number) => Array.from({ length: 12 }, (_, i) => (i < fin ? positif(annuel) / 12 : 0))
   const interetsMois = parMois(h.interets), capitalMois = parMois(h.remboursementCapital)
-  const interetsEnCours = somme(interetsMois), capitalEnCours = somme(capitalMois)
-  const encaissementsMois = Array(12).fill(0)
+  if (prets) prets.interetsMois.forEach((_, i) => { interetsMois[i] += prets.interetsMois[i]; capitalMois[i] += prets.capitalMois[i] })
+  const interetsEnCours = somme(interetsMois) - (prets?.nouveaux.interets ?? 0), capitalEnCours = somme(capitalMois) - (prets?.nouveaux.capital ?? 0)
+  const encaissementsMois = Array(12).fill(0)   // les prêts du magasin n'apportent pas d'argent
   for (const e of empruntsValides(h.emprunts)) {
     const x = echeancier(e)
     x.interets.forEach((v, i) => { interetsMois[i] += v })
@@ -82,4 +153,18 @@ export function financementDe(h: Pick<Hypotheses, 'amortissements' | 'interets' 
 export function avecCAF(f: Omit<Financement, 'echeancesSurCAF' | 'variation'>, caf: number): Financement {
   const degagee = caf - (f.capitalEnCours + f.capitalNouveau)
   return { ...f, echeancesSurCAF: caf > 0 ? f.echeances / caf : null, variation: degagee - f.investissements + f.nouveauxEmprunts + f.apport }
+}
+
+// Les prêts saisis remplacent la ligne « Intérêts sur emprunts » et le capital remboursé des frais ou des comptes :
+// interets ne garde que les comptes courants et les agios (autresInterets), remboursementCapital passe à 0
+export function avecPrets<T extends Pick<Hypotheses, 'interets' | 'remboursementCapital' | 'prets'>>(h: T, prets: Pret[] | undefined, autresInterets: number): T {
+  if (!pretsValides(prets).length) return h
+  return { ...h, prets: pretsValides(prets), interets: positif(autresInterets), remboursementCapital: 0 }
+}
+
+// Intérêts et capital des prêts sur deux années (frais de l'année en cours face au budget) ; null sans prêt saisi
+export function pretsDeuxAnnees(prets: Pret[] | undefined, anneeAvant: number, anneeApres: number): { avant: { interets: number; capital: number }; apres: { interets: number; capital: number } } | null {
+  if (!pretsValides(prets).length) return null
+  const total = (a: number) => { const x = pretsDeLAnnee(prets, a); return { interets: x.enCours.interets + x.nouveaux.interets, capital: x.enCours.capital + x.nouveaux.capital } }
+  return { avant: total(anneeAvant), apres: total(anneeApres) }
 }

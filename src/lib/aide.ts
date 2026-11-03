@@ -526,9 +526,15 @@ export const AIDE = {
   },
   emprunts: {
     titre: 'Financements',
-    quoi: 'Les nouveaux emprunts de l’année, un apport du franchisé, et les emprunts déjà en cours.',
-    remplir: 'Pour un emprunt : montant, taux annuel, durée en années, mois de la première échéance. Pour les emprunts en cours, repris des frais : le mois de la dernière échéance s’ils finissent dans l’année.',
-    calcul: 'Échéances mensuelles constantes : intérêts sous l’EBE, capital dans la trésorerie. Le capital emprunté arrive le mois avant la première échéance ; un apport entre en trésorerie sans toucher au résultat.',
+    quoi: 'Les prêts du magasin, un apport du franchisé dans l’année. Sans prêt saisi, les emprunts en cours sont repris des frais.',
+    remplir: 'Les prêts se saisissent une fois, avec leur date (voir Prêts du magasin). L’apport : son montant et le mois où il arrive. Sans prêt saisi, pour les emprunts en cours repris des frais : le mois de la dernière échéance s’ils finissent dans l’année.',
+    calcul: 'Intérêts sous l’EBE, capital dans la trésorerie. Un apport entre en trésorerie sans toucher au résultat.',
+  },
+  prets: {
+    titre: 'Prêts du magasin',
+    quoi: 'Chaque prêt du magasin, saisi une fois : ses intérêts et son capital se calculent pour l’année en cours, le budget et les années suivantes.',
+    remplir: 'D’après le tableau d’amortissement de la banque : montant emprunté, taux, durée, mois de la 1re échéance, différé éventuel (mois où l’on ne paie que les intérêts). Sans le tableau : le capital restant dû juste avant la prochaine échéance, et la mensualité.',
+    calcul: 'Échéances mensuelles constantes au taux fixe saisi. Intérêts du mois = capital restant dû × taux ÷ 12, le reste de l’échéance rembourse le capital. Un prêt saisi est déjà dépensé : il n’apporte pas d’argent en trésorerie, seules ses échéances en sortent. Dès qu’un prêt est saisi, les lignes « Intérêts sur emprunts » et « Capital remboursé » des frais en sont tirées ; les intérêts de comptes courants et les agios restent ceux des frais. Taux variables, échéances trimestrielles et crédit-bail ne sont pas gérés (le crédit-bail reste un loyer dans les charges externes).',
   },
   caf: {
     titre: 'Capacité d’autofinancement',

@@ -69,7 +69,7 @@ export function VersionsBudget({ ligne, d, annee, parametres, budget, ajustement
   }
   const enregistrer = async () => {
     if (!nom?.trim() || !ligne.base) return
-    const base = avecEquipeEtFrais(ligne.base, d.equipes[ligne.magasin], d.frais[ligne.magasin], d.comptes?.[ligne.magasin])
+    const base = avecEquipeEtFrais(ligne.base, d.equipes[ligne.magasin], d.frais[ligne.magasin], d.comptes?.[ligne.magasin], d.prets?.[ligne.magasin])
     if (await agir(() => enregistrerVersionNommee(ligne.magasin, annee, nom, base, ajustements), `Version « ${nom.trim()} » enregistrée.`)) setNom(null)
   }
 

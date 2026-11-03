@@ -82,7 +82,7 @@ export function SuiviBudget({ magasin, annee, allerA, muetSansReel, vue: partie 
   const n1 = moisDuReel(donnees.reelN1.lignes, donnees.reelN1.tickets).map((m) => (m.caHT > 0 ? m.caHT : null))
   const niveauxCA = s.mois.map((l) => niveauEcart(l.caReel, l.caBudget, seuil))
   // R2 : atterrissage de l'année (réel, puis projection) face au budget cumulé
-  const a = atterrissageDe({ n: donnees.reel, n1: donnees.reelN1 }, annee, donnees.d.equipes[magasin], donnees.d.frais[magasin], donnees.parametres, donnees.secours)
+  const a = atterrissageDe({ n: donnees.reel, n1: donnees.reelN1 }, annee, donnees.d.equipes[magasin], donnees.d.frais[magasin], donnees.parametres, donnees.secours, donnees.d.prets?.[magasin])
   const projection = a ? santeMagasin(donnees.reel, donnees.reelN1, a.budget).projection : null
   const atterri = projection ? cumulApres(s.mois.map((l) => l.caReel), projection) : null
   const finAtterri = atterri?.[11] ?? null

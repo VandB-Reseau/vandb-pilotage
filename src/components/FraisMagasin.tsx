@@ -35,6 +35,7 @@ import { nombreChangements } from '../lib/aFaire'
 import { milliers, miseEnForme, montant, taux } from '../lib/format'
 import { ebeApres, fraisDeLAnnee } from '../moteur/effets'
 import type { LigneFraisMagasin } from '../moteur/atterrissage'
+import type { PretsAnnee } from '../moteur/financement'
 import { BLOCS_FRAIS, blocDe, LIGNES_SUR_CA, lignesCourantes, lignesFrais, rubriqueLibelle, THEMES_FRAIS, type LigneGrille } from '../moteur/parametres'
 import {
   ajouterLigne, INTERETS, LIBELLES_FINANCES, lignesDisponibles, lireSaisieFrais, saisieAvecFEC, saisieDepuisLignes, totauxFrais,
@@ -89,7 +90,7 @@ function AjoutTheme({ theme, lignes, onAjouter }: { theme: string; lignes: { cod
 
 // Frais annuels d'un magasin sur la grille du réseau, dans les blocs de l'onglet FFBUD avec leurs sous-totaux ;
 // publicité franchise et royalties calculées sur le CA ; amortissements, intérêts et emprunts sous l'EBE
-export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregistrement, tauxSurCA, budget, grille = lignesFrais }: {
+export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregistrement, tauxSurCA, budget, grille = lignesFrais, prets }: {
   magasin: string
   lignes: LigneFraisMagasin[]
   annee: number
@@ -98,6 +99,7 @@ export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregist
   tauxSurCA: { publicite: number; redevance: number }
   budget?: { annee: number; ca: number; ebe: number }  // budget du magasin, pour l'effet de la saisie sur l'EBE (lot 28)
   grille?: LigneGrille[]  // grille des frais de l'année (lot 40)
+  prets?: PretsAnnee | null  // prêts saisis (03/11/2026) : intérêts d'emprunts et capital de l'année en sont tirés
 }) {
   const [saisie, setSaisie] = useState<SaisieFrais>(() => saisieDepuisLignes(lignes, grille))
   const [message, setMessage] = useState<{ gravite: 'success' | 'error'; texte: string; details?: string[] } | null>(null)
@@ -115,7 +117,12 @@ export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregist
   const t = totauxFrais(saisie, grille)
   const disponibles = lignesDisponibles(saisie, grille)
   const changer = (code: string, l: Partial<ChampFrais>) => setSaisie((s) => ({ ...s, lignes: s.lignes.map((x) => (x.code === code ? { ...x, ...l } : x)) }))
-  const valeurFinance = (k: keyof SaisieFrais['finances']) => nombre(saisie.finances[k]) ?? 0
+  // Avec des prêts saisis, les intérêts d'emprunts et le capital viennent de leur échéancier, en lecture seule
+  const depuisPrets = (k: keyof SaisieFrais['finances']) => !!prets && (k === 'interets' || k === 'remboursementCapital')
+  const valeurFinance = (k: keyof SaisieFrais['finances']) => !prets ? nombre(saisie.finances[k]) ?? 0
+    : k === 'interets' ? prets.enCours.interets + prets.nouveaux.interets
+    : k === 'remboursementCapital' ? prets.enCours.capital + prets.nouveaux.capital
+    : nombre(saisie.finances[k]) ?? 0
 
   const enregistrer = async () => {
     const lu = lireSaisieFrais(saisie, lignes)
@@ -200,7 +207,16 @@ export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregist
       )}
     </TableRow>
   )
-  const ligneFinance = (k: keyof SaisieFrais['finances']) => peutSaisir ? (
+  const ligneFinance = (k: keyof SaisieFrais['finances']) => depuisPrets(k) ? (
+    <TableRow key={k}>
+      <TableCell sx={{ pl: '40px !important', whiteSpace: 'normal' }}>
+        <Box component="span" sx={{ display: 'block' }}>{LIBELLES_FINANCES[k]}</Box>
+        <Box component="span" sx={{ display: 'block', fontSize: '0.8125rem', color: 'text.secondary' }}>Calculé depuis les prêts du magasin</Box>
+      </TableCell>
+      <TableCell align="right" sx={{ color: 'text.secondary' }}>{montant(valeurFinance(k))}</TableCell>
+      {peutSaisir && <TableCell />}
+    </TableRow>
+  ) : peutSaisir ? (
     <TableRow key={k}>
       <TableCell sx={{ pl: '40px !important' }}>{LIBELLES_FINANCES[k]}</TableCell>
       <TableCell align="right" sx={{ py: '2px !important' }}>

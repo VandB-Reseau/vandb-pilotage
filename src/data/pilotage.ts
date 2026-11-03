@@ -7,7 +7,7 @@ import { trancheMillesime, type Ouverture } from '../moteur/projection'
 import { alignerSurGrille, completerGrille, grilleDe, lignesFrais, parametresParDefaut } from '../moteur/parametres'
 import { reglesDe, reglesParDefaut } from '../moteur/regles'
 import type { TicketsMois, VenteMois } from '../import/caisse'
-import { baseDepuisReel, fraisDepuisLignes, saisonnaliteMediane, type LigneFraisMagasin, type ReelAnnees, type SecoursAtterrissage } from '../moteur/atterrissage'
+import { autresInterets, baseDepuisReel, fraisDepuisLignes, saisonnaliteMediane, type LigneFraisMagasin, type ReelAnnees, type SecoursAtterrissage } from '../moteur/atterrissage'
 import type { Categorie, ParametresCharges, Personne } from '../moteur/equipe'
 import type { LigneReel, TicketsReel } from '../moteur/reel'
 import { NON_DETAILLE, repartirNonDetaille } from '../moteur/repartition'
@@ -21,7 +21,8 @@ import type { StockSaisi } from '../moteur/stock'
 import { actionSerie, ecartAtterrissage, type Action as ActionSerie, type EtatFiche } from '../moteur/preparation'
 import { syntheseReel } from '../moteur/reel'
 import { reelEnRetard } from '../lib/aFaire'
-import type { Famille, Hypotheses, ParametresReseau, Univers } from '../moteur/types'
+import type { Famille, Hypotheses, ParametresReseau, Pret, Univers } from '../moteur/types'
+import { avecPrets } from '../moteur/financement'
 import { avecReprise, comptesAnnee, tresorerieDepartEstimee, type ComptesAnnee, type DepartEstime } from '../moteur/reprise'
 
 export type Statut = 'propose' | 'en_discussion' | 'valide'
@@ -47,6 +48,7 @@ export interface DonneesBudgets {
   magasins: LigneMagasin[]; reseau: Cibles | null; groupes: Groupe[]; equipes: Record<string, Personne[]>; frais: Record<string, LigneFraisMagasin[]>
   ouvertures?: Record<string, Ouverture> // date d'ouverture des magasins (lot 24)
   comptes?: Record<string, ComptesAnnee> // lot 42 : comptes de l'année d'avant celle des budgets (reprise, trésorerie de départ)
+  prets?: Record<string, Pret[]>        // prêts du magasin (migration 0026)
 }
 
 // Les budgets se préparent à partir de septembre pour l'année suivante
@@ -81,8 +83,9 @@ const objet = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 
 
 export const chargerBudgets = (annee: number): Promise<DonneesBudgets> => memo(`budgets|${annee}`, () => lireBudgets(annee))
 async function lireBudgets(annee: number): Promise<DonneesBudgets> {
-  const [{ data, error }, equipes, fraisEnregistres, ouvertures, comptes, { parametres }] = await Promise.all([
+  const [{ data, error }, equipes, fraisEnregistres, ouvertures, comptes, { parametres }, prets] = await Promise.all([
     pilotage().rpc('budgets_du_compte', { p_annee: annee }), chargerEquipes(), chargerFrais(), chargerOuvertures(), chargerComptes(annee - 1), chargerParametres(annee),
+    chargerPrets().catch(() => ({} as Record<string, Pret[]>)),
   ])
   // Lot 40 : les lignes de frais prennent le libellé et le thème de la grille de l'année
   const grille = grilleDe(parametres)
@@ -105,6 +108,7 @@ async function lireBudgets(annee: number): Promise<DonneesBudgets> {
     equipes,
     frais,
     comptes,
+    prets,
   }
 }
 
@@ -128,22 +132,23 @@ export function niveauxDe(ligne: LigneMagasin, d: DonneesBudgets, ajustements: C
 
 // Hypothèses qui font foi : figées une fois le budget validé, sinon recalculées avec les cibles du moment
 // L'équipe et les frais enregistrés du magasin remplacent ceux de sa base ; un budget validé garde ceux du jour de la validation.
-export function avecEquipeEtFrais(base: Hypotheses, equipe: Personne[] | undefined, frais: LigneFraisMagasin[] | undefined, comptes?: ComptesAnnee | null): Hypotheses {
+export function avecEquipeEtFrais(base: Hypotheses, equipe: Personne[] | undefined, frais: LigneFraisMagasin[] | undefined, comptes?: ComptesAnnee | null, prets?: Pret[]): Hypotheses {
   // Lot 42 : faute d'équipe ou de frais saisis, ceux des comptes de l'année en cours
   let h = comptes ? avecReprise(base, comptes, { equipe: !!equipe?.length, frais: !!frais?.length }) : base
   h = equipe?.length ? { ...h, equipe } : h
   if (frais?.length) { const f = fraisDepuisLignes(frais); h = { ...h, frais: f.frais, ...f.finances } }
-  return h
+  // Joseph (03/11/2026) : les prêts du magasin remplacent intérêts d'emprunts et capital des frais, pour toute année
+  return avecPrets(h, prets, autresInterets(frais))
 }
 // Atterrissage de l'année d'un magasin : réel des mois passés, projection, équipe et frais enregistrés
-export function atterrissageDe(reel: ReelAnnees, annee: number, equipe: Personne[] | undefined, frais: LigneFraisMagasin[] | undefined, parametres: ParametresReseau, secours?: SecoursAtterrissage) {
+export function atterrissageDe(reel: ReelAnnees, annee: number, equipe: Personne[] | undefined, frais: LigneFraisMagasin[] | undefined, parametres: ParametresReseau, secours?: SecoursAtterrissage, prets?: Pret[]) {
   const r = baseDepuisReel(reel, annee, [], undefined, secours, reglesDe(parametres))
   if (!r) return null
-  const hypotheses = avecEquipeEtFrais(r.base, equipe, frais)
+  const hypotheses = avecEquipeEtFrais(r.base, equipe, frais, undefined, prets)
   return { ...r, hypotheses, budget: calculerBudget(hypotheses, parametres) }
 }
 export function hypothesesDe(ligne: LigneMagasin, d: DonneesBudgets, ajustements?: Cibles): { hypotheses: Hypotheses; provenance: Provenance[] } | null {
-  const base = ligne.base ? avecEquipeEtFrais(ligne.base, d.equipes[ligne.magasin], d.frais[ligne.magasin], d.comptes?.[ligne.magasin]) : null
+  const base = ligne.base ? avecEquipeEtFrais(ligne.base, d.equipes[ligne.magasin], d.frais[ligne.magasin], d.comptes?.[ligne.magasin], d.prets?.[ligne.magasin]) : null
   if (base && !(ligne.statut === 'valide' && ligne.figees)) return appliquerCibles(base, niveauxDe(ligne, d, ajustements))
   if (ligne.figees) return { hypotheses: ligne.figees, provenance: ligne.base ? appliquerCibles(ligne.base, niveauxDe(ligne, d, ajustements)).provenance : [] }
   return null
@@ -154,7 +159,7 @@ export function departEstime(ligne: LigneMagasin, d: DonneesBudgets, parametres:
   if (!ligne.base || ligne.ajustements.tresorerieDepart !== undefined) return null
   if (ligne.statut === 'valide' && ligne.figees) return ligne.figees.departEstime ?? null
   const comptes = d.comptes?.[ligne.magasin]
-  return tresorerieDepartEstimee(avecEquipeEtFrais(ligne.base, d.equipes[ligne.magasin], d.frais[ligne.magasin], comptes), comptes, parametres)
+  return tresorerieDepartEstimee(avecEquipeEtFrais(ligne.base, d.equipes[ligne.magasin], d.frais[ligne.magasin], comptes, d.prets?.[ligne.magasin]), comptes, parametres)
 }
 export const departTresorerie = (ligne: LigneMagasin, d: DonneesBudgets, parametres: ParametresReseau): number | undefined =>
   ligne.ajustements.tresorerieDepart ?? departEstime(ligne, d, parametres)?.montant
@@ -177,7 +182,7 @@ export async function preparerProposition(ligne: LigneMagasin, d: DonneesBudgets
   const equipe = d.equipes[magasin], frais = d.frais[magasin]
   const base = { ...avecEquipeEtFrais(r.base, undefined, frais), annee: anneeProposee }
   const comptes = d.comptes?.[magasin]
-  const { hypotheses } = appliquerCibles(avecEquipeEtFrais(base, equipe, frais, comptes), niveauxDe(ligne, d))
+  const { hypotheses } = appliquerCibles(avecEquipeEtFrais(base, equipe, frais, comptes, d.prets?.[magasin]), niveauxDe(ligne, d))
   const caAtterri = calculerBudget(avecEquipeEtFrais(base, equipe, frais), parametres).atterrissage
   const avant = ligne.base ? calculerBudget(avecEquipeEtFrais(ligne.base, equipe, frais), parametres).atterrissage : null
   const etat: EtatFiche = { reel: !reelEnRetard(syntheseReel(n.lignes, n.tickets).moisRenseignes), ouverture: !!(secours.ouverture ?? d.ouvertures?.[magasin]), equipe: !!equipe?.length || !!hypotheses.reprise?.personnel, frais: !!frais?.length || !!hypotheses.reprise?.frais }
@@ -486,6 +491,35 @@ export async function enregistrerPersonne(magasin: string, p: Personne) {
 }
 export async function supprimerPersonne(id: number) {
   verifier(await pilotage().from('equipe').delete().eq('id', id))
+}
+
+// ── Prêts du magasin (migration 0026) ; sans la table (migration pas encore passée), aucun prêt
+interface LignePret { id: number; store_name: string; libelle: string; mode: string; montant: unknown; taux: unknown; duree: unknown; debut: string; differe: unknown; mensualite: unknown }
+export async function chargerPrets(): Promise<Record<string, Pret[]>> {
+  const lignes = await toutesLesLignes<LignePret>((de, a) =>
+    pilotage().from('emprunts').select('*').order('id').range(de, a))
+  const r: Record<string, Pret[]> = {}
+  const num = (x: unknown) => (x === null || x === undefined ? 0 : Number(x))
+  for (const l of lignes) {
+    (r[l.store_name] ??= []).push({
+      id: l.id, libelle: l.libelle, mode: l.mode === 'restant' ? 'restant' : 'initial',
+      montant: num(l.montant), taux: num(l.taux), duree: num(l.duree), debut: String(l.debut ?? '').slice(0, 7),
+      differe: num(l.differe), mensualite: num(l.mensualite),
+    })
+  }
+  return r
+}
+export async function enregistrerPret(magasin: string, p: Pret) {
+  const ligne = {
+    store_name: magasin, libelle: p.libelle.trim() || 'Prêt', mode: p.mode, montant: p.montant, taux: p.taux,
+    duree: p.mode === 'initial' ? p.duree : null, debut: `${p.debut}-01`,
+    differe: p.mode === 'initial' ? p.differe ?? 0 : 0, mensualite: p.mode === 'restant' ? p.mensualite ?? 0 : null,
+  }
+  if (p.id) verifier(await pilotage().from('emprunts').update(ligne).eq('id', p.id))
+  else verifier(await pilotage().from('emprunts').insert(ligne))
+}
+export async function supprimerPret(id: number) {
+  verifier(await pilotage().from('emprunts').delete().eq('id', id))
 }
 
 // ── Frais (lot 4)

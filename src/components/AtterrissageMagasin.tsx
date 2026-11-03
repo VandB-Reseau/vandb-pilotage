@@ -87,7 +87,8 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
   const equipe = d.equipes[magasin]
   const frais = d.frais[magasin]
   const comptes = d.comptes?.[magasin]
-  const h = avecEquipeEtFrais(r.base, equipe, frais, comptes)
+  const prets = d.prets?.[magasin]
+  const h = avecEquipeEtFrais(r.base, equipe, frais, comptes, prets)
   const b = calculerBudget(h, parametres)
   const peutProposer = directeur && ligne.statut !== 'valide'
   // Lot 41 (proposition 2) : ce qui manque pour proposer un budget juste ; sans équipe ni frais, l'EBE est incomplet
@@ -104,7 +105,7 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
     setMessage(null)
     try {
       const base = { ...avecEquipeEtFrais(r.base, undefined, frais), annee: anneeBudget }
-      const { hypotheses } = appliquerCibles(avecEquipeEtFrais(base, equipe, frais, comptes), niveauxDe(ligne, d))
+      const { hypotheses } = appliquerCibles(avecEquipeEtFrais(base, equipe, frais, comptes, prets), niveauxDe(ligne, d))
       await proposerBudget(magasin, anneeBudget, base, hypotheses)
       setMessage({ gravite: 'success', texte: `Budget ${anneeBudget} proposé à partir de l’atterrissage ${annee}.` })
       apresProposition()
