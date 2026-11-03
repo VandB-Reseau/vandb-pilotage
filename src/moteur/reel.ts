@@ -25,7 +25,8 @@ export function libelleFamille(s: string): { libelle: string; connue: boolean } 
   return { libelle: t.charAt(0).toUpperCase() + t.slice(1), connue: false }
 }
 
-export interface LigneReel { mois: number; univers: Univers; famille: string; caHT: number; caTTC: number | null; margeHT: number | null }
+// reparti : famille déduite d'un CA saisi par univers (voir repartition.ts), jamais enregistrée telle quelle
+export interface LigneReel { mois: number; univers: Univers; famille: string; caHT: number; caTTC: number | null; margeHT: number | null; reparti?: true }
 export interface TicketsReel { mois: number; univers: Univers; tickets: number }
 
 export interface SyntheseMois { mois: number; caHT: number; margeHT: number; caTTC: number; tickets: number; panierTTC: number | null }

@@ -91,9 +91,14 @@ test('vue réseau : classement, total, tri, filtre par Coach et retour', async (
   await expect(lignes.nth(3)).toContainText(MAGASINS[0])
   await expect(lignes.nth(3)).toContainText(/\+17,5\s%/)              // 94 000 / 80 000 − 1
   await expect(lignes.nth(3)).toContainText(/[-−]2,1\s%/)
+  await expect(lignes.nth(4)).toContainText(/[-−]33,3\s%/)             // 30 000 / 45 000 − 1 (budget sans évolution)
+  // Vue « Clients » (03/11/2026) : paniers et tickets
+  const vues = page.getByRole('group', { name: 'Vue du classement' })
+  await vues.getByRole('button', { name: 'Clients' }).click()
+  expect(page.url()).toContain('vue=clients')
   await expect(lignes.nth(3)).toContainText(/18,00\s€/)                // panier Cave : 36 000 € TTC / 2 000 tickets (janvier), le Bar à part
   await expect(lignes.nth(3)).toContainText(/\+25,0\s%/)              // tickets Cave : 2 000 / 1 600 l'an dernier − 1
-  await expect(lignes.nth(4)).toContainText(/[-−]33,3\s%/)             // 30 000 / 45 000 − 1 (budget sans évolution)
+  await vues.getByRole('button', { name: 'Ventes' }).click()
   await expect(lignes.nth(5)).toContainText(MAGASINS[2])
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
@@ -106,7 +111,7 @@ test('vue réseau : classement, total, tri, filtre par Coach et retour', async (
   await expect(lignes.nth(5)).toContainText(MAGASINS[2])
 
   await page.getByLabel('Coach', { exact: true }).click()
-  await page.getByRole('option', { name: 'Coach Nord' }).click()
+  await page.getByRole('option', { name: /^Coach Nord/ }).click()
   await expect(lignes).toHaveCount(4)
   await expect(lignes.nth(1)).toContainText('Total de la sélection')
   await tableau.getByRole('link', { name: MAGASINS[0] }).click()

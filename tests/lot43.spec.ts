@@ -33,12 +33,15 @@ test('Directeur : la campagne par étape et par Responsable Régional, dépliée
   const bandeau = page.getByRole('region', { name: `Campagne des budgets ${N + 1}` })
   await expect(bandeau).toContainText('1 validé sur 3')
   await expect(bandeau).toContainText('1 en retard')
-  const etapes = bandeau.getByRole('group', { name: 'Étapes de la campagne' })
-  await expect(etapes.getByRole('button')).toHaveText(['À proposer · 1', 'Chez le franchisé · 1', 'Retour du franchisé · 0', 'Validés · 1', 'En retard · 1'])
+  // Allègement (03/11/2026) : une seule rangée de filtres sous le bandeau porte les étapes
+  await expect(bandeau.getByRole('group', { name: 'Étapes de la campagne' })).toHaveCount(0)
+  const etapes = page.getByRole('group', { name: 'Filtres' })
+  for (const n of ['Tous · 3', 'À proposer · 1', 'Chez le franchisé · 1', 'Validés · 1', 'En retard · 1']) await expect(etapes.getByRole('button', { name: n })).toBeVisible()
   // Les anciens blocs séparés ne sont plus là
   await expect(page.getByRole('region', { name: `Budgets ${N + 1} en chiffres` })).toHaveCount(0)
   await expect(page.getByRole('region', { name: 'Proposer en série' })).toHaveCount(0)
 
+  await bandeau.getByRole('button', { name: 'Par Responsable Régional' }).click()
   const parRR = bandeau.getByRole('table', { name: 'Par Responsable Régional' })
   await expect(parRR.getByRole('row', { name: /^RR Nord/ }).getByRole('cell')).toHaveText(['RR Nord', '2', '1', '1', '0', '0', '1'])
   await parRR.getByRole('button', { name: 'Voir les Coachs de RR Nord' }).click()
@@ -81,6 +84,7 @@ test('Coach : ses magasins un par un, l’étape, les jours d’attente et l’E
     coachs: { [MAGASINS[0]]: 'Coach Alpha', [MAGASINS[1]]: 'Coach Alpha', [MAGASINS[2]]: 'Coach Alpha' },
   })
   const bandeau = page.getByRole('region', { name: `Campagne des budgets ${N + 1}` })
+  await bandeau.getByRole('button', { name: 'Mes magasins, jours d’attente' }).click()
   const mes = bandeau.getByRole('table', { name: 'Mes magasins' })
   const lignes = mes.getByRole('row').filter({ has: page.getByRole('link') })
   // En retard d'abord, puis l'attente la plus longue
@@ -114,6 +118,7 @@ test('Responsable Régional : par Coach, et « Valider en série » quand un bud
     coachs: { [MAGASINS[0]]: 'Coach Alpha', [MAGASINS[1]]: 'Coach Bêta' },
   })
   const bandeau = page.getByRole('region', { name: `Campagne des budgets ${N + 1}` })
+  await bandeau.getByRole('button', { name: 'Par Coach' }).click()
   await expect(bandeau.getByRole('table', { name: 'Par Coach' }).getByRole('row', { name: /^Coach Alpha/ }).getByRole('cell')).toHaveText(['Coach Alpha', '1', '0', '0', '1', '0', '0'])
   await expect(page.getByRole('region', { name: 'Budgets prêts à valider' })).toHaveCount(0)
   await bandeau.getByRole('button', { name: 'Valider en série · 1' }).click()

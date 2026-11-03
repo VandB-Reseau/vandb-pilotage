@@ -20,12 +20,13 @@ import { EtatVide } from './EtatVide'
 import { useSaisieEnCours } from './GardeSaisie'
 import { Indicateur } from './Indicateur'
 import { Panne } from './Panne'
-import { chargerReel, enregistrerMoisReel } from '../data/pilotage'
+import { chargerReel, chargerReelBrut, enregistrerMoisReel } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { ecartTaux, enChiffres, milliers, montant, MOIS, MOIS_LONGS, taux } from '../lib/format'
 import { cumulUnivers, syntheseReel } from '../moteur/reel'
-import { cleVente, famillesASaisir, lireSaisie, saisieDepuisReel, UNIVERS_TICKETS, type ChampsVente, type SaisieMois } from '../moteur/saisieReel'
-import { UNIVERS, universLibelle } from '../moteur/types'
+import { familleUnique, referenceRepartition, type Reference } from '../moteur/repartition'
+import { cleVente, detaillerUnivers, famillesASaisir, lireSaisie, saisieDepuisReel, totalFamilles, UNIVERS_TICKETS, type ChampsVente, type SaisieMois } from '../moteur/saisieReel'
+import { UNIVERS, universLibelle, type Univers } from '../moteur/types'
 import { styleTableau } from '../theme/tableau'
 
 // Texte lu par les lecteurs d'écran seulement
@@ -37,8 +38,10 @@ const panier = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EU
 // Réel d'une année d'un magasin : indicateurs, CA par famille et par mois, saisie d'un mois
 export function ReelAnnee({ magasin, annee, peutSaisir, apresEnregistrement }: { magasin: string; annee: number; peutSaisir: boolean; apresEnregistrement?: () => void }) {
   const { donnees: tout, erreur, chargement, recharger } = useChargement(
-    () => Promise.all([chargerReel(magasin, annee), chargerReel(magasin, annee - 1).catch(() => null)]), [magasin, annee])
+    () => Promise.all([chargerReel(magasin, annee), chargerReel(magasin, annee - 1).catch(() => null), chargerReelBrut(magasin, annee),
+      chargerReelBrut(magasin, annee - 1).catch(() => null)]), [magasin, annee])
   const donnees = tout?.[0]
+  const brut = tout?.[2]
   const [mois, setMois] = useState<number | null>(null)
   const [saisie, setSaisie] = useState<SaisieMois>({ ventes: {}, tickets: {} })
   const [erreursSaisie, setErreursSaisie] = useState<string[]>([])
@@ -65,17 +68,25 @@ export function ReelAnnee({ magasin, annee, peutSaisir, apresEnregistrement }: {
   const surAvant = (e: number | null) => (e === null ? undefined : `${ecartTaux(e)} sur ${annee - 1}`)
   const ouvrir = (m: number) => {
     setMois(m)
-    const depart = saisieDepuisReel(donnees.lignes, donnees.tickets, m)
+    const depart = saisieDepuisReel(brut?.lignes ?? [], donnees.tickets, m)
     setSaisie(depart)
     setInitiale(JSON.stringify(depart))
     setErreursSaisie([])
   }
+  // Référence de la répartition de chaque univers pour le mois ouvert (parts des familles, rapport TTC / HT)
+  const refs: Partial<Record<Univers, Reference | null>> = mois === null ? {} : Object.fromEntries(UNIVERS.map((u) =>
+    [u, referenceRepartition(brut?.lignes ?? [], tout?.[3]?.lignes ?? [], mois, u, annee - 1)]))
+  const ratios = Object.fromEntries(UNIVERS.map((u) => [u, refs[u]?.ratioTTC ?? null])) as Partial<Record<Univers, number | null>>
+  const changerUnivers = (u: Univers, champ: keyof ChampsVente, v: string) =>
+    setSaisie((x) => ({ ...x, parUnivers: { ...x.parUnivers, [u]: { ...(x.parUnivers?.[u] ?? VIDE), [champ]: v } } }))
+  // Mois répartis depuis un CA saisi par univers, pour marquer les cases des familles
+  const repartis = new Set(donnees.lignes.filter((l) => l.reparti).map((l) => `${l.univers}|${l.mois}`))
   const changerVente = (cle: string, champ: keyof ChampsVente, v: string) =>
     setSaisie((x) => ({ ...x, ventes: { ...x.ventes, [cle]: { ...(x.ventes[cle] ?? VIDE), [champ]: v } } }))
 
   const enregistrer = async () => {
     if (mois === null) return
-    const lu = lireSaisie(saisie)
+    const lu = lireSaisie(saisie, ratios)
     setErreursSaisie(lu.erreurs)
     if (lu.erreurs.length) return
     setOccupe(true)
@@ -127,7 +138,8 @@ export function ReelAnnee({ magasin, annee, peutSaisir, apresEnregistrement }: {
           {boutonSaisie && <Box>{boutonSaisie}</Box>}
 
           <Card component="section" aria-label={`CA par famille ${annee}`}>
-            <Typography variant="h2" sx={{ px: 2.5, pt: 2, pb: 1 }}>CA HT par famille</Typography>
+            <Typography variant="h2" sx={{ px: 2.5, pt: 2, pb: repartis.size ? 0 : 1 }}>CA HT par famille</Typography>
+            {repartis.size > 0 && <Typography variant="body2" color="text.secondary" sx={{ px: 2.5, pb: 1 }}>≈ en italique : réparti selon les mois précédents, faute de détail par famille.</Typography>}
             <TableContainer>
               <Table className="colonne-fixe" size="small" aria-label={`Réel ${annee} par famille et par mois`}
                 sx={{ ...styleTableau, '& td:first-of-type, & th:first-of-type': { pl: 2.5, minWidth: 200 } }}>
@@ -164,7 +176,10 @@ export function ReelAnnee({ magasin, annee, peutSaisir, apresEnregistrement }: {
                         {familles.map((f) => (
                           <TableRow key={`${f.univers}/${f.famille}`}>
                             <TableCell sx={{ pl: '40px !important', color: 'text.secondary' }}>{f.famille}<Box component="span" sx={visuellementCache}> ({universLibelle[f.univers]})</Box></TableCell>
-                            {f.parMois.map((v, i) => <TableCell key={i} align="right" sx={{ color: 'text.secondary' }}>{v ? enChiffres(Math.round(v)) : ''}</TableCell>)}
+                            {f.parMois.map((v, i) => {
+                              const r = repartis.has(`${f.univers}|${i + 1}`)
+                              return <TableCell key={i} align="right" title={r ? 'Réparti depuis le CA saisi pour l’univers' : undefined} sx={{ color: 'text.secondary', fontStyle: r ? 'italic' : undefined }}>{v ? `${r ? '≈ ' : ''}${enChiffres(Math.round(v))}` : ''}</TableCell>
+                            })}
                             <TableCell align="right" sx={{ fontWeight: 700 }}>{montant(f.caHT)}</TableCell>
                             <TableCell align="right" sx={{ color: 'text.secondary' }}>{taux(f.part)}</TableCell>
                             <TableCell align="right">{taux(f.tauxMarge)}</TableCell>
@@ -222,48 +237,84 @@ export function ReelAnnee({ magasin, annee, peutSaisir, apresEnregistrement }: {
               {erreursSaisie.length === 1 ? erreursSaisie[0] : <Box component="ul" sx={{ m: 0, pl: 2.5 }}>{erreursSaisie.map((t) => <li key={t}>{t}</li>)}</Box>}
             </Alert>
           )}
-          <Typography variant="h4" component="h3" sx={{ mb: 1 }}>Tickets</Typography>
-          <Stack direction="row" useFlexGap spacing={2} sx={{ flexWrap: 'wrap', mb: 3 }}>
-            {UNIVERS_TICKETS.map((u) => (
-              <Box key={u} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography sx={{ minWidth: 48 }}>{universLibelle[u]}</Typography>
-                <ChampNombre libelle={`Tickets ${universLibelle[u]}`} valeur={saisie.tickets[u] ?? ''} unite="" largeur={120}
-                  onChange={(v) => setSaisie((x) => ({ ...x, tickets: { ...x.tickets, [u]: v } }))} />
-              </Box>
-            ))}
-          </Stack>
-          {famillesASaisir(saisie).map(({ univers, familles }) => (
-            <Box key={univers} sx={{ mb: 3 }}>
-              <Typography variant="h4" component="h3" sx={{ mb: 1 }}>{universLibelle[univers]}</Typography>
-              <TableContainer sx={{ maxHeight: 'none' }}>
-                <Table size="small" className="colonne-fixe" aria-label={`Ventes ${universLibelle[univers]}`} sx={styleTableau}>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Famille</TableCell>
-                      <TableCell align="right">CA HT</TableCell>
-                      <TableCell align="right">CA TTC</TableCell>
-                      <TableCell align="right">Marge HT</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {familles.map((famille) => {
-                      const cle = cleVente(univers, famille)
-                      const c = saisie.ventes[cle] ?? VIDE
-                      const nom = `${famille} (${universLibelle[univers]})`
-                      return (
-                        <TableRow key={cle}>
-                          <TableCell sx={{ whiteSpace: 'nowrap' }}>{famille}</TableCell>
-                          <TableCell align="right"><ChampNombre libelle={`CA HT : ${nom}`} valeur={c.caHT} onChange={(v) => changerVente(cle, 'caHT', v)} /></TableCell>
-                          <TableCell align="right"><ChampNombre libelle={`CA TTC : ${nom}`} valeur={c.caTTC} onChange={(v) => changerVente(cle, 'caTTC', v)} /></TableCell>
-                          <TableCell align="right"><ChampNombre libelle={`Marge HT : ${nom}`} valeur={c.margeHT} onChange={(v) => changerVente(cle, 'margeHT', v)} /></TableCell>
+          {/* Saisie par univers (Joseph, 03/11/2026) : une ligne par univers, le détail par famille à un clic et conseillé */}
+          {famillesASaisir(saisie).map(({ univers, familles }) => {
+            const detail = !!saisie.detail?.[univers]
+            const unique = familleUnique(univers) !== null
+            const t = saisie.parUnivers?.[univers] ?? VIDE
+            const tot = detail ? totalFamilles(saisie, univers) : null
+            const ref = refs[univers]
+            const lib = universLibelle[univers]
+            const estimTTC = (() => { const v = Number((t.caHT || '').replace(/\s/g, '').replace(',', '.')); return ref?.ratioTTC && v > 0 ? enChiffres(Math.round(v * ref.ratioTTC)) : null })()
+            return (
+              <Box key={univers} component="fieldset" aria-label={`Ventes ${lib}`} sx={{ border: 0, borderBottom: 1, borderColor: 'divider', m: 0, p: 0, pb: 2, mb: 2, minWidth: 0 }}>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 2 }}>
+                  <Typography component="legend" variant="h3" sx={{ width: { xs: '100%', md: 110 }, alignSelf: 'center', p: 0 }}>{lib}</Typography>
+                  {detail && tot ? (
+                    <Typography sx={{ flex: 1, minWidth: 220, fontVariantNumeric: 'tabular-nums' }} aria-live="polite">
+                      Total des familles : CA HT <b>{montant(tot.caHT)}</b> · CA TTC <b>{montant(tot.caTTC)}</b> · marge HT <b>{montant(tot.margeHT)}</b>
+                    </Typography>
+                  ) : (
+                    <>
+                      <Box><Typography variant="body2" sx={{ mb: 0.5 }}>CA HT</Typography>
+                        <ChampNombre libelle={`CA HT : ${lib}`} valeur={t.caHT} largeur={140} onChange={(v) => changerUnivers(univers, 'caHT', v)} /></Box>
+                      <Box><Typography variant="body2" sx={{ mb: 0.5 }}>Marge HT</Typography>
+                        <ChampNombre libelle={`Marge HT : ${lib}`} valeur={t.margeHT} largeur={140} onChange={(v) => changerUnivers(univers, 'margeHT', v)} /></Box>
+                      <Box><Typography variant="body2" sx={{ mb: 0.5 }}>CA TTC{estimTTC && !t.caTTC ? ` · ≈ ${estimTTC}` : ''}</Typography>
+                        <ChampNombre libelle={`CA TTC : ${lib}`} valeur={t.caTTC} largeur={140} onChange={(v) => changerUnivers(univers, 'caTTC', v)} /></Box>
+                    </>
+                  )}
+                  {UNIVERS_TICKETS.includes(univers) && (
+                    <Box><Typography variant="body2" sx={{ mb: 0.5 }}>Tickets</Typography>
+                      <ChampNombre libelle={`Tickets ${lib}`} valeur={saisie.tickets[univers] ?? ''} unite="" largeur={120}
+                        onChange={(v) => setSaisie((x) => ({ ...x, tickets: { ...x.tickets, [univers]: v } }))} /></Box>
+                  )}
+                </Box>
+                {!unique && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mt: 1, pl: { md: '126px' } }}>
+                    {!detail && (
+                      <Typography variant="body2" color="text.secondary">
+                        {ref ? `Réparti sur les familles comme ${ref.source.startsWith('les') || ref.source.startsWith('l’') ? '' : 'en '}${ref.source}` : 'Pas encore de mois détaillé : le CA restera « non détaillé »'}
+                      </Typography>
+                    )}
+                    <Button size="small" sx={{ minHeight: 48 }} aria-expanded={detail}
+                      onClick={() => setSaisie((x) => (detail ? { ...x, detail: { ...x.detail, [univers]: false } } : detaillerUnivers(x, univers, ref ?? null)))}>
+                      {detail ? 'Saisir seulement le total' : 'Détailler par famille (conseillé)'}
+                    </Button>
+                  </Box>
+                )}
+                {detail && (
+                  <TableContainer sx={{ maxHeight: 'none', mt: 1 }}>
+                    <Table size="small" className="colonne-fixe" aria-label={`Ventes ${lib} par famille`} sx={styleTableau}>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Famille</TableCell>
+                          <TableCell align="right">CA HT</TableCell>
+                          <TableCell align="right">CA TTC</TableCell>
+                          <TableCell align="right">Marge HT</TableCell>
                         </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Box>
-          ))}
+                      </TableHead>
+                      <TableBody>
+                        {familles.map((famille) => {
+                          const cle = cleVente(univers, famille)
+                          const c = saisie.ventes[cle] ?? VIDE
+                          const nom = `${famille} (${lib})`
+                          return (
+                            <TableRow key={cle}>
+                              <TableCell sx={{ whiteSpace: 'nowrap' }}>{famille}</TableCell>
+                              <TableCell align="right"><ChampNombre libelle={`CA HT : ${nom}`} valeur={c.caHT} onChange={(v) => changerVente(cle, 'caHT', v)} /></TableCell>
+                              <TableCell align="right"><ChampNombre libelle={`CA TTC : ${nom}`} valeur={c.caTTC} onChange={(v) => changerVente(cle, 'caTTC', v)} /></TableCell>
+                              <TableCell align="right"><ChampNombre libelle={`Marge HT : ${nom}`} valeur={c.margeHT} onChange={(v) => changerVente(cle, 'margeHT', v)} /></TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+              </Box>
+            )
+          })}
         </Box>
         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           <Button onClick={() => setMois(null)} disabled={occupe} sx={{ minHeight: 48 }}>Annuler</Button>

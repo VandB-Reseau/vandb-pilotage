@@ -106,6 +106,9 @@ test('campagne des budgets : avancement par Responsable Régional, dates dans Pa
   // Validé, en discussion après la date de validation, sans budget après la date de proposition : 2 en retard
   await expect(campagne).toContainText('1 validé sur 3')
   await expect(campagne).toContainText('2 en retard')
+  // Allègement (03/11/2026) : le détail par Responsable Régional s'ouvre à la demande
+  await expect(campagne.getByRole('table', { name: 'Par Responsable Régional' })).toHaveCount(0)
+  await campagne.getByRole('button', { name: 'Par Responsable Régional' }).click()
   const parRR = campagne.getByRole('table', { name: 'Par Responsable Régional' })
   await expect(parRR.getByRole('row', { name: /^RR Nord/ }).getByRole('cell')).toHaveText(['RR Nord', '2', '0', '0', '1', '1', '1'])
   await expect(parRR.getByRole('row', { name: /^RR Sud/ }).getByRole('cell')).toHaveText(['RR Sud', '1', '1', '0', '0', '0', '1'])
@@ -138,6 +141,7 @@ test('vue Réseau : CA par heure travaillée avec sa médiane', async ({ page, i
   await seConnecter(page, { reel, tickets })
   await allerVers(page, 'Réel du réseau')
   const tableau = page.getByRole('table', { name: /^Réel \d{4} par magasin$/ })
+  await page.getByRole('group', { name: 'Vue du classement' }).getByRole('button', { name: 'Équipe et frais' }).click()
   await expect(tableau.getByRole('columnheader', { name: 'CA par heure travaillée' })).toBeVisible()
 })
 

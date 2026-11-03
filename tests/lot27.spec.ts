@@ -91,7 +91,9 @@ test('liste des magasins : tri par colonne, ligne Total, alertes, sans colonne G
   // Deux budgets : 640 000 € (validé) et 640 000 € à évolution nulle (en discussion)
   await expect(lignes.nth(1)).toContainText('Total de la sélection')
   await expect(lignes.nth(1)).toContainText('2 budgets')
-  await expect(tableau.getByRole('columnheader', { name: 'Alertes' })).toBeVisible()
+  await expect(tableau.getByRole('columnheader', { name: 'À faire' })).toBeVisible()
+  // Allègement (03/11/2026) : six colonnes, la marge, le % FP, l'EBE et la date sont dans la fiche
+  await expect(tableau.getByRole('columnheader', { name: 'Mis à jour' })).toHaveCount(0)
 
   await tableau.getByRole('button', { name: 'CA HT' }).click()
   expect(page.url()).toContain('tri=ca')
@@ -121,8 +123,9 @@ test('« À traiter » dans la campagne : action en retard, équipe à renseigne
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-a-traiter.png`, fullPage: true })
 
-  // « Afficher ces magasins » filtre la liste
-  await points.filter({ hasText: 'à renseigner' }).first().getByRole('button', { name: /^Afficher ces magasins/ }).click()
+  // Allègement (03/11/2026) : l'équipe et les frais à renseigner sont des filtres de la liste, plus des points « À traiter »
+  await expect(points.filter({ hasText: 'à renseigner' })).toHaveCount(0)
+  await page.getByRole('group', { name: 'Filtres' }).getByRole('button', { name: /^Équipe à renseigner/ }).click()
   await expect(page.getByRole('group', { name: 'Filtres' }).getByRole('button', { name: /à renseigner/, pressed: true })).toHaveCount(1)
 
   // Replié, le choix est gardé
@@ -132,11 +135,11 @@ test('« À traiter » dans la campagne : action en retard, équipe à renseigne
   await expect(page.getByRole('region', { name: 'À traiter' }).getByRole('button', { name: /^Voir les \d+ points$/ })).toBeVisible()
 })
 
-test('« À traiter » : le Coach n’a pas de budget à proposer, mais voit l’équipe à renseigner', async ({ page }) => {
+test('le Coach n’a pas de budget à proposer, mais voit l’équipe à renseigner dans les filtres', async ({ page }) => {
   await seConnecter(page, { role: 'coach', magasins: [{ ...propose, statut: 'valide' }], equipe: [], frais: [] })
-  const bloc = page.getByRole('region', { name: 'À traiter' })
-  await expect(bloc.getByRole('listitem').filter({ hasText: 'à proposer' })).toHaveCount(0)
-  await expect(bloc.getByRole('listitem').filter({ hasText: 'équipe à renseigner' })).toHaveCount(1)
+  const filtres = page.getByRole('group', { name: 'Filtres' })
+  await expect(filtres.getByRole('button', { name: /^À proposer/ })).toHaveCount(0)
+  await expect(filtres.getByRole('button', { name: 'Équipe à renseigner · 1' })).toBeVisible()
 })
 
 test('« À traiter » absent pour le franchisé', async ({ page }) => {

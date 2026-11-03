@@ -92,7 +92,11 @@ test('ma semaine : magasins par marge en jeu, actions en retard, par Coach', asy
   await expect(lignes.nth(1)).toContainText(/CA [-−][\d,]+\s%\sface au budget/)
   await expect(lignes.nth(1).getByRole('cell').last()).toHaveText('1')
   await expect(lignes.nth(2)).toContainText(MAGASINS[1])
-  await expect(semaine.getByRole('table', { name: 'Marge en jeu par Coach' })).toContainText('Coach Nord')
+  // Allègement (03/11/2026) : le tableau par Coach passe dans le menu Coach, avec les magasins à suivre
+  await expect(semaine.getByRole('table', { name: 'Marge en jeu par Coach' })).toHaveCount(0)
+  await page.getByLabel('Coach', { exact: true }).click()
+  await expect(page.getByRole('option', { name: /^Coach Nord · \d+ magasins?/ })).toBeVisible()
+  await page.keyboard.press('Escape')
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-ma-semaine.png`, fullPage: true })

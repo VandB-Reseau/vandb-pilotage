@@ -99,6 +99,24 @@ test('leviers commerciaux : gain de CA, de marge et d’EBE sur un an', () => {
   proche(bar.ebe, 13_400)
 })
 
+test('leviers commerciaux : l’Extérieur, sans tickets ni panier, avec « CA en plus » et le mix', () => {
+  // Extérieur : 100 000 € visés à 40 % de marge ; pas de panier même si un flux traîne
+  const b = {
+    familles: [{ univers: 'cave', objectif: 400_000, margeObjectif: 120_000 }, { univers: 'exterieur', objectif: 100_000, margeObjectif: 40_000 }],
+    flux: { cave: { panierObjectifTTC: 40, panierRealiseTTC: 0 } },
+  } as unknown as Budget
+  const base = baseLeviers(b)
+  expect(base.exterieur).toEqual({ ca: 100_000, tauxMarge: 0.4, panierTTC: null })
+  // +5 % de CA et +1 point de mix : 105 000 € de CA, marge 105 000 × 41 % = 43 050 €, soit +3 050 € ;
+  // EBE : 3 050 − 3 % × 5 000 = 2 900 €
+  const e = effetLeviers(base, { exterieur: { tickets: 0.05, panier: 0, mix: 0.01 } }, { tauxRedevance: 0.02, tauxPublicite: 0.01 })
+  proche(e.univers.exterieur!.ca, 5_000)
+  proche(e.univers.exterieur!.marge, 3_050)
+  proche(e.ebe, 2_900)
+  // Un panier saisi par erreur sur l'Extérieur n'a pas d'effet
+  proche(effetLeviers(base, { exterieur: { tickets: 0, panier: 3, mix: 0 } }, { tauxRedevance: 0.02, tauxPublicite: 0.01 }).ca, 0)
+})
+
 test('campagne des budgets : retard après la date de proposition ou de validation, avancement par responsable', () => {
   const c = campagneParDefaut(2027)
   expect(c).toEqual({ proposition: '2026-11-15', retour: '2026-12-05', validation: '2026-12-19' })

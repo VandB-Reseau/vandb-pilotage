@@ -18,7 +18,7 @@ import { texteAlerte, typeAlerteLibelle } from './AlertesMagasins'
 import { texteSujet } from './FicheVisite'
 import type { Alerte } from '../moteur/alertes'
 import { lienMagasin, milliers } from '../lib/format'
-import { parCoach, type LigneSemaine } from '../moteur/semaine'
+import type { LigneSemaine } from '../moteur/semaine'
 
 const PREMIERS = 10
 // Pastille d'une alerte : le type, et l'univers pour les tickets et le panier ; le détail au survol
@@ -28,6 +28,7 @@ const rouge = (v: number) => (v > 0 ? { color: 'error.main', fontWeight: 700 } :
 // « Ma semaine » (lot 29) : où aller en premier, magasin par magasin ; par Coach pour le RR et le Directeur
 // Lot 41 (proposition 6) : en tête, les magasins à appeler (alerte, action en retard ou au moins 1 000 € de marge en jeu),
 // le plus d'euros en jeu d'abord ; les magasins dans les clous sont repliés
+// Allègement (03/11/2026) : le tableau « Par Coach » est passé dans le menu Coach de la page Réseau
 export function MaSemaine({ lignes, avecCoachs, etat }: { lignes: LigneSemaine<Alerte>[]; avecCoachs: boolean; etat?: object }) {
   const [tout, setTout] = useState(false)
   const [clous, setClous] = useState(false)
@@ -36,7 +37,6 @@ export function MaSemaine({ lignes, avecCoachs, etat }: { lignes: LigneSemaine<A
   const dansLesClous = lignes.length - aAppeler.length
   const liste = clous ? lignes : aAppeler
   const vues = tout ? liste : liste.slice(0, PREMIERS)
-  const coachs = avecCoachs ? parCoach(lignes) : []
   const tableau = { '& td, & th': { whiteSpace: 'nowrap', px: 1.25 }, '& td:first-of-type, & th:first-of-type': { pl: 2.5 } }
   return (
     <Card component="section" aria-label="Ma semaine" sx={{ mb: 4 }}>
@@ -91,34 +91,6 @@ export function MaSemaine({ lignes, avecCoachs, etat }: { lignes: LigneSemaine<A
           </Button>
         )}
       </Box>
-      {coachs.length > 1 && (
-        <TableContainer sx={{ mt: 2 }}>
-          <Table size="small" aria-label="Marge en jeu par Coach" sx={tableau}>
-            <TableHead>
-              <TableRow>
-                <TableCell>Par Coach</TableCell>
-                <TableCell align="right">Magasins</TableCell>
-                <TableCell align="right">À suivre</TableCell>
-                <TableCell align="right">Marge en jeu</TableCell>
-                <TableCell align="right">Alertes</TableCell>
-                <TableCell align="right">Actions en retard</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {coachs.map((c) => (
-                <TableRow key={c.coach}>
-                  <TableCell sx={{ fontWeight: 600 }}>{c.coach || 'Sans Coach'}</TableCell>
-                  <TableCell align="right">{c.magasins}</TableCell>
-                  <TableCell align="right">{c.aSuivre}</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>{milliers(c.enJeu)}</TableCell>
-                  <TableCell align="right" sx={rouge(c.alertes)}>{c.alertes}</TableCell>
-                  <TableCell align="right" sx={rouge(c.actionsEnRetard)}>{c.actionsEnRetard}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
     </Card>
   )
 }

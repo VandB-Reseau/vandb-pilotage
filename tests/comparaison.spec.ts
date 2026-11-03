@@ -43,8 +43,11 @@ test('vue Réseau : ligne de la médiane et colonne loyer / CA', async ({ page }
   await seConnecter(page, { magasins, reel })
   await allerVers(page, 'Réel du réseau')
   const tableau = page.getByRole('table', { name: `Réel ${N} par magasin` })
-  await expect(tableau.getByRole('columnheader', { name: 'Loyer / CA' })).toBeVisible()
   await expect(tableau.getByRole('row', { name: /Médiane du réseau/ })).toContainText('40,0')
+  // Vues du classement (03/11/2026) : le loyer / CA est dans « Équipe et frais »
+  await expect(tableau.getByRole('columnheader', { name: 'Loyer / CA' })).toHaveCount(0)
+  await page.getByRole('group', { name: 'Vue du classement' }).getByRole('button', { name: 'Équipe et frais' }).click()
+  await expect(tableau.getByRole('columnheader', { name: 'Loyer / CA' })).toBeVisible()
 })
 
 test('le franchisé ne voit pas la comparaison', async ({ page }) => {

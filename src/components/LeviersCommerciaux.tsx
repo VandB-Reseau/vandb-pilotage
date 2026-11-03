@@ -11,8 +11,7 @@ import { ChampTaux } from './ChampTaux'
 import { nombre } from '../import/caisse'
 import { ecartPts, milliers, panier as prixPanier, taux } from '../lib/format'
 import { baseLeviers, effetLeviers, type Leviers } from '../moteur/leviers'
-import type { UniversTickets } from '../moteur/suivi'
-import { universLibelle, type Budget } from '../moteur/types'
+import { UNIVERS, universLibelle, type Budget, type Univers } from '../moteur/types'
 
 type Saisie = { tickets: number | undefined; panier: string; mix: number | undefined }
 const vide: Saisie = { tickets: undefined, panier: '', mix: undefined }
@@ -22,7 +21,8 @@ const lire = (s: Saisie): Leviers => {
 }
 const signe = (v: number) => `${v >= 0 ? '+' : '−'}${milliers(Math.abs(v))}`
 
-// Leviers commerciaux chiffrés (lot 28) : un simulateur sur un an, Cave et Bar séparés, rien n'est enregistré ;
+// Leviers commerciaux chiffrés (lot 28) : un simulateur sur un an, Cave, Bar et Extérieur séparés, rien n'est enregistré ;
+// l'Extérieur, sans tickets, a « CA en plus » à la place des tickets et du panier (Joseph, 03/11/2026) ;
 // « En faire une action » ouvre le plan d'action avec le levier écrit
 export function LeviersCommerciaux({ budget, annee, parametres, proposerAction }: {
   budget: Budget
@@ -31,18 +31,18 @@ export function LeviersCommerciaux({ budget, annee, parametres, proposerAction }
   proposerAction?: (intitule: string) => void
 }) {
   const base = baseLeviers(budget)
-  const univers = (['cave', 'bar'] as UniversTickets[]).filter((u) => base[u])
-  const [saisie, setSaisie] = useState<Partial<Record<UniversTickets, Saisie>>>({})
+  const univers = UNIVERS.filter((u) => base[u])
+  const [saisie, setSaisie] = useState<Partial<Record<Univers, Saisie>>>({})
   if (!univers.length) return null
-  const leviers = Object.fromEntries(univers.map((u) => [u, lire(saisie[u] ?? vide)])) as Partial<Record<UniversTickets, Leviers>>
+  const leviers = Object.fromEntries(univers.map((u) => [u, lire(saisie[u] ?? vide)])) as Partial<Record<Univers, Leviers>>
   const effet = effetLeviers(base, leviers, parametres)
   const actif = univers.some((u) => { const l = leviers[u]!; return l.tickets || l.panier || l.mix })
-  const changer = (u: UniversTickets, x: Partial<Saisie>) => setSaisie((s) => ({ ...s, [u]: { ...(s[u] ?? vide), ...x } }))
+  const changer = (u: Univers, x: Partial<Saisie>) => setSaisie((s) => ({ ...s, [u]: { ...(s[u] ?? vide), ...x } }))
   // Intitulé de l'action : les leviers retenus, univers par univers, et ce qu'ils rapportent
   const intitule = () => univers.flatMap((u) => {
     const l = leviers[u]!
     const parts = [
-      l.tickets ? `${l.tickets > 0 ? '+' : ''}${taux(l.tickets)} de tickets` : '',
+      l.tickets ? `${l.tickets > 0 ? '+' : ''}${taux(l.tickets)} ${u === 'exterieur' ? 'de CA' : 'de tickets'}` : '',
       l.panier ? `${l.panier > 0 ? '+' : ''}${prixPanier(l.panier)} de panier` : '',
       l.mix ? `${ecartPts(l.mix)} de marge par le mix` : '',
     ].filter(Boolean)
@@ -55,24 +55,26 @@ export function LeviersCommerciaux({ budget, annee, parametres, proposerAction }
         <Typography variant="h2" sx={{ flex: 1, minWidth: 200 }}>Leviers commerciaux <Aide sujet="leviers" /></Typography>
         {actif && <Button startIcon={<RestartAltOutlined />} onClick={() => setSaisie({})} sx={{ minHeight: 48 }}>Remettre à zéro</Button>}
       </Box>
-      <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', md: `repeat(${univers.length}, 1fr)` } }}>
+      <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', md: univers.length > 2 ? '1fr 1fr' : `repeat(${univers.length}, 1fr)`, lg: `repeat(${univers.length}, 1fr)` } }}>
         {univers.map((u) => {
           const b = base[u]!, s = saisie[u] ?? vide, e = effet.univers[u]!
           return (
             <Box key={u} component="fieldset" sx={{ border: 0, m: 0, p: 0, minWidth: 0 }}>
               <Typography component="legend" variant="h3" sx={{ mb: 0.5 }}>{universLibelle[u]}</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                {milliers(b.ca)} de CA {annee} · marge {taux(b.tauxMarge)}{b.panierTTC ? ` · panier ${prixPanier(b.panierTTC)} TTC` : ''}
+                {milliers(b.ca)} de CA {annee} · marge {taux(b.tauxMarge)}{u === 'exterieur' ? ' · sans tickets' : b.panierTTC ? ` · panier ${prixPanier(b.panierTTC)} TTC` : ''}
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
                 <Box>
-                  <Typography variant="body2" sx={{ mb: 0.5 }}>Tickets en plus</Typography>
-                  <ChampTaux libelle={`Tickets en plus : ${universLibelle[u]}`} valeur={s.tickets} onChange={(v) => changer(u, { tickets: v })} />
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>{u === 'exterieur' ? 'CA en plus' : 'Tickets en plus'}</Typography>
+                  <ChampTaux libelle={`${u === 'exterieur' ? 'CA en plus' : 'Tickets en plus'} : ${universLibelle[u]}`} valeur={s.tickets} onChange={(v) => changer(u, { tickets: v })} />
                 </Box>
-                <Box>
-                  <Typography variant="body2" sx={{ mb: 0.5 }}>Panier en plus, TTC</Typography>
-                  <ChampNombre libelle={`Panier en plus : ${universLibelle[u]}`} valeur={s.panier} largeur={120} unite="€" desactive={!b.panierTTC} onChange={(v) => changer(u, { panier: v })} />
-                </Box>
+                {u !== 'exterieur' && (
+                  <Box>
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>Panier en plus, TTC</Typography>
+                    <ChampNombre libelle={`Panier en plus : ${universLibelle[u]}`} valeur={s.panier} largeur={120} unite="€" desactive={!b.panierTTC} onChange={(v) => changer(u, { panier: v })} />
+                  </Box>
+                )}
                 <Box>
                   <Typography variant="body2" sx={{ mb: 0.5 }}>Mix mieux margé</Typography>
                   <ChampTaux libelle={`Points de marge par le mix : ${universLibelle[u]}`} valeur={s.mix} onChange={(v) => changer(u, { mix: v })} />
