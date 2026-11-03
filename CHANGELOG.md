@@ -19,6 +19,15 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 - Plus de « Ajouter un emprunt » dans le budget : on ajoute un prêt. Taux variables, échéances trimestrielles et
   crédit-bail ne sont pas gérés.
 
+### Panneau Impact raccourci (sans migration)
+
+- « Enregistrer les ajustements » passe juste sous le titre du panneau, avec « Tout annuler » à côté du nombre de
+  changements : visible dès qu'on arrive sur Construire, sans dérouler (Joseph, 03/11/2026).
+- Une ligne par indicateur (montant et écart côte à côte, % en petit dessous), « CA HT » et « Marge » en libellés courts,
+  dernier changement sur une ou deux lignes, sélecteur Enregistré / Siège plus fin : le panneau passe d'environ 830 à
+  525 px de haut.
+- Sur PC, les commentaires sous le panneau défilent seuls : ils ne repoussent plus le panneau.
+
 ### Atterrissage sans la carte « Saisonnalité » (sans migration)
 
 - La carte « Saisonnalité » de l'atterrissage (part de l'année réalisée par univers) est retirée. Le calcul reste
