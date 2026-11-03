@@ -395,21 +395,23 @@ export async function zonesTropPetites(page: Page, min = 48): Promise<string[]> 
 // Fiche magasin (lot 36) : une partie s'ouvre en choisissant son espace (Données, Budget, Suivi), puis la partie, en
 // onglets de la fiche (03/11/2026). Les anciens noms des tests restent acceptés.
 // Joseph (03/11/2026) : le budget tient en 3 étapes ; les hypothèses s'ouvrent par thème depuis leur carte (« theme »)
-const PARTIES: [string, { espace: string; libelle: RegExp; theme?: string }][] = [
-  ['Réel', { espace: 'Données', libelle: /^Réel du mois/ }],
-  ['Quadrimestres', { espace: 'Données', libelle: /^Comptes du quadrimestre/ }],
-  ['Comptes du quadrimestre', { espace: 'Suivi', libelle: /^Où en est le magasin/ }],
+// Option A (Joseph, 03/11/2026) : onglets Suivi (une page, sections repliées « section »), Budget (étapes en frise),
+// Saisies (pages en puces) ; libelle absent : l'onglet suffit
+const PARTIES: [string, { espace: string; libelle?: RegExp; theme?: string; section?: RegExp }][] = [
+  ['Réel', { espace: 'Saisies', libelle: /^Réel du mois/ }],
+  ['Quadrimestres', { espace: 'Saisies', libelle: /^Comptes du quadrimestre/ }],
+  ['Comptes du quadrimestre', { espace: 'Suivi' }],
   ['Frais du budget', { espace: 'Budget', libelle: /^1 · Construire/, theme: 'Frais' }],
-  ['Frais', { espace: 'Données', libelle: /^Frais \d{4}/ }],
-  ['Suivi du budget', { espace: 'Suivi', libelle: /^Où en est le magasin/ }],
-  ['Où on va', { espace: 'Suivi', libelle: /^Où en est le magasin/ }],
-  ['Synthèse', { espace: 'Suivi', libelle: /^Où en est le magasin/ }],
-  ['Où en est le magasin', { espace: 'Suivi', libelle: /^Où en est le magasin/ }],
+  ['Frais', { espace: 'Saisies', libelle: /^Frais \d{4}/ }],
+  ['Suivi du budget', { espace: 'Suivi' }],
+  ['Où on va', { espace: 'Suivi' }],
+  ['Synthèse', { espace: 'Suivi' }],
+  ['Où en est le magasin', { espace: 'Suivi' }],
   ['Trésorerie du budget', { espace: 'Budget', libelle: /^1 · Construire/, theme: 'Point de départ' }],
-  ['Trésorerie', { espace: 'Suivi', libelle: /^Trésorerie/ }],
-  ['Stock', { espace: 'Suivi', libelle: /^Stock$/ }],
+  ['Trésorerie', { espace: 'Suivi', section: /^Trésorerie$/ }],
+  ['Stock', { espace: 'Saisies', libelle: /^Stock de fin de mois/ }],
   // Joseph (03/11/2026) : l'atterrissage de l'année en cours passe dans Suivi ; le point de départ devient une carte
-  ['Atterrissage', { espace: 'Suivi', libelle: /^Atterrissage \d{4}/ }],
+  ['Atterrissage', { espace: 'Suivi', section: /^Atterrissage \d{4}$/ }],
   ['Point de départ', { espace: 'Budget', libelle: /^1 · Construire/, theme: 'Point de départ' }],
   // Lot 42 : hypothèses, ventes et résultat sur la page « 1 · Construire »
   ['Cartes des hypothèses', { espace: 'Budget', libelle: /^1 · Construire/ }],
@@ -433,21 +435,29 @@ export async function ouvrir(page: Page, partie: string) {
   await page.waitForURL(/#\/magasins\//)
   // Joseph (03/11/2026) : l'espace, puis la page, en onglets dans la fiche du magasin (PC et téléphone)
   const pages = page.getByRole('navigation', { name: 'Pages du magasin' })
-  const bouton = pages.getByRole('tablist', { name: 'Espaces du magasin' }).getByRole('tab', { name: cible.espace })
-  const lien = pages.getByRole('tab', { name: cible.libelle })
+  const bouton = pages.getByRole('tablist', { name: 'Espaces du magasin' }).getByRole('tab', { name: new RegExp(`^${cible.espace}`) })
+  const lien = cible.libelle ? pages.getByRole('tab', { name: cible.libelle }) : null
   // Juste après l'ouverture de la fiche, le premier clic peut partir avant la fin du chargement : on recommence alors
   for (let essai = 0; ; essai++) {
     try {
       if ((await bouton.getAttribute('aria-selected', { timeout: essai < 2 ? 5_000 : undefined })) !== 'true') await bouton.click()
-      await lien.click({ timeout: essai < 2 ? 5_000 : undefined }); break
+      if (lien) await lien.click({ timeout: essai < 2 ? 5_000 : undefined })
+      else await expect(bouton).toHaveAttribute('aria-selected', 'true', { timeout: essai < 2 ? 5_000 : undefined })
+      break
     } catch (e) { if (essai >= 2) throw e }
   }
   if (cible.theme) await page.locator('main').getByRole('region', { name: cible.theme, exact: true }).getByRole('link').click()
+  if (cible.section) await ouvrirSection(page, cible.section)
+}
+// Section repliée de la page Suivi (atterrissage, trésorerie, stock) : ouverte si elle ne l'est pas
+export async function ouvrirSection(page: Page, nom: RegExp) {
+  const titre = page.locator('main').getByRole('region', { name: nom }).getByRole('button', { name: nom })
+  if ((await titre.getAttribute('aria-expanded')) !== 'true') await titre.click()
 }
 
-// Onglet d'un espace (Données, Budget, Suivi) de la fiche du magasin
+// Onglet d'un espace (Suivi, Budget, Saisies) de la fiche du magasin
 export const ongletEspace = (page: Page, nom: string) =>
-  page.getByRole('navigation', { name: 'Pages du magasin' }).getByRole('tablist', { name: 'Espaces du magasin' }).getByRole('tab', { name: nom })
+  page.getByRole('navigation', { name: 'Pages du magasin' }).getByRole('tablist', { name: 'Espaces du magasin' }).getByRole('tab', { name: new RegExp(`^${nom}`) })
 // Page affichée : l'onglet sélectionné de la fiche du magasin
 export function partieAffichee(page: Page, nom: RegExp) {
   return expect(page.getByRole('navigation', { name: 'Pages du magasin' }).getByRole('tab', { name: nom })).toHaveAttribute('aria-selected', 'true')

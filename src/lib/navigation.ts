@@ -1,20 +1,28 @@
-// Navigation en trois espaces (lot 36, Joseph 02/11/2026) : Données (ce qui entre), Budget (construit une fois par an,
-// depuis l'atterrissage de l'année en cours), Suivi (réel face au budget). Chaque partie de la fiche d'un magasin a son
-// adresse : #/magasins/<nom>/<partie>. Depuis le 03/11/2026, ces espaces sont des onglets de la fiche du magasin.
+// Navigation en trois espaces (lot 36, Joseph 02/11/2026). Chaque partie de la fiche d'un magasin a son adresse :
+// #/magasins/<nom>/<partie>. Depuis le 03/11/2026, ces espaces sont des onglets de la fiche du magasin.
+// Joseph (03/11/2026, option A de la maquette de navigation) : trois onglets seulement, dans l'ordre d'usage :
+// « Suivi <année> » (une seule page), « Budget <année suivante> » (les étapes en frise), « Saisies » (ce qui entre).
+// À la fusion avec l'app réseau, le Suivi rejoindra « Chiffres et santé » et le Budget deviendra un onglet de sa fiche.
 export type Espace = 'donnees' | 'budget' | 'suivi'
 
 export interface Partie { cle: string; libelle: string }
 
 export const ESPACES: { cle: Espace; libelle: string }[] = [
-  { cle: 'donnees', libelle: 'Données' },
-  { cle: 'budget', libelle: 'Budget' },
   { cle: 'suivi', libelle: 'Suivi' },
+  { cle: 'budget', libelle: 'Budget' },
+  { cle: 'donnees', libelle: 'Saisies' },
 ]
+// Libellé affiché de l'onglet : l'année suivie, l'année du budget
+export function libelleEspace(cle: Espace, anneeEnCours: number, anneeBudget: number) {
+  return cle === 'suivi' ? `Suivi ${anneeEnCours}` : cle === 'budget' ? `Budget ${anneeBudget}` : 'Saisies'
+}
 
 export function partiesDe(espace: Espace, annee: number = new Date().getFullYear()): Partie[] {
   if (espace === 'donnees') {
     return [
       { cle: 'reel', libelle: 'Réel du mois' },
+      // Option A (03/11/2026) : la saisie du stock rejoint les autres saisies ; sa lecture reste dans le Suivi
+      { cle: 'saisieStock', libelle: 'Stock de fin de mois' },
       { cle: 'quadrimestres', libelle: 'Comptes du quadrimestre' },
       { cle: 'frais', libelle: `Frais ${annee}` },
     ]
@@ -28,16 +36,18 @@ export function partiesDe(espace: Espace, annee: number = new Date().getFullYear
       { cle: 'echanges', libelle: '3 · Envoyer et valider' },
     ]
   }
-  // Lot 41 (proposition 5) : Synthèse et Face au budget ne font plus qu'une page
-  return [
-    { cle: 'synthese', libelle: 'Où en est le magasin' },
-    // Joseph (03/11/2026) : l'atterrissage de l'année en cours sort du budget, c'est la fin de l'année suivie
-    { cle: 'atterrissage', libelle: `Atterrissage ${annee}` },
-    // Joseph (03/11/2026) : valeur du stock en fin de mois face à sa cible
-    { cle: 'stock', libelle: 'Stock' },
-    { cle: 'tresorerie', libelle: 'Trésorerie' },
-  ]
+  // Option A (03/11/2026) : le Suivi tient sur une page ; l'atterrissage, la trésorerie et le stock en sont des sections
+  return []
 }
+
+// Sections repliables de la page Suivi, sous « Où en est le magasin » (chacune garde son adresse)
+export const SECTIONS_SUIVI = (annee: number = new Date().getFullYear()): Partie[] => [
+  { cle: 'atterrissage', libelle: `Atterrissage ${annee}` },
+  { cle: 'tresorerie', libelle: 'Trésorerie' },
+  { cle: 'stock', libelle: 'Stock' },
+]
+const CLES_SECTIONS_SUIVI = ['atterrissage', 'tresorerie', 'stock']
+export const estSectionSuivi = (cle: string | null | undefined) => !!cle && CLES_SECTIONS_SUIVI.includes(cle)
 
 // Lot 37 (Joseph, 02/11/2026) : les hypothèses du budget se lisent en cartes par thème ; chaque carte ouvre un tableau
 // court du thème. Ces thèmes ont leur adresse mais restent sous l'étape « 1 · Hypothèses ».
@@ -62,17 +72,17 @@ export const PARTIE_PAR_DEFAUT: Record<Espace, string> = { donnees: 'reel', budg
 
 // Anciennes clés (liens, alertes, « à faire ») : la partie qui les montre désormais, et la section où défiler
 // Lot 43 : l'ancien thème « Trésorerie » du budget est au point de départ ; le résultat a sa page (03/11/2026)
-const ANCIENNES: Record<string, string> = { tresoBudget: 'depart', plan: 'synthese', suivi: 'synthese', resultat: 'visualiser', travaux: 'investissements' }
+const ANCIENNES: Record<string, string> = { atterrissage: 'synthese', tresorerie: 'synthese', stock: 'synthese', tresoBudget: 'depart', plan: 'synthese', suivi: 'synthese', resultat: 'visualiser', travaux: 'investissements' }
 export const partieDe = (cle: string) => ANCIENNES[cle] ?? cle
 export const sectionDe = (cle: string) => (ANCIENNES[cle] && cle !== 'travaux' ? cle : null)
 
-const DONNEES = ['reel', 'quadrimestres', 'frais']
+const DONNEES = ['reel', 'saisieStock', 'quadrimestres', 'frais']
 const BUDGET = ['budget', 'visualiser', 'echanges', ...CLES_THEMES]
 export function espaceDe(cle: string): Espace {
   const p = partieDe(cle)
   return DONNEES.includes(p) ? 'donnees' : BUDGET.includes(p) ? 'budget' : 'suivi'
 }
-export const partieConnue = (cle: string) => [...DONNEES, ...BUDGET, 'synthese', 'atterrissage', 'stock', 'tresorerie'].includes(partieDe(cle))
+export const partieConnue = (cle: string) => [...DONNEES, ...BUDGET, 'synthese'].includes(partieDe(cle))
 
 // Magasin et partie lus dans l'adresse
 export function magasinDeChemin(chemin: string): { nom: string; partie: string | null } | null {
