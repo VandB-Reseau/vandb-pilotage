@@ -101,3 +101,42 @@ export function coutVentesDe(annee: Budget, suivante?: Budget | null): CoutVente
   const de = (b: Budget, u: Univers) => b.mois.map((m) => (m.univers ? m.univers[u].achats : u === 'cave' ? m.achats : 0))
   return Object.fromEntries(UNIVERS.map((u) => [u, [...de(annee, u), ...(suivante ? de(suivante, u) : [])]])) as CoutVentes
 }
+
+// Mois de stock non saisis (Joseph, 03/11/2026) : retrouvés entre deux saisies. À chaque saisie, la couverture en mois
+// d'achats à venir se calcule ; entre deux saisies, elle glisse régulièrement de l'une à l'autre, et le stock s'en déduit
+// avec les ventes prévues : il suit la saison au lieu d'une ligne droite. Avant la première saisie de l'année : stock de
+// fin décembre de l'an passé comme point de départ s'il est connu, sinon la couverture de la première saisie (choix de
+// Joseph). Après la dernière saisie : rien, le futur n'est pas du réel. Sans achats à venir connus : ligne droite.
+// saisies : 12 cases (null = non saisi) ; decembre : stock de fin décembre de l'an passé.
+export function stockEstime(l: number[], saisies: (number | null)[], decembre: number | null = null): (number | null)[] {
+  const points = [...(decembre !== null ? [{ i: -1, v: decembre }] : []), ...saisies.flatMap((v, i) => (v === null ? [] : [{ i, v }]))]
+  const avecAchats = l.some((x) => x > 0)
+  const couv = new Map(points.map((p) => [p.i, avecAchats ? moisCouverts(l, p.i, p.v) : 0]))
+  return saisies.map((v, i) => {
+    if (v !== null) return null
+    const avant = [...points].reverse().find((p) => p.i < i)
+    const apres = points.find((p) => p.i > i)
+    if (!apres) return null
+    if (!avant) return avecAchats ? achatsAVenir(l, i, couv.get(apres.i)!) : apres.v
+    const part = (i - avant.i) / (apres.i - avant.i)
+    if (!avecAchats) return avant.v + (apres.v - avant.v) * part
+    const c = couv.get(avant.i)! + (couv.get(apres.i)! - couv.get(avant.i)!) * part
+    return achatsAVenir(l, i, c)
+  })
+}
+
+// Stock de chaque mois, saisi ou estimé, Cave et Bar séparés
+export interface StockComplete { cave: number | null; bar: number | null; total: number | null; estime: boolean }
+export function stockComplete(cout: CoutVentes, saisies: (StockSaisi | null)[], decembre: StockSaisi | null = null): StockComplete[] {
+  const u = (k: 'cave' | 'bar') => {
+    const s = saisies.map((x) => x?.[k] ?? null)
+    const e = stockEstime(cout[k] ?? [], s, decembre?.[k] ?? null)
+    return s.map((v, i) => ({ v: v ?? e[i], estime: v === null && e[i] !== null }))
+  }
+  const cave = u('cave'), bar = u('bar')
+  return cave.map((c, i) => {
+    const b = bar[i]
+    const total = c.v === null && b.v === null ? null : (c.v ?? 0) + (b.v ?? 0)
+    return { cave: c.v, bar: b.v, total, estime: c.estime || b.estime }
+  })
+}
