@@ -63,9 +63,11 @@ test('d’une étape du budget à l’autre, les ajustements en cours restent sa
   const barre = page.getByRole('complementary', { name: 'Impact des changements' })
   await expect(barre).toContainText('1 changement')
   await ouvrir(page, 'Résultat et trésorerie')
+  await expect(page).toHaveURL(/\/visualiser$/)
   const garde = page.getByRole('dialog', { name: 'Modifications non enregistrées' })
   await expect(garde).toHaveCount(0)
-  await expect(barre).toContainText('1 changement')
+  // À l'étape Visualiser, pas de panneau Impact : la barre d'enregistrement garde le changement
+  await expect(page.getByRole('region', { name: 'Changements non enregistrés' })).toContainText('1 changement')
   // Vers l'espace Suivi : la garde demande confirmation, puis les ajustements non enregistrés sont abandonnés
   await ongletEspace(page, 'Suivi').click()
   await expect(garde).toBeVisible()
