@@ -21,10 +21,10 @@ export function partiesDe(espace: Espace, annee: number = new Date().getFullYear
   }
   if (espace === 'budget') {
     return [
+      // Lot 42 (Joseph, 02/11/2026) : hypothèses et résultat sur une seule page, le budget en 3 étapes
       { cle: 'depart', libelle: '0 · Point de départ' },
-      { cle: 'budget', libelle: '1 · Hypothèses' },
-      { cle: 'resultat', libelle: '2 · Résultat et trésorerie' },
-      { cle: 'echanges', libelle: '3 · Échanges et validation' },
+      { cle: 'budget', libelle: '1 · Construire' },
+      { cle: 'echanges', libelle: '2 · Envoyer et valider' },
     ]
   }
   // Lot 41 (proposition 5) : Synthèse et Face au budget ne font plus qu'une page
@@ -36,8 +36,8 @@ export function partiesDe(espace: Espace, annee: number = new Date().getFullYear
 
 // Lot 37 (Joseph, 02/11/2026) : les hypothèses du budget se lisent en cartes par thème ; chaque carte ouvre un tableau
 // court du thème. Ces thèmes ont leur adresse mais restent sous l'étape « 1 · Hypothèses ».
+// Lot 42 : les ventes et le résultat sont sur la page « Construire » ; restent en détail les thèmes ci-dessous.
 export const THEMES: Partie[] = [
-  { cle: 'ventes', libelle: 'Ventes' },
   { cle: 'calendrier', libelle: 'Calendrier' },
   { cle: 'equipe', libelle: 'Équipe' },
   { cle: 'fraisBudget', libelle: 'Frais' },
@@ -51,12 +51,12 @@ export const etapeDe = (cle: string) => (estTheme(cle) ? 'budget' : cle)
 export const PARTIE_PAR_DEFAUT: Record<Espace, string> = { donnees: 'reel', budget: 'depart', suivi: 'synthese' }
 
 // Anciennes clés (liens, alertes, « à faire ») : la partie qui les montre désormais, et la section où défiler
-const ANCIENNES: Record<string, string> = { atterrissage: 'depart', plan: 'synthese', suivi: 'synthese' }
+const ANCIENNES: Record<string, string> = { atterrissage: 'depart', plan: 'synthese', suivi: 'synthese', resultat: 'budget', ventes: 'budget' }
 export const partieDe = (cle: string) => ANCIENNES[cle] ?? cle
 export const sectionDe = (cle: string) => (ANCIENNES[cle] && cle !== 'atterrissage' ? cle : null)
 
 const DONNEES = ['reel', 'quadrimestres', 'frais']
-const BUDGET = ['depart', 'budget', 'resultat', 'echanges', ...CLES_THEMES]
+const BUDGET = ['depart', 'budget', 'echanges', ...CLES_THEMES]
 export function espaceDe(cle: string): Espace {
   const p = partieDe(cle)
   return DONNEES.includes(p) ? 'donnees' : BUDGET.includes(p) ? 'budget' : 'suivi'

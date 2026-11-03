@@ -19,6 +19,7 @@ import { actionSerie, ecartAtterrissage, type Action as ActionSerie, type EtatFi
 import { syntheseReel } from '../moteur/reel'
 import { reelEnRetard } from '../lib/aFaire'
 import type { Famille, Hypotheses, ParametresReseau, Univers } from '../moteur/types'
+import { avecReprise, comptesAnnee, tresorerieDepartEstimee, type ComptesAnnee, type DepartEstime } from '../moteur/reprise'
 
 export type Statut = 'propose' | 'en_discussion' | 'valide'
 export const statutLibelle: Record<Statut, string> = { propose: 'Proposé par le siège', en_discussion: 'En discussion', valide: 'Validé' }
@@ -42,6 +43,7 @@ export interface DonneesBudgets {
   annee?: number                       // année des budgets
   magasins: LigneMagasin[]; reseau: Cibles | null; groupes: Groupe[]; equipes: Record<string, Personne[]>; frais: Record<string, LigneFraisMagasin[]>
   ouvertures?: Record<string, Ouverture> // date d'ouverture des magasins (lot 24)
+  comptes?: Record<string, ComptesAnnee> // lot 42 : comptes de l'année d'avant celle des budgets (reprise, trésorerie de départ)
 }
 
 // Les budgets se préparent à partir de septembre pour l'année suivante
@@ -76,7 +78,7 @@ const objet = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 
 
 export const chargerBudgets = (annee: number): Promise<DonneesBudgets> => memo(`budgets|${annee}`, () => lireBudgets(annee))
 async function lireBudgets(annee: number): Promise<DonneesBudgets> {
-  const [{ data, error }, equipes, frais, ouvertures] = await Promise.all([pilotage().rpc('budgets_du_compte', { p_annee: annee }), chargerEquipes(), chargerFrais(), chargerOuvertures()])
+  const [{ data, error }, equipes, frais, ouvertures, comptes] = await Promise.all([pilotage().rpc('budgets_du_compte', { p_annee: annee }), chargerEquipes(), chargerFrais(), chargerOuvertures(), chargerComptes(annee - 1)])
   if (error || !objet(data) || !Array.isArray(data.magasins)) throw new ErreurChargement()
   const lignes = data.magasins as { magasin: string; statut: Statut | null; base: unknown; ajustements: unknown; hypotheses: unknown; maj_le: string | null; groupe_id: number | null; parametres?: unknown; ajustements_siege?: unknown; envoye_le?: string | null }[]
   return {
@@ -94,6 +96,18 @@ async function lireBudgets(annee: number): Promise<DonneesBudgets> {
     groupes: Array.isArray(data.groupes) ? (data.groupes as { id: number; nom: string; cibles: unknown }[]).map((g) => ({ id: g.id, nom: g.nom, cibles: objet(g.cibles) ? (g.cibles as Cibles) : null })) : [],
     equipes,
     frais,
+    comptes,
+  }
+}
+
+// Lot 42 : comptes des quadrimestres de l'année, prêts pour la reprise ; sans eux (ou sans accès), le budget fait sans
+async function chargerComptes(annee: number): Promise<Record<string, ComptesAnnee>> {
+  try {
+    const [saisies, { parametres }] = await Promise.all([chargerQuadrimestres(annee), chargerParametres(annee)])
+    const taux = parametres.tauxRedevance + parametres.tauxPublicite
+    return Object.fromEntries(Object.entries(saisies).flatMap(([m, s]) => { const c = comptesAnnee(annee, s, taux); return c ? [[m, c]] : [] }))
+  } catch {
+    return {}
   }
 }
 
@@ -106,8 +120,10 @@ export function niveauxDe(ligne: LigneMagasin, d: DonneesBudgets, ajustements: C
 
 // Hypothèses qui font foi : figées une fois le budget validé, sinon recalculées avec les cibles du moment
 // L'équipe et les frais enregistrés du magasin remplacent ceux de sa base ; un budget validé garde ceux du jour de la validation.
-export function avecEquipeEtFrais(base: Hypotheses, equipe: Personne[] | undefined, frais: LigneFraisMagasin[] | undefined): Hypotheses {
-  let h = equipe?.length ? { ...base, equipe } : base
+export function avecEquipeEtFrais(base: Hypotheses, equipe: Personne[] | undefined, frais: LigneFraisMagasin[] | undefined, comptes?: ComptesAnnee | null): Hypotheses {
+  // Lot 42 : faute d'équipe ou de frais saisis, ceux des comptes de l'année en cours
+  let h = comptes ? avecReprise(base, comptes, { equipe: !!equipe?.length, frais: !!frais?.length }) : base
+  h = equipe?.length ? { ...h, equipe } : h
   if (frais?.length) { const f = fraisDepuisLignes(frais); h = { ...h, frais: f.frais, ...f.finances } }
   return h
 }
@@ -119,11 +135,21 @@ export function atterrissageDe(reel: ReelAnnees, annee: number, equipe: Personne
   return { ...r, hypotheses, budget: calculerBudget(hypotheses, parametres) }
 }
 export function hypothesesDe(ligne: LigneMagasin, d: DonneesBudgets, ajustements?: Cibles): { hypotheses: Hypotheses; provenance: Provenance[] } | null {
-  const base = ligne.base ? avecEquipeEtFrais(ligne.base, d.equipes[ligne.magasin], d.frais[ligne.magasin]) : null
+  const base = ligne.base ? avecEquipeEtFrais(ligne.base, d.equipes[ligne.magasin], d.frais[ligne.magasin], d.comptes?.[ligne.magasin]) : null
   if (base && !(ligne.statut === 'valide' && ligne.figees)) return appliquerCibles(base, niveauxDe(ligne, d, ajustements))
   if (ligne.figees) return { hypotheses: ligne.figees, provenance: ligne.base ? appliquerCibles(ligne.base, niveauxDe(ligne, d, ajustements)).provenance : [] }
   return null
 }
+
+// Lot 42 (proposition 5) : trésorerie au 1er janvier estimée tant que le magasin n'a pas saisi la sienne
+export function departEstime(ligne: LigneMagasin, d: DonneesBudgets, parametres: ParametresReseau): DepartEstime | null {
+  if (!ligne.base || ligne.ajustements.tresorerieDepart !== undefined) return null
+  if (ligne.statut === 'valide' && ligne.figees) return ligne.figees.departEstime ?? null
+  const comptes = d.comptes?.[ligne.magasin]
+  return tresorerieDepartEstimee(avecEquipeEtFrais(ligne.base, d.equipes[ligne.magasin], d.frais[ligne.magasin], comptes), comptes, parametres)
+}
+export const departTresorerie = (ligne: LigneMagasin, d: DonneesBudgets, parametres: ParametresReseau): number | undefined =>
+  ligne.ajustements.tresorerieDepart ?? departEstime(ligne, d, parametres)?.montant
 
 // Lot 41, proposition 1 : la proposition d'un magasin préparée pour la proposition en série, comme le bouton « Proposer »
 // du point de départ (même base, mêmes cibles), avec ce qu'il faut pour choisir : CA atterri, EBE proposé, fiche, écart
@@ -141,10 +167,11 @@ export async function preparerProposition(ligne: LigneMagasin, d: DonneesBudgets
   if (!r) return null
   const equipe = d.equipes[magasin], frais = d.frais[magasin]
   const base = { ...avecEquipeEtFrais(r.base, undefined, frais), annee: anneeProposee }
-  const { hypotheses } = appliquerCibles(avecEquipeEtFrais(base, equipe, frais), niveauxDe(ligne, d))
+  const comptes = d.comptes?.[magasin]
+  const { hypotheses } = appliquerCibles(avecEquipeEtFrais(base, equipe, frais, comptes), niveauxDe(ligne, d))
   const caAtterri = calculerBudget(avecEquipeEtFrais(base, equipe, frais), parametres).atterrissage
   const avant = ligne.base ? calculerBudget(avecEquipeEtFrais(ligne.base, equipe, frais), parametres).atterrissage : null
-  const etat: EtatFiche = { reel: !reelEnRetard(syntheseReel(n.lignes, n.tickets).moisRenseignes), ouverture: !!(secours.ouverture ?? d.ouvertures?.[magasin]), equipe: !!equipe?.length, frais: !!frais?.length }
+  const etat: EtatFiche = { reel: !reelEnRetard(syntheseReel(n.lignes, n.tickets).moisRenseignes), ouverture: !!(secours.ouverture ?? d.ouvertures?.[magasin]), equipe: !!equipe?.length || !!hypotheses.reprise?.personnel, frais: !!frais?.length || !!hypotheses.reprise?.frais }
   const ecart = ligne.base ? ecartAtterrissage(avant, caAtterri) : null
   return { magasin, statut: ligne.statut, base, hypotheses, caAtterri, ebe: calculerBudget(hypotheses, parametres).ebe, etat, ecart, ...(() => { const a = actionSerie(ligne.statut, ecart, etat); return { action: a.action, coche: a.coche } })() }
 }
@@ -503,8 +530,8 @@ async function entreesAlertes(aujourdhui: Date): Promise<{ entrees: EntreeAlerte
     const lB = dB.magasins.find((x) => x.magasin === l.magasin)
     const hB = lB?.statut ? hypothesesDe(lB, dB) : null
     // Point bas du budget : seulement si la trésorerie de départ est saisie (partir de zéro alerterait à tort)
-    const depart = lB?.ajustements?.tresorerieDepart
     const pL = parametresDuBudget(lB, pB)
+    const depart = lB ? departTresorerie(lB, dB, pL) : undefined
     const point = hB && depart !== undefined ? tresorerieBudget(calculerBudget(hB.hypotheses, pL), hB.hypotheses, pL, pL.tresorerie, depart).pointBas : null
     const q = [...QUADRIMESTRES].reverse().find((x) => quadrimestres[l.magasin]?.[x]?.tresorerie != null)
     return {

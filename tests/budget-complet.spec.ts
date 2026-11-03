@@ -65,20 +65,35 @@ test('le franchisé ajoute démarque, saisonnalité et travaux, puis enregistre'
   expect(envoi.ajustements.travaux).toEqual({ activite: [1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1], gain: 0, investissement: 60_000, dureeAmortissement: 5 })
 })
 
-test('le Directeur copie les hypothèses vers un autre magasin, ses travaux restent', async ({ page }) => {
+test('le Directeur copie les hypothèses thème par thème vers un autre magasin, voit l’EBE avant et après, ses travaux restent', async ({ page, isMobile }) => {
   const liste = magasins()
-  liste[0].ajustements = { evolutionFamille: { 'cave/Bière': 0.05 }, travaux: { ...travaux, investissement: 99_000 } }
+  liste[0].ajustements = { evolutionFamille: { 'cave/Bière': 0.05 }, evolutionFlux: { cave: 0.05 }, travaux: { ...travaux, investissement: 99_000 }, tresorerieDepart: 12_000 }
   const ecritures = await seConnecter(page, { magasins: liste })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
   await ouvrir(page, 'Cartes des hypothèses')
   await page.getByRole('button', { name: 'Copier vers d’autres magasins' }).click()
   const panneau = page.getByRole('region', { name: `Copier les hypothèses de ${MAGASINS[0]}` })
-  // Le budget validé n'est pas proposé
-  await expect(panneau.getByRole('checkbox')).toHaveCount(2)
-  await panneau.getByLabel(MAGASINS[1]).check()
-  await panneau.getByRole('button', { name: 'Copier' }).click()
+  // Lot 42 : les thèmes à copier, ventes et marge cochés d'office ; jamais les travaux ni la trésorerie
+  const themes = panneau.getByRole('group', { name: 'Thèmes à copier' })
+  await expect(themes.getByRole('checkbox')).toHaveCount(5)
+  await expect(themes.getByRole('checkbox', { name: /^Ventes/ })).toBeChecked()
+  await expect(themes.getByRole('checkbox', { name: /^Hausse des salaires/ })).not.toBeChecked()
+  // Proposés d'abord : aucun ; en discussion : le magasin 2 ; le budget validé n'est jamais proposé
+  await expect(panneau.getByText('Aucun magasin ne correspond à ces filtres.')).toBeVisible()
+  await panneau.getByRole('button', { name: 'En discussion' }).click()
+  const table = panneau.getByRole('table', { name: 'Magasins visés et effet sur l’EBE' })
+  await expect(table.getByRole('row')).toHaveCount(2)
+  // + 5 % de tickets Cave : l'EBE du magasin 2 change avec la copie
+  const ligne = table.getByRole('row', { name: new RegExp(MAGASINS[1]) })
+  const [avant, apres] = (await ligne.getByRole('cell').allTextContents()).slice(3)
+  expect(avant).toMatch(/k€$/)
+  expect(apres).not.toBe(avant)
+  await panneau.getByLabel(MAGASINS[1], { exact: true }).check()
+  await expect(panneau.getByText('Les magasins en discussion perdent leurs propres choix sur les thèmes copiés.')).toBeVisible()
+  if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
+  await panneau.getByRole('button', { name: 'Copier', exact: true }).click()
   await expect(page.getByText(`Hypothèses copiées vers ${MAGASINS[1]}.`)).toBeVisible()
   const envoi = ecritures.find((e) => e.table === 'budgets' && e.methode === 'PATCH')
   expect(envoi?.filtre).toContain(encodeURIComponent(MAGASINS[1]))
-  expect((envoi?.corps as { ajustements: unknown }).ajustements).toEqual({ evolutionFamille: { 'cave/Bière': 0.05 }, travaux })
+  expect((envoi?.corps as { ajustements: unknown }).ajustements).toEqual({ evolutionFamille: { 'cave/Bière': 0.05 }, evolutionFlux: { cave: 0.05 }, travaux })
 })
