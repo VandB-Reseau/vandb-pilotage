@@ -814,9 +814,10 @@ function AvecImpact({ panneau, commentaires, cote, children }: { panneau: ReactN
   return (
     <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', columnGap: 3, alignItems: 'start' }}>
       <Box sx={{ minWidth: 0 }}>{children}</Box>
-      <Box sx={{ position: 'sticky', top: 84, zIndex: 6, maxHeight: 'calc(100vh - 100px)', overflowY: 'auto', display: 'grid', gap: 2, pb: 0.5, px: 0.5, mx: -0.5 }}>
+      {/* Le panneau ne défile jamais avec les commentaires : ceux-ci prennent la place qui reste et défilent seuls */}
+      <Box sx={{ position: 'sticky', top: 84, zIndex: 6, maxHeight: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column', gap: 2, pb: 0.5, px: 0.5, mx: -0.5 }}>
         {panneau}
-        {commentaires}
+        {commentaires && <Box sx={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }}>{commentaires}</Box>}
       </Box>
     </Box>
   )

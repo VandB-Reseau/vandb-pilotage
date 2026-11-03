@@ -98,3 +98,27 @@ test('le panneau reste sur les thèmes du budget ; en lecture, il compare au si�
   await expect(page.getByRole('complementary', { name: 'Impact des changements' })).toHaveCount(0)
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
 })
+
+// Joseph (03/11/2026) : le panneau était trop long, il fallait dérouler pour atteindre « Enregistrer les ajustements ».
+// Sur un PC portable (768 px de haut), le bouton est sous le titre du panneau et les indicateurs tiennent à l'écran.
+test('sur un PC portable, « Enregistrer les ajustements » se voit sans dérouler', async ({ page, isMobile }, info) => {
+  test.skip(isMobile, 'Panneau à droite : grand écran seulement')
+  await page.setViewportSize({ width: 1366, height: 768 })
+  await seConnecter(page, { role: 'franchise', magasins: [{ magasin: MAGASINS[0], statut: 'propose', hypotheses: magasinFictif, base: magasinFictif, maj_le: null, ajustements_siege: {} }] })
+  await ouvrir(page, 'Ventes')
+  const impact = page.getByRole('complementary', { name: 'Impact des changements' })
+  await page.getByRole('table', { name: /Hypothèses \d+ : Cave/ }).getByRole('row', { name: /^Tickets/ }).locator('[data-pas="monter"]').click()
+  await expect(impact.getByRole('group', { name: 'Dernier changement' })).toBeVisible()
+  const enregistrer = impact.getByRole('button', { name: 'Enregistrer les ajustements' })
+  // Dès l'arrivée sur la page, le bouton est à l'écran, juste sous le titre du panneau
+  await expect(enregistrer).toBeInViewport({ ratio: 1 })
+  // Plus bas dans la page, le panneau reste collé : bouton et indicateurs visibles d'un coup, sans défilement interne
+  await page.mouse.move(600, 400)
+  await page.mouse.wheel(0, 1500)
+  await expect(enregistrer).toBeInViewport({ ratio: 1 })
+  const liste = impact.locator('[data-liste-impact]')
+  expect(await liste.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1)
+  for (const cle of ['ca', 'marge', 'personnel', 'ebe', 'resultatNet', 'pointBas']) await expect(impact.locator(`[data-impact="${cle}"]`)).toBeInViewport({ ratio: 1 })
+  expect(await textesTropPetits(page)).toEqual([])
+  await impact.screenshot({ path: `captures/${info.project.name}-impact-compact.png` })
+})
