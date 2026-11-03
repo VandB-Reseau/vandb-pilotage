@@ -2,9 +2,10 @@
 
 Même base Supabase que l'app réseau. Le pilotage n'écrit que dans le schéma `pilotage` ; il lit l'app réseau par ses
 fonctions (`mon_role()`, `est_directeur()`, `magasins_visibles()`, `mes_magasins()`, `json_sur()`) et ses tables `perimetre_equipe`
-et `app_config` (lue seulement : fiche des Responsables Régionaux, clé `drs_data`).
+et `app_config` (lue seulement : fiche des Responsables Régionaux, clé `drs_data` ; renommages des magasins, clé `store_renames`, 0028),
+et `store_finance` (lue seulement, par `concordance_ca`, 0028).
 
-Mis à jour le 02/11/2026 (migration `0022`).
+Mis à jour le 03/11/2026 (migration `0028`).
 
 ## Principes
 
@@ -91,6 +92,9 @@ Mis à jour le 02/11/2026 (migration `0022`).
 | `pilotage.ouvrir_campagne(annee)` | Directeur seul : ouvre la campagne des budgets de `annee` (année suivie la plus récente + 1, une campagne à la fois) ; reprend pour `annee` les paramètres réseau (sans les dates de campagne), les cibles du réseau et des groupes de l'année d'avant quand ils n'existent pas, sans rien écraser. Rejouée, ne change rien (0027) |
 | `pilotage.demarrer_suivi(annee)` | Directeur seul : la campagne `annee` devient l'année suivie ; l'année d'avant reste suivie (à clore) ; archive les `frais` des magasins pour l'année d'avant (0027) |
 | `pilotage.clore_annee(annee)` | Directeur seul : clôt une année suivie qui n'est plus la plus récente (0027) |
+| `pilotage.concordance_ca(annee)` | Directeur et contrôle de gestion (0028) : `(store_name, mois, ca_caisse, tickets_caisse, ca_reseau, tickets_reseau)`, une ligne par magasin et mois chiffré d'un côté ou de l'autre. Caisse = somme de `reel_mensuel.ca_ht` et de `reel_tickets.tickets` ; app réseau = `store_finance.ca_cave + ca_bar + ca_ext` et `freq`. Sert à vérifier, avant de retirer `store_finance`, que la caisse couvre tous les mois |
+| `pilotage.magasins_orphelins()` | Directeur et contrôle de gestion (0028) : `(store_name, lignes, nouveau_nom)`, noms de magasin présents dans une table du pilotage mais absents de `perimetre_equipe`, avec le nouveau nom quand `store_renames` le donne et qu'il est connu |
+| `pilotage.renommer_magasin(ancien, nouveau)` | Directeur seul (0028) : déplace vers `nouveau` les lignes de toutes les tables du pilotage qui ont une colonne `store_name`. Une ligne déjà présente sous `nouveau` avec la même clé (même année, même mois…) n'est pas écrasée : celle de `ancien` reste et est comptée. Renvoie `{deplacees, restees}`. À appeler par l'app réseau à chaque renommage, après la fusion |
 
 ## Rejouer les migrations
 
@@ -135,3 +139,20 @@ années, premiereEcheance (mois)}]`, échéances constantes, capital encaissé l
 répondues « Rien de prévu ») et `accords`. Ordre des niveaux : magasin,
 groupe, ancienneté du magasin, réseau, hausse tarifaire, réalisé. Une clé absente reprend le niveau au-dessus : magasin, puis groupe, puis réseau, puis le
 réalisé du magasin (évolution nulle, marge réalisée, démarque nulle). Lot 8 : ces clés vivent dans le JSON existant, sans migration.
+
+## Préparation de la fusion avec l'app réseau (0028)
+
+Décisions de Joseph (03/11/2026) : la caisse devient la seule source du CA ; les chiffres saisis dans l'app réseau
+(`store_finance`) seront retirés après la bascule, une fois `concordance_ca` sans mois manquant (ils alimentent aussi,
+dans l'app réseau, les repères réseau, le classement des challenges et l'espace du franchisé, à réécrire sur la caisse).
+
+Accès du franchisé : dans l'app réseau, il ne lit aucune table et tout passe par `espace_franchise()`. Dans le pilotage,
+il lit les tables du schéma `pilotage` filtrées par `mes_magasins()`, chaque règle contrôlée dans
+`supabase/tests/regles_acces.sql`. À la fusion, on garde ce filtrage par magasin pour le schéma `pilotage` (mêmes
+garanties, testées), et la règle de l'app réseau s'écrit : « un franchisé ne lit aucune table de `public` ; dans
+`pilotage`, seulement les lignes de ses magasins ». Les médianes et comparaisons du réseau ne lui arrivent jamais par
+une table : `budgets_du_compte()` les lui retire.
+
+Contrôle de gestion : désigné dans `controle_gestion` (0021), sans rôle dans l'app réseau. Décision de Joseph : à la
+fusion, il devient un rôle de l'app réseau qui voit les paramètres et les chiffres de tous les magasins, sans écrire
+dans les fiches. À faire dans le dépôt de l'app réseau (`mon_acces()`, menu, « Paramètres »).

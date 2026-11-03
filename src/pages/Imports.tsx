@@ -23,6 +23,7 @@ import { BoutonModele } from '../components/BoutonModele'
 import { ChoixMagasin } from '../components/ChoixMagasin'
 import { MODELES } from '../lib/modeles'
 import { Panne } from '../components/Panne'
+import { PreparationFusion } from '../components/PreparationFusion'
 import { anneeBudget, chargerBudgets, chargerCodes, enregistrerCode, importerQuadrimestres, importerReel, supprimerCode } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { apercuImport, FichierInattendu, lireQuadrimestres, lireTickets, lireVentes, type QuadrimestreLu, type TicketsMois, type VenteMois } from '../import/caisse'
@@ -308,6 +309,8 @@ export function Imports() {
             </Typography>
           )}
         </Card>
+
+        <PreparationFusion />
       </Stack>
     </Box>
   )

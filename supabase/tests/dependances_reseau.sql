@@ -1,5 +1,5 @@
 -- Ce que l'app réseau a déjà créé dans la base partagée et dont le pilotage dépend (tests uniquement).
--- Copie fidèle des définitions des migrations 0001_tables_de_base.sql, 0004_acces_franchises.sql et 0005_cloisonnement_equipe.sql
+-- Copie fidèle des définitions des migrations 0001_tables_de_base.sql, 0004_acces_franchises.sql et 0005_cloisonnement_equipe.sql (et store_finance de 0001)
 -- du dépôt vandb-reseau : à mettre à jour si elles changent là-bas.
 
 CREATE OR REPLACE FUNCTION public.mon_role() RETURNS text
@@ -89,3 +89,23 @@ CREATE TABLE IF NOT EXISTS public.store_overrides (
   lat        double precision,
   updated_at timestamptz DEFAULT now()
 );
+
+-- Chiffres mensuels saisis dans l'app réseau (0001_tables_de_base.sql), lus par pilotage.concordance_ca (0028)
+CREATE TABLE IF NOT EXISTS public.store_finance (
+  store_name text NOT NULL,
+  month      date NOT NULL,
+  ca_cave    numeric,
+  ca_bar     numeric,
+  ebitda     numeric,
+  panier     numeric,
+  freq       numeric,
+  updated_at timestamptz DEFAULT now(),
+  PRIMARY KEY (store_name, month)
+);
+ALTER TABLE public.store_finance ADD COLUMN IF NOT EXISTS ca_ext    numeric;
+ALTER TABLE public.store_finance ADD COLUMN IF NOT EXISTS pm_cave   numeric;
+ALTER TABLE public.store_finance ADD COLUMN IF NOT EXISTS flux_cave numeric;
+ALTER TABLE public.store_finance ADD COLUMN IF NOT EXISTS pm_bar    numeric;
+ALTER TABLE public.store_finance ADD COLUMN IF NOT EXISTS flux_bar  numeric;
+ALTER TABLE public.store_finance ADD COLUMN IF NOT EXISTS marge     numeric;
+ALTER TABLE public.store_finance ENABLE ROW LEVEL SECURITY;
