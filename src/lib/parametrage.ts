@@ -28,7 +28,7 @@ const LIBELLES: Record<string, string> = {
   smicAnnuel: 'SMIC annuel', tmin: 'taux minimal', tdelta: 'taux dégressif', puissance: 'puissance', horsReduction: 'part hors réduction',
   delaiFournisseurs: 'paiement des fournisseurs (mois)', avanceLivraison: 'livraison avant la vente (mois)', delaiRedevance: 'paiement de la redevance (mois)',
   tvaVentes: 'TVA sur les ventes', tvaAchats: 'TVA sur les achats', tvaFrais: 'TVA sur les frais', tvaTrimestrielle: 'TVA trimestrielle',
-  partCotisations: 'personnel payé le mois suivant', stockJours: 'stock (jours)', avanceExterieur: 'achats de l’Extérieur payés avant (mois)',
+  partCotisations: 'personnel payé le mois suivant', stockJours: 'stock (jours)', stock: 'stock cible', mois: 'mois de stock', tolerance: 'écart toléré du stock', avanceExterieur: 'achats de l’Extérieur payés avant (mois)',
   demarque: 'démarque de consignes', ecoulement: 'écoulement d’un fût (mois)', remboursement: 'remboursement des consignes (mois)', operations: 'opérations du réseau',
   ecartCA: 'CA sous le budget', baisseMarge: 'baisse de marge', moisRetard: 'mois de retard', baisseTickets: 'baisse des tickets', baissePanier: 'baisse du panier',
   proposition: 'proposition', retour: 'retour des franchisés', validation: 'validation',

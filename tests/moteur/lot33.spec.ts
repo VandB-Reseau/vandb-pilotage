@@ -21,18 +21,18 @@ const h = {
   interets: 1_200, remboursementCapital: 2_400,
 } as unknown as Hypotheses
 
-test('BFR au 31 décembre : stock en jours d’achats moins les dettes des derniers mois', () => {
+test('BFR au 31 décembre : stock cible de fin décembre moins les dettes des derniers mois', () => {
   const { bfr } = tresorerieBudget(budget, h, p, tresorerieParDefaut)
-  proche(bfr.stock, 72_000 * 45 / 365)          // 8 876,71 € : 45 jours d'achats
+  proche(bfr.stock, 15_000)                     // 2,5 mois d'achats de la Cave (budget sans univers : tout en Cave) : 6 000 × 2,5
   proche(bfr.consignes, 0)                      // pas de familles : pas de consignes
   proche(bfr.fournisseurs, 7_200)               // achats de décembre TTC, payés fin janvier
   proche(bfr.tva, 440)                          // TVA de décembre : 1 900 − 1 200 − 260
   proche(bfr.cotisations, 800)                  // 40 % du personnel de décembre
   proche(bfr.redevance, 360)                    // redevance et publicité de décembre TTC
-  proche(bfr.total, 72_000 * 45 / 365 - 7_200 - 440 - 800 - 360) // 76,71 €
+  proche(bfr.total, 15_000 - 7_200 - 440 - 800 - 360) // 6 200 €
   proche(bfr.joursCA, bfr.total / (120_000 / 365))
   // TVA trimestrielle : le dernier trimestre est dû ; sans stock, le BFR devient une ressource
-  const q = tresorerieBudget(budget, h, p, { ...tresorerieParDefaut, tvaTrimestrielle: true, stockJours: 0 }).bfr
+  const q = tresorerieBudget(budget, h, p, { ...tresorerieParDefaut, tvaTrimestrielle: true, stock: { mois: { cave: 0, bar: 0, exterieur: 0 }, tolerance: 0.1 } }).bfr
   proche(q.tva, 1_320)
   proche(q.total, -7_200 - 1_320 - 800 - 360)
   // Fournisseurs à 60 jours : deux mois d'achats dus

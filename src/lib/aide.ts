@@ -417,6 +417,12 @@ export const AIDE = {
     quoi: 'Les frais saisis ligne par ligne, hors personnel.',
     calcul: 'Somme des frais en euros par an, plus les frais en % du CA, la redevance et la publicité.',
   },
+  stockCible: {
+    titre: 'Stock cible',
+    quoi: 'Ce que le stock doit valoir en fin de mois, au prix d’achat, pour un magasin bien achalandé sans argent qui dort.',
+    remplir: 'Chaque mois, la valeur du stock au prix d’achat HT au dernier jour du mois, Cave et Bar séparés, lue dans le logiciel de caisse ou issue d’un inventaire.',
+    calcul: 'Cible = achats des ventes des mois à venir (2,5 mois pour la Cave, 1 mois pour le Bar, réglables dans les Paramètres réseau), d’après les ventes de l’année et le budget suivant. Écart affiché au-delà de la tolérance.',
+  },
 } satisfies Record<string, TexteAide>
 
 export type SujetAide = keyof typeof AIDE

@@ -52,8 +52,12 @@ import { campagneDe, type Campagne } from '../moteur/campagne'
 import { parametresParDefaut } from '../moteur/parametres'
 import type { ParametresReseau } from '../moteur/types'
 import type { OperationReseau, ParametresTresorerie } from '../moteur/tresorerie'
+import { stockParDefaut } from '../moteur/stock'
 import { UNIVERS, universLibelle, type Univers } from '../moteur/types'
 import { dateHeure, ecartMontant, enChiffres, montant, MOIS_LONGS } from '../lib/format'
+
+// Mois de stock affichés à la française (2,5)
+const enChiffresMois = (v: number) => String(v).replace('.', ',')
 
 const MOIS_OPTIONS = MOIS_LONGS.map((m, i) => ({ valeur: i + 1, libelle: m.charAt(0).toUpperCase() + m.slice(1) }))
 const DE_L_UNIVERS: Record<Univers, string> = { cave: 'de la Cave', bar: 'du Bar', exterieur: 'de l’Extérieur' }
@@ -102,7 +106,7 @@ export function Parametres() {
   const [occupe, setOccupe] = useState(false)
   // Trésorerie : délais en mois gardés en texte pendant la frappe
   const [treso, setTreso] = useState<ParametresTresorerie | null>(null)
-  const [delais, setDelais] = useState({ fournisseurs: '', livraison: '', redevance: '', ecoulement: '', remboursement: '', exterieur: '', stock: '' })
+  const [delais, setDelais] = useState({ fournisseurs: '', livraison: '', redevance: '', ecoulement: '', remboursement: '', exterieur: '', stockCave: '', stockBar: '' })
   const [messageTreso, setMessageTreso] = useState<{ gravite: 'success' | 'error'; texte: string } | null>(null)
   // Seuils des alertes : textes pendant la frappe, sauf l'écart de CA (pourcentage)
   const [ecartCA, setEcartCA] = useState<number | undefined>(undefined)
@@ -126,7 +130,7 @@ export function Parametres() {
     setDelais({
       fournisseurs: String(p.tresorerie.delaiFournisseurs), livraison: String(p.tresorerie.avanceLivraison ?? 1), redevance: String(p.tresorerie.delaiRedevance),
       ecoulement: String(p.tresorerie.consignes?.ecoulement ?? 0), remboursement: String(p.tresorerie.consignes?.remboursement ?? 0),
-      exterieur: String(p.tresorerie.avanceExterieur ?? 0), stock: String(p.tresorerie.stockJours ?? 0),
+      exterieur: String(p.tresorerie.avanceExterieur ?? 0), stockCave: enChiffresMois((p.tresorerie.stock ?? stockParDefaut).mois.cave), stockBar: enChiffresMois((p.tresorerie.stock ?? stockParDefaut).mois.bar),
     })
     setCharges(p.charges)
     setSmic(String(p.charges.reduction.smicAnnuel).replace('.', ','))
@@ -182,10 +186,13 @@ export function Parametres() {
   const delai = (t: string, max = 3) => { const n = nombre(t); return n !== null && Number.isInteger(n) && n >= 0 && n <= max ? n : null }
   const delaisLus = { delaiFournisseurs: delai(delais.fournisseurs), avanceLivraison: delai(delais.livraison), delaiRedevance: delai(delais.redevance), avanceExterieur: delai(delais.exterieur) }
   const delaisConsignes = { ecoulement: delai(delais.ecoulement, 6), remboursement: delai(delais.remboursement, 6) }
-  const stockLu = delai(delais.stock, 365)
-  const tresoValide = Object.values({ ...delaisLus, ...delaisConsignes, stockLu }).every((v) => v !== null)
+  // Stock cible en mois d'achats à venir (03/11/2026) : décimales permises (2,5), 12 mois au plus
+  const moisStock = (t: string) => { const n = nombre(t); return n !== null && n >= 0 && n <= 12 ? n : null }
+  const stockLu = { cave: moisStock(delais.stockCave), bar: moisStock(delais.stockBar) }
+  const tresoValide = Object.values({ ...delaisLus, ...delaisConsignes, ...stockLu }).every((v) => v !== null)
   const tresoLue = (t: ParametresTresorerie): ParametresTresorerie => ({
-    ...t, delaiFournisseurs: delaisLus.delaiFournisseurs ?? 0, avanceLivraison: delaisLus.avanceLivraison ?? 0, delaiRedevance: delaisLus.delaiRedevance ?? 0, avanceExterieur: delaisLus.avanceExterieur ?? 0, stockJours: stockLu ?? 0,
+    ...t, delaiFournisseurs: delaisLus.delaiFournisseurs ?? 0, avanceLivraison: delaisLus.avanceLivraison ?? 0, delaiRedevance: delaisLus.delaiRedevance ?? 0, avanceExterieur: delaisLus.avanceExterieur ?? 0,
+    stock: { ...(t.stock ?? stockParDefaut), mois: { ...(t.stock ?? stockParDefaut).mois, cave: stockLu.cave ?? 0, bar: stockLu.bar ?? 0 } },
     consignes: t.consignes && { ...t.consignes, ecoulement: delaisConsignes.ecoulement ?? 0, remboursement: delaisConsignes.remboursement ?? 0 },
   })
   const tresoModifiee = !!p && !!treso && JSON.stringify(tresoLue(treso)) !== JSON.stringify(p.tresorerie)
@@ -478,8 +485,16 @@ export function Parametres() {
                   </TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell>Stock moyen du magasin, en jours d’achats de marchandises (besoin en fonds de roulement)</TableCell>
-                  <TableCell align="right"><ChampNombre libelle="Stock moyen en jours d’achats" valeur={delais.stock} unite="jours" largeur={120} onChange={(v) => setDelais((d) => ({ ...d, stock: v }))} /></TableCell>
+                  <TableCell>Stock cible de la Cave en fin de mois, en mois d’achats des ventes à venir, au prix d’achat (graphique du stock, fonds de roulement)</TableCell>
+                  <TableCell align="right"><ChampNombre libelle="Stock cible de la Cave en mois" valeur={delais.stockCave} unite="mois" largeur={120} onChange={(v) => setDelais((d) => ({ ...d, stockCave: v }))} /></TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Stock cible du Bar en fin de mois, en mois d’achats des ventes à venir, au prix d’achat</TableCell>
+                  <TableCell align="right"><ChampNombre libelle="Stock cible du Bar en mois" valeur={delais.stockBar} unite="mois" largeur={120} onChange={(v) => setDelais((d) => ({ ...d, stockBar: v }))} /></TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>Écart toléré autour du stock cible avant de le signaler</TableCell>
+                  <TableCell align="right"><ChampTaux libelle="Écart toléré autour du stock cible" valeur={(treso.stock ?? stockParDefaut).tolerance} onChange={(v) => setTreso((t) => (t ? { ...t, stock: { ...(t.stock ?? stockParDefaut), tolerance: v ?? 0 } } : t))} /></TableCell>
                 </TableRow>
                 <TableRow>
                   <TableCell>Part du coût du personnel payée le mois suivant (cotisations salariales et patronales)</TableCell>

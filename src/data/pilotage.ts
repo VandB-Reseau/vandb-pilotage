@@ -16,6 +16,7 @@ import { ratiosDuBudget, ratiosDuReel, type Ratios } from '../moteur/comparaison
 import { ligneReseau } from '../moteur/suivi'
 import { QUADRIMESTRES, type Quadrimestre, type SaisieQuadrimestre } from '../moteur/quadrimestre'
 import { tresorerieBudget } from '../moteur/tresorerie'
+import type { StockSaisi } from '../moteur/stock'
 import { actionSerie, ecartAtterrissage, type Action as ActionSerie, type EtatFiche } from '../moteur/preparation'
 import { syntheseReel } from '../moteur/reel'
 import { reelEnRetard } from '../lib/aFaire'
@@ -247,6 +248,7 @@ export function completerParametres(v: Partial<ParametresReseau>): ParametresRes
     tresorerie: {
       ...parametresParDefaut.tresorerie, ...v.tresorerie,
       consignes: { ...parametresParDefaut.tresorerie.consignes!, ...v.tresorerie?.consignes },
+      stock: { ...parametresParDefaut.tresorerie.stock!, ...v.tresorerie?.stock, mois: { ...parametresParDefaut.tresorerie.stock!.mois, ...v.tresorerie?.stock?.mois } },
     },
     alertes: { ...parametresParDefaut.alertes, ...v.alertes },
     charges: {
@@ -728,4 +730,19 @@ export async function changerStatutAction(id: number, statut: StatutAction) {
 }
 export async function retirerAction(id: number) {
   verifier(await pilotage().from('actions').delete().eq('id', id))
+}
+
+// Valeur du stock en fin de mois (migration 0023, 03/11/2026) : Cave et Bar au prix d'achat HT, saisis chaque mois.
+// Sans la table (migration pas encore passée) : aucun mois saisi.
+export const chargerStocks = (magasin: string, annee: number): Promise<(StockSaisi | null)[]> => memo(`stocks|${magasin}|${annee}`, async () => {
+  const mois: (StockSaisi | null)[] = Array(12).fill(null)
+  const { data, error } = await pilotage().from('stocks').select('mois, cave, bar').eq('store_name', magasin).eq('annee', annee)
+  if (error || !Array.isArray(data)) return mois
+  const num = (x: unknown) => (x === null || x === undefined ? null : Number(x))
+  for (const l of data as { mois: number; cave: unknown; bar: unknown }[]) if (l.mois >= 1 && l.mois <= 12) mois[l.mois - 1] = { cave: num(l.cave), bar: num(l.bar) }
+  return mois
+})
+export async function enregistrerStock(magasin: string, annee: number, mois: number, s: StockSaisi) {
+  if (s.cave === null && s.bar === null) verifier(await pilotage().from('stocks').delete().eq('store_name', magasin).eq('annee', annee).eq('mois', mois))
+  else verifier(await pilotage().from('stocks').upsert({ store_name: magasin, annee, mois, cave: s.cave, bar: s.bar }))
 }

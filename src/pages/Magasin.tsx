@@ -45,6 +45,7 @@ import { ComparaisonMagasin } from '../components/ComparaisonMagasin'
 import { QuadrimestresMagasin } from '../components/QuadrimestresMagasin'
 import { ReelAnnee } from '../components/ReelAnnee'
 import { poidsValides, SaisonnaliteMagasin } from '../components/SaisonnaliteMagasin'
+import { StockMagasin } from '../components/StockMagasin'
 import { SuiviBudget } from '../components/SuiviBudget'
 import { TravauxMagasin } from '../components/TravauxMagasin'
 import { AjustementsCAMagasin } from '../components/AjustementsCAMagasin'
@@ -449,6 +450,13 @@ export function Magasin() {
             <FamillesReseau key={`familles-${ligne.magasin}`} magasin={ligne.magasin} directeur={directeur} />
           </>}
         />
+      ) : onglet === 'stock' ? (
+        <Stack spacing={2}>
+          <ToggleButtonGroup exclusive size="small" value={anneeReel} onChange={(_, v: number | null) => v && setAnneeReel(v)} aria-label="Année du stock">
+            {[anneeEnCours, anneeEnCours - 1].map((a) => <ToggleButton key={a} value={a} sx={{ minHeight: 48, minWidth: 72 }}>{a}</ToggleButton>)}
+          </ToggleButtonGroup>
+          <StockMagasin key={`${ligne.magasin}-${anneeReel}`} magasin={ligne.magasin} annee={anneeReel} peutSaisir={peutSaisir} />
+        </Stack>
       ) : onglet === 'tresorerie' ? (
         <Stack spacing={2}>
           {anneeChoix(anneeQuadri, (v) => setAnneeQuadri(v), 'Année de la trésorerie')}
