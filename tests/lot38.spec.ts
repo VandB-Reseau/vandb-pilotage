@@ -34,11 +34,14 @@ test('budget : une seule navigation, l’étape suivante en bas de page, un en-t
 
   // Étape suivante, puis précédente
   const pied = page.getByRole('navigation', { name: 'Étape précédente ou suivante' })
-  await expect(pied).toContainText('Étape 1 sur 2')
+  await expect(pied).toContainText('Étape 1 sur 3')
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-lot38-hypotheses.png`, fullPage: true })
-  // Lot 42 : le résultat est sur la même page que les hypothèses
+  // Joseph (03/11/2026) : le résultat et la trésorerie ont leur étape, « Visualiser »
+  await pied.getByRole('button', { name: 'Étape suivante : Visualiser' }).click()
+  await expect(page).toHaveURL(/\/visualiser$/)
+  await expect(pied).toContainText('Étape 2 sur 3')
   await expect(pied.getByRole('button', { name: 'Étape suivante : Envoyer et valider' })).toBeVisible()
   // D5 : CA, marge, frais de personnel et EBE sur fond teinté dans le compte de résultat
   const compte = page.getByRole('table', { name: `Budget ${annee} mois par mois` })
@@ -51,8 +54,8 @@ test('budget : une seule navigation, l’étape suivante en bas de page, un en-t
   }
   await expect(compte.getByRole('row', { name: /^Intérêts/ })).not.toHaveClass(/ligne-cle/)
   await page.screenshot({ path: `captures/${info.project.name}-lot38-resultat.png`, fullPage: true })
-  await page.getByRole('navigation', { name: 'Étape précédente ou suivante' }).getByRole('button', { name: 'Point de départ' }).click()
-  await expect(page).toHaveURL(/\/depart$/)
+  await page.getByRole('navigation', { name: 'Étape précédente ou suivante' }).getByRole('button', { name: 'Construire' }).click()
+  await expect(page).toHaveURL(/\/budget$/)
 })
 
 // Paramètres du moment : redevance 2 % + publicité 1 % = 3 % du CA. Copie faite à la validation : redevance 5 % → 6 %.

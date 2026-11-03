@@ -132,9 +132,9 @@ test('campagne des budgets : retard après la date de proposition ou de validati
     { statut: 'propose', responsables: [] },
   ], c, '2026-12-20')
   expect(a).toEqual([
-    { nom: 'RR Nord', magasins: 3, aProposer: 1, proposes: 0, enDiscussion: 1, valides: 1, enRetard: 2 },
-    { nom: 'RR Sud', magasins: 1, aProposer: 0, proposes: 0, enDiscussion: 1, valides: 0, enRetard: 1 },
-    { nom: '', magasins: 1, aProposer: 0, proposes: 1, enDiscussion: 0, valides: 0, enRetard: 1 },
+    { nom: 'RR Nord', magasins: 3, aProposer: 1, proposes: 0, enDiscussion: 1, valides: 1, enRetard: 2, commentaires: 0 },
+    { nom: 'RR Sud', magasins: 1, aProposer: 0, proposes: 0, enDiscussion: 1, valides: 0, enRetard: 1, commentaires: 0 },
+    { nom: '', magasins: 1, aProposer: 0, proposes: 1, enDiscussion: 0, valides: 0, enRetard: 1, commentaires: 0 },
   ])
 })
 

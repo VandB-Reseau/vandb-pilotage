@@ -18,7 +18,7 @@ test.afterEach(async ({ page }) => {
 
 test('fiche en trois espaces ; la barre d’enregistrement montre l’effet avant → après et se retire à l’annulation', async ({ page, isMobile }, info) => {
   await seConnecter(page, { role: 'franchise', magasins: [propose] })
-  // Lot 36 : la fiche s'ouvre sur le suivi ; le budget est un espace à part, en 4 étapes (0 : point de départ)
+  // Lot 36 : la fiche s'ouvre sur le suivi ; le budget est un espace à part, en 3 étapes (03/11/2026)
   await expect(page).toHaveURL(/\/synthese$/)
   await ouvrir(page, 'Hypothèses')
   await partieAffichee(page, /^1 · Construire/)
@@ -39,10 +39,12 @@ test('fiche en trois espaces ; la barre d’enregistrement montre l’effet avan
   await page.screenshot({ path: `captures/${info.project.name}-barre-enregistrement.png` })
 
   // Passer d'une partie du budget à l'autre garde la saisie
+  // Sur « Visualiser » (03/11/2026), sans panneau Impact : la barre d'enregistrement en bas de page
   await ouvrir(page, 'Résultat et trésorerie')
-  await expect(barre).toContainText('1 changement')
-  await barre.getByRole('button', { name: 'Annuler les changements' }).click()
-  await expect(barre).not.toContainText('changement non enregistré')
+  const bas = page.getByRole('region', { name: 'Changements non enregistrés' })
+  await expect(bas).toContainText('1 changement')
+  await bas.getByRole('button', { name: 'Annuler les changements' }).click()
+  await expect(bas).toHaveCount(0)
   await ouvrir(page, 'Hypothèses')
   await expect(page.getByLabel('Évolution du nombre de tickets : Cave')).toHaveValue('')
 })

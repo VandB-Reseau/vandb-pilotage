@@ -21,15 +21,18 @@ export function partiesDe(espace: Espace, annee: number = new Date().getFullYear
   }
   if (espace === 'budget') {
     return [
-      // Lot 42 (Joseph, 02/11/2026) : hypothèses et résultat sur une seule page, le budget en 3 étapes
-      { cle: 'depart', libelle: '0 · Point de départ' },
+      // Joseph (03/11/2026) : trois étapes ; le point de départ devient une carte de « Construire », le résultat et la
+      // trésorerie ont leur page
       { cle: 'budget', libelle: '1 · Construire' },
-      { cle: 'echanges', libelle: '2 · Envoyer et valider' },
+      { cle: 'visualiser', libelle: '2 · Visualiser' },
+      { cle: 'echanges', libelle: '3 · Envoyer et valider' },
     ]
   }
   // Lot 41 (proposition 5) : Synthèse et Face au budget ne font plus qu'une page
   return [
     { cle: 'synthese', libelle: 'Où en est le magasin' },
+    // Joseph (03/11/2026) : l'atterrissage de l'année en cours sort du budget, c'est la fin de l'année suivie
+    { cle: 'atterrissage', libelle: `Atterrissage ${annee}` },
     // Joseph (03/11/2026) : valeur du stock en fin de mois face à sa cible
     { cle: 'stock', libelle: 'Stock' },
     { cle: 'tresorerie', libelle: 'Trésorerie' },
@@ -40,9 +43,13 @@ export function partiesDe(espace: Espace, annee: number = new Date().getFullYear
 // court du thème. Ces thèmes ont leur adresse mais restent sous l'étape « 1 · Hypothèses ».
 // Lot 42 : les ventes et le résultat sont sur la page « Construire » ; restent en détail les thèmes ci-dessous.
 // Joseph (03/11/2026) : les ventes aussi, ouvertes depuis les cartes des univers
+// Joseph (03/11/2026) : le point de départ en carte, le Calendrier devient « Évènements & Temps forts », les travaux
+// passent dans « Investissements & Financements »
 export const THEMES: Partie[] = [
+  { cle: 'depart', libelle: 'Point de départ' },
   { cle: 'ventes', libelle: 'Ventes et marge' },
-  { cle: 'calendrier', libelle: 'Calendrier' },
+  { cle: 'calendrier', libelle: 'Évènements & Temps forts' },
+  { cle: 'investissements', libelle: 'Investissements & Financements' },
   { cle: 'equipe', libelle: 'Équipe' },
   { cle: 'fraisBudget', libelle: 'Frais' },
 ]
@@ -51,21 +58,21 @@ export const estTheme = (cle: string) => CLES_THEMES.includes(cle)
 // Étape ou partie du menu à mettre en avant pour une partie (un thème : l'étape des hypothèses)
 export const etapeDe = (cle: string) => (estTheme(cle) ? 'budget' : cle)
 
-export const PARTIE_PAR_DEFAUT: Record<Espace, string> = { donnees: 'reel', budget: 'depart', suivi: 'synthese' }
+export const PARTIE_PAR_DEFAUT: Record<Espace, string> = { donnees: 'reel', budget: 'budget', suivi: 'synthese' }
 
 // Anciennes clés (liens, alertes, « à faire ») : la partie qui les montre désormais, et la section où défiler
-// Lot 43 : l'ancien thème « Trésorerie » du budget est au point de départ
-const ANCIENNES: Record<string, string> = { tresoBudget: 'depart', atterrissage: 'depart', plan: 'synthese', suivi: 'synthese', resultat: 'budget' }
+// Lot 43 : l'ancien thème « Trésorerie » du budget est au point de départ ; le résultat a sa page (03/11/2026)
+const ANCIENNES: Record<string, string> = { tresoBudget: 'depart', plan: 'synthese', suivi: 'synthese', resultat: 'visualiser', travaux: 'investissements' }
 export const partieDe = (cle: string) => ANCIENNES[cle] ?? cle
-export const sectionDe = (cle: string) => (ANCIENNES[cle] && cle !== 'atterrissage' ? cle : null)
+export const sectionDe = (cle: string) => (ANCIENNES[cle] && cle !== 'travaux' ? cle : null)
 
 const DONNEES = ['reel', 'quadrimestres', 'frais']
-const BUDGET = ['depart', 'budget', 'echanges', ...CLES_THEMES]
+const BUDGET = ['budget', 'visualiser', 'echanges', ...CLES_THEMES]
 export function espaceDe(cle: string): Espace {
   const p = partieDe(cle)
   return DONNEES.includes(p) ? 'donnees' : BUDGET.includes(p) ? 'budget' : 'suivi'
 }
-export const partieConnue = (cle: string) => [...DONNEES, ...BUDGET, 'synthese', 'stock', 'tresorerie'].includes(partieDe(cle))
+export const partieConnue = (cle: string) => [...DONNEES, ...BUDGET, 'synthese', 'atterrissage', 'stock', 'tresorerie'].includes(partieDe(cle))
 
 // Magasin et partie lus dans l'adresse
 export function magasinDeChemin(chemin: string): { nom: string; partie: string | null } | null {

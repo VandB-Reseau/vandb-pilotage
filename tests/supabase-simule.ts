@@ -18,7 +18,11 @@ export interface MagasinSimule {
 }
 export type QuadrimestreSimule = { store_name: string; annee: number; quadrimestre: number; achats: number | null; variation_stock: number | null; charges_externes: number | null; impots_taxes: number | null; personnel: number | null; tresorerie: number | null }
 export type PartSimulee = { store_name: string; annee: number; univers: string; part: number }
-export type MessageSimule = { id: number; store_name: string; annee: number; sujet: string; texte: string; auteur: string | null; auteur_role: string | null; auteur_nom: string | null; cree_le: string }
+export type MessageSimule = {
+  id: number; store_name: string; annee: number; sujet?: string; texte: string; auteur: string | null; auteur_role: string | null; auteur_nom: string | null; cree_le: string
+  // Commentaires (migration 0025) : point commenté, réponse à, « Résolu »
+  ancre?: string; ancre_libelle?: string | null; parent?: number | null; resolu_le?: string | null; resolu_par_role?: string | null; resolu_par_nom?: string | null
+}
 export type VersionSimulee = { id: number; store_name: string; annee: number; statut: string; base: unknown; ajustements: Record<string, unknown>; auteur_role: string | null; auteur_nom: string | null; cree_le: string }
 export type ActionSimulee = {
   id: number; store_name: string; type_alerte: string; intitule: string; responsable: string; echeance: string | null; statut: string
@@ -103,11 +107,12 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
   const parametresDe = (annee: number) => (parametresAnnees.has(annee) ? parametresAnnees.get(annee)! : parametres)
   let controleGestion = structuredClone(options.controleGestion ?? [])
   const journal = structuredClone(options.journal ?? [])
-  // Filtres PostgREST utilisés par l'app : eq, gte, lte, in
+  // Filtres PostgREST utilisés par l'app : eq, gte, lte, in, is.null
   const filtrer = <T extends Record<string, unknown>>(lignes: T[], params: URLSearchParams) => lignes.filter((l) => [...params.entries()].every(([k, v]) => {
     if (k === 'select' || k === 'order' || k === 'offset' || k === 'limit') return true
     const [op, ...reste] = v.split('.')
     const x = reste.join('.'), y = String(l[k])
+    if (op === 'is' && x === 'null') return l[k] === null || l[k] === undefined
     if (op === 'in') return x.replace(/^\(|\)$/g, '').split(',').map((v) => v.replace(/^"|"$/g, '')).includes(y)
     return op === 'eq' ? y === x : op === 'gte' ? y >= x : op === 'lte' ? y <= x : true
   }))
@@ -202,6 +207,14 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
         groupes.splice(groupes.findIndex((g) => g.id === id), 1)
         for (const x of magasins) if (x.groupe_id === id) x.groupe_id = null
       }
+      if (table === 'rpc/resoudre_commentaire') {
+        const c = corps as { p_id: number; p_resolu: boolean }
+        const m = messages.find((x) => x.id === c.p_id && !x.parent)
+        if (m) Object.assign(m, c.p_resolu
+          ? { resolu_le: new Date().toISOString(), resolu_par_role: options.role ?? 'directeur', resolu_par_nom: nomDuRole[options.role ?? 'directeur'] ?? null }
+          : { resolu_le: null, resolu_par_role: null, resolu_par_nom: null })
+        return route.fulfill({ status: 204, body: '' })
+      }
       if (table === 'rpc/remplacer_reel') {
         const c = corps as { p_ventes: VenteSimulee[]; p_tickets: TicketsSimules[] }
         for (const [t, lignes] of [['reel_mensuel', c.p_ventes], ['reel_tickets', c.p_tickets]] as const) {
@@ -248,8 +261,11 @@ export async function simulerSupabase(page: Page, options: OptionsSimulation = {
       if (table === 'echanges_budget') {
         if (req.method() === 'DELETE') { const retirer = new Set(filtrer(messages, url.searchParams)); messages = messages.filter((l) => !retirer.has(l)) }
         else {
-          const c = corps as { store_name: string; annee: number; sujet: string; texte: string }
-          messages.push({ ...c, id: Math.max(0, ...messages.map((x) => x.id)) + 1, auteur: '00000000-0000-0000-0000-000000000001', auteur_role: options.role ?? 'directeur', auteur_nom: nomDuRole[options.role ?? 'directeur'] ?? null, cree_le: new Date().toISOString() })
+          // Comme le déclencheur de 0025 : une réponse prend le point de son commentaire ; rien n'arrive résolu
+          const c = corps as { store_name: string; annee: number; texte: string; ancre?: string; ancre_libelle?: string; parent?: number }
+          const p = c.parent ? messages.find((x) => x.id === c.parent) : undefined
+          messages.push({ ...c, ancre: p ? p.ancre ?? 'budget' : c.ancre ?? 'budget', ancre_libelle: p ? p.ancre_libelle ?? null : c.ancre_libelle ?? null, parent: c.parent ?? null,
+            resolu_le: null, resolu_par_role: null, resolu_par_nom: null, id: Math.max(0, ...messages.map((x) => x.id)) + 1, auteur: '00000000-0000-0000-0000-000000000001', auteur_role: options.role ?? 'directeur', auteur_nom: nomDuRole[options.role ?? 'directeur'] ?? null, cree_le: new Date().toISOString() })
         }
       }
       if (table === 'actions') {
@@ -368,7 +384,7 @@ export async function zonesTropPetites(page: Page, min = 48): Promise<string[]> 
 
 // Fiche magasin (lot 36) : une partie s'ouvre en choisissant son espace (Données, Budget, Suivi), puis la partie, en
 // onglets de la fiche (03/11/2026). Les anciens noms des tests restent acceptés.
-// Lot 37 : le budget tient en 4 étapes ; les hypothèses s'ouvrent par thème depuis leur carte (« theme »)
+// Joseph (03/11/2026) : le budget tient en 3 étapes ; les hypothèses s'ouvrent par thème depuis leur carte (« theme »)
 const PARTIES: [string, { espace: string; libelle: RegExp; theme?: string }][] = [
   ['Réel', { espace: 'Données', libelle: /^Réel du mois/ }],
   ['Quadrimestres', { espace: 'Données', libelle: /^Comptes du quadrimestre/ }],
@@ -379,22 +395,27 @@ const PARTIES: [string, { espace: string; libelle: RegExp; theme?: string }][] =
   ['Où on va', { espace: 'Suivi', libelle: /^Où en est le magasin/ }],
   ['Synthèse', { espace: 'Suivi', libelle: /^Où en est le magasin/ }],
   ['Où en est le magasin', { espace: 'Suivi', libelle: /^Où en est le magasin/ }],
-  ['Trésorerie du budget', { espace: 'Budget', libelle: /^1 · Construire/, theme: 'Trésorerie' }],
+  ['Trésorerie du budget', { espace: 'Budget', libelle: /^1 · Construire/, theme: 'Point de départ' }],
   ['Trésorerie', { espace: 'Suivi', libelle: /^Trésorerie/ }],
   ['Stock', { espace: 'Suivi', libelle: /^Stock$/ }],
-  ['Atterrissage', { espace: 'Budget', libelle: /^0 · Point de départ/ }],
-  ['Point de départ', { espace: 'Budget', libelle: /^0 · Point de départ/ }],
+  // Joseph (03/11/2026) : l'atterrissage de l'année en cours passe dans Suivi ; le point de départ devient une carte
+  ['Atterrissage', { espace: 'Suivi', libelle: /^Atterrissage \d{4}/ }],
+  ['Point de départ', { espace: 'Budget', libelle: /^1 · Construire/, theme: 'Point de départ' }],
   // Lot 42 : hypothèses, ventes et résultat sur la page « 1 · Construire »
   ['Cartes des hypothèses', { espace: 'Budget', libelle: /^1 · Construire/ }],
   ['Construire', { espace: 'Budget', libelle: /^1 · Construire/ }],
   // Joseph (03/11/2026) : les hypothèses de ventes s'ouvrent depuis les cartes des univers
   ['Hypothèses', { espace: 'Budget', libelle: /^1 · Construire/, theme: 'Ventes Cave' }],
   ['Ventes', { espace: 'Budget', libelle: /^1 · Construire/, theme: 'Ventes Cave' }],
-  ['Calendrier', { espace: 'Budget', libelle: /^1 · Construire/, theme: 'Calendrier' }],
+  ['Calendrier', { espace: 'Budget', libelle: /^1 · Construire/, theme: 'Évènements & Temps forts' }],
+  ['Évènements', { espace: 'Budget', libelle: /^1 · Construire/, theme: 'Évènements & Temps forts' }],
+  ['Investissements', { espace: 'Budget', libelle: /^1 · Construire/, theme: 'Investissements & Financements' }],
   ['Équipe', { espace: 'Budget', libelle: /^1 · Construire/, theme: 'Équipe' }],
-  ['Résultat', { espace: 'Budget', libelle: /^1 · Construire/ }],
-  ['Échanges', { espace: 'Budget', libelle: /^2 · Envoyer et valider/ }],
-  ['Envoyer', { espace: 'Budget', libelle: /^2 · Envoyer et valider/ }],
+  // Le résultat et la trésorerie ont leur étape, « 2 · Visualiser »
+  ['Résultat', { espace: 'Budget', libelle: /^2 · Visualiser/ }],
+  ['Visualiser', { espace: 'Budget', libelle: /^2 · Visualiser/ }],
+  ['Échanges', { espace: 'Budget', libelle: /^3 · Envoyer et valider/ }],
+  ['Envoyer', { espace: 'Budget', libelle: /^3 · Envoyer et valider/ }],
 ]
 export async function ouvrir(page: Page, partie: string) {
   const cible = PARTIES.find(([k]) => partie.startsWith(k))?.[1]

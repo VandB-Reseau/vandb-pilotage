@@ -85,7 +85,7 @@ test('budgets prêts à valider et thèmes vus par le franchisé', () => {
   ]
   expect(pretsAValider(l).map((x) => x.magasin)).toEqual(['A'])
   expect(themesVus(siege, { evolutionFlux: { cave: 0.02 }, accords: ['equipe'] })).toEqual(['equipe'])
-  expect(themesVus(siege, { evolutionFlux: { cave: 0.03 }, poidsMois: Array(12).fill(1 / 12), accords: ['equipe'] })).toEqual(['ventes', 'calendrier', 'equipe'])
+  expect(themesVus(siege, { evolutionFlux: { cave: 0.03 }, poidsMois: Array(12).fill(1 / 12), accords: ['equipe'] })).toEqual(['tresoBudget', 'ventes', 'equipe']) // la répartition par mois se règle au point de départ
 })
 
 test('comptes du quadrimestre contrôlés à la saisie', () => {

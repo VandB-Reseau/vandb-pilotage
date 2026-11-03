@@ -1,3 +1,4 @@
+import { financementDe } from './financement'
 import { cibleStock, coutVentesDe, stockParDefaut, type ParametresStock } from './stock'
 import { UNIVERS, type Budget, type Hypotheses, type Univers } from './types'
 
@@ -69,7 +70,8 @@ export interface MoisTresorerie {
   tva: number                 // TVA reversée (négative : crédit remboursé)
   emprunts: number            // intérêts et capital
   impot: number               // acomptes d'impôt sur les sociétés
-  travaux: number             // investissement TTC, payé le premier mois des travaux
+  travaux: number             // investissements TTC (travaux compris), payés le mois de leur mise en service
+  financements: number        // capital des nouveaux emprunts et apport encaissés
   consignesVersees: number    // consignes payées aux fournisseurs avec les achats du mois
   consignesRemboursees: number // vides rendus aux fournisseurs, remboursés
   consignesEnAttente: number  // fin de mois : consignes payées aux fournisseurs, pas encore remboursées
@@ -161,9 +163,9 @@ export function tresorerieBudget(b: Budget, h: Hypotheses, p: { tauxRedevance: n
   const fraisAvecTva = ca.map((c) => somme(h.frais.filter((l) => !SANS_TVA.has(l.rubrique)).map((l) => (l.annuel ?? 0) / 12 + c * (l.tauxCA ?? 0))))
   const fraisSansTva = ca.map((c) => somme(h.frais.filter((l) => SANS_TVA.has(l.rubrique)).map((l) => (l.annuel ?? 0) / 12 + c * (l.tauxCA ?? 0))))
   const personnel = b.mois.map((m) => m.personnel)
-  // Travaux : investissement payé le premier mois touché (janvier s'il n'y a pas de fermeture)
-  const moisTravaux = h.travaux?.investissement ? Math.max(0, h.travaux.activite?.findIndex((a) => a < 1) ?? 0) : -1
-  const investissement = Array.from({ length: 12 }, (_, i) => (i === moisTravaux ? Math.max(0, h.travaux!.investissement) : 0))
+  // Investissements (travaux compris) payés le mois de leur mise en service, emprunts et apport encaissés (03/11/2026)
+  const f = b.financement ?? financementDe(h, 0)
+  const investissement = f.investissementsMois
 
   // TVA due au titre de chaque mois : collectée sur les ventes, déduite sur les achats livrés, les frais et les travaux du mois
   const tvaDue = ca.map((c, i) => c * t.tvaVentes - livraisons[i] * t.tvaAchats - (redevance[i] + fraisAvecTva[i] + chargesTempsForts[i] + investissement[i]) * t.tvaFrais)
@@ -191,14 +193,15 @@ export function tresorerieBudget(b: Budget, h: Hypotheses, p: { tauxRedevance: n
     const frais = decale(redevance, i, t.delaiRedevance) * (1 + t.tvaFrais) + (fraisAvecTva[i] + chargesTempsForts[i]) * (1 + t.tvaFrais) + fraisSansTva[i]
     const salaires = personnel[i] * (1 - t.partCotisations) + decale(personnel, i, 1) * t.partCotisations
     const tva = tvaPayee(i)
-    const emprunts = (h.interets + h.remboursementCapital) / 12
+    const emprunts = f.interetsMois[i] + f.capitalMois[i]
     const travaux = investissement[i] * (1 + t.tvaFrais)
     const consignesVersees = versees[i], consignesRemboursees = decale(versees, i, retour) * (1 - (t.consignes?.demarque ?? 0))
     const decaissements = fournisseurs + frais + salaires + tva + emprunts + impot(i) + travaux + consignesVersees
-    const flux = encaissements + consignesRemboursees - decaissements
+    const financements = f.encaissementsMois[i]
+    const flux = encaissements + consignesRemboursees + financements - decaissements
     solde += flux
     return {
-      encaissements, fournisseurs, frais, personnel: salaires, tva, emprunts, impot: impot(i), travaux,
+      encaissements, fournisseurs, frais, personnel: salaires, tva, emprunts, impot: impot(i), travaux, financements,
       consignesVersees, consignesRemboursees, consignesEnAttente: enAttente(i), decaissements, flux, fin: solde,
     }
   })

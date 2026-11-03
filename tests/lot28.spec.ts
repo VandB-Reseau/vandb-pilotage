@@ -110,8 +110,8 @@ test('campagne des budgets : avancement par Responsable Régional, dates dans Pa
   await expect(campagne.getByRole('table', { name: 'Par Responsable Régional' })).toHaveCount(0)
   await campagne.getByRole('button', { name: 'Par Responsable Régional' }).click()
   const parRR = campagne.getByRole('table', { name: 'Par Responsable Régional' })
-  await expect(parRR.getByRole('row', { name: /^RR Nord/ }).getByRole('cell')).toHaveText(['RR Nord', '2', '0', '0', '1', '1', '1'])
-  await expect(parRR.getByRole('row', { name: /^RR Sud/ }).getByRole('cell')).toHaveText(['RR Sud', '1', '1', '0', '0', '0', '1'])
+  await expect(parRR.getByRole('row', { name: /^RR Nord/ }).getByRole('cell')).toHaveText(['RR Nord', '2', '0', '0', '1', '1', '1', '0'])
+  await expect(parRR.getByRole('row', { name: /^RR Sud/ }).getByRole('cell')).toHaveText(['RR Sud', '1', '1', '0', '0', '0', '1', '0'])
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
 

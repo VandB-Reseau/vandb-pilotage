@@ -130,7 +130,7 @@ export function PanneauImpact({
   if (cote) {
     return (
       <Card component="aside" aria-label="Impact des changements" className="pas-a-l-impression"
-        sx={{ position: 'sticky', top: 84, zIndex: 6, p: 2, display: 'flex', flexDirection: 'column', gap: 1.5, boxShadow: 3, maxHeight: 'calc(100vh - 100px)', overflowY: 'auto' }}>
+        sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5, boxShadow: 3 }}>
         <Typography variant="h2" sx={{ fontSize: '1.125rem' }}>Impact</Typography>
         {choix}
         {blocDernier}

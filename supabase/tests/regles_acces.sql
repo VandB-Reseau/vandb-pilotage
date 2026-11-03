@@ -49,7 +49,7 @@ INSERT INTO pilotage.reel_mensuel (store_name, mois, univers, famille, ca_ht) VA
 SELECT pg_temp.attendre('Directeur : tous les magasins', (SELECT cardinality(pilotage.mes_magasins())), 3);
 SELECT pg_temp.attendre('Directeur : tous les budgets', (SELECT count(*) FROM pilotage.budgets), 3);
 SELECT pg_temp.attendre('Directeur : tableau des magasins', (SELECT jsonb_array_length(pilotage.magasins_du_compte(2027))), 3);
-SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 24);
+SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 25);
 -- Date d'ouverture de la fiche magasin réseau (0024) : surcharge d'abord, renommage suivi, dates inconnues ou illisibles écartées
 SELECT pg_temp.attendre('Directeur : dates d''ouverture du réseau', (SELECT count(*) FROM pilotage.ouvertures_reseau()), 2);
 SELECT pg_temp.attendre('Ouverture réseau : la surcharge l''emporte, au 1er du mois', (SELECT count(*) FROM pilotage.ouvertures_reseau() WHERE store_name = 'Lille' AND ouverture = '2019-03-01'), 1);
@@ -127,6 +127,7 @@ INSERT INTO pilotage.echanges_budget (store_name, annee, sujet, texte, auteur_ro
 SELECT pg_temp.attendre('Directeur : rôle posé par la base, pas par l''app', (SELECT count(*) FROM pilotage.echanges_budget WHERE auteur_role = 'directeur' AND auteur_nom IS NULL), 2);
 SELECT pg_temp.attendre('Échanges : sujet inconnu refusé', pg_temp.refuse('INSERT INTO pilotage.echanges_budget (store_name, annee, sujet, texte) VALUES (''Lille'', 2027, ''autre'', ''x'')'), 1);
 SELECT pg_temp.attendre('Échanges : message vide refusé', pg_temp.refuse('INSERT INTO pilotage.echanges_budget (store_name, annee, texte) VALUES (''Lille'', 2027, ''  '')'), 1);
+SELECT set_config('test.commentaire_nice', (SELECT id::text FROM pilotage.echanges_budget WHERE store_name = 'Nice' LIMIT 1), false);
 INSERT INTO pilotage.actions (store_name, type_alerte, intitule, responsable, annee, depart, mois_depart, cree_par_role) VALUES
   ('Lille', 'ca', 'Relancer la vente additionnelle en caisse', 'franchise', 2026, -0.08, 8, 'franchise'),
   ('Nice', 'marge', 'Revoir les prix du fût', 'coach', 2026, -0.015, 8, NULL);
@@ -183,6 +184,19 @@ SELECT pg_temp.attendre('Coach : son nom sur son message', (SELECT count(*) FROM
 SELECT pg_temp.attendre('Coach : pas de message hors de ses magasins', pg_temp.refuse('INSERT INTO pilotage.echanges_budget (store_name, annee, texte) VALUES (''Nice'', 2027, ''x'')'), 1);
 WITH m AS (DELETE FROM pilotage.echanges_budget WHERE auteur_role = 'directeur' RETURNING 1)
 SELECT pg_temp.attendre('Coach : ne retire pas le message d''un autre', (SELECT count(*) FROM m), 0);
+-- Commentaires (0025) : posés sur un point, réponses qui en reprennent le point, « Résolu » par une fonction du périmètre
+INSERT INTO pilotage.echanges_budget (store_name, annee, texte, ancre, ancre_libelle) VALUES ('Lille', 2027, 'Panier haut ?', 'ventes/cave', 'Ventes Cave');
+INSERT INTO pilotage.echanges_budget (store_name, annee, texte, parent, ancre)
+  SELECT 'Lille', 2027, 'Nouvelle gamme en mars.', id, 'autre' FROM pilotage.echanges_budget WHERE ancre = 'ventes/cave' AND parent IS NULL;
+SELECT pg_temp.attendre('Commentaires : la réponse reprend le point de son commentaire', (SELECT count(*) FROM pilotage.echanges_budget WHERE parent IS NOT NULL AND ancre = 'ventes/cave' AND ancre_libelle = 'Ventes Cave'), 1);
+SELECT pg_temp.attendre('Commentaires : pas de réponse à une réponse', pg_temp.refuse('INSERT INTO pilotage.echanges_budget (store_name, annee, texte, parent) SELECT ''Lille'', 2027, ''x'', id FROM pilotage.echanges_budget WHERE parent IS NOT NULL'), 1);
+SELECT pg_temp.attendre('Commentaires : pas de réponse à un commentaire d''un autre magasin', pg_temp.refuse(format('INSERT INTO pilotage.echanges_budget (store_name, annee, texte, parent) VALUES (''Lille'', 2027, ''x'', %s)', current_setting('test.commentaire_nice'))), 1);
+SELECT pilotage.resoudre_commentaire((SELECT id FROM pilotage.echanges_budget WHERE ancre = 'ventes/cave' AND parent IS NULL), true);
+SELECT pg_temp.attendre('Coach : résout un commentaire de ses magasins, à son nom', (SELECT count(*) FROM pilotage.echanges_budget WHERE ancre = 'ventes/cave' AND parent IS NULL AND resolu_le IS NOT NULL AND resolu_par_nom = 'Coach Nord'), 1);
+SELECT pg_temp.attendre('Coach : ne résout pas un commentaire hors de ses magasins', pg_temp.refuse(format('SELECT pilotage.resoudre_commentaire(%s, true)', current_setting('test.commentaire_nice'))), 1);
+SELECT pg_temp.attendre('Coach : ne pose pas « Résolu » à la main', pg_temp.refuse('UPDATE pilotage.echanges_budget SET resolu_le = now()'), 1);
+WITH m AS (INSERT INTO pilotage.echanges_budget (store_name, annee, texte, resolu_le) VALUES ('Lille', 2027, 'Et les frais ?', now()) RETURNING resolu_le)
+SELECT pg_temp.attendre('Commentaires : un nouveau commentaire n''arrive pas résolu', (SELECT count(*) FROM m WHERE resolu_le IS NULL), 1);
 SELECT pg_temp.attendre('Coach : actions de ses magasins seulement', (SELECT count(*) FROM pilotage.actions WHERE store_name <> 'Lille'), 0);
 INSERT INTO pilotage.actions (store_name, type_alerte, intitule, responsable, annee) VALUES ('Lille', 'reel', 'Saisir le réel de septembre', 'franchise', 2026);
 SELECT pg_temp.attendre('Coach : pas d''action hors de ses magasins', pg_temp.refuse('INSERT INTO pilotage.actions (store_name, type_alerte, intitule, responsable, annee) VALUES (''Nice'', ''ca'', ''x'', ''coach'', 2026)'), 1);
@@ -337,6 +351,8 @@ SELECT pg_temp.attendre('Franchisé : échanges de son magasin seulement', (SELE
 INSERT INTO pilotage.echanges_budget (store_name, annee, sujet, texte) VALUES ('Lille', 2027, 'ca', 'D''accord pour +3 %.');
 WITH m AS (DELETE FROM pilotage.echanges_budget WHERE auteur_role = 'franchise' RETURNING 1)
 SELECT pg_temp.attendre('Franchisé : retire son propre message', (SELECT count(*) FROM m), 1);
+SELECT pilotage.resoudre_commentaire((SELECT id FROM pilotage.echanges_budget WHERE ancre = 'ventes/cave' AND parent IS NULL), false);
+SELECT pg_temp.attendre('Franchisé : rouvre un commentaire de son magasin', (SELECT count(*) FROM pilotage.echanges_budget WHERE ancre = 'ventes/cave' AND parent IS NULL AND resolu_le IS NULL AND resolu_par_nom IS NULL), 1);
 SELECT pg_temp.attendre('Franchisé : pas de message sur un autre magasin', pg_temp.refuse('INSERT INTO pilotage.echanges_budget (store_name, annee, texte) VALUES (''Nice'', 2027, ''x'')'), 1);
 SELECT pg_temp.attendre('Franchisé : actions de son magasin seulement', (SELECT count(*) FROM pilotage.actions WHERE store_name <> 'Lille'), 0);
 WITH m AS (UPDATE pilotage.actions SET statut = 'faite' WHERE store_name = 'Lille' AND type_alerte = 'reel' RETURNING faite_le)
@@ -408,6 +424,7 @@ SELECT pg_temp.attendre('Visiteur : aucun accès aux stocks', pg_temp.refuse('SE
 SELECT pg_temp.attendre('Visiteur : pas de dates d''ouverture réseau', pg_temp.refuse('SELECT count(*) FROM pilotage.ouvertures_reseau()'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès aux échanges', pg_temp.refuse('SELECT count(*) FROM pilotage.echanges_budget'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès aux versions', pg_temp.refuse('SELECT count(*) FROM pilotage.versions_budget'), 1);
+SELECT pg_temp.attendre('Visiteur : ne résout aucun commentaire', pg_temp.refuse('SELECT pilotage.resoudre_commentaire(1, true)'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès aux actions', pg_temp.refuse('SELECT count(*) FROM pilotage.actions'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès aux dates d''ouverture', pg_temp.refuse('SELECT count(*) FROM pilotage.ouvertures'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès aux versions nommées', pg_temp.refuse('SELECT count(*) FROM pilotage.versions_nommees'), 1);

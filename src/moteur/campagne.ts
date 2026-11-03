@@ -16,22 +16,24 @@ export function enRetard(statut: StatutBudget, c: Campagne, aujourdhui: string):
   return (!statut && aujourdhui > c.proposition) || (statut !== 'valide' && aujourdhui > c.validation)
 }
 
-export interface Avancement { nom: string; magasins: number; aProposer: number; proposes: number; enDiscussion: number; valides: number; enRetard: number }
+// commentaires : commentaires encore ouverts sur les budgets (Joseph, 03/11/2026)
+export interface Avancement { nom: string; magasins: number; aProposer: number; proposes: number; enDiscussion: number; valides: number; enRetard: number; commentaires: number }
 
 // Une ligne par responsable (un magasin peut avoir plusieurs RR), la plus en retard d'abord ; « Sans nom » si aucun
 export function avancementCampagne(
-  magasins: { statut: StatutBudget; responsables: string[] }[], c: Campagne, aujourdhui: string,
+  magasins: { statut: StatutBudget; responsables: string[]; commentaires?: number }[], c: Campagne, aujourdhui: string,
 ): Avancement[] {
   const lignes = new Map<string, Avancement>()
   for (const m of magasins) {
     for (const nom of m.responsables.length ? m.responsables : ['']) {
-      const a = lignes.get(nom) ?? { nom, magasins: 0, aProposer: 0, proposes: 0, enDiscussion: 0, valides: 0, enRetard: 0 }
+      const a = lignes.get(nom) ?? { nom, magasins: 0, aProposer: 0, proposes: 0, enDiscussion: 0, valides: 0, enRetard: 0, commentaires: 0 }
       a.magasins++
       if (!m.statut) a.aProposer++
       else if (m.statut === 'propose') a.proposes++
       else if (m.statut === 'en_discussion') a.enDiscussion++
       else a.valides++
       if (enRetard(m.statut, c, aujourdhui)) a.enRetard++
+      a.commentaires += m.commentaires ?? 0
       lignes.set(nom, a)
     }
   }
@@ -67,12 +69,12 @@ export function attente(m: { statut: StatutBudget; majLe: string | null; envoyeL
 // Vue du Directeur : une ligne par Responsable Régional, dépliée sur les Coachs de ses magasins
 export interface AvancementRR extends Avancement { coachs: Avancement[] }
 export function avancementParRR(
-  magasins: { statut: StatutBudget; rrs: string[]; coach: string | null }[], c: Campagne, aujourdhui: string,
+  magasins: { statut: StatutBudget; rrs: string[]; coach: string | null; commentaires?: number }[], c: Campagne, aujourdhui: string,
 ): AvancementRR[] {
-  return avancementCampagne(magasins.map((m) => ({ statut: m.statut, responsables: m.rrs })), c, aujourdhui).map((l) => ({
+  return avancementCampagne(magasins.map((m) => ({ statut: m.statut, responsables: m.rrs, commentaires: m.commentaires })), c, aujourdhui).map((l) => ({
     ...l,
     coachs: avancementCampagne(
-      magasins.filter((m) => (l.nom === '' ? !m.rrs.length : m.rrs.includes(l.nom))).map((m) => ({ statut: m.statut, responsables: m.coach ? [m.coach] : [] })),
+      magasins.filter((m) => (l.nom === '' ? !m.rrs.length : m.rrs.includes(l.nom))).map((m) => ({ statut: m.statut, responsables: m.coach ? [m.coach] : [], commentaires: m.commentaires })),
       c, aujourdhui),
   }))
 }
@@ -92,15 +94,14 @@ export function magasinsCampagne(
 // qui porte « Non enregistré » quand une saisie y attend (le point de départ pour la trésorerie, sinon « Construire »).
 export function marquesEtapes(e: {
   statut: StatutBudget; propose: boolean; modifie: boolean; changements: number
-  role: 'directeur' | 'rr' | 'coach' | 'franchise' | 'aucun'; ici?: 'depart' | 'budget' | 'echanges'
-}): Record<'depart' | 'budget' | 'echanges', string> {
-  const ici = e.ici === 'depart' ? 'depart' : 'budget'
+  role: 'directeur' | 'rr' | 'coach' | 'franchise' | 'aucun'
+}): Record<'budget' | 'visualiser' | 'echanges', string> {
   const franchise = e.role === 'franchise', valideur = e.role === 'directeur' || e.role === 'rr'
-  const depart = e.modifie && ici === 'depart' ? 'Non enregistré' : e.propose ? 'Fait' : e.role === 'directeur' ? 'À proposer' : 'En attente du siège'
-  const budget = !e.propose ? '' : e.statut === 'valide' ? 'Validé' : e.modifie && ici === 'budget' ? 'Non enregistré'
+  // Joseph (03/11/2026) : trois étapes ; « Construire » dit aussi si le budget attend la proposition du siège
+  const budget = !e.propose ? (e.role === 'directeur' ? 'À proposer' : 'En attente du siège') : e.statut === 'valide' ? 'Validé' : e.modifie ? 'Non enregistré'
     : franchise && e.statut === 'propose' ? (e.changements ? `${e.changements} changement${e.changements > 1 ? 's' : ''} à envoyer` : 'À relire') : ''
   const echanges = !e.propose ? '' : e.statut === 'valide' ? 'Validé'
     : e.statut === 'en_discussion' ? (valideur ? 'À valider' : franchise ? 'Envoyé au siège' : 'Retour du franchisé')
       : franchise ? 'À envoyer' : 'Chez le franchisé'
-  return { depart, budget, echanges }
+  return { budget, visualiser: '', echanges }
 }

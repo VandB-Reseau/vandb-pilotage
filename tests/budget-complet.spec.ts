@@ -46,11 +46,12 @@ test('le franchisé ajoute démarque, saisonnalité et travaux, puis enregistre'
   await expect(caMois).toContainText(/60\s000.*30\s000.*45\s000/)   // 600 000 × 10 %, 5 %, 7,5 %
 
   // Travaux : mars fermé (− 45 000 €), 60 000 € sur 5 ans amortis sur les 9 mois suivants (9 000 €)
-  await ouvrir(page, 'Calendrier')
+  // Joseph (03/11/2026) : les travaux sont dans « Investissements & Financements »
+  await ouvrir(page, 'Investissements')
   await page.getByRole('button', { name: 'Prévoir des travaux' }).click()
   await page.getByLabel('Activité en Mars').fill('0')
   await page.getByLabel('Investissement HT').fill('60000')
-  const chantier = page.getByRole('region', { name: 'Travaux' })
+  const chantier = page.getByRole('region', { name: 'Travaux', exact: true })
   await expect(chantier).toContainText(/CA de l’année : [-−]45\sk€/)
   await expect(chantier).toContainText(/Dotation : 9\sk€/)
   await ouvrir(page, 'Résultat et trésorerie')

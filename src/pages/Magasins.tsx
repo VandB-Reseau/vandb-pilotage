@@ -32,7 +32,7 @@ import { EtatVide } from '../components/EtatVide'
 import { Indicateur } from '../components/Indicateur'
 import { Panne } from '../components/Panne'
 import { PastilleStatut } from '../components/PastilleStatut'
-import { anneeBudget, chargerActions, chargerAlertes, chargerBudgets, chargerParametres, chargerReelDuCompte, departTresorerie, hypothesesDe, parametresDuBudget } from '../data/pilotage'
+import { anneeBudget, chargerActions, chargerAlertes, chargerBudgets, chargerCommentairesOuverts, chargerParametres, chargerReelDuCompte, departTresorerie, hypothesesDe, parametresDuBudget } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { aTraiter, correspond, filtrerMagasins, FILTRES, type Filtre } from '../lib/aFaire'
 import { lienMagasin, milliers, taux } from '../lib/format'
@@ -91,9 +91,10 @@ export function Magasins() {
     async () => {
       // Plan d'action : seulement pour « À traiter » ; sans lui, la liste s'affiche quand même
       // Lot 43 : Responsables Régionaux et Coachs de chaque magasin, tenus dans l'app du réseau ; sans eux, la campagne reste globale
-      const [d, { parametres }, alertes, actions, compte] = await Promise.all([
+      const [d, { parametres }, alertes, actions, compte, commentaires] = await Promise.all([
         chargerBudgets(annee), chargerParametres(annee), chargerAlertes(), estEquipe(profil) ? chargerActions().catch(() => []) : Promise.resolve([]),
         estEquipe(profil) ? chargerReelDuCompte(new Date().getFullYear()).catch(() => null) : Promise.resolve(null),
+        estEquipe(profil) ? chargerCommentairesOuverts(annee).catch(() => ({} as Record<string, number>)) : Promise.resolve({} as Record<string, number>),
       ])
       const groupes = new Map(d.groupes.map((g) => [g.id, g.nom]))
       const campagne = campagneDe(parametres, annee)
@@ -109,7 +110,7 @@ export function Magasins() {
           return {
             ...l, groupe: l.groupeId ? groupes.get(l.groupeId) ?? '' : '', budget,
             rrs, coach, responsables: [...rrs, ...(coach ? [coach] : [])], enRetard: enRetard(l.statut, campagne, aujourdhui),
-            ebeSiege: auSiege ? calculerBudget(auSiege.hypotheses, pL).ebe : null, ebe: budget?.ebe ?? null,
+            ebeSiege: auSiege ? calculerBudget(auSiege.hypotheses, pL).ebe : null, ebe: budget?.ebe ?? null, commentaires: commentaires[l.magasin] ?? 0,
             pointBas: budget && h ? tresorerieBudget(budget, h.hypotheses, pL, pL.tresorerie, departTresorerie(l, d, pL) ?? 0).pointBas.montant : null,
             aEquipe: !!d.equipes[l.magasin]?.length || !!h?.hypotheses.reprise?.personnel, aFrais: !!d.frais[l.magasin]?.length || !!h?.hypotheses.reprise?.frais,
           }

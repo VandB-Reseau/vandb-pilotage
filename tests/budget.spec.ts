@@ -95,6 +95,7 @@ test('le franchisé s’écarte d’une cible : le budget passe en discussion, i
   // Lot 41 : enregistrer ne change pas le statut ; l'envoi au siège le passe en discussion
   await ouvrir(page, 'Échanges')
   const revue = page.getByRole('region', { name: 'Mes changements par rapport au siège' })
+  await revue.getByRole('button', { name: 'Voir le détail : Ventes et marge' }).click()
   await expect(revue.getByRole('row', { name: /^Panier moyen Cave/ })).toContainText('2,0')
   await revue.getByRole('button', { name: 'Envoyer au siège' }).click()
   await expect(page.getByText('Budget envoyé au siège : il est en discussion.')).toBeVisible()

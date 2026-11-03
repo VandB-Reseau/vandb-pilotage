@@ -36,14 +36,16 @@ test('budget sans équipe ni frais saisis : repris des comptes de l’année, tr
   await expect(equipe).toContainText('150 k€')
   await expect(main.getByRole('region', { name: 'Frais', exact: true })).toContainText(`Comptes ${N} (8 mois)`)
   // Trésorerie au 1er janvier : 30 000 € fin août, plus l'activité prévue jusqu'en décembre ; elle se lit sous le
-  // résultat et se règle au point de départ (lot 43)
-  await expect(main.getByLabel('Trésorerie de départ')).toContainText('estimée')
-  await expect(main.getByText(/^Estimée à .* fin août/)).toBeVisible()
+  // résultat et se règle au point de départ (lot 43), carte de Construire (03/11/2026)
+  await expect(main.getByRole('region', { name: 'Point de départ', exact: true })).toContainText('(estimée)')
   // L'onglet de l'étape ne signale plus l'équipe à renseigner
   await expect(page.getByRole('navigation', { name: 'Pages du magasin' }).getByRole('tab', { name: /^1 · Construire/ })).not.toContainText('équipe')
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-lot42-reprise.png`, fullPage: true })
+  await ouvrir(page, 'Visualiser')
+  await expect(main.getByLabel('Trésorerie de départ')).toContainText('estimée')
+  await expect(main.getByText(/^Estimée à .* fin août/).filter({ visible: true })).toBeVisible()
 })
 
 test('budget sur une page : le résultat suit chaque changement ; « D’accord » par thème, enregistré avec les ajustements', async ({ page, isMobile }, info) => {
@@ -60,8 +62,8 @@ test('budget sur une page : le résultat suit chaque changement ; « D’accord 
   await expect(page.getByLabel('Ventes et marge : changé par le magasin')).toBeVisible()
   // Les autres thèmes s'acceptent depuis leur carte, sur la page Construire
   await page.getByRole('link', { name: 'Toutes les hypothèses' }).click()
-  await expect(page.getByRole('table', { name: /mois par mois$/ })).toBeVisible()
-  const calendrier = page.getByRole('button', { name: 'Calendrier : d’accord avec le siège' })
+  await expect(page.getByRole('region', { name: `Hypothèses ${N + 1} en cartes` })).toBeVisible()
+  const calendrier = page.getByRole('button', { name: 'Évènements & Temps forts : d’accord avec le siège' })
   await calendrier.click()
   await expect(calendrier).toHaveAttribute('aria-pressed', 'true')
   expect(await textesTropPetits(page)).toEqual([])

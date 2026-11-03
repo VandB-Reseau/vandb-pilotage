@@ -81,10 +81,10 @@ export const AIDE = {
     calcul: 'Le CA de l’an passé sort de la base pour ne pas être compté deux fois ; le CA prévu s’ajoute dans son mois, avec ses charges.',
   },
   ajustements: {
-    titre: 'Clients gagnés ou perdus',
-    quoi: 'Un changement daté qui n’est pas dans la base : nouveau marché, association, concurrent qui ouvre.',
-    remplir: 'Un montant par mois, ou un pourcentage du CA de l’univers, du premier au dernier mois concerné.',
-    calcul: 'S’ajoute au CA des mois concernés, ou s’en retire.',
+    titre: 'Clients extérieurs gagnés ou perdus',
+    quoi: 'Un client qui arrive ou qui part face à l’an passé : comité d’entreprise, association, restaurant, marché.',
+    remplir: 'Son CA HT de l’an passé et celui attendu cette année, sur les mois où il achète. Un client gagné a 0 l’an passé, un client perdu 0 cette année.',
+    calcul: 'L’écart des deux CA s’ajoute au CA des mois concernés, à parts égales, ou s’en retire.',
   },
   saisonnalite: {
     titre: 'Saisonnalité',
@@ -497,9 +497,9 @@ export const AIDE = {
     calcul: 'Encaissements des ventes TTC + consignes remboursées − total des décaissements.',
   },
   travauxTreso: {
-    titre: 'Travaux',
-    quoi: 'L’investissement des travaux prévus, payé en une fois.',
-    calcul: 'Investissement saisi dans le Calendrier, TTC, payé le premier mois des travaux.',
+    titre: 'Investissements et travaux',
+    quoi: 'Les achats d’équipement et les travaux de l’année, payés en une fois.',
+    calcul: 'Saisis dans Investissements & Financements, TTC : un achat le mois de sa mise en service, les travaux le premier mois touché. La TVA revient le mois suivant.',
   },
   tresorerieFinMois: {
     titre: 'Trésorerie en fin de mois',
@@ -513,10 +513,27 @@ export const AIDE = {
     calcul: 'Pour chaque levier, la valeur qui donne l’EBE visé sur le budget complet (marge, redevance, frais, équipe). Une rémunération du gérant en plus est un EBE en plus du même montant ; le CA à atteindre suppose que chaque euro vient de la marge sur coûts variables : un ordre de grandeur, pas un engagement.',
   },
   questionsCalendrier: {
-    titre: 'Questions du calendrier',
-    quoi: 'Ce qui change le CA d’un mois à l’autre l’an prochain : travaux ou fermeture, temps forts, clients gagnés ou perdus.',
+    titre: 'Questions à répondre',
+    quoi: 'Ce qui change l’an prochain : temps forts et clients extérieurs, ou travaux, achats et emprunts.',
     remplir: 'Réponds à chaque question : « Oui » ouvre la saisie, « Rien de prévu » la marque comme vue. La carte passe à « Fait » quand tout a une réponse.',
-    calcul: 'Une question a sa réponse dès qu’une saisie existe (travaux, temps fort, client gagné ou perdu) ou qu’elle est marquée « Rien de prévu ». La réponse ne change aucun calcul.',
+    calcul: 'Une question a sa réponse dès qu’une saisie existe ou qu’elle est marquée « Rien de prévu ». La réponse ne change aucun calcul.',
+  },
+  investissements: {
+    titre: 'Achats d’équipement',
+    quoi: 'Ce que le magasin achète pour durer : tireuse, frigo, mobilier, caisse. Les travaux ont leur bloc.',
+    remplir: 'Le montant HT, le mois de mise en service et la durée d’amortissement en années (5 ans pour un équipement, 3 pour l’informatique, souvent).',
+    calcul: 'Payé TTC le mois de l’achat, TVA récupérée le mois suivant. Dotation de l’année = montant ÷ durée × mois restants ÷ 12, sous l’EBE.',
+  },
+  emprunts: {
+    titre: 'Financements',
+    quoi: 'Les nouveaux emprunts de l’année, un apport du franchisé, et les emprunts déjà en cours.',
+    remplir: 'Pour un emprunt : montant, taux annuel, durée en années, mois de la première échéance. Pour les emprunts en cours, repris des frais : le mois de la dernière échéance s’ils finissent dans l’année.',
+    calcul: 'Échéances mensuelles constantes : intérêts sous l’EBE, capital dans la trésorerie. Le capital emprunté arrive le mois avant la première échéance ; un apport entre en trésorerie sans toucher au résultat.',
+  },
+  caf: {
+    titre: 'Capacité d’autofinancement',
+    quoi: 'L’argent que l’activité de l’année laisse au magasin pour rembourser ses emprunts et investir.',
+    calcul: 'CAF = résultat net + dotations aux amortissements. Trésorerie dégagée = CAF − capital remboursé. Variation de l’année = trésorerie dégagée − investissements + emprunts et apport (hors stock et décalages de TVA). Échéances ÷ CAF : part de la CAF prise par les emprunts.',
   },
 } satisfies Record<string, TexteAide>
 
