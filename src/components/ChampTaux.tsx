@@ -52,7 +52,8 @@ export function ChampTaux({ libelle, valeur, heritee, onChange, desactive, large
     }
   }
   const bouton = (sens: 1 | -1) => (
-    <IconButton onClick={() => pousser(sens)} disabled={desactive} aria-label={`${sens > 0 ? 'Monter' : 'Baisser'} : ${libelle}`} tabIndex={-1}
+    // Doublon des flèches du clavier : caché aux lecteurs d'écran, qui passent par le champ (flèches haut et bas)
+    <IconButton onClick={() => pousser(sens)} disabled={desactive} data-pas={sens > 0 ? 'monter' : 'baisser'} aria-hidden tabIndex={-1}
       sx={{ width: { xs: 48, md: 32 }, height: { xs: 48, md: 32 }, flexShrink: 0 }}>
       {sens > 0 ? <AddOutlined sx={{ fontSize: 18 }} /> : <RemoveOutlined sx={{ fontSize: 18 }} />}
     </IconButton>

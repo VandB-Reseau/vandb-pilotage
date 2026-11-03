@@ -28,7 +28,7 @@ test('le Directeur fixe les cibles du réseau et voit leur effet sur le total', 
   const effet = page.getByRole('region', { name: 'Effet des hypothèses' })
   await expect(effet).toContainText(/600\sk€/)
   await expect(page.getByLabel('Évolution du CA par univers : Cave')).toHaveCount(0)
-  await page.getByRole('button', { name: /^Détail par famille/ }).click()
+  await page.getByRole('button', { name: /[Dd]étail par famille/ }).click()
   await expect(page.getByLabel('Part de la famille dans son univers : Bière (Cave)')).toBeVisible()
   await page.getByLabel('Évolution du nombre de tickets : Cave').fill('5')
   // 200 000 × 1,05 + 300 000 + 100 000
@@ -119,7 +119,7 @@ test('le Directeur valide le budget, puis peut le rouvrir', async ({ page }) => 
   expect(envoi.hypotheses.familles.map((f) => f.evolution)).toEqual([0, 0.03, 0])
   expect(envoi.hypotheses.flux.cave.evolution).toBe(0.03)
   await ouvrir(page, 'Hypothèses')
-  await page.getByRole('region', { name: 'Hypothèses du magasin' }).getByRole('button', { name: /^Détail par famille/ }).first().click()
+  await page.getByRole('region', { name: 'Hypothèses du magasin' }).getByRole('button', { name: /[Dd]étail par famille/ }).first().click()
   await expect(page.getByLabel('Part de la famille dans l’univers : Bière (Cave)')).toBeDisabled()
   await ouvrir(page, 'Cartes des hypothèses')
   await page.getByRole('button', { name: 'Rouvrir la discussion' }).click()

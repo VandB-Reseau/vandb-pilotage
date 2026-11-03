@@ -25,7 +25,7 @@ test.afterEach(async ({ page }) => {
 test('le franchisé ajoute démarque, saisonnalité et travaux, puis enregistre', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { role: 'franchise', magasins: magasins().slice(0, 1) })
   await ouvrir(page, 'Hypothèses')
-  await page.getByRole('region', { name: 'Cave' }).getByRole('button', { name: /^Détail par famille/ }).click()
+  await page.getByRole('region', { name: 'Cave' }).getByRole('button', { name: /[Dd]étail par famille/ }).click()
   const grille = page.getByRole('table', { name: 'Familles : Cave' })
   const biere = grille.getByRole('row', { name: /Bière \(Cave\)/ })
 

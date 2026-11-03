@@ -59,7 +59,7 @@ test('d’une étape du budget à l’autre, les ajustements en cours restent sa
   await seConnecter(page, { role: 'franchise', magasins: [propose] })
   await ouvrir(page, 'Hypothèses')
   await page.getByLabel('Évolution du nombre de tickets : Cave').fill('5')
-  const barre = page.getByRole('region', { name: 'Changements non enregistrés' })
+  const barre = page.getByRole('complementary', { name: 'Impact des changements' })
   await expect(barre).toContainText('1 changement')
   await ouvrir(page, 'Résultat et trésorerie')
   const garde = page.getByRole('dialog', { name: 'Modifications non enregistrées' })

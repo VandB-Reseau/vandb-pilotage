@@ -28,7 +28,7 @@ test('le panneau Impact suit chaque changement, isole le dernier et enregistre',
 
   // Proposition 3 : + d'un point de tickets Cave, puis la flèche du haut pour un deuxième point
   const tickets = page.getByLabel('Évolution du nombre de tickets : Cave', { exact: true })
-  await page.getByRole('button', { name: 'Monter : Évolution du nombre de tickets : Cave' }).click()
+  await page.getByRole('table', { name: /Hypothèses \d+ : Cave/ }).getByRole('row', { name: /^Tickets/ }).locator('[data-pas="monter"]').click()
   await expect(tickets).toHaveValue('1')
   await tickets.focus()
   await tickets.press('ArrowUp')
@@ -71,7 +71,7 @@ test('le panneau Impact suit chaque changement, isole le dernier et enregistre',
   await expect(impact.getByRole('group', { name: 'Dernier changement' })).toHaveCount(0)
 
   // Enregistrer depuis le panneau
-  await page.getByRole('button', { name: 'Monter : Évolution du nombre de tickets : Cave' }).click()
+  await page.getByRole('table', { name: /Hypothèses \d+ : Cave/ }).getByRole('row', { name: /^Tickets/ }).locator('[data-pas="monter"]').click()
   await impact.getByRole('button', { name: 'Enregistrer les ajustements' }).click()
   await expect(page.getByText('Ajustements enregistrés.', { exact: false })).toBeVisible()
   const envoi = ecritures.find((e) => e.table === 'budgets' && e.methode === 'PATCH')?.corps as { ajustements: Record<string, unknown> }
