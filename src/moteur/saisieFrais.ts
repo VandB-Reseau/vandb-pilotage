@@ -2,7 +2,7 @@ import { nombre } from '../import/caisse'
 import { enChiffres } from '../lib/format'
 import { CODES_FINANCES, type LigneFraisMagasin } from './atterrissage'
 import type { FinanceFEC, FraisFEC } from './fec'
-import { blocDe, lignesFrais, type BlocFrais } from './parametres'
+import { blocDe, lignesActives, lignesCourantes, lignesFrais, rangDans, type BlocFrais, type LigneGrille } from './parametres'
 import type { Rubrique } from './types'
 
 // Saisie des frais d'un magasin : une ligne de la grille du réseau, par an (€) ou en part du CA (%), en texte jusqu'à l'enregistrement
@@ -15,14 +15,15 @@ export const LIBELLES_FINANCES: Record<keyof typeof CODES_FINANCES, string> = {
   agios: 'Agios', remboursementCapital: 'Capital d’emprunts remboursé',
 }
 export const INTERETS: (keyof typeof CODES_FINANCES)[] = ['interets', 'interetsComptesCourants', 'agios']
-// Lignes que presque tous les magasins ont : point de départ d'une saisie
-export const LIGNES_COURANTES = ['loyer', 'charges_locatives', 'energie', 'honoraires_comptables', 'assurances', 'banque', 'telecom', 'budget_communication', 'cfe']
+// Lignes que presque tous les magasins ont : point de départ d'une saisie (cochées « courantes » dans la grille, lot 40)
+export const LIGNES_COURANTES = lignesCourantes(lignesFrais)
+// Grille du réseau (lot 40) : celle des paramètres de l'année, la grille par défaut sinon
 
 const enTexte = (v: number) => enChiffres(Math.round(v * 100) / 100)
 const codesFinances = Object.values(CODES_FINANCES) as string[]
-const ordre = (c: string) => { const i = lignesFrais.findIndex((l) => l.code === c); return i < 0 ? 999 : i }
 
-export function saisieDepuisLignes(lignes: LigneFraisMagasin[]): SaisieFrais {
+export function saisieDepuisLignes(lignes: LigneFraisMagasin[], grille: LigneGrille[] = lignesFrais): SaisieFrais {
+  const ordre = rangDans(grille)
   const fin = (code: string) => { const l = lignes.find((x) => x.code === code); return l?.annuel ? enTexte(l.annuel) : '' }
   return {
     lignes: lignes.filter((l) => !codesFinances.includes(l.code)).sort((a, b) => ordre(a.code) - ordre(b.code)).map((l) => ({
@@ -34,11 +35,13 @@ export function saisieDepuisLignes(lignes: LigneFraisMagasin[]): SaisieFrais {
 }
 
 // Lignes de la grille pas encore utilisées, à proposer à l'ajout
-export function lignesDisponibles(s: SaisieFrais) {
-  return lignesFrais.filter((l) => !s.lignes.some((x) => x.code === l.code))
+// (lot 40 : sans les lignes masquées)
+export function lignesDisponibles(s: SaisieFrais, grille: LigneGrille[] = lignesFrais) {
+  return lignesActives(grille).filter((l) => !s.lignes.some((x) => x.code === l.code))
 }
-export function ajouterLigne(s: SaisieFrais, code: string): SaisieFrais {
-  const g = lignesFrais.find((l) => l.code === code)
+export function ajouterLigne(s: SaisieFrais, code: string, grille: LigneGrille[] = lignesFrais): SaisieFrais {
+  const g = grille.find((l) => l.code === code)
+  const ordre = rangDans(grille)
   if (!g || s.lignes.some((x) => x.code === code)) return s
   return { ...s, lignes: [...s.lignes, { code, libelle: g.libelle, rubrique: g.rubrique, mode: 'annuel' as Mode, valeur: '' }].sort((a, b) => ordre(a.code) - ordre(b.code)) }
 }
@@ -64,13 +67,13 @@ export function lireSaisieFrais(s: SaisieFrais, avant: LigneFraisMagasin[]): { l
 }
 
 // Totaux par bloc de l'onglet FFBUD (charges externes, impôts et taxes, autres charges) : montants annuels et parts du CA
-export function totauxFrais(s: SaisieFrais): { parBloc: Record<BlocFrais, { annuel: number; taux: number }>; annuel: number; taux: number } {
+export function totauxFrais(s: SaisieFrais, grille: LigneGrille[] = lignesFrais): { parBloc: Record<BlocFrais, { annuel: number; taux: number }>; annuel: number; taux: number } {
   const parBloc: Record<BlocFrais, { annuel: number; taux: number }> = { charges_externes: { annuel: 0, taux: 0 }, impots_taxes: { annuel: 0, taux: 0 }, autres_charges: { annuel: 0, taux: 0 } }
   let annuel = 0, taux = 0
   for (const l of s.lignes) {
     const v = nombre(l.valeur)
     if (v === null || Number.isNaN(v)) continue
-    const r = parBloc[blocDe(l)]
+    const r = parBloc[blocDe(l, grille)]
     if (l.mode === 'annuel') { r.annuel += v; annuel += v } else { r.taux += v / 100; taux += v / 100 }
   }
   return { parBloc, annuel, taux }
@@ -78,10 +81,10 @@ export function totauxFrais(s: SaisieFrais): { parBloc: Record<BlocFrais, { annu
 
 // Frais repris du FEC (lot 33) : les lignes cochées prennent le montant annuel du FEC (en euros par an, ajoutées si
 // besoin), de même pour les amortissements et intérêts cochés. Les autres lignes de la saisie ne bougent pas.
-export function saisieAvecFEC(s: SaisieFrais, f: FraisFEC, choisis: string[]): SaisieFrais {
+export function saisieAvecFEC(s: SaisieFrais, f: FraisFEC, choisis: string[], grille: LigneGrille[] = lignesFrais): SaisieFrais {
   let r = s
   for (const l of f.lignes.filter((x) => choisis.includes(x.code) && x.annuel > 0)) {
-    r = ajouterLigne(r, l.code)
+    r = ajouterLigne(r, l.code, grille)
     r = { ...r, lignes: r.lignes.map((x) => (x.code === l.code ? { ...x, mode: 'annuel' as Mode, valeur: enTexte(l.annuel) } : x)) }
   }
   const finances = { ...r.finances }

@@ -8,7 +8,7 @@ import type { Famille, Univers } from './types'
 //   (poids médian − poids) × CA de l'univers × (taux de la famille − taux du reste de l'univers)
 // Sur le CA réalisé de l'année en cours (base des budgets). Médiane seulement à partir de 3 magasins.
 
-export const MIN_MAGASINS_FAMILLE = 3
+export const MIN_MAGASINS_FAMILLE = 3 // par défaut ; lot 40 : règle de calcul magasinsFamille
 export interface FamilleReseau {
   univers: Univers; famille: string
   poids: number; tauxMarge: number | null
@@ -19,7 +19,7 @@ export interface FamilleReseau {
 const somme = (l: number[]) => l.reduce((a, b) => a + b, 0)
 const cle = (f: { univers: Univers; famille: string }) => `${f.univers}|${f.famille}`
 
-export function famillesFaceAuReseau(moi: Famille[], reseau: Famille[][]): FamilleReseau[] {
+export function famillesFaceAuReseau(moi: Famille[], reseau: Famille[][], mini = MIN_MAGASINS_FAMILLE): FamilleReseau[] {
   const caUnivers = (l: Famille[], u: Univers) => somme(l.filter((f) => f.univers === u).map((f) => f.caRealise))
   const toutes = new Map<string, { univers: Univers; famille: string }>()
   for (const f of [...moi, ...reseau.flat()]) if (f.caRealise > 0 || moi.includes(f)) toutes.set(cle(f), { univers: f.univers, famille: f.famille })
@@ -33,9 +33,9 @@ export function famillesFaceAuReseau(moi: Famille[], reseau: Famille[][]): Famil
     const avec = reseau.filter((l) => caUnivers(l, u) > 0)
     const poidsR = avec.map((l) => somme(l.filter((x) => x.univers === u && x.famille === famille).map((x) => x.caRealise)) / caUnivers(l, u))
     const tauxR = avec.flatMap((l) => l.filter((x) => x.univers === u && x.famille === famille && x.caRealise > 0).map((x) => x.margeRealisee / x.caRealise))
-    const assez = avec.length >= MIN_MAGASINS_FAMILLE
+    const assez = avec.length >= mini
     const medianePoids = assez ? mediane(poidsR) : null
-    const medianeTaux = tauxR.length >= MIN_MAGASINS_FAMILLE ? mediane(tauxR) : null
+    const medianeTaux = tauxR.length >= mini ? mediane(tauxR) : null
     const poids = ca / caU
     const tauxMarge = ca > 0 ? f!.margeRealisee / ca : null
     // Taux du reste de l'univers : les autres familles du magasin

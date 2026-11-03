@@ -23,7 +23,7 @@ test('le Directeur change la redevance : effet sur les budgets non validés, pui
   const ecritures = await seConnecter(page, { magasins: [propose, valide] })
   await allerVers(page, 'Paramètres réseau')
   await expect(page.getByRole('tablist', { name: 'Rubriques des paramètres' }).getByRole('tab'))
-    .toHaveText(['Franchise et impôts', 'Équipe', 'Trésorerie', 'Alertes et campagne', 'Journal', 'Accès'])
+    .toHaveText(['Franchise et impôts', 'Équipe', 'Trésorerie', 'Alertes et campagne', 'Grille des frais', 'Règles de calcul', 'Journal', 'Accès'])
   const section = page.getByRole('region', { name: 'Franchise et impôts' })
   const enregistrer = section.getByRole('button', { name: 'Enregistrer' })
   await expect(page.getByLabel('Redevance franchise')).toHaveValue('2')
@@ -49,6 +49,9 @@ test('le Directeur change la redevance : effet sur les budgets non validés, pui
   const ecrite = ecritures.find((e) => e.table === 'parametres_reseau')?.corps as { annee: number; valeur: { tauxRedevance: number } }
   expect(ecrite.annee).toBe(aB)
   expect(ecrite.valeur.tauxRedevance).toBe(0.025)
+  // Lot 40 : grille des frais et règles de calcul restées par défaut, pas écrites
+  expect(Object.keys(ecrite.valeur)).not.toContain('grilleFrais')
+  expect(Object.keys(ecrite.valeur)).not.toContain('regles')
 
   await ongletParametres(page, 'Journal')
   const journal = page.getByRole('table', { name: `Journal des paramètres ${aB}` })

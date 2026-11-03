@@ -11,9 +11,10 @@ import { EtatVide } from './EtatVide'
 import { Panne } from './Panne'
 import { avecEquipeEtFrais, chargerReel, chargerSecours, enregistrerPartsRealisees, niveauxDe, proposerBudget, type DonneesBudgets, type LigneMagasin, type PartsRealisees } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
-import { ecartTaux, milliers, MOIS_LONGS, montant, taux } from '../lib/format'
+import { ecartTaux, milliers, MOIS_LONGS, montant, taux, tauxCourt } from '../lib/format'
 import { compteResultat } from '../moteur/compteResultat'
 import { baseDepuisReel, type MethodeAtterrissage } from '../moteur/atterrissage'
+import { reglesDe } from '../moteur/regles'
 import { calculerBudget } from '../moteur/budget'
 import { appliquerCibles } from '../moteur/cibles'
 import { UNIVERS, universLibelle, type ParametresReseau, type Univers } from '../moteur/types'
@@ -63,8 +64,9 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
 
   const enregistrees = donnees.secours.parts ?? {}
   const vues = parts ?? enregistrees
-  const r = baseDepuisReel(donnees, annee, [], undefined, { ...donnees.secours, parts: vues })
-  const auto = baseDepuisReel(donnees, annee, [], undefined, { ...donnees.secours, parts: {} })
+  const regles = reglesDe(parametres)
+  const r = baseDepuisReel(donnees, annee, [], undefined, { ...donnees.secours, parts: vues }, regles)
+  const auto = baseDepuisReel(donnees, annee, [], undefined, { ...donnees.secours, parts: {} }, regles)
   if (!r) {
     return (
       <EtatVide
@@ -182,13 +184,13 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
                 <TableCell>{universLibelle[u]}</TableCell>
                 <TableCell align="right">{montant(realiseDe(u))}</TableCell>
                 <TableCell sx={{ whiteSpace: 'normal' }}>
-                  {METHODE[r.methodes[u]]}
+                  {r.methodes[u] === 'rythme' ? `Rythme des ${regles.moisRythme} derniers mois` : METHODE[r.methodes[u]]}
                   {/* Lot 28 : rythme écarté au-delà de 15 % d'écart ; le retenir, c'est saisir sa part de l'année */}
                   {r.methodes[u] !== 'saisie' && auto?.ecartsRythme?.[u] && (() => {
                     const e = auto.ecartsRythme[u]!
                     return (
                       <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 1.5, color: 'warning.dark', fontSize: '0.875rem' }}>
-                        <span>{`Au rythme de ${MOIS_LONGS[e.de - 1]} à ${MOIS_LONGS[e.a - 1]} : ${milliers(e.atterrissage)} (${ecartTaux(e.ecart)}), écart de plus de 15 % à confirmer`}</span>
+                        <span>{`Au rythme de ${MOIS_LONGS[e.de - 1]} à ${MOIS_LONGS[e.a - 1]} : ${milliers(e.atterrissage)} (${ecartTaux(e.ecart)}), écart de plus de ${tauxCourt(regles.ecartRythme)} à confirmer`}</span>
                         {peutSaisir && (
                           <Button size="small" onClick={() => setParts({ ...vues, [u]: e.part })} sx={{ minHeight: 48 }}
                             aria-label={`Retenir le rythme : ${universLibelle[u]}`}>Retenir le rythme</Button>

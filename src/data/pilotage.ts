@@ -4,7 +4,8 @@ import { pilotage } from '../lib/supabase'
 import { calculerBudget } from '../moteur/budget'
 import { appliquerCibles, niveauxReseau, type Cibles, type NiveauCibles, type Provenance } from '../moteur/cibles'
 import { trancheMillesime, type Ouverture } from '../moteur/projection'
-import { parametresParDefaut } from '../moteur/parametres'
+import { alignerSurGrille, completerGrille, grilleDe, lignesFrais, parametresParDefaut } from '../moteur/parametres'
+import { reglesDe, reglesParDefaut } from '../moteur/regles'
 import type { TicketsMois, VenteMois } from '../import/caisse'
 import { baseDepuisReel, fraisDepuisLignes, saisonnaliteMediane, type LigneFraisMagasin, type ReelAnnees, type SecoursAtterrissage } from '../moteur/atterrissage'
 import type { Categorie, ParametresCharges, Personne } from '../moteur/equipe'
@@ -78,7 +79,12 @@ const objet = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 
 
 export const chargerBudgets = (annee: number): Promise<DonneesBudgets> => memo(`budgets|${annee}`, () => lireBudgets(annee))
 async function lireBudgets(annee: number): Promise<DonneesBudgets> {
-  const [{ data, error }, equipes, frais, ouvertures, comptes] = await Promise.all([pilotage().rpc('budgets_du_compte', { p_annee: annee }), chargerEquipes(), chargerFrais(), chargerOuvertures(), chargerComptes(annee - 1)])
+  const [{ data, error }, equipes, fraisEnregistres, ouvertures, comptes, { parametres }] = await Promise.all([
+    pilotage().rpc('budgets_du_compte', { p_annee: annee }), chargerEquipes(), chargerFrais(), chargerOuvertures(), chargerComptes(annee - 1), chargerParametres(annee),
+  ])
+  // Lot 40 : les lignes de frais prennent le libellé et le thème de la grille de l'année
+  const grille = grilleDe(parametres)
+  const frais = Object.fromEntries(Object.entries(fraisEnregistres).map(([m, l]) => [m, alignerSurGrille(l, grille)]))
   if (error || !objet(data) || !Array.isArray(data.magasins)) throw new ErreurChargement()
   const lignes = data.magasins as { magasin: string; statut: Statut | null; base: unknown; ajustements: unknown; hypotheses: unknown; maj_le: string | null; groupe_id: number | null; parametres?: unknown; ajustements_siege?: unknown; envoye_le?: string | null }[]
   return {
@@ -129,7 +135,7 @@ export function avecEquipeEtFrais(base: Hypotheses, equipe: Personne[] | undefin
 }
 // Atterrissage de l'année d'un magasin : réel des mois passés, projection, équipe et frais enregistrés
 export function atterrissageDe(reel: ReelAnnees, annee: number, equipe: Personne[] | undefined, frais: LigneFraisMagasin[] | undefined, parametres: ParametresReseau, secours?: SecoursAtterrissage) {
-  const r = baseDepuisReel(reel, annee, [], undefined, secours)
+  const r = baseDepuisReel(reel, annee, [], undefined, secours, reglesDe(parametres))
   if (!r) return null
   const hypotheses = avecEquipeEtFrais(r.base, equipe, frais)
   return { ...r, hypotheses, budget: calculerBudget(hypotheses, parametres) }
@@ -163,7 +169,7 @@ export interface Preparation {
 export async function preparerProposition(ligne: LigneMagasin, d: DonneesBudgets, anneeEnCours: number, anneeProposee: number, parametres: ParametresReseau): Promise<Preparation | null> {
   const magasin = ligne.magasin
   const [n, n1, secours] = await Promise.all([chargerReel(magasin, anneeEnCours), chargerReel(magasin, anneeEnCours - 1), chargerSecours(magasin, anneeEnCours)])
-  const r = baseDepuisReel({ n, n1 }, anneeEnCours, [], undefined, secours)
+  const r = baseDepuisReel({ n, n1 }, anneeEnCours, [], undefined, secours, reglesDe(parametres))
   if (!r) return null
   const equipe = d.equipes[magasin], frais = d.frais[magasin]
   const base = { ...avecEquipeEtFrais(r.base, undefined, frais), annee: anneeProposee }
@@ -234,6 +240,8 @@ async function lireParametres(annee: number): Promise<{ parametres: ParametresRe
 export function completerParametres(v: Partial<ParametresReseau>): ParametresReseau {
   return {
     ...parametresParDefaut, ...v,
+    regles: reglesDe(v),
+    grilleFrais: completerGrille(v.grilleFrais),
     impot: { ...parametresParDefaut.impot, ...v.impot },
     tvaPanier: { ...parametresParDefaut.tvaPanier, ...v.tvaPanier },
     tresorerie: {
@@ -371,8 +379,16 @@ export async function importerReel(ventes: VenteMois[], tickets: TicketsMois[], 
   return { mois, magasins: magasins.size }
 }
 
+// Lot 40 : la grille des frais et les règles de calcul ne s'enregistrent que si elles diffèrent des valeurs par défaut
+// (une grille par défaut reste vivante : une ligne ajoutée au code apparaît ; le journal ne note que les vrais changements)
 export async function enregistrerParametres(annee: number, parametres: ParametresReseau) {
-  verifier(await pilotage().from('parametres_reseau').upsert({ annee, valeur: parametres }))
+  const { grilleFrais, regles, ...reste } = parametres
+  const valeur: Partial<ParametresReseau> = {
+    ...reste,
+    ...(grilleFrais && JSON.stringify(completerGrille(grilleFrais)) !== JSON.stringify(lignesFrais) ? { grilleFrais } : {}),
+    ...(regles && JSON.stringify(reglesDe({ regles })) !== JSON.stringify(reglesParDefaut) ? { regles } : {}),
+  }
+  verifier(await pilotage().from('parametres_reseau').upsert({ annee, valeur }))
 }
 export type { ParametresCharges }
 
@@ -517,7 +533,7 @@ export async function importerQuadrimestres(lignes: { magasin: string; annee: nu
 // Alertes des magasins du compte : réel de l'année en cours face à son budget et à l'an dernier, trésorerie du dernier
 // quadrimestre et point bas du budget à venir. Seuils : Paramètres réseau de l'année du budget (ceux que règle le Directeur).
 // Entrées des alertes de chaque magasin du compte, et les seuils du Directeur
-async function entreesAlertes(aujourdhui: Date): Promise<{ entrees: EntreeAlertes[]; seuils: ParametresReseau['alertes'] }> {
+async function entreesAlertes(aujourdhui: Date): Promise<{ entrees: EntreeAlertes[]; seuils: ParametresReseau['alertes']; moisCommerciaux: number }> {
   const annee = aujourdhui.getFullYear(), aB = anneeBudget(aujourdhui)
   const [d, { parametres }, dB, { parametres: pB }, reel, quadrimestres] = await Promise.all([
     chargerBudgets(annee), chargerParametres(annee), chargerBudgets(aB), chargerParametres(aB), chargerReelDuCompte(annee), chargerQuadrimestres(annee),
@@ -542,11 +558,11 @@ async function entreesAlertes(aujourdhui: Date): Promise<{ entrees: EntreeAlerte
       tresorerieBudget: point ? { montant: point.montant, mois: point.mois, annee: aB } : null,
     }
   })
-  return { entrees, seuils: pB.alertes }
+  return { entrees, seuils: pB.alertes, moisCommerciaux: reglesDe(pB).moisCommerciaux }
 }
 export async function chargerAlertes(aujourdhui = new Date()): Promise<Alerte[]> {
-  const { entrees, seuils } = await entreesAlertes(aujourdhui)
-  return trierAlertes(entrees.flatMap((e) => alertesMagasin(e, seuils)))
+  const { entrees, seuils, moisCommerciaux } = await entreesAlertes(aujourdhui)
+  return trierAlertes(entrees.flatMap((e) => alertesMagasin(e, seuils, moisCommerciaux)))
 }
 // Mesures d'aujourd'hui de chaque magasin, sans seuil : l'effet des actions
 export async function chargerMesures(aujourdhui = new Date()): Promise<Record<string, Partial<Record<TypeAlerte, Mesure>>>> {
@@ -556,7 +572,7 @@ export async function chargerMesures(aujourdhui = new Date()): Promise<Record<st
 
 // Ratios de chaque magasin du compte, pour la comparaison aux médianes : réel de l'année à date et budgets de l'an prochain
 export interface RatiosMagasin { magasin: string; groupeId: number | null; ratios: Ratios }
-export async function chargerComparaison(aujourdhui = new Date()): Promise<{ annee: number; anneeBudget: number; groupes: { id: number; nom: string }[]; reel: RatiosMagasin[]; budget: RatiosMagasin[]; familles: { magasin: string; groupeId: number | null; familles: Famille[] }[] }> {
+export async function chargerComparaison(aujourdhui = new Date()): Promise<{ annee: number; anneeBudget: number; groupes: { id: number; nom: string }[]; reel: RatiosMagasin[]; budget: RatiosMagasin[]; familles: { magasin: string; groupeId: number | null; familles: Famille[] }[]; magasinsFamille: number }> {
   const annee = aujourdhui.getFullYear(), aB = anneeBudget(aujourdhui)
   const [d, { parametres }, dB, { parametres: pB }, reel] = await Promise.all([
     chargerBudgets(annee), chargerParametres(annee), chargerBudgets(aB), chargerParametres(aB), chargerReelDuCompte(annee),
@@ -564,7 +580,7 @@ export async function chargerComparaison(aujourdhui = new Date()): Promise<{ ann
   const p = { tauxRedevance: parametres.tauxRedevance, tauxPublicite: parametres.tauxPublicite, charges: parametres.charges, annee }
   const douze = (): MoisReel[] => Array.from({ length: 12 }, () => ({ caHT: 0, margeHT: 0, caAvecMarge: 0, caTTC: 0, tickets: 0 }))
   return {
-    annee, anneeBudget: aB, groupes: dB.groupes,
+    annee, anneeBudget: aB, groupes: dB.groupes, magasinsFamille: reglesDe(pB).magasinsFamille,
     reel: d.magasins.flatMap((l) => {
       const r = reel.magasins[l.magasin]
       if (!r) return []
@@ -603,8 +619,9 @@ export async function enregistrerPartsRealisees(magasin: string, annee: number, 
   if (lignes.length) verifier(await pilotage().from('parts_realisees').insert(lignes))
 }
 export async function chargerSecours(magasin: string, annee: number): Promise<SecoursAtterrissage> {
-  const [parts, reel, ouvertures] = await Promise.all([chargerPartsRealisees(annee), chargerReelDuCompte(annee), chargerOuvertures()])
-  return { parts: parts[magasin] ?? {}, saisonnaliteReseau: saisonnaliteMediane(Object.values(reel.magasins).map((r) => r.n1.map((x) => x.caHT))), ouverture: ouvertures[magasin] ?? null }
+  const [parts, reel, ouvertures, { parametres }] = await Promise.all([chargerPartsRealisees(annee), chargerReelDuCompte(annee), chargerOuvertures(), chargerParametres(annee)])
+  const mini = reglesDe(parametres).magasinsSaisonnalite
+  return { parts: parts[magasin] ?? {}, saisonnaliteReseau: saisonnaliteMediane(Object.values(reel.magasins).map((r) => r.n1.map((x) => x.caHT)), mini), ouverture: ouvertures[magasin] ?? null }
 }
 
 // Date d'ouverture des magasins (lot 24), tenue par le Directeur ; sans la table (migration pas encore passée), aucune

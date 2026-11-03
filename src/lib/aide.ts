@@ -72,7 +72,7 @@ export const AIDE = {
   base: {
     titre: 'Base du CA',
     quoi: 'Le point de départ du budget : le CA attendu cette année, ou le rythme des 4 derniers mois s’il montre une tendance nette.',
-    calcul: 'Rythme = CA des 4 derniers mois ÷ leur poids dans l’année. Retenu d’office si l’écart au CA attendu reste sous 15 %, au-delà sur décision du Directeur de réseau.',
+    calcul: 'Rythme = CA des 4 derniers mois ÷ leur poids dans l’année. Retenu d’office si l’écart au CA attendu reste sous 15 %, au-delà sur décision du Directeur de réseau. Nombre de mois et seuil : Paramètres réseau, Règles de calcul (valeurs par défaut citées).',
   },
   tempsForts: {
     titre: 'Temps forts',
@@ -382,7 +382,7 @@ export const AIDE = {
   atterrissageCA: {
     titre: 'Atterrissage',
     quoi: 'Où l’année devrait finir si le magasin garde son rythme.',
-    calcul: 'Réalisé depuis janvier ÷ part de l’année déjà faite (saisonnalité du magasin, sinon médiane du réseau). Magasin de moins de 18 mois : rythme des 4 derniers mois × saisonnalité du réseau.',
+    calcul: 'Réalisé depuis janvier ÷ part de l’année déjà faite (saisonnalité du magasin, sinon médiane du réseau). Magasin de moins de 18 mois : rythme des 4 derniers mois × saisonnalité du réseau. Ces seuils se règlent dans Paramètres réseau, Règles de calcul (valeurs par défaut citées).',
   },
   ticketsPanier: {
     titre: 'Tickets et panier moyen',

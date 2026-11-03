@@ -163,6 +163,13 @@ Supabase (même projet que l'app réseau), Playwright. Polices et icônes embarq
    journal lisible (`src/lib/parametrage.ts`), droits `peutParametrer`, `voitParametres`, `seulementParametres`
    (`src/auth/roles.ts`, lus par `mes_droits`). Tests `tests/moteur/parametrage.spec.ts` et `tests/lot39.spec.ts`.
    Migration `0021_parametrage.sql`.
+40. Lot 40 : grille des frais et règles de calcul modifiables (`src/components/GrilleFraisParametres.tsx`,
+   `src/components/ReglesCalculParametres.tsx`). Moteur : `grilleDe`, `completerGrille`, `alignerSurGrille`,
+   `controlerGrille`, `nouvelleLigneGrille` (`src/moteur/parametres.ts`), `reglesDe`, `BORNES_REGLES`
+   (`src/moteur/regles.ts`) ; la grille passe en paramètre de la saisie des frais, de l'import FEC, du compte de résultat
+   et des frais du budget, les règles en paramètre de l'atterrissage, du budget, des médianes et des alertes (valeurs par
+   défaut : celles d'avant). Les frais chargés prennent le libellé et le thème de la grille (`chargerBudgets`).
+   Tests `tests/moteur/lot40.spec.ts` et `tests/lot40.spec.ts`. Pas de migration.
 
 ## Rôles
 

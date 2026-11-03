@@ -13,7 +13,7 @@ import { Aide } from './Aide'
 import { chargerComparaison } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { milliers, taux } from '../lib/format'
-import { famillesFaceAuReseau, MIN_MAGASINS_FAMILLE } from '../moteur/familles'
+import { famillesFaceAuReseau } from '../moteur/familles'
 import { universLibelle } from '../moteur/types'
 
 const PREMIERES = 8
@@ -24,8 +24,8 @@ export function FamillesReseau({ magasin, directeur }: { magasin: string; direct
   const [toutes, setToutes] = useState(false)
   if (!donnees) return null
   const moi = donnees.familles.find((x) => x.magasin === magasin)
-  if (!moi || donnees.familles.length < MIN_MAGASINS_FAMILLE) return null
-  const lignes = famillesFaceAuReseau(moi.familles, donnees.familles.map((x) => x.familles))
+  if (!moi || donnees.familles.length < donnees.magasinsFamille) return null
+  const lignes = famillesFaceAuReseau(moi.familles, donnees.familles.map((x) => x.familles), donnees.magasinsFamille)
   if (!lignes.length) return null
   const vues = toutes ? lignes : lignes.slice(0, PREMIERES)
   const total = lignes.reduce((a, l) => a + (l.potentiel ?? 0), 0)

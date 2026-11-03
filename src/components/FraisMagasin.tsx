@@ -35,9 +35,9 @@ import { nombreChangements } from '../lib/aFaire'
 import { milliers, miseEnForme, montant, taux } from '../lib/format'
 import { ebeApres, fraisDeLAnnee } from '../moteur/effets'
 import type { LigneFraisMagasin } from '../moteur/atterrissage'
-import { BLOCS_FRAIS, blocDe, LIGNES_SUR_CA, rubriqueLibelle, THEMES_FRAIS } from '../moteur/parametres'
+import { BLOCS_FRAIS, blocDe, LIGNES_SUR_CA, lignesCourantes, lignesFrais, rubriqueLibelle, THEMES_FRAIS, type LigneGrille } from '../moteur/parametres'
 import {
-  ajouterLigne, INTERETS, LIBELLES_FINANCES, LIGNES_COURANTES, lignesDisponibles, lireSaisieFrais, saisieAvecFEC, saisieDepuisLignes, totauxFrais,
+  ajouterLigne, INTERETS, LIBELLES_FINANCES, lignesDisponibles, lireSaisieFrais, saisieAvecFEC, saisieDepuisLignes, totauxFrais,
   type ChampFrais, type Mode, type SaisieFrais,
 } from '../moteur/saisieFrais'
 
@@ -89,7 +89,7 @@ function AjoutTheme({ theme, lignes, onAjouter }: { theme: string; lignes: { cod
 
 // Frais annuels d'un magasin sur la grille du réseau, dans les blocs de l'onglet FFBUD avec leurs sous-totaux ;
 // publicité franchise et royalties calculées sur le CA ; amortissements, intérêts et emprunts sous l'EBE
-export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregistrement, tauxSurCA, budget }: {
+export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregistrement, tauxSurCA, budget, grille = lignesFrais }: {
   magasin: string
   lignes: LigneFraisMagasin[]
   annee: number
@@ -97,8 +97,9 @@ export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregist
   apresEnregistrement: () => void
   tauxSurCA: { publicite: number; redevance: number }
   budget?: { annee: number; ca: number; ebe: number }  // budget du magasin, pour l'effet de la saisie sur l'EBE (lot 28)
+  grille?: LigneGrille[]  // grille des frais de l'année (lot 40)
 }) {
-  const [saisie, setSaisie] = useState<SaisieFrais>(() => saisieDepuisLignes(lignes))
+  const [saisie, setSaisie] = useState<SaisieFrais>(() => saisieDepuisLignes(lignes, grille))
   const [message, setMessage] = useState<{ gravite: 'success' | 'error'; texte: string; details?: string[] } | null>(null)
   const [occupe, setOccupe] = useState(false)
   const [replies, setReplies] = useState<Set<string>>(new Set())
@@ -106,13 +107,13 @@ export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregist
   // Après un enregistrement (ou un changement de magasin), la saisie repart des lignes enregistrées
   const empreinte = JSON.stringify(lignes)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { setSaisie(saisieDepuisLignes(lignes)) }, [empreinte])
+  useEffect(() => { setSaisie(saisieDepuisLignes(lignes, grille)) }, [empreinte])
 
-  const initiale = saisieDepuisLignes(lignes)
+  const initiale = saisieDepuisLignes(lignes, grille)
   const modifie = JSON.stringify(saisie) !== JSON.stringify(initiale)
   useSaisieEnCours(peutSaisir && modifie)
-  const t = totauxFrais(saisie)
-  const disponibles = lignesDisponibles(saisie)
+  const t = totauxFrais(saisie, grille)
+  const disponibles = lignesDisponibles(saisie, grille)
   const changer = (code: string, l: Partial<ChampFrais>) => setSaisie((s) => ({ ...s, lignes: s.lignes.map((x) => (x.code === code ? { ...x, ...l } : x)) }))
   const valeurFinance = (k: keyof SaisieFrais['finances']) => nombre(saisie.finances[k]) ?? 0
 
@@ -133,7 +134,7 @@ export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregist
   }
 
   // Barre d'enregistrement du budget (lot 28) : frais au-dessus de l'EBE, l'EBE du budget bouge d'autant
-  const t0 = totauxFrais(initiale)
+  const t0 = totauxFrais(initiale, grille)
   const avant = budget ? fraisDeLAnnee(t0, budget.ca) : 0, apres = budget ? fraisDeLAnnee(t, budget.ca) : 0
   const actions = peutSaisir && modifie && (
     <BarreEnregistrement
@@ -156,13 +157,13 @@ export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregist
     return (
       <Stack spacing={3}>
         {alerte}
-        {peutSaisir && <RepriseFraisFEC onReprendre={(f, c) => setSaisie((s) => saisieAvecFEC(s, f, c))} />}
+        {peutSaisir && <RepriseFraisFEC onReprendre={(f, c) => setSaisie((s) => saisieAvecFEC(s, f, c, grille))} grille={grille} />}
         <EtatVide
           titre="Pas encore de frais"
           texte={peutSaisir ? `Loyer, énergie, honoraires, assurances… les frais ${annee} du magasin, ligne par ligne.` : 'Les frais de ce magasin ne sont pas encore renseignés.'}
           action={peutSaisir ? (
             <Button variant="contained" startIcon={<PlaylistAddOutlined />} sx={{ minHeight: 48 }}
-              onClick={() => setSaisie((s) => LIGNES_COURANTES.reduce(ajouterLigne, s))}>
+              onClick={() => setSaisie((s) => lignesCourantes(grille).reduce((x, code) => ajouterLigne(x, code, grille), s))}>
               Partir des lignes courantes
             </Button>
           ) : undefined}
@@ -233,7 +234,7 @@ export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregist
   const themes = THEMES_FRAIS.map((r) => ({ r, dans: saisie.lignes.filter((l) => l.rubrique === r), libres: disponibles.filter((l) => l.rubrique === r) }))
     .filter((x) => x.dans.length || (peutSaisir && x.libres.length))
   const totalTheme = (dans: ChampFrais[]) => {
-    const x = totauxFrais({ ...saisie, lignes: dans })
+    const x = totauxFrais({ ...saisie, lignes: dans }, grille)
     return dans.length ? enMontant(x.annuel, x.taux) : ''
   }
   const ligneTotal = (libelle: string, valeur: string, fort = false) => (
@@ -269,13 +270,13 @@ export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregist
               </TableRow>
             </TableHead>
             {themes.map(({ r, dans, libres }) => groupe(r, rubriqueLibelle[r], totalTheme(dans), dans.map(ligneSaisie),
-              libres.length > 0 && <AjoutTheme theme={rubriqueLibelle[r]} lignes={libres} onAjouter={(code) => { setReplies((x) => { const n = new Set(x); n.delete(r); return n }); setSaisie((s) => ajouterLigne(s, code)) }} />))}
+              libres.length > 0 && <AjoutTheme theme={rubriqueLibelle[r]} lignes={libres} onAjouter={(code) => { setReplies((x) => { const n = new Set(x); n.delete(r); return n }); setSaisie((s) => ajouterLigne(s, code, grille)) }} />))}
             {groupe('reseau', 'Redevances du réseau', `${taux(surCA)} du CA`, (['publicite', 'redevance'] as const).map((k) => ligneTexte(k, LIGNES_SUR_CA[k].libelle, `${taux(tauxSurCA[k])} du CA`)))}
             {groupe('hors-ebe', 'Sous l’excédent brut d’exploitation', montant(valeurFinance('amortissements') + interets),
               [ligneFinance('amortissements'), ...INTERETS.map(ligneFinance), ligneFinance('remboursementCapital')])}
             <TableBody aria-label="Totaux">
               <TableRow><TableCell colSpan={colonnes} sx={{ pt: '12px !important', fontWeight: 700 }}>Totaux</TableCell></TableRow>
-              {BLOCS_FRAIS.filter((x) => x.cle === 'charges_externes' || saisie.lignes.some((l) => blocDe(l) === x.cle)).map((x) =>
+              {BLOCS_FRAIS.filter((x) => x.cle === 'charges_externes' || saisie.lignes.some((l) => blocDe(l, grille) === x.cle)).map((x) =>
                 ligneTotal(x.total, enMontant(t.parBloc[x.cle].annuel, t.parBloc[x.cle].taux + (x.cle === 'charges_externes' ? surCA : 0))))}
               {ligneTotal('Intérêts et charges assimilées', montant(interets))}
               {ligneTotal('Total des frais prévisionnels', enMontant(t.annuel + valeurFinance('amortissements') + interets, t.taux + surCA), true)}
@@ -283,7 +284,7 @@ export function FraisMagasin({ magasin, lignes, annee, peutSaisir, apresEnregist
           </Table>
         </TableContainer>
       </Card>
-      {peutSaisir && <RepriseFraisFEC onReprendre={(f, c) => setSaisie((s) => saisieAvecFEC(s, f, c))} />}
+      {peutSaisir && <RepriseFraisFEC onReprendre={(f, c) => setSaisie((s) => saisieAvecFEC(s, f, c, grille))} grille={grille} />}
       {actions}
     </Stack>
   )

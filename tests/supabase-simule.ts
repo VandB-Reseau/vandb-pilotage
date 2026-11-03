@@ -439,6 +439,6 @@ export async function plusLoin(page: Page) {
 }
 
 // Paramètres réseau (lot 39) : un onglet par rubrique
-export async function ongletParametres(page: Page, nom: 'Franchise et impôts' | 'Équipe' | 'Trésorerie' | 'Alertes et campagne' | 'Journal' | 'Accès') {
+export async function ongletParametres(page: Page, nom: 'Franchise et impôts' | 'Équipe' | 'Trésorerie' | 'Alertes et campagne' | 'Grille des frais' | 'Règles de calcul' | 'Journal' | 'Accès') {
   await page.getByRole('tablist', { name: 'Rubriques des paramètres' }).getByRole('tab', { name: nom }).click()
 }

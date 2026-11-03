@@ -13,6 +13,9 @@ const ecartKiloFin = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1, 
 export const milliers = (v: number) => `${(Math.abs(v) < 9_950 ? kiloFin : kilo).format(Math.abs(v) < 9_950 ? Math.round(v / 100) / 10 : v / 1000)} k€`
 export const ecartMilliers = (v: number) => `${(Math.abs(v) < 9_950 ? ecartKiloFin : ecartKilo).format(Math.abs(v) < 9_950 ? Math.round(v / 100) / 10 : v / 1000)} k€`
 export const taux = (v: number) => pourcent.format(v)
+// Seuil rond (« 15 % ») : décimale seulement si elle compte (lot 40, règles de calcul)
+const pourcentCourt = new Intl.NumberFormat('fr-FR', { style: 'percent', maximumFractionDigits: 1 })
+export const tauxCourt = (v: number) => pourcentCourt.format(v)
 
 export const MOIS = ['Janv.', 'Févr.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août', 'Sept.', 'Oct.', 'Nov.', 'Déc.']
 export const MOIS_LONGS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']

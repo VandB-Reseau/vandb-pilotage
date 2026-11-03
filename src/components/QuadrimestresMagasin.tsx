@@ -18,6 +18,7 @@ import { BarreEnregistrement } from './BarreEnregistrement'
 import { ChampNombre } from './ChampNombre'
 import { useSaisieEnCours } from './GardeSaisie'
 import { ImportFEC, type FichierFEC } from './ImportFEC'
+import { grilleDe } from '../moteur/parametres'
 import { Indicateur } from './Indicateur'
 import { Panne } from './Panne'
 import { atterrissageDe, chargerBudgets, chargerParametres, chargerQuadrimestres, chargerReel, chargerSecours, enregistrerQuadrimestres, hypothesesDe, parametresDuBudget } from '../data/pilotage'
@@ -299,7 +300,7 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir, vue = 'saisie
         {message && <Box sx={{ px: 2.5, pb: 1 }}><Alert severity={message.gravite} onClose={() => setMessage(null)} closeText="Fermer" slotProps={{ closeButton: { sx: { width: 48, height: 48 } } }}>{message.texte}</Alert></Box>}
         {fec && (
           <ImportFEC key={fec.nom} magasin={magasin} annee={annee} fichier={fec} caCaisse={caCaisse} libelles={LIBELLES} peutGarder={peutSaisir}
-            reprendre={reprendreFEC} fermer={() => setFec(null)} />
+            reprendre={reprendreFEC} fermer={() => setFec(null)} grille={donnees ? grilleDe(donnees.parametres) : undefined} />
         )}
         {negatif && <Box sx={{ px: 2.5, pb: 1 }}><Alert severity="warning">Les achats et les charges se saisissent en positif.</Alert></Box>}
         <TableContainer>
