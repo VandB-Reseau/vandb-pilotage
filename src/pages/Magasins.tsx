@@ -40,6 +40,7 @@ import { tresorerieBudget } from '../moteur/tresorerie'
 import { syntheseBudgets, totalBudgets } from '../moteur/sante'
 import type { Alerte } from '../moteur/alertes'
 import { campagneDe } from '../moteur/campagne'
+import { ValidationSerie } from '../components/ValidationSerie'
 import { styleTableau } from '../theme/tableau'
 
 // Liste des magasins (lot 27) : une ligne par magasin, colonnes triables, alertes et EBE / CA lisibles d'un coup d'œil
@@ -91,7 +92,7 @@ export function Magasins() {
       ])
       const groupes = new Map(d.groupes.map((g) => [g.id, g.nom]))
       return {
-        groupes: d.groupes, alertes, actions, campagne: campagneDe(parametres, annee),
+        d, parametres, groupes: d.groupes, alertes, actions, campagne: campagneDe(parametres, annee),
         magasins: d.magasins.map((l) => {
           const h = hypothesesDe(l, d)
           const pL = parametresDuBudget(l, parametres)
@@ -199,6 +200,10 @@ export function Magasins() {
             <Box sx={{ mb: 3 }}>
               <CampagneBudgets annee={annee} campagne={donnees.campagne} magasins={tous} aujourdhui={new Date().toISOString().slice(0, 10)} />
             </Box>
+          )}
+          {/* Lot 42 (proposition 6) : le RR ou le Directeur valide d'un coup les budgets envoyés sans changement */}
+          {(estDirecteur(profil) || profil?.role === 'rr') && (
+            <ValidationSerie d={donnees.d} parametres={donnees.parametres} annee={annee} apres={recharger} />
           )}
           {/* Lot 41 (proposition 1) : le Directeur propose et met à jour les budgets de la liste affichée en une fois */}
           {estDirecteur(profil) && (

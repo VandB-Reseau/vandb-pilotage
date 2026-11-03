@@ -63,7 +63,7 @@ import { tresorerieDepartEstimee } from '../moteur/reprise'
 import { ResultatDirect } from '../components/ResultatDirect'
 import { AccordTheme } from '../components/AccordTheme'
 import {
-  anneeBudget, avecEquipeEtFrais, changerStatut, chargerBudgets, envoyerAuSiege, envoyerMessage, chargerParametres, chargerReel, enregistrerAjustements, hypothesesDe, niveauxDe, parametresDuBudget, statutLibelle, valeursSansCible,
+  anneeBudget, avecEquipeEtFrais, changerStatut, chargerBudgets, envoyerAuSiege, envoyerMessage, chargerParametres, chargerReel, enregistrerAjustements, hypothesesDe, niveauxDe, parametresDuBudget, statutLibelle, valeursSansCible, type LigneMagasin,
 } from '../data/pilotage'
 import { useChargement } from '../data/useChargement'
 import { nombreChangements, reelEnRetard } from '../lib/aFaire'
@@ -77,7 +77,8 @@ import { calculerBudget, effetTravaux } from '../moteur/budget'
 import { campagneDe } from '../moteur/campagne'
 import { compteResultat } from '../moteur/compteResultat'
 import { tresorerieBudget } from '../moteur/tresorerie'
-import { ajustementsCopies, ecarts, ecrireCible, valeurHeritee, type Cibles } from '../moteur/cibles'
+import { copieParThemes, ecarts, ecrireCible, valeurHeritee, type Cibles, type ThemeCopie } from '../moteur/cibles'
+import { trancheMillesime } from '../moteur/projection'
 
 
 // Onglet avec une pastille quand il manque quelque chose ; le détail est lu par les lecteurs d'écran
@@ -207,7 +208,8 @@ export function Magasin() {
   const inflation = resolu?.provenance.find((x) => x.cle === 'inflationFrais')?.valeur ?? 0
   const enregistrable = poidsValides(brouillon.poidsMois)
   // Lot 42 (proposition 5) : sans trésorerie au 1er janvier saisie, celle estimée depuis les comptes de l'année
-  const estimee = baseFrais ? tresorerieDepartEstimee(baseFrais, d.comptes?.[ligne.magasin], parametres) : null
+  const estimee = ligne.statut === 'valide' && ligne.figees ? ligne.figees.departEstime ?? null
+    : baseFrais ? tresorerieDepartEstimee(baseFrais, d.comptes?.[ligne.magasin], parametres) : null
   const departDe = (c: Cibles) => c.tresorerieDepart ?? estimee?.montant ?? 0
   // Effet des travaux : même budget sans eux
   const tresorerie = b && resolu ? tresorerieBudget(b, resolu.hypotheses, parametres, parametres.tresorerie, departDe(brouillon)) : null
@@ -215,13 +217,22 @@ export function Magasin() {
   const auSiege = ligne.base ? hypothesesDe(ligne, d, ligne.siege ?? {}) : null
   const ebeSiege = auSiege ? calculerBudget(auSiege.hypotheses, parametres).ebe : null
   const sansTravaux = resolu?.hypotheses.travaux ? calculerBudget({ ...resolu.hypotheses, travaux: undefined }, parametres) : null
-  // Copie : magasins dont le budget est proposé ou en discussion
-  const destinations = d.magasins.filter((l) => l.magasin !== ligne.magasin && l.base && l.statut && l.statut !== 'valide')
-  const copier = (vers: string[]) => void agir(async () => {
+  // Lot 42 (proposition 3) : copie thème par thème vers les magasins dont le budget est proposé ou en discussion
+  const groupesNoms = new Map(d.groupes.map((g) => [g.id, g.nom]))
+  const destinations = d.magasins.filter((l) => l.magasin !== ligne.magasin && l.base && (l.statut === 'propose' || l.statut === 'en_discussion'))
+  const copieVers = (cible: LigneMagasin, themes: ThemeCopie[]) => copieParThemes(ligne.ajustements, cible.ajustements, themes)
+  const ebeCopie = (nom: string, themes: ThemeCopie[]) => {
+    const cible = destinations.find((l) => l.magasin === nom)
+    if (!cible) return null
+    const p = parametresDuBudget(cible, donnees.parametres)
+    const avant = hypothesesDe(cible, d), apres = hypothesesDe(cible, d, copieVers(cible, themes))
+    return avant && apres ? { avant: calculerBudget(avant.hypotheses, p).ebe, apres: calculerBudget(apres.hypotheses, p).ebe } : null
+  }
+  const copier = (vers: string[], themes: ThemeCopie[]) => void agir(async () => {
     for (const nom of vers) {
       const cible = destinations.find((l) => l.magasin === nom)
       if (!cible) continue
-      const ajustements = ajustementsCopies(ligne.ajustements, cible.ajustements)
+      const ajustements = copieVers(cible, themes)
       const h = hypothesesDe(cible, d, ajustements)
       if (h) await enregistrerAjustements(nom, annee, ajustements, h.hypotheses)
     }
@@ -301,11 +312,9 @@ export function Magasin() {
   const boutonValider = peutValider && ligne.base && ligne.statut !== 'valide' ? (
     <Button variant="contained" color="success" startIcon={<CheckCircleOutlined />} disabled={occupe || !enregistrable} sx={{ minHeight: 48 }}
       onClick={() => resolu && void agir(async () => {
-        // Lot 42 : la trésorerie estimée est figée avec le budget
-        const aValider = brouillon.tresorerieDepart === undefined && estimee ? { ...brouillon, tresorerieDepart: estimee.montant } : brouillon
-        const h = hypothesesDe(ligne, d, aValider)?.hypotheses ?? resolu.hypotheses
-        if (JSON.stringify(aValider) !== JSON.stringify(ligne.ajustements)) await enregistrerAjustements(ligne.magasin, annee, aValider, h)
-        await changerStatut(ligne.magasin, annee, 'valide', h)
+        if (modifie) await enregistrerAjustements(ligne.magasin, annee, brouillon, resolu.hypotheses)
+        // Lot 42 : la trésorerie estimée est figée avec le budget (le RR ne touche pas aux ajustements)
+        await changerStatut(ligne.magasin, annee, 'valide', brouillon.tresorerieDepart === undefined && estimee ? { ...resolu.hypotheses, departEstime: estimee } : resolu.hypotheses)
       }, `Budget ${annee} validé.`)}>
       Valider le budget
     </Button>
@@ -518,7 +527,10 @@ export function Magasin() {
               </Button>
             )}
           </Stack> : null}
-          {copie && <CopieHypotheses source={ligne.magasin} magasins={destinations.map((l) => l.magasin)} occupe={occupe} onCopier={copier} onFermer={() => setCopie(false)} />}
+          {copie && (
+            <CopieHypotheses source={ligne.magasin} occupe={occupe} onCopier={copier} onFermer={() => setCopie(false)} ebe={ebeCopie}
+              destinations={destinations.map((l) => ({ magasin: l.magasin, statut: l.statut as 'propose' | 'en_discussion', groupe: l.groupeId ? groupesNoms.get(l.groupeId) ?? '' : '', tranche: trancheMillesime(d.ouvertures?.[l.magasin], annee) }))} />
+          )}
         </>
       )}
 

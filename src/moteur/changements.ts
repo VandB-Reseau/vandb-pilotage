@@ -107,7 +107,7 @@ export function pointsAvantValidation(e: { tresorerieDepart: number | undefined;
 // Lot 42 (proposition 6) : budgets envoyés au siège sans aucun changement par rapport à sa proposition (la trésorerie au
 // 1er janvier saisie n'en est pas un : c'est un constat, pas un désaccord). Le Responsable
 // Régional ou le Directeur peut les valider ensemble ; les autres se revoient un par un.
-export interface BudgetAValider { magasin: string; statut: string | null; envoyeLe: string | null; siege: Cibles | null; ajustements: Cibles }
+export interface BudgetAValider { magasin: string; statut: string | null; envoyeLe?: string | null; siege?: Cibles | null; ajustements: Cibles }
 export function pretsAValider<T extends BudgetAValider>(budgets: T[]): T[] {
   return budgets.filter((b) => b.statut === 'en_discussion' && !!b.envoyeLe && changementsCibles(b.siege ?? {}, b.ajustements).every((c) => c.cle === 'tresorerieDepart'))
 }

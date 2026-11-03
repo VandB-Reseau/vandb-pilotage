@@ -144,6 +144,7 @@ export function hypothesesDe(ligne: LigneMagasin, d: DonneesBudgets, ajustements
 // Lot 42 (proposition 5) : trésorerie au 1er janvier estimée tant que le magasin n'a pas saisi la sienne
 export function departEstime(ligne: LigneMagasin, d: DonneesBudgets, parametres: ParametresReseau): DepartEstime | null {
   if (!ligne.base || ligne.ajustements.tresorerieDepart !== undefined) return null
+  if (ligne.statut === 'valide' && ligne.figees) return ligne.figees.departEstime ?? null
   const comptes = d.comptes?.[ligne.magasin]
   return tresorerieDepartEstimee(avecEquipeEtFrais(ligne.base, d.equipes[ligne.magasin], d.frais[ligne.magasin], comptes), comptes, parametres)
 }

@@ -1,3 +1,4 @@
+import { controlesQuadrimestre } from '../moteur/controleComptes'
 import { useEffect, useRef, useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
@@ -71,6 +72,9 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir, vue = 'saisie
   const [fec, setFec] = useState<FichierFEC | null>(null)
   const entreeFEC = useRef<HTMLInputElement>(null)
   const [occupe, setOccupe] = useState(false)
+  // Lot 42 (proposition 8) : questions levées avant d'enregistrer ; un second clic confirme les chiffres tels quels
+  const [confirme, setConfirme] = useState(false)
+  useEffect(() => setConfirme(false), [textes])
   useEffect(() => { if (donnees) setTextes(vers(donnees.saisies)) }, [donnees])
 
   // Saisies lues depuis les champs : un quadrimestre sans aucun montant n'existe pas
@@ -125,6 +129,18 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir, vue = 'saisie
   const plan = prevue ? planTresorerie(prevue, moisCaisse.map((m) => (m.caHT > 0 ? m.caTTC : null)),
     Object.fromEntries(QUADRIMESTRES.map((q) => [q, lues[q]?.tresorerie ?? null])), debutReel, glissante, enCours ?? (annee < new Date().getFullYear() ? 11 : -1)) : null
   const pont = cumul ? pontEBE(cumul) : null
+  // Lot 42 (proposition 8) : contrôles de chaque quadrimestre saisi, face au CA et à la marge de la caisse, et au budget
+  const tauxCaisse = (q: Quadrimestre) => {
+    const m = moisDuQuadrimestre(q).map((i) => moisCaisse[i])
+    const base = m.reduce((a, x) => a + (x?.caAvecMarge ?? 0), 0)
+    return base > 0 ? m.reduce((a, x) => a + (x?.margeHT ?? 0), 0) / base : null
+  }
+  const budgetPeriode = (q: Quadrimestre) => budget ? {
+    achats: moisDuQuadrimestre(q).reduce((a, i) => a + budget.mois[i].achats, 0), chargesExternes: moisDuQuadrimestre(q).reduce((a, i) => a + budget.mois[i].chargesExternes, 0),
+    impotsTaxes: moisDuQuadrimestre(q).reduce((a, i) => a + budget.mois[i].impotsTaxes, 0), personnel: moisDuQuadrimestre(q).reduce((a, i) => a + budget.mois[i].personnel, 0),
+  } : null
+  const controles = QUADRIMESTRES.flatMap((q) => (lues[q] ? controlesQuadrimestre(lues[q]!, caCaisse[q], tauxCaisse(q), pBudget.tauxRedevance + pBudget.tauxPublicite, budgetPeriode(q)).map((c) => ({ ...c, q })) : []))
+  const questionsModifiees = controles.filter((c) => c.gravite === 'question' && JSON.stringify(vers({ [c.q]: lues[c.q] })[c.q]) !== JSON.stringify(vers(donnees.saisies)[c.q]))
 
   const lireFichierFEC = async (f: File) => {
     setMessage(null)
@@ -144,6 +160,12 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir, vue = 'saisie
   }
 
   const enregistrer = async () => {
+    if (questionsModifiees.length && !confirme) {
+      setConfirme(true)
+      setMessage({ gravite: 'warning', texte: 'Vérifie les points signalés sous le tableau. Si les chiffres sont justes, enregistre de nouveau pour les confirmer.' })
+      document.getElementById('a-verifier')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
     setOccupe(true)
     setMessage(null)
     try {
@@ -311,10 +333,23 @@ export function QuadrimestresMagasin({ magasin, annee, peutSaisir, vue = 'saisie
         </TableContainer>
       </Card>
 
+      {controles.length > 0 && (
+        <Card component="section" id="a-verifier" aria-label="À vérifier" sx={{ px: 2.5, py: 2, borderLeft: 4, borderColor: controles.some((c) => c.gravite === 'question') ? 'warning.main' : 'divider' }}>
+          <Typography variant="h2" sx={{ mb: 1 }}>À vérifier</Typography>
+          <Box component="ul" sx={{ m: 0, pl: 2.5, display: 'grid', gap: 0.75 }}>
+            {controles.map((c, i) => (
+              <Typography component="li" key={i} variant="body2" color={c.gravite === 'question' ? 'text.primary' : 'text.secondary'}>
+                <Box component="span" sx={{ fontWeight: 700 }}>{COURT[c.q]}, {LIBELLES[c.champ].toLowerCase()} : </Box>{c.texte}
+              </Typography>
+            ))}
+          </Box>
+        </Card>
+      )}
+
       {peutSaisir && modifie && (
         <BarreEnregistrement
           changements={nombreChangements(vers(donnees.saisies), textes)} occupe={occupe} desactive={!lisible || negatif}
-          libelle="Enregistrer les quadrimestres" effets={effets}
+          libelle={confirme ? 'Confirmer et enregistrer' : 'Enregistrer les quadrimestres'} effets={effets}
           avertissement={!lisible ? 'Un montant est illisible.' : undefined}
           onAnnuler={() => { setTextes(vers(donnees.saisies)); setMessage(null) }} onEnregistrer={() => void enregistrer()}
         />
