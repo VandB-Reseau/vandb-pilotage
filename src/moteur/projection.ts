@@ -16,7 +16,8 @@ export type Tranche = '1' | '2' | '3' | '4'
 export const TRANCHES: Tranche[] = ['1', '2', '3', '4']
 export const trancheLibelle: Record<Tranche, string> = { 1: 'Année 1', 2: 'Année 2', 3: 'Année 3', 4: 'Année 4 et plus' }
 
-export interface Ouverture { annee: number; mois: number } // mois de 1 à 12
+// mois de 1 à 12 ; « reseau » : lue dans la fiche magasin de l'app réseau (0024), sinon saisie dans le pilotage
+export interface Ouverture { annee: number; mois: number; reseau?: boolean }
 
 const somme = (l: number[]) => l.reduce((a, b) => a + b, 0)
 

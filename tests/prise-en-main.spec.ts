@@ -68,8 +68,8 @@ test('le franchisé ouvre l’aide d’une hypothèse et voit d’où viennent s
   expect(await textesTropPetits(page)).toEqual([])
   await page.keyboard.press('Escape')
   await expect(aide).toHaveCount(0)
-  await ouvrir(page, 'Calendrier')
-  await page.getByRole('button', { name: 'Aide : Saisonnalité' }).click()
+  await ouvrir(page, 'Point de départ')
+  await page.getByRole('button', { name: 'Aide : Saisonnalité' }).first().click()
   await expect(page.getByRole('dialog', { name: 'Saisonnalité' })).toContainText('ramenées à 100 %')
   await page.keyboard.press('Escape')
 

@@ -23,7 +23,7 @@ test.afterEach(async ({ page }) => {
 test('le Directeur voit le rythme de sortie, le retient au-delà de 15 % et renseigne la date d’ouverture', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { magasins: [magasin(avecSortie(75_000))] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await ouvrir(page, 'Hypothèses')
+  await ouvrir(page, 'Point de départ')
   const base = page.getByRole('region', { name: 'Base du CA' })
   const cave = base.getByRole('row', { name: /^Cave/ })
   // 75 000 de mai à août pour 30 % de l'année : 250 000 au rythme actuel, + 25 % sur les 200 000 attendus
@@ -35,12 +35,12 @@ test('le Directeur voit le rythme de sortie, le retient au-delà de 15 % et rens
   const ca = resultat.getByRole('row', { name: /^Chiffre d’affaires HT/ })
   await ouvrir(page, 'Résultat et trésorerie')
   await expect(ca).toContainText(/600\s000\s€/)
-  await ouvrir(page, 'Hypothèses')
+  await ouvrir(page, 'Point de départ')
   await base.getByRole('button', { name: 'Retenir le rythme Cave' }).click()
   await expect(cave).toContainText('Rythme de sortie retenu')
   await ouvrir(page, 'Résultat et trésorerie')
   await expect(ca).toContainText(/650\s000\s€/)
-  await ouvrir(page, 'Hypothèses')
+  await ouvrir(page, 'Point de départ')
   expect(await textesTropPetits(page)).toEqual([])
   if (isMobile) expect(await zonesTropPetites(page)).toEqual([])
   await page.screenshot({ path: `captures/${info.project.name}-base-ca.png`, fullPage: true })
@@ -50,7 +50,7 @@ test('le Directeur voit le rythme de sortie, le retient au-delà de 15 % et rens
   expect(envoi.ajustements).toEqual({ rythme: { cave: 'applique' } })
 
   // Date d'ouverture : février 2025, le magasin est dans sa 3e année en 2027
-  await expect(base).toContainText('Date d’ouverture à renseigner')
+  await expect(base).toContainText('Date d’ouverture inconnue de la fiche magasin')
   await page.getByLabel('Mois d’ouverture du magasin').fill('2025-02')
   await base.getByRole('button', { name: 'Enregistrer la date' }).click()
   await expect(page.getByText('Date d’ouverture enregistrée.')).toBeVisible()
@@ -61,13 +61,13 @@ test('le Directeur voit le rythme de sortie, le retient au-delà de 15 % et rens
 test('sous 15 % le rythme s’applique de lui-même ; un Coach le lit sans pouvoir le changer', async ({ page }) => {
   await seConnecter(page, { role: 'coach', magasins: [magasin(avecSortie(66_000))], ouvertures: [{ store_name: MAGASINS[0], ouverture: '2026-01-01' }] })
   await page.getByText(MAGASINS[0], { exact: true }).last().click()
-  await ouvrir(page, 'Hypothèses')
+  await ouvrir(page, 'Point de départ')
   const base = page.getByRole('region', { name: 'Base du CA' })
   // 66 000 / 30 % = 220 000, + 10 % : retenu ; 220 000 + 300 000 + 100 000
   await expect(base.getByRole('row', { name: /^Cave/ })).toContainText('Rythme de sortie retenu')
   await ouvrir(page, 'Résultat et trésorerie')
   await expect(page.getByRole('table', { name: 'Budget 2027 mois par mois' }).getByRole('row', { name: /^Chiffre d’affaires HT/ })).toContainText(/620\s000\s€/)
-  await ouvrir(page, 'Hypothèses')
+  await ouvrir(page, 'Point de départ')
   await expect(base).toContainText('Année 2 en 2027')
   await expect(base.getByRole('button', { name: /rythme/i })).toHaveCount(0)
   await expect(page.getByLabel('Mois d’ouverture du magasin')).toHaveCount(0)
@@ -76,11 +76,11 @@ test('sous 15 % le rythme s’applique de lui-même ; un Coach le lit sans pouvo
 
 test('le franchisé prévoit un temps fort et un client gagné : la base perd l’an passé, le budget gagne l’an prochain', async ({ page, isMobile }, info) => {
   const ecritures = await seConnecter(page, { role: 'franchise', magasins: [magasin(magasinFictif)] })
-  await ouvrir(page, 'Hypothèses')
+  await ouvrir(page, 'Point de départ')
   const ca = page.getByRole('table', { name: 'Budget 2027 mois par mois' }).getByRole('row', { name: /^Chiffre d’affaires HT/ })
   await ouvrir(page, 'Résultat et trésorerie')
   await expect(ca).toContainText(/600\s000\s€/)
-  await ouvrir(page, 'Hypothèses')
+  await ouvrir(page, 'Point de départ')
   // Sans rythme mesuré, la base est l'atterrissage
   await expect(page.getByRole('region', { name: 'Base du CA' })).toContainText('Base : atterrissage 2026')
 

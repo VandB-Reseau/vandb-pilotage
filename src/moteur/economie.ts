@@ -44,3 +44,10 @@ export function caPourRemuneration(e: EconomieFranchise, cible: number): { ca: n
   const ca = e.ca + (cible - e.gerant) / e.tauxMCV
   return { ca, ecart: ca / e.ca - 1 }
 }
+
+// Joseph (03/11/2026) : un seul simulateur « Que faut-il pour… ». Viser une rémunération du gérant, c'est viser l'EBE qui la
+// paie au même résultat : chaque euro de plus pour le gérant demande un euro d'EBE de plus avant sa rémunération.
+export function ebePourRemuneration(ebe: number, e: Pick<EconomieFranchise, 'gerant'>, cible: number): number {
+  return ebe + (cible - e.gerant)
+}
+

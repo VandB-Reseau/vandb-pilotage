@@ -9,7 +9,7 @@ export interface Controle { cle: CleControle; libelle: string; fait: boolean; aF
 
 const CONTROLES: { cle: CleControle; libelle: string; aFaire: string; partie: string }[] = [
   { cle: 'reel', libelle: 'Réel à jour', aFaire: 'Le dernier mois terminé manque', partie: 'reel' },
-  { cle: 'ouverture', libelle: 'Date d’ouverture', aFaire: 'Date d’ouverture à renseigner', partie: 'ventes' },
+  { cle: 'ouverture', libelle: 'Date d’ouverture', aFaire: 'Date d’ouverture à renseigner', partie: 'depart' },
   { cle: 'equipe', libelle: 'Équipe', aFaire: 'Aucun poste renseigné', partie: 'equipe' },
   { cle: 'frais', libelle: 'Frais de l’année', aFaire: 'Aucune ligne de frais', partie: 'frais' },
 ]

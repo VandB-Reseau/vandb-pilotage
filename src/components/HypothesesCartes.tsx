@@ -3,24 +3,40 @@ import { Link as RouterLink } from 'react-router-dom'
 import Box from '@mui/material/Box'
 import Card from '@mui/material/Card'
 import CardActionArea from '@mui/material/CardActionArea'
+import Chip from '@mui/material/Chip'
 import Typography from '@mui/material/Typography'
 import ChevronRightOutlined from '@mui/icons-material/ChevronRightOutlined'
-import { lienMagasin, milliers, taux } from '../lib/format'
+import { ecartTaux, lienMagasin, milliers, taux } from '../lib/format'
 import type { Cibles } from '../moteur/cibles'
-import type { Budget, Hypotheses } from '../moteur/types'
+import { universLibelle, type Budget, type Hypotheses } from '../moteur/types'
 import type { ThemeAccord } from '../moteur/changements'
+import { etatCalendrier, etatEquipe, etatFrais, reponseQuestion, resumeUnivers, saisiesQuestion, type EtatCarte, type QuestionCalendrier } from '../moteur/questions'
 
 // Lot 37 (Joseph, 02/11/2026, option H2) : une carte par thème ; un clic ouvre le détail du thème.
-// Lot 42 : les ventes et le résultat sont sur la page « Construire » ; restent ici les thèmes en détail, chacun avec son
-// « D'accord » pour le franchisé. L'équipe et les frais repris des comptes, la trésorerie estimée sont dits comme tels.
+// Joseph (03/11/2026) : les ventes de chaque univers en cartes, comme le Calendrier, l'Équipe et les Frais, pour voir d'un
+// coup d'œil tout ce qui se règle ; chaque carte dit ce qu'il reste à faire (« À faire », « À vérifier », « Fait ») et
+// son bouton suit (« Remplir », « Vérifier », « Modifier »).
 type Ligne = { libelle: string; valeur: ReactNode; signal?: boolean }
 
-function Carte({ titre, vers, lignes, action, magasin, accord }: { titre: string; vers: string; lignes: Ligne[]; action: string; magasin: string; accord?: ReactNode }) {
+const ETATS: Record<EtatCarte, { texte: string; couleur: 'warning' | 'info' | 'success'; action: string }> = {
+  aFaire: { texte: 'À faire', couleur: 'warning', action: 'Remplir' },
+  aVerifier: { texte: 'À vérifier', couleur: 'info', action: 'Vérifier' },
+  fait: { texte: 'Fait', couleur: 'success', action: 'Modifier' },
+}
+
+function Carte({ titre, sousTitre, vers, lignes, etat, lectureSeule, magasin, accord }: {
+  titre: string; sousTitre?: ReactNode; vers: string; lignes: Ligne[]; etat?: EtatCarte; lectureSeule: boolean; magasin: string; accord?: ReactNode
+}) {
+  const action = lectureSeule ? 'Voir le détail' : etat ? ETATS[etat].action : 'Modifier'
   return (
     <Card component="section" aria-label={titre} sx={{ display: 'flex', flexDirection: 'column' }}>
-      <CardActionArea component={RouterLink} to={lienMagasin(magasin, vers)} data-sans-garde=""
+      <CardActionArea component={RouterLink} to={lienMagasin(magasin, vers)} data-sans-garde="" aria-label={`${titre} : ${action.toLowerCase()}${etat ? ` (${ETATS[etat].texte.toLowerCase()})` : ''}`}
         sx={{ p: 2.5, pb: accord ? 1 : 2.5, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'stretch', justifyContent: 'flex-start', gap: 1 }}>
-        <Typography variant="h3" sx={{ fontSize: '1.125rem' }}>{titre}</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Typography variant="h3" component="h3" sx={{ flex: 1 }}>{titre}</Typography>
+          {etat && <Chip size="small" color={ETATS[etat].couleur} label={ETATS[etat].texte} />}
+        </Box>
+        {sousTitre && <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums' }}>{sousTitre}</Typography>}
         <Box component="dl" sx={{ m: 0, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', columnGap: 2, rowGap: 0.75, flex: 1 }}>
           {lignes.map((l) => (
             <Box key={l.libelle} sx={{ display: 'contents' }}>
@@ -38,9 +54,14 @@ function Carte({ titre, vers, lignes, action, magasin, accord }: { titre: string
   )
 }
 
-const nombre = (n: number, un: string, plusieurs: string) => (n === 0 ? 'Aucun' : `${n} ${n > 1 ? plusieurs : un}`)
+const nombre = (n: number, un: string, plusieurs: string) => `${n} ${n > 1 ? plusieurs : un}`
+const LIBELLES_QUESTIONS: Record<QuestionCalendrier, { libelle: string; un: string; plusieurs: string }> = {
+  travaux: { libelle: 'Travaux, fermeture', un: 'mois touché', plusieurs: 'mois touchés' },
+  tempsForts: { libelle: 'Temps forts', un: 'temps fort', plusieurs: 'temps forts' },
+  ajustementsCA: { libelle: 'Clients gagnés ou perdus', un: 'changement', plusieurs: 'changements' },
+}
 
-export function HypothesesCartes({ magasin, annee, budget: b, cibles, hausseSalaires, inflation, sansEquipe, lectureSeule, reprise, accord }: {
+export function HypothesesCartes({ magasin, annee, budget: b, cibles, hausseSalaires, inflation, sansEquipe, sansFrais, lectureSeule, reprise, accord }: {
   magasin: string
   annee: number
   budget: Budget
@@ -48,36 +69,44 @@ export function HypothesesCartes({ magasin, annee, budget: b, cibles, hausseSala
   hausseSalaires: number
   inflation: number
   sansEquipe: boolean
+  sansFrais: boolean
   lectureSeule: boolean
   reprise?: Hypotheses['reprise']
   accord?: (theme: ThemeAccord, nom: string) => ReactNode
 }) {
-  const action = lectureSeule ? 'Voir le détail' : 'Détailler'
-  const travaux = cibles.travaux ? cibles.travaux.activite.filter((a) => a < 1).length : 0
   const frais = b.chargesExternes + b.impotsTaxes - b.redevance - b.publicite
   const lignesFrais = Object.keys(cibles.fraisBudget ?? {}).length
+  const question = (q: QuestionCalendrier): Ligne => {
+    const r = reponseQuestion(cibles, q), t = LIBELLES_QUESTIONS[q]
+    return { libelle: t.libelle, valeur: r === 'saisie' ? nombre(saisiesQuestion(cibles, q), t.un, t.plusieurs) : r === 'rien' ? 'Rien de prévu' : 'À répondre', signal: r === 'aRepondre' }
+  }
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(3, minmax(0, 1fr))' }, gap: 2 }}>
-      <Carte magasin={magasin} titre="Calendrier" vers="calendrier" action={action} accord={accord?.('calendrier', 'Calendrier')} lignes={[
-        { libelle: 'Saisonnalité', valeur: cibles.poidsMois ? 'Propre au magasin' : 'Celle du magasin ou du réseau' },
-        { libelle: 'Travaux, fermeture', valeur: travaux ? `${travaux} mois touché${travaux > 1 ? 's' : ''}` : 'Aucun' },
-        { libelle: 'Temps forts', valeur: nombre(cibles.tempsForts?.length ?? 0, 'temps fort', 'temps forts') },
-        { libelle: 'Clients gagnés ou perdus', valeur: nombre(cibles.ajustementsCA?.length ?? 0, 'changement', 'changements') },
-      ]} />
-      <Carte magasin={magasin} titre="Équipe" vers="equipe" action={sansEquipe && !reprise?.personnel && !lectureSeule ? 'Renseigner l’équipe' : action} accord={accord?.('equipe', 'Équipe')} lignes={[
+    <Box component="section" aria-label={`Hypothèses ${annee} en cartes`}
+      sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(3, minmax(0, 1fr))' }, gap: 2 }}>
+      {resumeUnivers(b).map((r) => (
+        <Carte key={r.univers} magasin={magasin} titre={`Ventes ${universLibelle[r.univers]}`} vers="ventes" lectureSeule={lectureSeule}
+          sousTitre={<><Box component="span" sx={{ color: 'text.secondary' }}>{milliers(r.depart)} → </Box><b>{milliers(r.ca)}</b>{r.ecart !== null && <Box component="span" sx={{ color: 'text.secondary' }}>{` (${ecartTaux(r.ecart)})`}</Box>}</>}
+          lignes={[
+            ...(r.tickets !== undefined ? [{ libelle: 'Tickets', valeur: ecartTaux(r.tickets) }, { libelle: 'Panier moyen', valeur: ecartTaux(r.panier ?? 0) }]
+              : [{ libelle: 'Évolution du CA', valeur: ecartTaux(r.evolution ?? 0) }]),
+            { libelle: 'Marge visée', valeur: r.marge === null ? '–' : taux(r.marge) },
+          ]} />
+      ))}
+      <Carte magasin={magasin} titre="Calendrier" vers="calendrier" etat={etatCalendrier(cibles)} lectureSeule={lectureSeule} accord={accord?.('calendrier', 'Calendrier')}
+        lignes={(['travaux', 'tempsForts', 'ajustementsCA'] as const).map(question)} />
+      <Carte magasin={magasin} titre="Équipe" vers="equipe" etat={etatEquipe(sansEquipe, !!reprise?.personnel)} lectureSeule={lectureSeule} accord={accord?.('equipe', 'Équipe')} lignes={[
         ...(reprise?.personnel ? [{ libelle: 'Équipe', valeur: `Comptes ${reprise.annee} (${reprise.mois} mois)` }]
-          : sansEquipe ? [{ libelle: 'Équipe', valeur: 'à renseigner', signal: true }] : []),
+          : sansEquipe ? [{ libelle: 'Équipe', valeur: 'À renseigner', signal: true }] : []),
         { libelle: 'Hausse générale des salaires', valeur: taux(hausseSalaires) },
         { libelle: 'Masse salariale', valeur: milliers(b.personnel) },
         { libelle: '% FP', valeur: taux(b.ratios.pctFP) },
       ]} />
-      <Carte magasin={magasin} titre="Frais" vers="fraisBudget" action={action} accord={accord?.('fraisBudget', 'Frais')} lignes={[
+      <Carte magasin={magasin} titre="Frais" vers="fraisBudget" etat={etatFrais(sansFrais, !!reprise?.frais)} lectureSeule={lectureSeule} accord={accord?.('fraisBudget', 'Frais')} lignes={[
         ...(reprise?.frais ? [{ libelle: 'Frais de départ', valeur: `Comptes ${reprise.annee} (${reprise.mois} mois)` }] : []),
         { libelle: 'Inflation des frais', valeur: taux(inflation) },
         { libelle: 'Lignes choisies une à une', valeur: lignesFrais === 0 ? 'Aucune' : String(lignesFrais) },
         { libelle: `Frais ${annee}`, valeur: milliers(frais) },
       ]} />
-      {/* Lot 43 : la trésorerie au 1er janvier se règle au point de départ, le plan se lit sous le résultat */}
     </Box>
   )
 }

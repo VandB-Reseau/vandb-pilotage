@@ -435,6 +435,89 @@ export const AIDE = {
     remplir: 'Chaque mois, la valeur du stock au prix d’achat HT au dernier jour du mois, Cave et Bar séparés, lue dans le logiciel de caisse ou issue d’un inventaire.',
     calcul: 'Cible = achats des ventes des mois à venir (2,5 mois pour la Cave, 1 mois pour le Bar, réglables dans les Paramètres réseau), d’après les ventes de l’année et le budget suivant. Écart affiché au-delà de la tolérance.',
   },
+  // Joseph (03/11/2026) : un (i) sur toute ligne qui n'est pas saisie, totaux compris
+  chiffreAffaires: {
+    titre: 'Chiffre d’affaires HT',
+    quoi: 'Les ventes hors taxes du magasin, tous univers confondus.',
+    calcul: 'Somme des univers (Cave, Bar, Extérieur). Chaque univers : CA de départ × (1 + évolution des tickets) × (1 + évolution du panier), ou × (1 + évolution du CA) pour l’Extérieur, réparti sur les mois selon la saisonnalité, plus les temps forts et les clients gagnés ou perdus.',
+  },
+  caUnivers: {
+    titre: 'CA d’un univers',
+    quoi: 'Les ventes hors taxes de la Cave, du Bar ou de l’Extérieur. La Cave et le Bar ne s’additionnent jamais en tickets ni en panier, seulement en euros.',
+    calcul: 'CA de départ de l’univers × ses évolutions, réparti selon la saisonnalité ; un temps fort compte dans son mois.',
+  },
+  chargesExternes: {
+    titre: 'Charges externes',
+    quoi: 'Loyer, énergie, honoraires, entretien, assurances, redevance et publicité du réseau, charges des événements.',
+    calcul: 'Somme des lignes de frais du bloc « charges externes » + redevance et publicité (pourcentages du CA HT). Les frais annuels sont répartis par douzièmes, ceux en % du CA suivent le CA du mois.',
+  },
+  themeFrais: {
+    titre: 'Sous-total d’un thème de frais',
+    quoi: 'Les frais d’un même thème (locaux, énergie, honoraires…), comme dans l’écran Frais.',
+    calcul: 'Somme des lignes du thème, détaillées en dépliant la ligne.',
+  },
+  redevancesReseau: {
+    titre: 'Redevances du réseau',
+    quoi: 'Ce que le magasin verse au réseau V and B, au-dessus de l’EBE.',
+    calcul: 'CA HT du mois × (taux de redevance + taux de publicité), 2 % et 1 % par défaut, réglés dans les Paramètres réseau.',
+  },
+  impotsTaxes: {
+    titre: 'Impôts et taxes',
+    quoi: 'Les impôts liés à l’activité (CFE, taxe foncière, taxe sur les bureaux…), hors impôt sur les sociétés.',
+    calcul: 'Somme des lignes de frais du bloc « impôts et taxes », réparties par douzièmes ou au prorata du CA.',
+  },
+  autresCharges: {
+    titre: 'Autres charges',
+    quoi: 'Les charges de gestion courante qui ne sont ni des charges externes ni des impôts.',
+    calcul: 'Somme des lignes de frais du bloc « autres charges ».',
+  },
+  interets: {
+    titre: 'Intérêts et charges assimilées',
+    quoi: 'Le coût des emprunts, sans le capital remboursé.',
+    calcul: 'Intérêts de l’année saisis avec les frais (lignes sous l’EBE) ÷ 12.',
+  },
+  resultatAvantImpot: {
+    titre: 'Résultat avant impôt',
+    quoi: 'Le résultat une fois l’activité, les investissements et les emprunts comptés, avant l’impôt sur les sociétés.',
+    calcul: 'Résultat d’exploitation − intérêts et charges assimilées.',
+  },
+  heures: {
+    titre: 'Heures travaillées',
+    quoi: 'Le temps de travail de l’équipe sur le mois, gérant compris quand il est dans l’équipe.',
+    calcul: 'Pour chaque poste : heures par semaine × semaines du mois, ou heures par mois saisies ; extras compris.',
+  },
+  decaissements: {
+    titre: 'Total des décaissements',
+    quoi: 'Tout ce qui sort du compte en banque dans le mois, en montants TTC payés.',
+    calcul: 'Fournisseurs + frais, redevance et publicité + salaires et cotisations + TVA reversée + emprunts + impôt sur les sociétés + travaux + consignes versées.',
+  },
+  fluxMois: {
+    titre: 'Variation du mois',
+    quoi: 'Ce que la trésorerie gagne ou perd dans le mois.',
+    calcul: 'Encaissements des ventes TTC + consignes remboursées − total des décaissements.',
+  },
+  travauxTreso: {
+    titre: 'Travaux',
+    quoi: 'L’investissement des travaux prévus, payé en une fois.',
+    calcul: 'Investissement saisi dans le Calendrier, TTC, payé le premier mois des travaux.',
+  },
+  tresorerieFinMois: {
+    titre: 'Trésorerie en fin de mois',
+    quoi: 'Le solde prévu du compte en banque au dernier jour du mois.',
+    calcul: 'Trésorerie au 1er janvier + variations des mois écoulés.',
+  },
+  simulateur: {
+    titre: 'Que faut-il pour…',
+    quoi: 'Ce qu’il faudrait pour atteindre un EBE ou une rémunération du gérant, un levier à la fois.',
+    remplir: 'Choisis le résultat visé, puis tape le montant en euros. « Appliquer » reporte la valeur dans les hypothèses, à enregistrer ensuite.',
+    calcul: 'Pour chaque levier, la valeur qui donne l’EBE visé sur le budget complet (marge, redevance, frais, équipe). Une rémunération du gérant en plus est un EBE en plus du même montant ; le CA à atteindre suppose que chaque euro vient de la marge sur coûts variables : un ordre de grandeur, pas un engagement.',
+  },
+  questionsCalendrier: {
+    titre: 'Questions du calendrier',
+    quoi: 'Ce qui change le CA d’un mois à l’autre l’an prochain : travaux ou fermeture, temps forts, clients gagnés ou perdus.',
+    remplir: 'Réponds à chaque question : « Oui » ouvre la saisie, « Rien de prévu » la marque comme vue. La carte passe à « Fait » quand tout a une réponse.',
+    calcul: 'Une question a sa réponse dès qu’une saisie existe (travaux, temps fort, client gagné ou perdu) ou qu’elle est marquée « Rien de prévu ». La réponse ne change aucun calcul.',
+  },
 } satisfies Record<string, TexteAide>
 
 export type SujetAide = keyof typeof AIDE

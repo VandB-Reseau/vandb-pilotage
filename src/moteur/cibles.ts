@@ -38,6 +38,9 @@ export interface Cibles {
   fraisBudget?: Record<string, ChoixFrais>
   // Lot 42 : magasin seulement, thèmes que le franchisé a acceptés tels que le siège les propose
   accords?: string[]
+  // Joseph (03/11/2026) : magasin seulement, questions du Calendrier répondues « Rien de prévu » (travaux, tempsForts,
+  // ajustementsCA) ; sans effet sur le calcul
+  rienPrevu?: string[]
 }
 // Panier selon l'ancienneté : en plus de la hausse tarifaire
 export interface ValeursMillesime { evolutionFlux?: Partial<Record<UniversTickets, number>>; evolutionPanier?: Partial<Record<UniversTickets, number>> }

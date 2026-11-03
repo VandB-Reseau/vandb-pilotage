@@ -72,7 +72,7 @@ export function changementsCibles(siege: Cibles, magasin: Cibles, nomsFrais: Rec
   const s = siege as Record<string, unknown>, m = magasin as Record<string, unknown>
   const l: Changement[] = []
   for (const k of [...new Set([...Object.keys(s), ...Object.keys(m)])].sort((a, b) => rang(a) - rang(b) || a.localeCompare(b))) {
-    if (k === 'accords') continue // lot 42 : thèmes acceptés par le franchisé, pas une hypothèse
+    if (k === 'accords' || k === 'rienPrevu') continue // lot 42 : thèmes acceptés, questions répondues : pas des hypothèses
     if (estParEntree(k)) {
       const a = (s[k] ?? {}) as Record<string, unknown>, b = (m[k] ?? {}) as Record<string, unknown>
       for (const e of [...new Set([...Object.keys(a), ...Object.keys(b)])].sort((x, y) => x.localeCompare(y, 'fr'))) {

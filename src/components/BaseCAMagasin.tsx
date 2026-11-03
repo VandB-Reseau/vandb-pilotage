@@ -69,11 +69,12 @@ export function BaseCAMagasin({ magasin, budget, annee, ouverture, rythme, onRyt
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2.5, pt: 2, pb: 1 }}>
         <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}><Typography variant="h2">Base du CA</Typography><Aide sujet="base" /></Box>
         <Typography variant="body2" color="text.secondary">
-          {ouverture ? `Ouvert en ${MOIS_LONGS[ouverture.mois - 1]} ${ouverture.annee} · ${trancheLibelle[tranche!]} en ${annee}` : 'Date d’ouverture à renseigner'}
+          {ouverture ? `Ouvert en ${MOIS_LONGS[ouverture.mois - 1]} ${ouverture.annee}${ouverture.reseau ? ', d’après la fiche magasin' : ''} · ${trancheLibelle[tranche!]} en ${annee}` : 'Date d’ouverture inconnue de la fiche magasin'}
         </Typography>
       </Box>
       {message && <Box sx={{ px: 2.5 }}><Alert severity={message.gravite} onClose={() => setMessage(null)} closeText="Fermer" slotProps={{ closeButton: { sx: { width: 48, height: 48 } } }}>{message.texte}</Alert></Box>}
-      {directeur && (
+      {/* Joseph (03/11/2026) : la date vient de la fiche magasin de l'app réseau ; la saisie reste en secours, quand elle l'ignore */}
+      {directeur && !ouverture?.reseau && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', px: 2.5, py: 1 }} className="pas-a-l-impression">
           <TextField type="month" size="small" label="Ouvert depuis" value={date} onChange={(e) => setDate(e.target.value)}
             slotProps={{ inputLabel: { shrink: true }, htmlInput: { 'aria-label': 'Mois d’ouverture du magasin' } }} sx={{ width: 200, '& input': { height: 48, boxSizing: 'border-box', py: 0 } }} />

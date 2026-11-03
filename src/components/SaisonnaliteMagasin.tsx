@@ -20,17 +20,22 @@ export const totalPoids = (p: number[] | undefined) => (p ?? []).reduce((a, b) =
 export const poidsValides = (p: number[] | undefined) => !p || Math.abs(totalPoids(p) - 1) < 0.0005
 
 // Saisonnalité du magasin, mois par mois dans la cellule ; vide : celle du CA de référence
-export function SaisonnaliteMagasin({ budget, poids, onChange, lectureSeule }: {
+// « integre » (Joseph, 03/11/2026) : dans la carte Saisonnalité du point de départ, sous les mois restants de l'année
+export function SaisonnaliteMagasin({ budget, poids, onChange, lectureSeule, integre = false, annee }: {
   budget: Budget
+  integre?: boolean
+  annee?: number
   poids: number[] | undefined
   onChange: (p: number[] | undefined) => void
   lectureSeule: boolean
 }) {
   const total = totalPoids(poids)
-  return (
-    <Card component="section" aria-label="Saisonnalité">
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2.5, pt: 2, pb: 1 }}>
-        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}><Typography variant="h2">Saisonnalité</Typography><Aide sujet="saisonnalite" /></Box>
+  const contenu = (
+    <>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2.5, pt: integre ? 0 : 2, pb: 1 }}>
+        {integre
+          ? <Typography variant="h3" sx={{ flex: 1, fontSize: '1rem' }}>{`Budget ${annee ?? ''} : part de chaque mois`}</Typography>
+          : <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}><Typography variant="h2">Saisonnalité</Typography><Aide sujet="saisonnalite" /></Box>}
         <Typography variant="body2" color={poids ? 'warning.dark' : 'text.secondary'} sx={{ fontWeight: poids ? 700 : 400 }}>
           {poids ? 'Propre au magasin' : 'CA de référence'}
         </Typography>
@@ -76,6 +81,7 @@ export function SaisonnaliteMagasin({ budget, poids, onChange, lectureSeule }: {
           </TableBody>
         </Table>
       </TableContainer>
-    </Card>
+    </>
   )
+  return integre ? <Box component="section" aria-label={`Saisonnalité du budget ${annee ?? ''}`.trim()}>{contenu}</Box> : <Card component="section" aria-label="Saisonnalité">{contenu}</Card>
 }

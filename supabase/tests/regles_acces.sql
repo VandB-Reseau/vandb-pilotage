@@ -18,6 +18,12 @@ INSERT INTO public.perimetre_equipe (store_name, coach, rrs) VALUES
 -- Fiche des RR de l'app réseau : rr3 sans nom ne sort pas
 INSERT INTO public.app_config (key, value) VALUES
   ('drs_data', '{"drs":[{"id":"rr1","name":"RR Nord"},{"id":"rr2","name":"RR Est"},{"id":"rr3","name":" "}]}') ON CONFLICT (key) DO NOTHING;
+-- Fiche des magasins de l'app réseau (0024) : Lille ouvert le 12/03/2019 (surcharge), Arras renommé, date inconnue pour Nice,
+-- une date illisible ne casse pas la lecture
+INSERT INTO public.app_config (key, value) VALUES
+  ('store_adds', '[{"n":"Lille","open":"2018-05-01"},{"n":"Arras ancien","open":"2021-09-15"},{"n":"Nice","open":"2020-01-01"},{"n":"Pau","open":"2023-02-30"}]'),
+  ('store_renames', '{"Arras ancien":"Arras"}') ON CONFLICT (key) DO NOTHING;
+INSERT INTO public.store_overrides (store_name, open_date) VALUES ('Lille', '2019-03-12') ON CONFLICT (store_name) DO NOTHING;
 
 CREATE OR REPLACE FUNCTION pg_temp.refuse(appel text) RETURNS bigint LANGUAGE plpgsql AS $$
 BEGIN
@@ -43,7 +49,11 @@ INSERT INTO pilotage.reel_mensuel (store_name, mois, univers, famille, ca_ht) VA
 SELECT pg_temp.attendre('Directeur : tous les magasins', (SELECT cardinality(pilotage.mes_magasins())), 3);
 SELECT pg_temp.attendre('Directeur : tous les budgets', (SELECT count(*) FROM pilotage.budgets), 3);
 SELECT pg_temp.attendre('Directeur : tableau des magasins', (SELECT jsonb_array_length(pilotage.magasins_du_compte(2027))), 3);
-SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 23);
+SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 24);
+-- Date d'ouverture de la fiche magasin réseau (0024) : surcharge d'abord, renommage suivi, dates inconnues ou illisibles écartées
+SELECT pg_temp.attendre('Directeur : dates d''ouverture du réseau', (SELECT count(*) FROM pilotage.ouvertures_reseau()), 2);
+SELECT pg_temp.attendre('Ouverture réseau : la surcharge l''emporte, au 1er du mois', (SELECT count(*) FROM pilotage.ouvertures_reseau() WHERE store_name = 'Lille' AND ouverture = '2019-03-01'), 1);
+SELECT pg_temp.attendre('Ouverture réseau : magasin renommé', (SELECT count(*) FROM pilotage.ouvertures_reseau() WHERE store_name = 'Arras' AND ouverture = '2021-09-01'), 1);
 -- Frais : le Directeur saisit partout
 INSERT INTO pilotage.frais (store_name, code, libelle, rubrique, annuel) VALUES ('Lille', 'loyer', 'Locations immobilières', 'immobilier', 60000), ('Nice', 'loyer', 'Locations immobilières', 'immobilier', 40000);
 SELECT pg_temp.attendre('Directeur : tous les frais', (SELECT count(*) FROM pilotage.frais), 2);
@@ -229,6 +239,7 @@ SELECT pg_temp.attendre('Coach : pas la liste des Coachs', (SELECT count(*) FROM
 SELECT pg_temp.attendre('Coach : pas les RR', (SELECT count(*) FROM jsonb_object_keys(pilotage.reel_du_compte(2026)->'rrs')), 0);
 SELECT pg_temp.attendre('Coach : budgets du compte limités à ses magasins', (SELECT jsonb_array_length(pilotage.budgets_du_compte(2027)->'magasins')), 1);
 SELECT pg_temp.attendre('Coach : date d''ouverture de ses magasins seulement', (SELECT count(*) FROM pilotage.ouvertures), 1);
+SELECT pg_temp.attendre('Coach : date d''ouverture réseau de ses magasins seulement', (SELECT count(*) FROM pilotage.ouvertures_reseau() WHERE store_name <> 'Lille'), 0);
 SELECT pg_temp.attendre('Coach : ne change pas une date d''ouverture', pg_temp.refuse('INSERT INTO pilotage.ouvertures (store_name, ouverture) VALUES (''Arras'', ''2025-05-01'')'), 1);
 WITH m AS (UPDATE pilotage.ouvertures SET ouverture = '2020-01-01' RETURNING 1)
 SELECT pg_temp.attendre('Coach : ne modifie pas la date de son magasin', (SELECT count(*) FROM m), 0);
@@ -337,6 +348,7 @@ SELECT pg_temp.attendre('Franchisé : ne retire pas d''action', (SELECT count(*)
 SELECT pg_temp.attendre('Franchisé : ne crée pas de groupe', pg_temp.refuse('INSERT INTO pilotage.groupes (nom) VALUES (''Pirate'')'), 1);
 SELECT pg_temp.attendre('Franchisé : date d''ouverture de son magasin', (SELECT count(*) FROM pilotage.ouvertures WHERE store_name = 'Lille'), 1);
 SELECT pg_temp.attendre('Franchisé : pas d''autre date d''ouverture', (SELECT count(*) FROM pilotage.ouvertures WHERE store_name <> 'Lille'), 0);
+SELECT pg_temp.attendre('Franchisé : date d''ouverture réseau de son magasin seulement', (SELECT count(*) FROM pilotage.ouvertures_reseau()), 1);
 WITH m AS (DELETE FROM pilotage.ouvertures RETURNING 1)
 SELECT pg_temp.attendre('Franchisé : ne retire pas sa date d''ouverture', (SELECT count(*) FROM m), 0);
 SELECT pg_temp.attendre('Franchisé : versions nommées de son magasin seulement', (SELECT count(*) FROM pilotage.versions_nommees WHERE store_name <> 'Lille'), 0);
@@ -371,6 +383,7 @@ SELECT pg_temp.attendre('Sans rôle : ne saisit pas de stock', pg_temp.refuse('I
 SELECT pg_temp.attendre('Sans rôle : aucun échange ni version', (SELECT count(*) FROM pilotage.echanges_budget) + (SELECT count(*) FROM pilotage.versions_budget), 0);
 SELECT pg_temp.attendre('Sans rôle : aucune action', (SELECT count(*) FROM pilotage.actions), 0);
 SELECT pg_temp.attendre('Sans rôle : aucune date d''ouverture', (SELECT count(*) FROM pilotage.ouvertures), 0);
+SELECT pg_temp.attendre('Sans rôle : aucune date d''ouverture réseau', (SELECT count(*) FROM pilotage.ouvertures_reseau()), 0);
 SELECT pg_temp.attendre('Sans rôle : aucune version nommée', (SELECT count(*) FROM pilotage.versions_nommees), 0);
 SELECT pg_temp.attendre('Sans rôle : n''enregistre pas de version nommée', pg_temp.refuse('INSERT INTO pilotage.versions_nommees (store_name, annee, nom, base) VALUES (''Lille'', 2027, ''x'', ''{}'')'), 1);
 SELECT pg_temp.attendre('Sans rôle : n''écrit pas de message', pg_temp.refuse('INSERT INTO pilotage.echanges_budget (store_name, annee, texte) VALUES (''Lille'', 2027, ''x'')'), 1);
@@ -392,6 +405,7 @@ SELECT pg_temp.attendre('Visiteur : aucun accès aux parts réalisées', pg_temp
 SELECT pg_temp.attendre('Visiteur : aucun accès aux correspondances du FEC', pg_temp.refuse('SELECT count(*) FROM pilotage.correspondances_fec'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès aux quadrimestres', pg_temp.refuse('SELECT count(*) FROM pilotage.quadrimestres'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès aux stocks', pg_temp.refuse('SELECT count(*) FROM pilotage.stocks'), 1);
+SELECT pg_temp.attendre('Visiteur : pas de dates d''ouverture réseau', pg_temp.refuse('SELECT count(*) FROM pilotage.ouvertures_reseau()'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès aux échanges', pg_temp.refuse('SELECT count(*) FROM pilotage.echanges_budget'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès aux versions', pg_temp.refuse('SELECT count(*) FROM pilotage.versions_budget'), 1);
 SELECT pg_temp.attendre('Visiteur : aucun accès aux actions', pg_temp.refuse('SELECT count(*) FROM pilotage.actions'), 1);

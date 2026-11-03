@@ -36,6 +36,7 @@ import { reelEnRetard } from '../lib/aFaire'
 import { tresorerieDepartEstimee } from '../moteur/reprise'
 import { TresorerieDepart } from './TresorerieDepart'
 import { useSaisieEnCours } from './GardeSaisie'
+import { Aide } from './Aide'
 
 // Atterrissage de l'année en cours : réel des mois passés, projection des mois restants, équipe et frais du magasin.
 // Le Directeur en tire la proposition du budget de l'an prochain.
@@ -43,7 +44,7 @@ const METHODE: Record<MethodeAtterrissage, string> = {
   saisie: 'Part saisie', rythme: 'Rythme des 4 derniers mois', magasin: 'Saisonnalité du magasin l’an dernier', reseau: 'Saisonnalité médiane du réseau', moyenne: 'Moyenne des mois réalisés',
 }
 
-export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, directeur, peutSaisir, allerA, apresProposition, tresorerieDepart }: {
+export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, directeur, peutSaisir, allerA, apresProposition, tresorerieDepart, saisonnaliteBudget, baseCA }: {
   ligne: LigneMagasin
   d: DonneesBudgets
   annee: number
@@ -54,6 +55,10 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
   allerA: (onglet: string) => void
   apresProposition: () => void
   tresorerieDepart?: ReactNode   // lot 43 : budget proposé, la trésorerie au 1er janvier se règle ici
+  // Joseph (03/11/2026) : la saisonnalité sort du Calendrier et remplace la Projection des mois restants ; elle finit
+  // l'année en cours et répartit le budget. La base du CA vient avec, au point de départ.
+  saisonnaliteBudget?: ReactNode
+  baseCA?: ReactNode
 }) {
   const magasin = ligne.magasin
   const { donnees, erreur, chargement, recharger } = useChargement(
@@ -82,6 +87,14 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
           action={<Button variant="contained" onClick={() => allerA('reel')} sx={{ minHeight: 48 }}>Voir le réel</Button>}
         />
         {tresorerieDepart ?? <TresorerieDepart annee={anneeBudget} depart={undefined} estimee={null} lectureSeule />}
+        {/* Sans réel de l'année, la saisonnalité du budget se règle quand même ici */}
+        {saisonnaliteBudget && (
+          <Card component="section" aria-label="Saisonnalité" sx={{ pb: 1 }}>
+            <Box sx={{ px: 2.5, pt: 2, pb: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}><Typography variant="h2">Saisonnalité</Typography><Aide sujet="saisonnalite" /></Box>
+            {saisonnaliteBudget}
+          </Card>
+        )}
+        {baseCA}
       </Stack>
     )
   }
@@ -168,24 +181,24 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
         titre={`Compte de résultat ${annee}`} libelleTableau={`Atterrissage ${annee} mois par mois`}
         entete={
           <Typography variant="body2" color="text.secondary">
-            {`Réel jusqu’à ${MOIS_LONGS[r.moisRealises - 1]}, mois restants projetés par univers (voir plus bas)`}
+            {`Réel jusqu’à ${MOIS_LONGS[r.moisRealises - 1]}, mois restants projetés par univers selon la saisonnalité (voir plus bas)`}
           </Typography>
         }
       />
 
-      <Card component="section" aria-label="Projection des mois restants">
+      <Card component="section" aria-label="Saisonnalité">
         <Box sx={{ px: 2.5, pt: 2, pb: 1, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-          <Typography variant="h2" sx={{ flex: 1 }}>Projection des mois restants</Typography>
+          <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}><Typography variant="h2">Saisonnalité</Typography><Aide sujet="saisonnalite" /></Box>
           {peutSaisir && modifiees && (
             <Button variant="contained" startIcon={<SaveOutlined />} disabled={occupe} onClick={() => void enregistrerParts()} sx={{ minHeight: 48 }}>Enregistrer les parts</Button>
           )}
         </Box>
-        <Table size="small" aria-label={`Projection ${annee} par univers`} sx={styleTableau}>
+        <Typography variant="h3" sx={{ px: 2.5, pt: 1, pb: 0.5, fontSize: '1rem' }}>{`Fin ${annee} : ce que pèsent les mois passés`}</Typography>
+        <Table size="small" aria-label={`Mois restants ${annee} par univers`} sx={styleTableau}>
           <TableHead>
             <TableRow>
               <TableCell>Univers</TableCell>
               <TableCell align="right">Réalisé à fin {MOIS_LONGS[r.moisRealises - 1]}</TableCell>
-              <TableCell>Projection</TableCell>
               <TableCell align="right">Part de l’année réalisée</TableCell>
               <TableCell align="right">Atterrissage</TableCell>
             </TableRow>
@@ -193,10 +206,11 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
           <TableBody>
             {presents.map((u) => (
               <TableRow key={u}>
-                <TableCell>{universLibelle[u]}</TableCell>
-                <TableCell align="right">{montant(realiseDe(u))}</TableCell>
                 <TableCell sx={{ whiteSpace: 'normal' }}>
-                  {r.methodes[u] === 'rythme' ? `Rythme des ${regles.moisRythme} derniers mois` : METHODE[r.methodes[u]]}
+                  <Box component="span" sx={{ display: 'block', fontWeight: 600 }}>{universLibelle[u]}</Box>
+                  <Box component="span" sx={{ display: 'block', fontSize: '0.8125rem', color: 'text.secondary' }}>
+                    {r.methodes[u] === 'rythme' ? `Rythme des ${regles.moisRythme} derniers mois` : METHODE[r.methodes[u]]}
+                  </Box>
                   {/* Lot 28 : rythme écarté au-delà de 15 % d'écart ; le retenir, c'est saisir sa part de l'année */}
                   {r.methodes[u] !== 'saisie' && auto?.ecartsRythme?.[u] && (() => {
                     const e = auto.ecartsRythme[u]!
@@ -211,6 +225,7 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
                     )
                   })()}
                 </TableCell>
+                <TableCell align="right">{montant(realiseDe(u))}</TableCell>
                 <TableCell align="right">
                   {peutSaisir
                     ? <ChampTaux libelle={`Part de l’année réalisée : ${universLibelle[u]}`} valeur={vues[u]} heritee={auto?.base.partRealisee?.[u]}
@@ -222,7 +237,10 @@ export function AtterrissageMagasin({ ligne, d, annee, anneeBudget, parametres, 
             ))}
           </TableBody>
         </Table>
+        {saisonnaliteBudget && <Box sx={{ pt: 2.5 }}>{saisonnaliteBudget}</Box>}
       </Card>
+
+      {baseCA}
     </Stack>
   )
 }

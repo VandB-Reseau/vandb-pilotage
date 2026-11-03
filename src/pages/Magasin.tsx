@@ -34,6 +34,8 @@ import { DetailCalcul } from '../components/DetailCalcul'
 import { VersionsBudget } from '../components/VersionsBudget'
 import { CompteResultatMois } from '../components/CompteResultatMois'
 import { CopieHypotheses } from '../components/CopieHypotheses'
+import { SelecteurMagasin } from '../components/RechercheMagasin'
+import { ANCRES_QUESTIONS, QuestionsCalendrier } from '../components/QuestionsCalendrier'
 import { EtatVide } from '../components/EtatVide'
 import { Panne } from '../components/Panne'
 import { EquipeMagasin } from '../components/EquipeMagasin'
@@ -56,10 +58,11 @@ import { TresorerieDepart } from '../components/TresorerieDepart'
 import { EconomieFranchise } from '../components/EconomieFranchise'
 import { FamillesReseau } from '../components/FamillesReseau'
 import { SyntheseMagasin } from '../components/SyntheseMagasin'
-import { Effet, HypotheseCle, HypothesesUnivers } from '../components/HypothesesUnivers'
+import { Effet, HypotheseCle, HypothesesUnivers, TableauHypotheses } from '../components/HypothesesUnivers'
 import { HypothesesCartes } from '../components/HypothesesCartes'
 import { RevueChangements } from '../components/RevueChangements'
-import { ObjectifEbe } from '../components/ObjectifEbe'
+import { SimulateurObjectif } from '../components/ObjectifEbe'
+import { economieFranchise } from '../moteur/economie'
 import { changementsCibles, effetsChangements, pointsAvantValidation, themeDeCle, type ThemeAccord } from '../moteur/changements'
 import { marquesEtapes } from '../moteur/campagne'
 import { tresorerieDepartEstimee } from '../moteur/reprise'
@@ -178,6 +181,8 @@ export function Magasin() {
   const retour = seul ? null : (
     <Box className="pas-a-l-impression" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, flexWrap: 'wrap' }}>
       <Button component={RouterLink} to={`${state?.depuis?.chemin ?? '/'}${state?.retour ? `?${state.retour}` : ''}`} startIcon={<ArrowBack />} sx={{ minHeight: 48 }}>{state?.depuis?.nom ?? 'Magasins'}</Button>
+      {/* Joseph (03/11/2026) : le magasin n'est plus imposé dans la barre du haut ; on en change depuis sa fiche */}
+      {ligne && <SelecteurMagasin magasin={ligne.magasin} />}
       <Box sx={{ flex: 1 }} />
       {precedent && (
         <Button component={RouterLink} to={lienMagasin(precedent, onglet)} state={state} startIcon={<ChevronLeftOutlined />} aria-label={`Magasin précédent : ${precedent}`} sx={{ minHeight: 48, maxWidth: 260 }}>
@@ -521,6 +526,18 @@ export function Magasin() {
                 accord={accordTheme?.('tresoBudget', 'Trésorerie')}
                 onDepart={(v) => setBrouillon(({ tresorerieDepart: _, ...reste }) => (v === undefined ? reste : { ...reste, tresorerieDepart: v }))} />
             ) : undefined}
+            saisonnaliteBudget={ligne.base && b ? (
+              <SaisonnaliteMagasin budget={b} poids={brouillon.poidsMois} lectureSeule={!peutAjuster} integre annee={annee}
+                onChange={(p) => setBrouillon(({ poidsMois: _, ...reste }) => (p ? { ...reste, poidsMois: p } : reste))} />
+            ) : undefined}
+            baseCA={ligne.base && b ? (
+              <BaseCAMagasin
+                key={`base-${ligne.magasin}`}
+                magasin={ligne.magasin} budget={b} annee={annee} ouverture={d.ouvertures?.[ligne.magasin]}
+                rythme={brouillon.rythme} directeur={directeur} peutAjuster={peutAjuster} apresOuverture={recharger} seuilRythme={reglesDe(parametres).seuilRythme}
+                onRythme={(r) => setBrouillon(({ rythme: _, ...reste }) => (r ? { ...reste, rythme: r } : reste))}
+              />
+            ) : undefined}
           />
           {barreBudget}
         </Stack>
@@ -540,6 +557,15 @@ export function Magasin() {
       ) : onglet === 'equipe' ? (
         <Stack spacing={3}>
         {alerteMessage}
+        {/* Joseph (03/11/2026) : avec les cartes, la hausse générale des salaires se règle dans le thème Équipe */}
+        {communHypotheses && resolu && b && (
+          <Card component="section" aria-label="Hypothèse des salaires">
+            <TableauHypotheses titre={`Hypothèses ${annee} : salaires`} annee={annee} effet>
+              <HypotheseCle cle="hausseSalaires" nom="Hausse générale des salaires" libelle="Hausse générale des salaires" quoi="hausse générale des salaires" aide="hausseSalaires"
+                apres={`${milliers(b.personnel)} · ${taux(b.ratios.pctFP)} de FP`} effet={<Effet ebe={b.ebe - ebeAvec('hausseSalaires', 0)} />} {...communHypotheses} />
+            </TableauHypotheses>
+          </Card>
+        )}
         <EquipeMagasin
           key={ligne.magasin} magasin={ligne.magasin} equipe={d.equipes[ligne.magasin] ?? []} annee={anneeEnCours} anneeBudget={annee}
           hausse={resolu?.hypotheses.hausseSalaires ?? valeurHeritee(niveauxDe(ligne, d, brouillon), 'hausseSalaires')?.valeur ?? 0}
@@ -624,55 +650,57 @@ export function Magasin() {
         />
       ) : (
         <>
+          {/* Joseph (03/11/2026) : sur « Construire », toutes les hypothèses en cartes, les ventes de chaque univers comprises */}
+          {onglet === 'budget' && resolu && (
+            <Box className="pas-a-l-impression">
+              <HypothesesCartes magasin={ligne.magasin} annee={annee} budget={b} cibles={brouillon} hausseSalaires={resolu.hypotheses.hausseSalaires ?? 0}
+                inflation={inflation} sansEquipe={!d.equipes[ligne.magasin]?.length} sansFrais={!baseFrais?.frais.length} lectureSeule={!peutAjuster}
+                reprise={resolu.hypotheses.reprise} accord={accordTheme ?? undefined} />
+            </Box>
+          )}
           <Stack spacing={3} className={partie('ventes')} id="partie-ventes" sx={{ scrollMarginTop: 200 }}>
             {communHypotheses && (
               <Card component="section" aria-label="Hypothèses du magasin">
-                <HypothesesUnivers familles={b.familles} flux={b.flux} annee={annee} surCA={resolu ? tauxSurCA(resolu.hypotheses.frais, parametres) : 0} {...communHypotheses} suite={resolu ? <>
-                  {/* Lot 43 : la hausse des salaires et l'inflation des frais se règlent ici seulement, avec leur effet sur l'EBE */}
-                  <HypotheseCle cle="hausseSalaires" nom="Hausse générale des salaires" libelle="Hausse générale des salaires" quoi="hausse générale des salaires" aide="hausseSalaires"
-                    apres={`${milliers(b.personnel)} · ${taux(b.ratios.pctFP)} de FP`} effet={<Effet ebe={b.ebe - ebeAvec('hausseSalaires', 0)} />} {...communHypotheses} />
-                  <HypotheseCle cle="inflationFrais" nom="Inflation des frais" libelle="Inflation des frais" quoi="inflation des frais" aide="inflationFrais"
-                    apres={`${milliers(b.chargesExternes + b.impotsTaxes - b.redevance - b.publicite)} de frais`} effet={<Effet ebe={b.ebe - ebeAvec('inflationFrais', 0)} />} {...communHypotheses} />
-                </> : undefined} />
+                <HypothesesUnivers familles={b.familles} flux={b.flux} annee={annee} surCA={resolu ? tauxSurCA(resolu.hypotheses.frais, parametres) : 0} {...communHypotheses} />
                 {accordTheme && <Box className="pas-a-l-impression" sx={{ px: 2.5, pb: 2 }}>{accordTheme('ventes', 'Ventes et marge')}</Box>}
               </Card>
-            )}
-            {onglet === 'budget' && resolu && (
-              <Box className="pas-a-l-impression">
-                <HypothesesCartes magasin={ligne.magasin} annee={annee} budget={b} cibles={brouillon} hausseSalaires={resolu.hypotheses.hausseSalaires ?? 0}
-                  inflation={inflation} sansEquipe={!d.equipes[ligne.magasin]?.length} lectureSeule={!peutAjuster}
-                  reprise={resolu.hypotheses.reprise} accord={accordTheme ?? undefined} />
-              </Box>
-            )}
-            {ligne.base && (
-              <BaseCAMagasin
-                key={`base-${ligne.magasin}`}
-                magasin={ligne.magasin} budget={b} annee={annee} ouverture={d.ouvertures?.[ligne.magasin]}
-                rythme={brouillon.rythme} directeur={directeur} peutAjuster={peutAjuster} apresOuverture={recharger} seuilRythme={reglesDe(parametres).seuilRythme}
-                onRythme={(r) => setBrouillon(({ rythme: _, ...reste }) => (r ? { ...reste, rythme: r } : reste))}
-              />
             )}
           </Stack>
           {ligne.base && (
             <Stack spacing={3} className={partie('calendrier')} id="partie-calendrier" sx={{ scrollMarginTop: 80 }}>
-              <SaisonnaliteMagasin budget={b} poids={brouillon.poidsMois} lectureSeule={!peutAjuster}
-                onChange={(p) => setBrouillon(({ poidsMois: _, ...reste }) => (p ? { ...reste, poidsMois: p } : reste))} />
+              {/* Joseph (03/11/2026) : la saisonnalité est au point de départ ; en tête, les questions à répondre */}
+              <QuestionsCalendrier cibles={brouillon} annee={annee} lectureSeule={!peutAjuster} onChange={setBrouillon} />
               {resolu && (
+                <Box id={ANCRES_QUESTIONS.travaux} sx={{ scrollMarginTop: 200 }}>
                 <TravauxMagasin
                   key={`${ligne.magasin}-${!!brouillon.travaux}`}
                   travaux={brouillon.travaux} lectureSeule={!peutAjuster}
                   effetCA={sansTravaux ? b.ca - sansTravaux.ca : 0} dotation={effetTravaux(resolu.hypotheses.travaux).dotation}
                   onChange={(t) => setBrouillon(({ travaux: _, ...reste }) => (t ? { ...reste, travaux: t } : reste))}
                 />
+                </Box>
               )}
+              <Box id={ANCRES_QUESTIONS.tempsForts} sx={{ scrollMarginTop: 200 }}>
               <TempsFortsMagasin tempsForts={brouillon.tempsForts} lectureSeule={!peutAjuster} annee={annee} budget={b}
                 onChange={(l) => setBrouillon(({ tempsForts: _, ...reste }) => (l ? { ...reste, tempsForts: l } : reste))} />
+              </Box>
+              <Box id={ANCRES_QUESTIONS.ajustementsCA} sx={{ scrollMarginTop: 200 }}>
               <AjustementsCAMagasin ajustements={brouillon.ajustementsCA} lectureSeule={!peutAjuster} annee={annee} effet={b.tempsForts?.ajustements ?? 0}
                 onChange={(l) => setBrouillon(({ ajustementsCA: _, ...reste }) => (l ? { ...reste, ajustementsCA: l } : reste))} />
+              </Box>
             </Stack>
           )}
           {ligne.base && baseFrais && (
             <Stack spacing={3} className={partie('fraisBudget')}>
+              {/* Joseph (03/11/2026) : avec les cartes, l'inflation des frais se règle dans le thème Frais */}
+              {communHypotheses && resolu && (
+                <Card component="section" aria-label="Hypothèse des frais">
+                  <TableauHypotheses titre={`Hypothèses ${annee} : frais`} annee={annee} effet>
+                    <HypotheseCle cle="inflationFrais" nom="Inflation des frais" libelle="Inflation des frais" quoi="inflation des frais" aide="inflationFrais"
+                      apres={`${milliers(b.chargesExternes + b.impotsTaxes - b.redevance - b.publicite)} de frais`} effet={<Effet ebe={b.ebe - ebeAvec('inflationFrais', 0)} />} {...communHypotheses} />
+                  </TableauHypotheses>
+                </Card>
+              )}
               <FraisBudget base={baseFrais} choix={brouillon.fraisBudget} inflation={inflation} annee={annee} anneeEnCours={anneeEnCours} lectureSeule={!peutAjuster}
                 tauxSurCA={{ publicite: parametres.tauxPublicite, redevance: parametres.tauxRedevance }} grille={grilleDe(parametres)}
                 onChange={(c) => setBrouillon(({ fraisBudget: _, ...reste }) => (c ? { ...reste, fraisBudget: c } : reste))} />
@@ -682,10 +710,10 @@ export function Magasin() {
             <Typography variant="h2" className="pas-a-l-impression">Résultat et trésorerie {annee}</Typography>
             {resolu && <CompteResultatMois lignes={compteResultat(b, resolu.hypotheses, parametres)} titre={`Compte de résultat ${annee}`} libelleTableau={`Budget ${annee} mois par mois`} />}
             {resolu && b && <EconomieFranchise budget={b} hypotheses={resolu.hypotheses} parametres={parametres} annee={annee} />}
-            {/* Lot 41 (proposition 4) : un EBE visé, et ce qu'il faudrait pour l'atteindre, un levier à la fois */}
-            {resolu && b && ligne.statut !== 'valide' && (
+            {/* Lot 41 (proposition 4), puis Joseph (03/11/2026) : un EBE ou une rémunération du gérant visés, et ce qu'il faudrait */}
+            {resolu && b && (
               <Box className="pas-a-l-impression">
-                <ObjectifEbe budget={b} lectureSeule={!peutAjuster}
+                <SimulateurObjectif budget={b} economie={economieFranchise(b, resolu.hypotheses, parametres)} lectureSeule={!peutAjuster || ligne.statut === 'valide'}
                   ebeAvec={ebeAvec}
                   onAppliquer={(cle, x) => { setBrouillon((c) => ecrireCible(c, cle, x)); setMessage({ gravite: 'warning', texte: 'Valeur reportée dans les hypothèses. Enregistre les ajustements pour la garder.' }) }}
                 />

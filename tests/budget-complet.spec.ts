@@ -33,9 +33,10 @@ test('le franchisé ajoute démarque, saisonnalité et travaux, puis enregistre'
   await page.getByLabel('Démarque par famille : Bière (Cave)').fill('2')
   await expect(biere).toContainText(/68\sk€/)
 
-  await ouvrir(page, 'Calendrier')
+  // Joseph (03/11/2026) : la saisonnalité se règle au point de départ
+  await ouvrir(page, 'Point de départ')
   // Saisonnalité : janvier à 10 %, le total dépasse 100 % et bloque l'enregistrement
-  const saison = page.getByRole('region', { name: 'Saisonnalité' })
+  const saison = page.getByRole('region', { name: 'Saisonnalité', exact: true })
   await page.getByLabel('Part du CA en Janv.').fill('10')
   await expect(saison).toContainText(/102,5\s%/)
   await expect(page.getByRole('button', { name: 'Enregistrer les ajustements' })).toBeDisabled()
@@ -45,6 +46,7 @@ test('le franchisé ajoute démarque, saisonnalité et travaux, puis enregistre'
   await expect(caMois).toContainText(/60\s000.*30\s000.*45\s000/)   // 600 000 × 10 %, 5 %, 7,5 %
 
   // Travaux : mars fermé (− 45 000 €), 60 000 € sur 5 ans amortis sur les 9 mois suivants (9 000 €)
+  await ouvrir(page, 'Calendrier')
   await page.getByRole('button', { name: 'Prévoir des travaux' }).click()
   await page.getByLabel('Activité en Mars').fill('0')
   await page.getByLabel('Investissement HT').fill('60000')
