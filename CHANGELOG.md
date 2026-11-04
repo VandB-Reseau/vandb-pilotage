@@ -5,6 +5,12 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Le pilotage passe dans l'app réseau
+
+- Joseph (3/11, fusion, point 9) : l'adresse du pilotage disparaît. Elle renvoie vers la même page de l'app réseau
+  (menu « Budgets », onglet « Budget » de la fiche du magasin), y compris les favoris et les liens envoyés. Ce dépôt
+  garde la base (migrations du schéma `pilotage`) ; les écrans évoluent désormais dans l'app réseau.
+
 ### Contrôle de gestion : chiffres de tous les magasins (Base : 0029)
 
 - Base : passer `supabase/migrations/0029_controle_gestion_chiffres.sql`. Joseph (3/11, fusion, question 5) : le

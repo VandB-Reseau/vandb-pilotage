@@ -11,8 +11,11 @@ import '@fontsource/alegreya/800.css'
 import { theme } from './theme/theme'
 import { AuthProvider } from './auth/AuthContext'
 import App from './App'
+import { adresseReseau, HOTE_PUBLIC } from './lib/redirection'
 
-createRoot(document.getElementById('root')!).render(
+// L'adresse publique du pilotage renvoie vers l'app réseau (fusion, Joseph 03/11/2026) ; en local et en test, l'app reste
+if (location.hostname === HOTE_PUBLIC) location.replace(adresseReseau(location.hash))
+else createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider theme={theme}>
       <CssBaseline enableColorScheme />
