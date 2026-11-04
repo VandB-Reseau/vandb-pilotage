@@ -1,8 +1,8 @@
 # V and B Pilotage
 
 Outil de pilotage financier des magasins du réseau V and B : budget annuel construit par univers et famille de produits,
-suivi du réel, recalage tous les quatre mois, trésorerie. App séparée de l'app réseau pour l'instant, sur la même
-base Supabase (mêmes comptes, mêmes magasins), dans le schéma `pilotage` ; elle deviendra un module de l'app réseau.
+suivi du réel, recalage tous les quatre mois, trésorerie. Même
+base Supabase (mêmes comptes, mêmes magasins), dans le schéma `pilotage` ; depuis la fusion (novembre 2026), ses écrans vivent dans l'app réseau (menu « Budgets ») et l'adresse publique du pilotage y renvoie ; ce dépôt garde la base (schéma `pilotage`).
 
 - Vision, constats et plan par lots : document de cadrage du 26/10/2026 (hors dépôt).
 - Architecture : [docs/architecture.md](docs/architecture.md) · Base : [docs/base-de-donnees.md](docs/base-de-donnees.md)
