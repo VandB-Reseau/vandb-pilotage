@@ -5,6 +5,12 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Stock de l'Extérieur en fin de mois (Base : 0030)
+
+- Base : passer `supabase/migrations/0030_stock_exterieur.sql` (une colonne `exterieur` dans `pilotage.stocks`, aucun
+  accès changé). Joseph (4/11) : le stock cible de l'Extérieur compte dans le graphique du stock et le fonds de
+  roulement ; le franchisé saisit son stock Extérieur avec la Cave et le Bar (écrans dans l'app réseau).
+
 ### Le pilotage passe dans l'app réseau
 
 - Joseph (3/11, fusion, point 9) : l'adresse du pilotage disparaît. Elle renvoie vers la même page de l'app réseau

@@ -53,7 +53,7 @@ INSERT INTO pilotage.reel_mensuel (store_name, mois, univers, famille, ca_ht) VA
 SELECT pg_temp.attendre('Directeur : tous les magasins', (SELECT cardinality(pilotage.mes_magasins())), 3);
 SELECT pg_temp.attendre('Directeur : tous les budgets', (SELECT count(*) FROM pilotage.budgets), 3);
 SELECT pg_temp.attendre('Directeur : tableau des magasins', (SELECT jsonb_array_length(pilotage.magasins_du_compte(2027))), 3);
-SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 29);
+SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 30);
 -- Date d'ouverture de la fiche magasin réseau (0024) : surcharge d'abord, renommage suivi, dates inconnues ou illisibles écartées
 SELECT pg_temp.attendre('Directeur : dates d''ouverture du réseau', (SELECT count(*) FROM pilotage.ouvertures_reseau()), 2);
 SELECT pg_temp.attendre('Ouverture réseau : la surcharge l''emporte, au 1er du mois', (SELECT count(*) FROM pilotage.ouvertures_reseau() WHERE store_name = 'Lille' AND ouverture = '2019-03-01'), 1);
@@ -71,6 +71,10 @@ INSERT INTO pilotage.stocks (store_name, annee, mois, cave, bar) VALUES ('Lille'
 SELECT pg_temp.attendre('Directeur : tous les stocks', (SELECT count(*) FROM pilotage.stocks), 2);
 SELECT pg_temp.attendre('Stocks : un treizième mois est refusé', pg_temp.refuse('INSERT INTO pilotage.stocks (store_name, annee, mois, cave) VALUES (''Lille'', 2026, 13, 1)'), 1);
 SELECT pg_temp.attendre('Stocks : un stock négatif est refusé', pg_temp.refuse('INSERT INTO pilotage.stocks (store_name, annee, mois, cave) VALUES (''Lille'', 2026, 10, -1)'), 1);
+-- 0030 : stock de l'Extérieur, positif, mêmes règles que la Cave et le Bar
+UPDATE pilotage.stocks SET exterieur = 6000 WHERE store_name = 'Lille' AND mois = 9;
+SELECT pg_temp.attendre('Stocks : l''Extérieur se saisit', (SELECT count(*) FROM pilotage.stocks WHERE exterieur = 6000), 1);
+SELECT pg_temp.attendre('Stocks : un stock négatif de l''Extérieur est refusé', pg_temp.refuse('INSERT INTO pilotage.stocks (store_name, annee, mois, exterieur) VALUES (''Lille'', 2026, 10, -1)'), 1);
 -- Parts de l'année réalisées : le Directeur saisit partout
 INSERT INTO pilotage.parts_realisees (store_name, annee, univers, part) VALUES ('Lille', 2026, 'cave', 0.626), ('Nice', 2026, 'bar', 0.6);
 SELECT pg_temp.attendre('Directeur : toutes les parts réalisées', (SELECT count(*) FROM pilotage.parts_realisees), 2);
@@ -300,6 +304,7 @@ INSERT INTO pilotage.quadrimestres (store_name, annee, quadrimestre, achats) VAL
 SELECT pg_temp.attendre('Coach : stocks de ses magasins seulement', (SELECT count(*) FROM pilotage.stocks WHERE store_name <> 'Lille'), 0);
 INSERT INTO pilotage.stocks (store_name, annee, mois, cave, bar) VALUES ('Lille', 2026, 10, 125000, 8500);
 SELECT pg_temp.attendre('Coach : pas de stock hors de ses magasins', pg_temp.refuse('INSERT INTO pilotage.stocks (store_name, annee, mois, cave) VALUES (''Nice'', 2026, 10, 1)'), 1);
+SELECT pg_temp.attendre('Coach : pas de stock de l''Extérieur hors de ses magasins', pg_temp.refuse('INSERT INTO pilotage.stocks (store_name, annee, mois, exterieur) VALUES (''Nice'', 2026, 11, 1)'), 1);
 SELECT pg_temp.attendre('Coach : parts réalisées de ses magasins seulement', (SELECT count(*) FROM pilotage.parts_realisees WHERE store_name <> 'Lille'), 0);
 INSERT INTO pilotage.parts_realisees (store_name, annee, univers, part) VALUES ('Lille', 2026, 'bar', 0.62);
 SELECT pg_temp.attendre('Coach : correspondances du FEC de ses magasins seulement', (SELECT count(*) FROM pilotage.correspondances_fec WHERE store_name <> 'Lille'), 0);
