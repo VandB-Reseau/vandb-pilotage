@@ -5,6 +5,13 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Simulations gardées du franchisé (Base : 0031)
+
+- Base : passer `supabase/migrations/0031_simulations.sql` (table `pilotage.simulations`, règles d'accès contrôlées dans
+  `supabase/tests/regles_acces.sql`). Joseph (13/11/2026, choix 125 et 126) : les simulateurs du franchisé (écrans dans
+  l'app réseau) gardent une simulation nommée, lue par l'équipe du magasin ; sans la migration, ils marchent sans
+  « Garder ».
+
 ### Stock de l'Extérieur en fin de mois (Base : 0030)
 
 - Base : passer `supabase/migrations/0030_stock_exterieur.sql` (une colonne `exterieur` dans `pilotage.stocks`, aucun

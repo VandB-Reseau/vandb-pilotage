@@ -53,7 +53,7 @@ INSERT INTO pilotage.reel_mensuel (store_name, mois, univers, famille, ca_ht) VA
 SELECT pg_temp.attendre('Directeur : tous les magasins', (SELECT cardinality(pilotage.mes_magasins())), 3);
 SELECT pg_temp.attendre('Directeur : tous les budgets', (SELECT count(*) FROM pilotage.budgets), 3);
 SELECT pg_temp.attendre('Directeur : tableau des magasins', (SELECT jsonb_array_length(pilotage.magasins_du_compte(2027))), 3);
-SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 30);
+SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 31);
 -- Date d'ouverture de la fiche magasin réseau (0024) : surcharge d'abord, renommage suivi, dates inconnues ou illisibles écartées
 SELECT pg_temp.attendre('Directeur : dates d''ouverture du réseau', (SELECT count(*) FROM pilotage.ouvertures_reseau()), 2);
 SELECT pg_temp.attendre('Ouverture réseau : la surcharge l''emporte, au 1er du mois', (SELECT count(*) FROM pilotage.ouvertures_reseau() WHERE store_name = 'Lille' AND ouverture = '2019-03-01'), 1);
@@ -96,6 +96,12 @@ SELECT pg_temp.attendre('Directeur : tous les prêts', (SELECT count(*) FROM pil
 SELECT pg_temp.attendre('Prêts : un autre jour que le 1er est refusé', pg_temp.refuse('INSERT INTO pilotage.emprunts (store_name, libelle, montant, duree, debut) VALUES (''Lille'', ''X'', 1000, 5, ''2027-04-12'')'), 1);
 SELECT pg_temp.attendre('Prêts : sans durée, un prêt d''après le tableau est refusé', pg_temp.refuse('INSERT INTO pilotage.emprunts (store_name, libelle, montant, debut) VALUES (''Lille'', ''X'', 1000, ''2027-04-01'')'), 1);
 SELECT pg_temp.attendre('Prêts : sans mensualité, un capital restant dû est refusé', pg_temp.refuse('INSERT INTO pilotage.emprunts (store_name, libelle, mode, montant, debut) VALUES (''Lille'', ''X'', ''restant'', 1000, ''2027-04-01'')'), 1);
+-- Simulations gardées (0031) : le Directeur en garde sur tous les magasins, en son nom ; le rôle est posé par la base
+INSERT INTO pilotage.simulations (store_name, type, nom, resume) VALUES ('Nice', 'achat', 'Précommande de Noël', 'Gain 460 €');
+SELECT pg_temp.attendre('Simulations : rôle de l''auteur posé par la base', (SELECT count(*) FROM pilotage.simulations WHERE auteur_role = 'directeur'), 1);
+SELECT pg_temp.attendre('Simulations : au nom d''un autre compte, refusé', pg_temp.refuse('INSERT INTO pilotage.simulations (store_name, type, nom, auteur) VALUES (''Lille'', ''prix'', ''X'', ''00000000-0000-0000-0000-00000000000f'')'), 1);
+SELECT pg_temp.attendre('Simulations : type inconnu refusé', pg_temp.refuse('INSERT INTO pilotage.simulations (store_name, type, nom) VALUES (''Lille'', ''loto'', ''X'')'), 1);
+SELECT pg_temp.attendre('Simulations : jamais modifiées', pg_temp.refuse('UPDATE pilotage.simulations SET nom = ''Y'''), 1);
 -- Réel de l'année : codes caisse et import d'un bloc (ventes et tickets)
 INSERT INTO pilotage.codes_caisse (code, store_name) VALUES ('0101', 'Lille'), ('0102', 'Nice') ON CONFLICT DO NOTHING;
 SELECT pg_temp.attendre('Directeur : importe le réel de tous les magasins', pilotage.remplacer_reel(
@@ -196,6 +202,7 @@ SELECT pg_temp.attendre('Contrôle de gestion : n''écrit ni frais, ni équipe, 
   + pg_temp.refuse('INSERT INTO pilotage.stocks (store_name, annee, mois, cave) VALUES (''Lille'', 2026, 11, 1)'), 4);
 SELECT pg_temp.attendre('Contrôle de gestion : n''importe pas de réel', pg_temp.refuse('SELECT pilotage.remplacer_reel(''[{"store_name":"Lille","mois":"2026-04-01","univers":"bar","famille":"Fût","ca_ht":1}]'', ''[]'')'), 1);
 SELECT pg_temp.attendre('Contrôle de gestion : n''écrit pas de commentaire', pg_temp.refuse('INSERT INTO pilotage.echanges_budget (store_name, annee, texte) VALUES (''Lille'', 2027, ''x'')'), 1);
+SELECT pg_temp.attendre('Contrôle de gestion : ne garde pas de simulation', pg_temp.refuse('INSERT INTO pilotage.simulations (store_name, type, nom) VALUES (''Lille'', ''prix'', ''X'')'), 1);
 SET request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
 DELETE FROM pilotage.parametres_reseau WHERE annee = 2028;
 
@@ -295,6 +302,10 @@ SELECT pg_temp.attendre('Coach : modifie un prêt de ses magasins', (SELECT coun
 SELECT pg_temp.attendre('Coach : pas de prêt hors de ses magasins', pg_temp.refuse('INSERT INTO pilotage.emprunts (store_name, libelle, montant, duree, debut) VALUES (''Nice'', ''X'', 1000, 5, ''2027-04-01'')'), 1);
 WITH m AS (DELETE FROM pilotage.emprunts WHERE store_name = 'Nice' RETURNING 1)
 SELECT pg_temp.attendre('Coach : ne supprime pas un prêt hors de ses magasins', (SELECT count(*) FROM m), 0);
+SELECT pg_temp.attendre('Coach : simulations de ses magasins seulement', (SELECT count(*) FROM pilotage.simulations WHERE store_name <> 'Lille'), 0);
+INSERT INTO pilotage.simulations (store_name, type, nom, donnees) VALUES ('Lille', 'embauche', 'Vendeur en juillet', '{"mois":7}');
+SELECT pg_temp.attendre('Coach : garde une simulation de son magasin', (SELECT count(*) FROM pilotage.simulations WHERE store_name = 'Lille' AND auteur_role = 'coach'), 1);
+SELECT pg_temp.attendre('Coach : pas de simulation hors de ses magasins', pg_temp.refuse('INSERT INTO pilotage.simulations (store_name, type, nom) VALUES (''Nice'', ''prix'', ''X'')'), 1);
 WITH m AS (DELETE FROM pilotage.equipe WHERE store_name = 'Nice' RETURNING 1)
 SELECT pg_temp.attendre('Coach : ne supprime pas l''équipe d''un autre magasin', (SELECT count(*) FROM m), 0);
 SELECT pg_temp.attendre('Coach : frais de ses magasins seulement', (SELECT count(*) FROM pilotage.frais WHERE store_name <> 'Lille'), 0);
@@ -379,6 +390,13 @@ WITH m AS (DELETE FROM pilotage.equipe WHERE poste = 'Gérant' RETURNING 1)
 SELECT pg_temp.attendre('Franchisé : gère l''équipe de son magasin', (SELECT count(*) FROM m), 1);
 SELECT pg_temp.attendre('Franchisé : pas l''équipe d''un autre magasin', pg_temp.refuse('INSERT INTO pilotage.equipe (store_name, poste, categorie, heures_hebdo, brut_mensuel) VALUES (''Nice'', ''Vendeur 9'', ''employe'', 35, 1)'), 1);
 SELECT pg_temp.attendre('Franchisé : ses prêts seulement', (SELECT count(*) FROM pilotage.emprunts WHERE store_name <> 'Lille'), 0);
+SELECT pg_temp.attendre('Franchisé : lit les simulations de son magasin, au nom du Coach', (SELECT count(*) FROM pilotage.simulations WHERE auteur_nom = 'Coach Nord'), 1);
+INSERT INTO pilotage.simulations (store_name, type, nom) VALUES ('Lille', 'soiree', 'Soirée bières de Noël');
+SELECT pg_temp.attendre('Franchisé : pas de simulation hors de son magasin', pg_temp.refuse('INSERT INTO pilotage.simulations (store_name, type, nom) VALUES (''Nice'', ''prix'', ''X'')'), 1);
+WITH m AS (DELETE FROM pilotage.simulations WHERE auteur_role = 'coach' RETURNING 1)
+SELECT pg_temp.attendre('Franchisé : ne retire pas la simulation du Coach', (SELECT count(*) FROM m), 0);
+WITH m AS (DELETE FROM pilotage.simulations WHERE nom = 'Soirée bières de Noël' RETURNING 1)
+SELECT pg_temp.attendre('Franchisé : retire la sienne', (SELECT count(*) FROM m), 1);
 WITH m AS (DELETE FROM pilotage.emprunts WHERE libelle = 'Prêt de création' RETURNING 1)
 SELECT pg_temp.attendre('Franchisé : gère les prêts de son magasin', (SELECT count(*) FROM m), 1);
 SELECT pg_temp.attendre('Franchisé : pas de prêt pour un autre magasin', pg_temp.refuse('INSERT INTO pilotage.emprunts (store_name, libelle, montant, duree, debut) VALUES (''Nice'', ''X'', 1000, 5, ''2027-04-01'')'), 1);
@@ -479,6 +497,7 @@ SELECT pg_temp.attendre('Sans rôle : aucune part réalisée', (SELECT count(*) 
 SELECT pg_temp.attendre('Sans rôle : aucune correspondance du FEC', (SELECT count(*) FROM pilotage.correspondances_fec), 0);
 SELECT pg_temp.attendre('Sans rôle : aucun quadrimestre', (SELECT count(*) FROM pilotage.quadrimestres), 0);
 SELECT pg_temp.attendre('Sans rôle : aucun stock', (SELECT count(*) FROM pilotage.stocks), 0);
+SELECT pg_temp.attendre('Sans rôle : aucune simulation, n''en garde pas', (SELECT count(*) FROM pilotage.simulations) + pg_temp.refuse('INSERT INTO pilotage.simulations (store_name, type, nom) VALUES (''Lille'', ''prix'', ''X'')'), 1);
 SELECT pg_temp.attendre('Sans rôle : ne saisit pas de stock', pg_temp.refuse('INSERT INTO pilotage.stocks (store_name, annee, mois, cave) VALUES (''Lille'', 2026, 11, 1)'), 1);
 SELECT pg_temp.attendre('Sans rôle : aucun échange ni version', (SELECT count(*) FROM pilotage.echanges_budget) + (SELECT count(*) FROM pilotage.versions_budget), 0);
 SELECT pg_temp.attendre('Sans rôle : aucune action', (SELECT count(*) FROM pilotage.actions), 0);
