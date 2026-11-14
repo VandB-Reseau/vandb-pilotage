@@ -5,6 +5,14 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Simulateurs de la boîte à outils du coach (Base : 0032)
+
+- Base : passer `supabase/migrations/0032_simulations_boite_a_outils.sql` (cinq types de simulation gardée en plus dans
+  `pilotage.simulations`, aucun accès changé ; contrôle dans `supabase/tests/regles_acces.sql`). Joseph (14/11/2026,
+  vague 9, choix 138 à 147) : contrat extérieur et don, parc de tireuses, carte pression, prix et marge, ouverture un
+  dimanche ou un jour férié (écrans dans l'app réseau). Les repères du Directeur vont dans le JSON des paramètres
+  (`simulateurs`). Sans la migration, ces cinq simulateurs calculent mais ne se gardent pas.
+
 ### Simulations gardées du franchisé (Base : 0031)
 
 - Base : passer `supabase/migrations/0031_simulations.sql` (table `pilotage.simulations`, règles d'accès contrôlées dans
