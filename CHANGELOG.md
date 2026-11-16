@@ -5,6 +5,13 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Remises entreprise par paliers (Base : 0033)
+
+- Base : passer `supabase/migrations/0033_simulations_remises_b2b.sql` (type `remises_b2b` en plus dans
+  `pilotage.simulations`, aucun accès changé ; contrôle dans `supabase/tests/regles_acces.sql`). Joseph (16/11/2026,
+  choix 228) : son fichier « Simulateur remises B2B » devient un simulateur de l'app réseau (paliers, plancher, par
+  famille ou produit par produit). Sans la migration, il calcule mais ne se garde pas.
+
 ### Simulateurs de la boîte à outils du coach (Base : 0032)
 
 - Base : passer `supabase/migrations/0032_simulations_boite_a_outils.sql` (cinq types de simulation gardée en plus dans
