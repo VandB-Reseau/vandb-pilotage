@@ -53,7 +53,7 @@ INSERT INTO pilotage.reel_mensuel (store_name, mois, univers, famille, ca_ht) VA
 SELECT pg_temp.attendre('Directeur : tous les magasins', (SELECT cardinality(pilotage.mes_magasins())), 3);
 SELECT pg_temp.attendre('Directeur : tous les budgets', (SELECT count(*) FROM pilotage.budgets), 3);
 SELECT pg_temp.attendre('Directeur : tableau des magasins', (SELECT jsonb_array_length(pilotage.magasins_du_compte(2027))), 3);
-SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 33);
+SELECT pg_temp.attendre('Directeur : lit le journal', (SELECT count(*) FROM pilotage.journal_migrations), 34);
 -- Date d'ouverture de la fiche magasin réseau (0024) : surcharge d'abord, renommage suivi, dates inconnues ou illisibles écartées
 SELECT pg_temp.attendre('Directeur : dates d''ouverture du réseau', (SELECT count(*) FROM pilotage.ouvertures_reseau()), 2);
 SELECT pg_temp.attendre('Ouverture réseau : la surcharge l''emporte, au 1er du mois', (SELECT count(*) FROM pilotage.ouvertures_reseau() WHERE store_name = 'Lille' AND ouverture = '2019-03-01'), 1);
@@ -110,6 +110,10 @@ DELETE FROM pilotage.simulations WHERE type IN ('exterieur', 'tireuses', 'pressi
 INSERT INTO pilotage.simulations (store_name, type, nom) VALUES ('Nice', 'remises_b2b', 'Comité d''entreprise');
 SELECT pg_temp.attendre('Simulations : remises entreprise par paliers acceptées', (SELECT count(*) FROM pilotage.simulations WHERE type = 'remises_b2b'), 1);
 DELETE FROM pilotage.simulations WHERE type = 'remises_b2b';
+-- Me rémunérer, Mon loyer, Mix Cave et Bar (0034) : les trois types se gardent
+INSERT INTO pilotage.simulations (store_name, type, nom) VALUES ('Nice', 'remuneration', 'Salaire ou dividendes'), ('Nice', 'loyer', 'Hausse du loyer'), ('Nice', 'mix', 'Plus de bar');
+SELECT pg_temp.attendre('Simulations : rémunération, loyer et mix acceptés', (SELECT count(*) FROM pilotage.simulations WHERE type IN ('remuneration', 'loyer', 'mix')), 3);
+DELETE FROM pilotage.simulations WHERE type IN ('remuneration', 'loyer', 'mix');
 -- Réel de l'année : codes caisse et import d'un bloc (ventes et tickets)
 INSERT INTO pilotage.codes_caisse (code, store_name) VALUES ('0101', 'Lille'), ('0102', 'Nice') ON CONFLICT DO NOTHING;
 SELECT pg_temp.attendre('Directeur : importe le réel de tous les magasins', pilotage.remplacer_reel(
