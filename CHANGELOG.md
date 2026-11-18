@@ -5,6 +5,13 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Former un collaborateur (Base : 0035)
+
+- Base : passer `supabase/migrations/0035_simulations_formation.sql` (type `formation` en plus dans
+  `pilotage.simulations`, aucun accès changé ; contrôle dans `supabase/tests/regles_acces.sql`). Joseph (18/11/2026) :
+  coût d'une formation en magasin, OPCO, CPF, aide à l'apprentissage (écran dans l'app réseau). Sans la migration, il
+  calcule mais ne se garde pas.
+
 ### Me rémunérer, Mon loyer, Mix Cave et Bar (Base : 0034)
 
 - Base : passer `supabase/migrations/0034_simulations_remuneration_loyer_mix.sql` (types `remuneration`, `loyer`, `mix`
