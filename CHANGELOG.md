@@ -5,6 +5,13 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Me rémunérer, Mon loyer, Mix Cave et Bar (Base : 0034)
+
+- Base : passer `supabase/migrations/0034_simulations_remuneration_loyer_mix.sql` (types `remuneration`, `loyer`, `mix`
+  en plus dans `pilotage.simulations`, aucun accès changé ; contrôle dans `supabase/tests/regles_acces.sql`). Joseph
+  (18/11/2026, choix 287, 291, 292) : salaire ou dividendes du dirigeant, poids et hausse du loyer, déplacement de CA
+  entre cave et bar (écrans dans l'app réseau). Sans la migration, ils calculent mais ne se gardent pas.
+
 ### Remises entreprise par paliers (Base : 0033)
 
 - Base : passer `supabase/migrations/0033_simulations_remises_b2b.sql` (type `remises_b2b` en plus dans
