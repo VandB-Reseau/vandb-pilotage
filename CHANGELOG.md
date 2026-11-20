@@ -5,6 +5,13 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Prix du fût d'un gros marché (Base : 0036)
+
+- Base : passer `supabase/migrations/0036_simulations_prix_fut.sql` (type `prix_fut` en plus dans
+  `pilotage.simulations`, aucun accès changé ; contrôle dans `supabase/tests/regles_acces.sql`). Joseph (20/11/2026) :
+  prix du fût qui couvre les coûts annexes, le billet d'entrée et la marge souhaitée (écran dans l'app réseau). Sans la
+  migration, il calcule mais ne se garde pas.
+
 ### Former un collaborateur (Base : 0035)
 
 - Base : passer `supabase/migrations/0035_simulations_formation.sql` (type `formation` en plus dans
