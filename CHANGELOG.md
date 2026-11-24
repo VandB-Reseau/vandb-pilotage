@@ -5,6 +5,14 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Commentaires du budget « équipe seule » et mentions (Base : 0037)
+
+- Base : passer `supabase/migrations/0037_commentaires_equipe.sql` AVANT la migration réseau 0053 (colonnes `equipe` et
+  `mentions` de `pilotage.echanges_budget`, deux règles restrictives : le franchisé ne lit, n'écrit ni ne résout un
+  commentaire de l'équipe ; contrôles dans `supabase/tests/regles_acces.sql`). Joseph (24/11/2026) : commentaires du
+  budget dans la marge, chacun « Équipe seule » ou « Avec le franchisé », collègues prévenus dans la cloche (écrans
+  dans l'app réseau). Sans la migration, les commentaires restent lus par tout le magasin.
+
 ### Prix du fût d'un gros marché (Base : 0036)
 
 - Base : passer `supabase/migrations/0036_simulations_prix_fut.sql` (type `prix_fut` en plus dans
