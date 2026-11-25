@@ -18,15 +18,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  publier:
+  # Deux étapes : la page doit être déposée par une première tâche avant que la seconde la publie
+  deposer:
     runs-on: ubuntu-24.04
-    environment:
-      name: github-pages
-      url: ${{ steps.deploiement.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
+
+  publier:
+    needs: deposer
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
       - id: deploiement
         uses: actions/deploy-pages@v4
