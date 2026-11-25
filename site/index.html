@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>V and B Pilotage</title>
+<script>
+  // Les budgets vivent dans l'app réseau depuis la fusion (03/11/2026) : une ancienne adresse, un favori ou un lien
+  // envoyé par message mène à la même page là-bas. Même origine : la connexion est déjà partagée.
+  (function () {
+    var APP = 'https://vandb-reseau.github.io/vandb-reseau/'
+    var PAGES = { '': '/budgets', reseau: '/budgets/suivi', hypotheses: '/budgets/hypotheses', imports: '/budgets/imports', parametres: '/budgets/parametres' }
+    var chemin = location.hash.replace(/^#/, '').split('?')[0].replace(/^\/+|\/+$/g, '')
+    var p = chemin.split('/'), page = p[0] || '', nom = p[1], partie = p[2], cible
+    try {
+      if (page === 'magasins' && nom) {
+        cible = APP + '#/magasins/' + encodeURIComponent(decodeURIComponent(nom)) + '?vue=budget' +
+          (partie ? '&partie=' + encodeURIComponent(decodeURIComponent(partie)) : '')
+      } else cible = APP + '#' + (PAGES[page] || '/budgets')
+    } catch (e) { cible = APP + '#/budgets' }
+    location.replace(cible)
+  })()
+</script>
+<style>
+  body { margin: 0; background: #fff; color: #1a1a1a; font: 16px/1.5 system-ui, sans-serif; }
+  main { max-width: 480px; margin: 20vh auto; padding: 0 16px; }
+  a { color: #7a1f2b; font-weight: 600; display: inline-block; padding: 12px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Les budgets ont rejoint l'app du réseau</h1>
+  <p><a href="https://vandb-reseau.github.io/vandb-reseau/#/budgets">Ouvrir les budgets dans V and B Réseau</a></p>
+</main>
+</body>
+</html>
