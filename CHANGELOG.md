@@ -5,6 +5,12 @@ une migration à passer dans Supabase (voir [supabase/README.md](supabase/README
 
 ## À venir
 
+### Accès « Direction » en lecture (Base : 0038)
+
+- Base : passer `supabase/migrations/0038_acces_direction.sql` (indépendante, avec la migration réseau 0054). Joseph
+  (24/11/2026) : un DG ou un autre accès donné lit les budgets de tous les magasins comme le Directeur, sans rien
+  modifier ni valider. Contrôles dans `supabase/tests/regles_acces.sql`.
+
 ### Commentaires du budget « équipe seule » et mentions (Base : 0037)
 
 - Base : passer `supabase/migrations/0037_commentaires_equipe.sql` AVANT la migration réseau 0053 (colonnes `equipe` et

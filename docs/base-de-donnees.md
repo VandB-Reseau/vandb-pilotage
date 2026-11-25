@@ -11,7 +11,7 @@ Mis à jour le 09/11/2026 (migration `0030`).
 
 - **Rôle lu dans la base** (fonctions de l'app réseau), jamais dans le seul jeton de connexion.
 - **Un magasin est identifié par son nom** (`store_name`), comme dans l'app réseau.
-- **Magasins du compte** (`pilotage.mes_magasins()`) : Directeur et contrôle de gestion (0029), tous (`perimetre_equipe` et magasins ayant un budget) ;
+- **Magasins du compte** (`pilotage.mes_magasins()`) : Directeur, Direction (lecture seule, 0038) et contrôle de gestion (0029), tous (`perimetre_equipe` et magasins ayant un budget) ;
   Coach et RR, leur périmètre (`magasins_visibles()`) ; franchisé, ses magasins (`mes_magasins()`) ; sinon aucun.
 - **Montants HT**, taux en fractions (0,02 = 2 %).
 
@@ -158,3 +158,8 @@ Contrôle de gestion : désigné dans `controle_gestion` (0021), sans rôle dans
 les paramètres et les chiffres de tous les magasins. Depuis 0029, `mes_magasins()` lui donne les magasins du Directeur ;
 il n'écrit dans aucune table d'un magasin (chaque règle d'écriture exige le rôle Directeur, RR, Coach ou franchisé).
 Dans l'app réseau, un compte sans rôle désigné au contrôle de gestion ouvre un espace réduit aux budgets.
+
+## Accès « Direction » (0038)
+Compte au rôle `direction` (ouvert par le Directeur dans l'app réseau, migration réseau 0054) : lit les budgets, le réel,
+les commentaires et les référentiels des budgets de tous les magasins (règles `direction_lecture`, `mes_magasins()`,
+`budgets_du_compte()` et `reel_du_compte()`), n'écrit rien dans le schéma `pilotage` (aucune règle d'écriture ne le nomme).
